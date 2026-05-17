@@ -1,6 +1,6 @@
 [project]
 name = "seerapi-monorepo"
-version = "106.1.0"
+version = "106.2.0"
 description = "SeerAPI Monorepo"
 requires-python = ">=3.10"
 
@@ -20,7 +20,12 @@ docs = [
     "mkdocs-material>=9.7.0",
     "pymdown-extensions>=10.17.1",
 ]
-dev = [{ include-group = "tests" }, { include-group = "docs" }, "ruff>=0.13.0"]
+dev = [
+    { include-group = "tests" },
+    { include-group = "docs" },
+    "albi0>=0.5.3",
+    "ruff>=0.13.0",
+]
 
 [tool.pyright]
 pythonVersion = "3.10"
