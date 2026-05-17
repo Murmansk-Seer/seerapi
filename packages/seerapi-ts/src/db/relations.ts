@@ -191,14 +191,15 @@ export const relations = defineRelations(schema, (r) => ({
 		achievementBranches: r.many.achievementBranch(),
 		achievements: r.many.achievement(),
 	},
-	battleEffectType: {
-		battleEffects: r.many.battleEffect({
-			from: r.battleEffectType.id.through(r.battleeffectcategorylink.typeId),
-			to: r.battleEffect.id.through(r.battleeffectcategorylink.battleEffectId)
-		}),
-	},
 	battleEffect: {
+		resistanceCategory: r.one.resistanceCategory({
+			from: r.battleEffect.resistanceId,
+			to: r.resistanceCategory.id
+		}),
 		battleEffectTypes: r.many.battleEffectType(),
+	},
+	resistanceCategory: {
+		battleEffects: r.many.battleEffect(),
 	},
 	glossaryEntry: {
 		pets: r.many.pet({
@@ -312,6 +313,12 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.achievementType.id
 		}),
 		titleParts: r.many.titlePart(),
+	},
+	battleEffectType: {
+		battleEffects: r.many.battleEffect({
+			from: r.battleEffectType.id.through(r.battleeffectcategorylink.typeId),
+			to: r.battleEffect.id.through(r.battleeffectcategorylink.battleEffectId)
+		}),
 	},
 	petVariation: {
 		eidEffectInUse: r.one.eidEffectInUse({

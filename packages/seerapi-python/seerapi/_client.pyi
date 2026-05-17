@@ -55,6 +55,10 @@ class SeerAPI:
     ) -> M.BattleEffectCategory: ...
     @overload
     async def get(
+        self, resource_name: Literal['resistance_category'], id: int
+    ) -> M.ResistanceCategory: ...
+    @overload
+    async def get(
         self, resource_name: Literal['pet_effect'], id: int
     ) -> M.PetEffect: ...
     @overload
@@ -304,6 +308,10 @@ class SeerAPI:
     async def paginated_list(
         self, resource_name: Literal['battle_effect_type'], page_info: PageInfo
     ) -> PagedResponse[M.BattleEffectCategory]: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['resistance_category'], page_info: PageInfo
+    ) -> PagedResponse[M.ResistanceCategory]: ...
     @overload
     async def paginated_list(
         self, resource_name: Literal['pet_effect'], page_info: PageInfo
@@ -582,6 +590,10 @@ class SeerAPI:
     ) -> AsyncGenerator[M.BattleEffectCategory]: ...
     @overload
     async def list(
+        self, resource_name: Literal['resistance_category']
+    ) -> AsyncGenerator[M.ResistanceCategory]: ...
+    @overload
+    async def list(
         self, resource_name: Literal['pet_effect']
     ) -> AsyncGenerator[M.PetEffect]: ...
     @overload
@@ -848,6 +860,10 @@ class SeerAPI:
     async def get_by_name(
         self, resource_name: Literal['battle_effect_type'], name: str
     ) -> NamedData[M.BattleEffectCategory]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['resistance_category'], name: str
+    ) -> NamedData[M.ResistanceCategory]: ...
     @overload
     async def get_by_name(
         self, resource_name: Literal['pet_effect'], name: str

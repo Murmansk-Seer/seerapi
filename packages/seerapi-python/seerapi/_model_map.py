@@ -69,4 +69,5 @@ MODEL_MAP: dict[ModelName, ModelType] = {
     'homepage_background': M.HomepageBackground,
     'emoji': M.Emoji,
     'error_code': M.ErrorCode,
+    'resistance_category': M.ResistanceCategory,
 }

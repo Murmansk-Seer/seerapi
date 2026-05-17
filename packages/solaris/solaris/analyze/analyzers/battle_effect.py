@@ -1,7 +1,12 @@
 from typing import TYPE_CHECKING, TypedDict
 
-from seerapi_models.battle_effect import BattleEffect, BattleEffectCategory
+from seerapi_models.battle_effect import (
+    BattleEffect,
+    BattleEffectCategory,
+    ResistanceCategory,
+)
 from seerapi_models.common import ResourceRef
+from solaris.analyze.utils import CategoryMap
 
 from ..base import BaseDataSourceAnalyzer, DataImportConfig
 from ..typing_ import AnalyzeResult
@@ -27,12 +32,16 @@ class BattleEffectAnalyzer(BaseDataSourceAnalyzer):
     def get_data_import_config(cls) -> DataImportConfig:
         return DataImportConfig(
             unity_paths=('battleEffects.json', 'effectDes.json'),
-            patch_paths=('battle_effect_type.json', 'battle_effects_custom.json'),
+            patch_paths=(
+                'battle_effect_type.json',
+                'battle_effects_custom.json',
+                'resistance_category.json',
+            ),
         )
 
     @classmethod
     def get_result_res_models(cls):
-        return (BattleEffect, BattleEffectCategory)
+        return (BattleEffect, BattleEffectCategory, ResistanceCategory)
 
     def analyze(self):
         """分析战斗效果数据
@@ -48,7 +57,7 @@ class BattleEffectAnalyzer(BaseDataSourceAnalyzer):
         5. 建立双向引用关系（效果 <-> 效果类型）
 
         Returns:
-                包含 BattleEffect 和 BattleEffectCategory 的分析结果元组
+                包含 BattleEffect，BattleEffectCategory，ResistanceCategory 的分析结果元组
         """
         # 加载补丁数据（自定义效果）
         effect_patch: dict[int, BattleEffectPatchTable] = self._get_data(
@@ -69,17 +78,20 @@ class BattleEffectAnalyzer(BaseDataSourceAnalyzer):
             for effect in self._get_data('unity', 'effectDes.json')['root']['item']
         }
 
-        # 识别限制类异常状态（描述中包含"限制类异常状态"的效果）
-        restricted_effect_id: set[int] = {
-            effect['icon']
-            for effect_name, effect in effect_descs.items()
-            if effect_name in effect_data and '限制类异常状态' in effect['desc']
-        }
-
         # 创建效果类型映射
-        effect_type_map = create_category_map(
+        effect_type_map: CategoryMap[
+            int, BattleEffectCategory, ResourceRef['BattleEffect']
+        ] = create_category_map(
             self._get_data('patch', 'battle_effect_type.json'),
             model_cls=BattleEffectCategory,
+            array_key='effect',
+        )
+
+        resistance_map: CategoryMap[
+            int, ResistanceCategory, ResourceRef['BattleEffect']
+        ] = create_category_map(
+            self._get_data('patch', 'resistance_category.json'),
+            model_cls=ResistanceCategory,
             array_key='effect',
         )
 
@@ -87,20 +99,27 @@ class BattleEffectAnalyzer(BaseDataSourceAnalyzer):
         effect_map: dict[int, BattleEffect] = {}
         for name, effect in effect_data.items():
             id_: int = effect['id']
-            type_id = effect['efftype']
-            if type_id is None:
+            resistance_id = effect['efftype']
+            if resistance_id is None:
                 continue
 
             # 创建效果类型引用列表
-            ref_list = [ResourceRef.from_model(effect_type_map[type_id])]
+            cat_ref_list: list[ResourceRef[BattleEffectCategory]] = []
 
             # 如果有效果描述或补丁数据，则创建 BattleEffect
             if (
                 effect_info := effect_descs.get(name)
             ) is not None or id_ in effect_patch:
-                # 限制类异常状态需要额外添加类型引用（类型ID=3）
-                if id_ in restricted_effect_id:
-                    ref_list.append(ResourceRef.from_model(effect_type_map[3]))
+                if effect['ctrl']:  # 控制类异常状态
+                    cat_ref_list.append(ResourceRef.from_model(effect_type_map[0]))
+                if effect['weaken']:  # 弱化类异常状态
+                    cat_ref_list.append(ResourceRef.from_model(effect_type_map[1]))
+                if effect['dependent']:  # 附属类异常状态
+                    cat_ref_list.append(ResourceRef.from_model(effect_type_map[2]))
+                if effect['restriction']:  # 限制类异常状态
+                    cat_ref_list.append(ResourceRef.from_model(effect_type_map[3]))
+                if effect['derivation']:  # 衍化类异常状态
+                    cat_ref_list.append(ResourceRef.from_model(effect_type_map[4]))
 
                 # 优先使用效果描述，否则使用补丁描述
                 desc = (
@@ -113,19 +132,28 @@ class BattleEffectAnalyzer(BaseDataSourceAnalyzer):
                 effect_map[id_] = BattleEffect(
                     id=id_,
                     name=name,
-                    type=ref_list,
+                    type=cat_ref_list,
                     desc=desc,
+                    resistance=ResourceRef.from_model(
+                        ResistanceCategory, id=resistance_id
+                    ),
                 )
 
                 # 建立双向引用：在效果类型中添加对该效果的引用
-                for ref in ref_list:
-                    effect_type_map[ref.id].effect.append(
-                        ResourceRef.from_model(effect_map[id_])
+                for ref in cat_ref_list:
+                    effect_type_map.add_element(
+                        ref.id, ResourceRef.from_model(effect_map[id_])
                     )
+
+                # 建立双向引用：在抗性类型中添加对该效果的引用
+                resistance_map.add_element(
+                    resistance_id, ResourceRef.from_model(effect_map[id_])
+                )
 
         return (
             AnalyzeResult(model=BattleEffect, data=effect_map),
             AnalyzeResult(model=BattleEffectCategory, data=effect_type_map),
+            AnalyzeResult(model=ResistanceCategory, data=resistance_map),
         )
 
 

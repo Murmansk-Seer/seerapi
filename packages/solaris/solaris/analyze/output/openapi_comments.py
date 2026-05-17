@@ -2679,6 +2679,36 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
         tags=['巅峰圣战'],
         description='巅峰圣战赛季资源，用于表示当前的巅峰赛季，该端口仅有一个资源且id固定为1。',
     ),
+    M.ResistanceCategory: APIComment(
+        name_en='resistance_category',
+        name_cn='抗性类型',
+        examples=[
+            {
+                'id': 1,
+                'name': '弱化类',
+                'effect': [
+                    {'id': 1, 'url': 'https://api.seerapi.com/v1/battle_effect/1'},
+                    {'id': 2, 'url': 'https://api.seerapi.com/v1/battle_effect/2'},
+                    {'id': 4, 'url': 'https://api.seerapi.com/v1/battle_effect/4'},
+                    {'id': 5, 'url': 'https://api.seerapi.com/v1/battle_effect/5'},
+                    {'id': 10, 'url': 'https://api.seerapi.com/v1/battle_effect/10'},
+                    {'id': 11, 'url': 'https://api.seerapi.com/v1/battle_effect/11'},
+                    {'id': 13, 'url': 'https://api.seerapi.com/v1/battle_effect/13'},
+                    {'id': 16, 'url': 'https://api.seerapi.com/v1/battle_effect/16'},
+                    {'id': 20, 'url': 'https://api.seerapi.com/v1/battle_effect/20'},
+                    {'id': 28, 'url': 'https://api.seerapi.com/v1/battle_effect/28'},
+                    {'id': 29, 'url': 'https://api.seerapi.com/v1/battle_effect/29'},
+                    {'id': 30, 'url': 'https://api.seerapi.com/v1/battle_effect/30'},
+                    {'id': 31, 'url': 'https://api.seerapi.com/v1/battle_effect/31'},
+                    {'id': 32, 'url': 'https://api.seerapi.com/v1/battle_effect/32'},
+                    {'id': 36, 'url': 'https://api.seerapi.com/v1/battle_effect/36'},
+                ],
+                'hash': 'e70cd10d',
+            }
+        ],
+        tags=['抗性', '异常状态', '战斗状态', '分类'],
+        description='用于分类异常状态所属的抗性类型。',
+    ),
 }
 
 

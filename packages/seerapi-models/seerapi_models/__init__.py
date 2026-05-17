@@ -15,6 +15,8 @@ from .battle_effect import (
     BattleEffectCategory,
     BattleEffectCategoryORM,
     BattleEffectORM,
+    ResistanceCategory,
+    ResistanceCategoryORM,
 )
 from .common import EidEffect, SkillEffectInUse
 from .decoration import (
@@ -297,6 +299,8 @@ __all__ = [
     'PetSkinSeriesSubTypeORM',
     'PetVipBuffCategory',
     'PetVipBuffORM',
+    'ResistanceCategory',
+    'ResistanceCategoryORM',
     'Skill',
     'SkillActivationItem',
     'SkillActivationItemORM',

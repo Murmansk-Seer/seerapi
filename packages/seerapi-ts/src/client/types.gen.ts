@@ -535,6 +535,10 @@ export type BattleEffect = HashPartial & {
      * 状态类型，可能同时属于多个类型，例如瘫痪同时属于控制类和限制类异常
      */
     type?: Array<CommonResourceRef>;
+    /**
+     * 抗性类型
+     */
+    resistance?: CommonResourceRef | null;
 };
 
 /**
@@ -570,6 +574,35 @@ export type BattleEffectType = HashPartial & {
  * 状态类型资源列表
  */
 export type BattleEffectTypeList = CommonApiResourceList;
+
+/**
+ * 抗性类型资源
+ */
+export type ResistanceCategory = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 抗性类型名称
+     */
+    name: string;
+    /**
+     * Effect
+     *
+     * 异常状态列表
+     */
+    effect?: Array<CommonResourceRef>;
+};
+
+/**
+ * 抗性类型资源列表
+ */
+export type ResistanceCategoryList = CommonApiResourceList;
 
 /**
  * 头像资源
@@ -3323,6 +3356,10 @@ export type RootIndex = HashPartial & {
      */
     battle_effect_type: string;
     /**
+     * resistance_category Path
+     */
+    resistance_category: string;
+    /**
      * avatar_head Path
      */
     avatar_head: string;
@@ -3897,6 +3934,52 @@ export type GetBattleEffectTypeListResponses = {
 };
 
 export type GetBattleEffectTypeListResponse = GetBattleEffectTypeListResponses[keyof GetBattleEffectTypeListResponses];
+
+export type GetResistanceCategoryByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/resistance_category/{id}';
+};
+
+export type GetResistanceCategoryByIdResponses = {
+    /**
+     * OK
+     */
+    200: ResistanceCategory;
+};
+
+export type GetResistanceCategoryByIdResponse = GetResistanceCategoryByIdResponses[keyof GetResistanceCategoryByIdResponses];
+
+export type GetResistanceCategoryListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+    };
+    url: 'v1/resistance_category/';
+};
+
+export type GetResistanceCategoryListResponses = {
+    /**
+     * OK
+     */
+    200: ResistanceCategoryList;
+};
+
+export type GetResistanceCategoryListResponse = GetResistanceCategoryListResponses[keyof GetResistanceCategoryListResponses];
 
 export type GetAvatarHeadByIdData = {
     body?: never;

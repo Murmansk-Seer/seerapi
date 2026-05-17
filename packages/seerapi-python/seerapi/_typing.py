@@ -13,6 +13,7 @@ NamedModelName: TypeAlias = Literal[
     'title',
     'battle_effect',
     'battle_effect_type',
+    'resistance_category',
     'pet_effect',
     'pet_effect_group',
     'pet_variation',
@@ -89,6 +90,7 @@ NamedModelInstance: TypeAlias = (
     | M.Title
     | M.BattleEffect
     | M.BattleEffectCategory
+    | M.ResistanceCategory
     | M.PetEffect
     | M.PetEffectGroup
     | M.VariationEffect

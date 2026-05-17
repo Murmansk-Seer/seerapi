@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlmodel import Field, Relationship, SQLModel
 
 from seerapi_models.build_model import BaseCategoryModel, BaseResModel, ConvertToORM
@@ -27,6 +29,10 @@ class BattleEffect(BattleEffectBase, ConvertToORM['BattleEffectORM']):
         default_factory=list,
         description='状态类型，可能同时属于多个类型，例如瘫痪同时属于控制类和限制类异常',
     )
+    resistance: ResourceRef['ResistanceCategory'] | None = Field(
+        default=None,
+        description='抗性类型',
+    )
 
     @classmethod
     def get_orm_model(cls) -> 'type[BattleEffectORM]':
@@ -37,12 +43,19 @@ class BattleEffect(BattleEffectBase, ConvertToORM['BattleEffectORM']):
             id=self.id,
             name=self.name,
             desc=self.desc,
+            resistance_id=self.resistance.id if self.resistance is not None else None,
         )
 
 
 class BattleEffectORM(BattleEffectBase, table=True):
     type: list['BattleEffectCategoryORM'] = Relationship(
         back_populates='effect', link_model=BattleEffectCategoryLink
+    )
+    resistance_id: int | None = Field(
+        default=None, foreign_key='resistance_category.id'
+    )
+    resistance: Optional['ResistanceCategoryORM'] = Relationship(
+        back_populates='effect'
     )
 
 
@@ -76,3 +89,34 @@ class BattleEffectCategoryORM(BattleEffectCategoryBase, table=True):
     effect: list['BattleEffectORM'] = Relationship(
         back_populates='type', link_model=BattleEffectCategoryLink
     )
+
+
+class BaseResistanceCategory(BaseCategoryModel):
+    name: str = Field(description='抗性类型名称')
+
+    @classmethod
+    def resource_name(cls) -> str:
+        return 'resistance_category'
+
+
+class ResistanceCategory(
+    BaseResistanceCategory,
+    ConvertToORM['ResistanceCategoryORM'],
+):
+    effect: list[ResourceRef['BattleEffect']] = Field(
+        default_factory=list, description='异常状态列表'
+    )
+
+    @classmethod
+    def get_orm_model(cls) -> type['ResistanceCategoryORM']:
+        return ResistanceCategoryORM
+
+    def to_orm(self) -> 'ResistanceCategoryORM':
+        return ResistanceCategoryORM(
+            id=self.id,
+            name=self.name,
+        )
+
+
+class ResistanceCategoryORM(BaseResistanceCategory, table=True):
+    effect: list['BattleEffectORM'] = Relationship(back_populates='resistance')

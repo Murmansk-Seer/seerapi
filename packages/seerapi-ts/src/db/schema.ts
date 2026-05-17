@@ -12,13 +12,12 @@ export const achievementType = sqliteTable("achievement_type", {
 	pointTotal: integer("point_total").notNull(),
 });
 
-export const battleEffect = sqliteTable("battle_effect", {
+export const battleEffectType = sqliteTable("battle_effect_type", {
 	id: integer().primaryKey(),
 	name: text().notNull(),
-	desc: text().notNull(),
 });
 
-export const battleEffectType = sqliteTable("battle_effect_type", {
+export const resistanceCategory = sqliteTable("resistance_category", {
 	id: integer().primaryKey(),
 	name: text().notNull(),
 });
@@ -415,12 +414,12 @@ export const achievementBranch = sqliteTable("achievement_branch", {
 	typeId: integer("type_id").notNull().references(() => achievementType.id),
 });
 
-export const battleeffectcategorylink = sqliteTable("battleeffectcategorylink", {
-	battleEffectId: integer("battle_effect_id").notNull().references(() => battleEffect.id),
-	typeId: integer("type_id").notNull().references(() => battleEffectType.id),
-},
-(table) => [primaryKey({ columns: [table.battleEffectId, table.typeId], name: "battleeffectcategorylink_pk"}),
-]);
+export const battleEffect = sqliteTable("battle_effect", {
+	id: integer().primaryKey(),
+	name: text().notNull(),
+	desc: text().notNull(),
+	resistanceId: integer("resistance_id").references(() => resistanceCategory.id),
+});
 
 export const elementtyperelationorm = sqliteTable("elementtyperelationorm", {
 	sourceId: integer("source_id").notNull().references(() => elementType.id),
@@ -534,6 +533,13 @@ export const achievement = sqliteTable("achievement", {
 	branchId: integer("branch_id").notNull().references(() => achievementBranch.id),
 	nextLevelAchievementId: integer("next_level_achievement_id").references((): AnySQLiteColumn => achievement.id),
 });
+
+export const battleeffectcategorylink = sqliteTable("battleeffectcategorylink", {
+	battleEffectId: integer("battle_effect_id").notNull().references(() => battleEffect.id),
+	typeId: integer("type_id").notNull().references(() => battleEffectType.id),
+},
+(table) => [primaryKey({ columns: [table.battleEffectId, table.typeId], name: "battleeffectcategorylink_pk"}),
+]);
 
 export const petVariation = sqliteTable("pet_variation", {
 	id: integer().primaryKey(),
