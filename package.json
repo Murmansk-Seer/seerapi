@@ -5,6 +5,7 @@
     "generate:openapi": "uv run solaris analyze openapi --api-url https://api.seerapi.com --api-version v1",
     "generate:schema-db": "uv run python scripts/create_schema_db.py",
     "generate": "npm run generate:openapi && npm run generate:schema-db",
+    "generate:clean": "shx rm -rf output schema-only.db",
     "build:ts": "npm run generate && pnpm -r --filter @seerapi/client build",
     "clean:ts": "pnpm -r --filter @seerapi/client clean"
   },
