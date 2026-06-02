@@ -508,6 +508,77 @@ export type Title = HashPartial & {
 export type TitleList = CommonApiResourceList;
 
 /**
+ * 活动资源
+ */
+export type Activity = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 活动中文名称
+     */
+    name: string;
+    /**
+     * Start Time
+     *
+     * 活动开始时间，常驻活动时为null
+     */
+    start_time?: Date | null;
+    /**
+     * End Time
+     *
+     * 活动结束时间，常驻活动时为null
+     */
+    end_time?: Date | null;
+    /**
+     * Is Show
+     *
+     * 是否显示
+     */
+    is_show: boolean;
+    /**
+     * Sort Order
+     *
+     * 活动排序优先级
+     */
+    sort_order: number;
+    type: CommonResourceRef;
+};
+
+/**
+ * 活动资源列表
+ */
+export type ActivityList = CommonApiResourceList;
+
+/**
+ * 活动类型资源
+ */
+export type ActivityType = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Activity
+     *
+     * 该分类下的所有活动
+     */
+    activity?: Array<CommonResourceRef>;
+};
+
+/**
+ * 活动类型资源列表
+ */
+export type ActivityTypeList = CommonApiResourceList;
+
+/**
  * 状态资源
  */
 export type BattleEffect = HashPartial & {
@@ -3348,6 +3419,14 @@ export type RootIndex = HashPartial & {
      */
     title: string;
     /**
+     * activity Path
+     */
+    activity: string;
+    /**
+     * activity_type Path
+     */
+    activity_type: string;
+    /**
      * battle_effect Path
      */
     battle_effect: string;
@@ -3842,6 +3921,98 @@ export type GetTitleListResponses = {
 };
 
 export type GetTitleListResponse = GetTitleListResponses[keyof GetTitleListResponses];
+
+export type GetActivityByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/activity/{id}';
+};
+
+export type GetActivityByIdResponses = {
+    /**
+     * OK
+     */
+    200: Activity;
+};
+
+export type GetActivityByIdResponse = GetActivityByIdResponses[keyof GetActivityByIdResponses];
+
+export type GetActivityListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+    };
+    url: 'v1/activity/';
+};
+
+export type GetActivityListResponses = {
+    /**
+     * OK
+     */
+    200: ActivityList;
+};
+
+export type GetActivityListResponse = GetActivityListResponses[keyof GetActivityListResponses];
+
+export type GetActivityTypeByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/activity_type/{id}';
+};
+
+export type GetActivityTypeByIdResponses = {
+    /**
+     * OK
+     */
+    200: ActivityType;
+};
+
+export type GetActivityTypeByIdResponse = GetActivityTypeByIdResponses[keyof GetActivityTypeByIdResponses];
+
+export type GetActivityTypeListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+    };
+    url: 'v1/activity_type/';
+};
+
+export type GetActivityTypeListResponses = {
+    /**
+     * OK
+     */
+    200: ActivityTypeList;
+};
+
+export type GetActivityTypeListResponse = GetActivityTypeListResponses[keyof GetActivityTypeListResponses];
 
 export type GetBattleEffectByIdData = {
     body?: never;

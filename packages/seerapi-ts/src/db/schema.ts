@@ -12,6 +12,10 @@ export const achievementType = sqliteTable("achievement_type", {
 	pointTotal: integer("point_total").notNull(),
 });
 
+export const activityType = sqliteTable("activity_type", {
+	id: integer().primaryKey(),
+});
+
 export const battleEffectType = sqliteTable("battle_effect_type", {
 	id: integer().primaryKey(),
 	name: text().notNull(),
@@ -412,6 +416,16 @@ export const achievementBranch = sqliteTable("achievement_branch", {
 	pointTotal: integer("point_total").notNull(),
 	isSeries: numeric("is_series").notNull(),
 	typeId: integer("type_id").notNull().references(() => achievementType.id),
+});
+
+export const activity = sqliteTable("activity", {
+	id: integer().primaryKey(),
+	name: text().notNull(),
+	startTime: numeric("start_time"),
+	endTime: numeric("end_time"),
+	isShow: numeric("is_show").notNull(),
+	sortOrder: integer("sort_order").notNull(),
+	typeId: integer("type_id").notNull().references(() => activityType.id),
 });
 
 export const battleEffect = sqliteTable("battle_effect", {

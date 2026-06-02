@@ -10,6 +10,7 @@ from .achievement import (
     TitleAttrBonusORM,
     TitlePartORM,
 )
+from .activity import Activity, ActivityType
 from .battle_effect import (
     BattleEffect,
     BattleEffectCategory,
@@ -193,6 +194,8 @@ __all__ = [
     'AchievementORM',
     'AchievementType',
     'AchievementTypeORM',
+    'Activity',
+    'ActivityType',
     'ApiMetadata',
     'ApiMetadataORM',
     'AvatarFrame',

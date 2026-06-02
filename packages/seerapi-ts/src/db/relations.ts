@@ -191,6 +191,15 @@ export const relations = defineRelations(schema, (r) => ({
 		achievementBranches: r.many.achievementBranch(),
 		achievements: r.many.achievement(),
 	},
+	activity: {
+		activityType: r.one.activityType({
+			from: r.activity.typeId,
+			to: r.activityType.id
+		}),
+	},
+	activityType: {
+		activities: r.many.activity(),
+	},
 	battleEffect: {
 		resistanceCategory: r.one.resistanceCategory({
 			from: r.battleEffect.resistanceId,

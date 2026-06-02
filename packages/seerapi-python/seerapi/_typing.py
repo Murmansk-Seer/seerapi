@@ -6,6 +6,7 @@ from seerapi_models.common import ResourceRef
 
 # 所有可用的命名模型路径名称
 NamedModelName: TypeAlias = Literal[
+    'activity',
     'achievement',
     'achievement_branch',
     'achievement_category',
@@ -65,6 +66,7 @@ NamedModelName: TypeAlias = Literal[
 # 所有可用的模型路径名称
 ModelName: TypeAlias = Literal[
     NamedModelName,
+    'activity_type',
     'equip_effective_occasion',
     'gem_generation_category',
     'mintmark_rarity',
@@ -83,7 +85,8 @@ ModelName: TypeAlias = Literal[
 
 ModelInstance: TypeAlias = BaseResModel
 NamedModelInstance: TypeAlias = (
-    M.Achievement
+    M.Activity
+    | M.Achievement
     | M.AchievementBranch
     | M.AchievementCategory
     | M.AchievementType

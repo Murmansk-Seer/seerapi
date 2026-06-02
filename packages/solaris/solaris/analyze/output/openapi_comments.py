@@ -2709,6 +2709,49 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
         tags=['抗性', '异常状态', '战斗状态', '分类'],
         description='用于分类异常状态所属的抗性类型。',
     ),
+    M.Activity: APIComment(
+        name_en='activity',
+        name_cn='活动',
+        examples=[
+            {
+                'id': 140,
+                'name': '临渊羡画',
+                'start_time': '2025-08-08T10:00:00',
+                'end_time': '2025-09-05T10:00:00',
+                'is_show': True,
+                'sort_order': 3,
+                'type': {'id': 6, 'url': 'https://api.seerapi.com/v1/activity_type/6'},
+                'hash': '7cf87114',
+            }
+        ],
+        tags=['活动'],
+        description='活动资源，用于表示活动中心里的一个活动条目。该端点包含已经下架的活动信息。',
+    ),
+    M.ActivityType: APIComment(
+        name_en='activity_type',
+        name_cn='活动类型',
+        examples=[
+            {
+                'id': 9,
+                'activity': [
+                    {'id': 265, 'url': 'https://api.seerapi.com/v1/activity/265'},
+                    {'id': 298, 'url': 'https://api.seerapi.com/v1/activity/298'},
+                    {'id': 319, 'url': 'https://api.seerapi.com/v1/activity/319'},
+                    {'id': 348, 'url': 'https://api.seerapi.com/v1/activity/348'},
+                    {'id': 349, 'url': 'https://api.seerapi.com/v1/activity/349'},
+                    {'id': 369, 'url': 'https://api.seerapi.com/v1/activity/369'},
+                    {'id': 371, 'url': 'https://api.seerapi.com/v1/activity/371'},
+                    {'id': 386, 'url': 'https://api.seerapi.com/v1/activity/386'},
+                    {'id': 388, 'url': 'https://api.seerapi.com/v1/activity/388'},
+                    {'id': 409, 'url': 'https://api.seerapi.com/v1/activity/409'},
+                    {'id': 411, 'url': 'https://api.seerapi.com/v1/activity/411'},
+                ],
+                'hash': 'c25b68ff',
+            }
+        ],
+        tags=['活动', '分类'],
+        description='活动类型资源，用于表示活动中心侧边栏的活动类型。',
+    ),
 }
 
 

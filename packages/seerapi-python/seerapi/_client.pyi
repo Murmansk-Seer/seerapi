@@ -28,6 +28,12 @@ class SeerAPI:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None: ...
     async def aclose(self) -> None: ...
     @overload
+    async def get(self, resource_name: Literal['activity'], id: int) -> M.Activity: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['activity_type'], id: int
+    ) -> M.ActivityType: ...
+    @overload
     async def get(
         self, resource_name: Literal['achievement'], id: int
     ) -> M.Achievement: ...
@@ -280,6 +286,14 @@ class SeerAPI:
     async def get(
         self, resource_name: ResourceRef[T_ModelInstance]
     ) -> T_ModelInstance: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['activity'], page_info: PageInfo
+    ) -> PagedResponse[M.Activity]: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['activity_type'], page_info: PageInfo
+    ) -> PagedResponse[M.ActivityType]: ...
     @overload
     async def paginated_list(
         self, resource_name: Literal['achievement'], page_info: PageInfo
@@ -562,6 +576,15 @@ class SeerAPI:
     ) -> PagedResponse[T_ModelInstance]: ...
     @overload
     async def list(
+        self, resource_name: Literal['activity']
+    ) -> AsyncGenerator[M.Activity]: ...
+    @overload
+    async def list(
+        self, resource_name: Literal['activity_type']
+    ) -> AsyncGenerator[M.ActivityType]: ...
+    @overload
+    @overload
+    async def list(
         self, resource_name: Literal['achievement']
     ) -> AsyncGenerator[M.Achievement]: ...
     @overload
@@ -832,6 +855,10 @@ class SeerAPI:
     async def list(
         self, resource_name: ResourceRef[T_ModelInstance]
     ) -> AsyncGenerator[T_ModelInstance]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['activity'], name: str
+    ) -> NamedData[M.Activity]: ...
     @overload
     async def get_by_name(
         self, resource_name: Literal['achievement'], name: str

@@ -2,6 +2,8 @@ from seerapi._typing import ModelName, ModelType
 import seerapi_models as M
 
 MODEL_MAP: dict[ModelName, ModelType] = {
+    'activity': M.Activity,
+    'activity_type': M.ActivityType,
     'achievement': M.Achievement,
     'achievement_branch': M.AchievementBranch,
     'achievement_category': M.AchievementCategory,
