@@ -601,28 +601,44 @@ class JsonOutputter(DataOutputterProtocol):
 
     def _dump_data(self, data: Any, path: Path | str) -> None:
         if isinstance(data, BaseModel):
-            data = data.model_dump(by_alias=True)
-        if not isinstance(data, MutableMapping):
+            payload: MutableMapping[str, Any] = data.model_dump(by_alias=True)
+        elif isinstance(data, MutableMapping):
+            # 浅拷贝，避免向 result.data 等共享 dict 注入 hash 污染后续输出
+            payload = dict(data)
+        else:
             raise ValueError(f'Invalid data type: {type(data)}')
 
-        data['hash'] = _calc_hash(to_json(data, indent=None))
+        payload['hash'] = _calc_hash(to_json(payload, indent=None))
 
         path = self.data_output_dir.joinpath(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(to_json(data))
+        path.write_bytes(to_json(payload))
 
     def _output_merged_json(
         self,
         resource_name: str,
         data: Any,
     ) -> None:
-        """输出合并模式的 JSON（所有数据在一个文件中）
+        """输出合并模式的 ID 映射 JSON（`{resource_name}/id.json`）
 
         Args:
                 resource_name: 资源名称
                 data: 要输出的数据
         """
-        self._dump_data(data, f'{resource_name}.json')
+        self._dump_data(data, Path(resource_name) / 'id.json')
+
+    def _output_merged_named_json(
+        self,
+        name_data: Mapping[str, NamedData[TResModelRequiredId]],
+        resource_name: str,
+    ) -> None:
+        """输出合并模式的名称映射 JSON（`{resource_name}/name.json`）
+
+        Args:
+                name_data: 名称到数据的映射表
+                resource_name: 资源名称
+        """
+        self._dump_data(name_data, Path(resource_name) / 'name.json')
 
     def _generate_name_data(
         self,
@@ -727,6 +743,20 @@ class JsonOutputter(DataOutputterProtocol):
         # 根据模式输出
         if merge_json_table:
             self._output_merged_json(resource_name, data)
+            if output_name_data and is_named_model(model):
+                merged_name_data: dict[str, NamedData[TResModelRequiredId]] = {}
+                for name_field in get_name_fields(model):
+
+                    def _name_generator(
+                        m: TResModelRequiredId, field: str = name_field
+                    ) -> str | None:
+                        return getattr(m, field, None)
+
+                    name_data = self._generate_name_data(
+                        data, name_generator=_name_generator
+                    )
+                    merged_name_data.update(name_data)
+                self._output_merged_named_json(merged_name_data, resource_name)
         else:
             self._output_individual_json(data, resource_name)
             # 输出名称映射
@@ -795,9 +825,8 @@ class JsonOutputter(DataOutputterProtocol):
         # 输出 metadata
         self._output_metadata()
 
-        # 输出根目录 index（仅在非合并模式）
-        if not merge_json_table:
-            self._output_root_index(root_index_data)
+        # 输出根目录 index
+        self._output_root_index(root_index_data)
 
 
 class DBOutputter(DataOutputterProtocol):
