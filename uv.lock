@@ -1776,6 +1776,7 @@ dev = [
     { name = "pymdown-extensions" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "seerapi-solaris" },
 ]
 docs = [
     { name = "markdown-include-variants" },
@@ -1800,6 +1801,7 @@ dev = [
     { name = "pymdown-extensions", specifier = ">=10.17.1" },
     { name = "pytest", specifier = ">=9.0.1" },
     { name = "ruff", specifier = ">=0.13.0" },
+    { name = "seerapi-solaris", editable = "packages/solaris" },
 ]
 docs = [
     { name = "markdown-include-variants", specifier = ">=0.0.5" },
@@ -1812,7 +1814,7 @@ tests = [{ name = "pytest", specifier = ">=9.0.1" }]
 
 [[package]]
 name = "seerapi-solaris"
-version = "106.3.0"
+version = "106.3.1"
 source = { editable = "packages/solaris" }
 dependencies = [
     { name = "anycrc" },
