@@ -139,6 +139,15 @@ def analyze(
     '仅在 --output-mode 为 json 或 all 时有效',
 )
 @click.option(
+    '--merge-json-table/--no-merge-json-table',
+    default=False,
+    show_default=True,
+    help='是否以合并表形式输出 JSON（每个资源目录下生成 id.json；'
+    '若同时启用 --output-named-data，命名资源还会生成 name.json）。'
+    '关闭时则按 ID/名称分散为 index.json。'
+    '仅在 --output-mode 为 json 或 all 时有效',
+)
+@click.option(
     '-d',
     '--db-url',
     type=str,
@@ -172,6 +181,7 @@ def run_command(
     api_url: str | None,
     api_version: str | None,
     output_named_data: bool,
+    merge_json_table: bool,
 ) -> None:
     """运行分析器并输出结果到JSON文件或数据库"""
     analyzer_classes = ctx.obj['analyzer_classes']
@@ -207,6 +217,7 @@ def run_command(
             base_data_url=base_json_url,
             metadata=metadata,
             output_named_data=output_named_data,
+            merge_json_table=merge_json_table,
         )
     if output_mode in ('db', 'all'):
         click.echo('正在输出数据到数据库...')
