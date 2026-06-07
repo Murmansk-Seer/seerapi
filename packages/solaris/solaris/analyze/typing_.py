@@ -49,6 +49,8 @@ TResModel = TypeVar('TResModel', bound=ResModel)
 
 NameGenerator: TypeAlias = Callable[[TResModelRequiredId], str | None]
 
+JsonFormat: TypeAlias = Literal['split', 'merged', 'sharded']
+
 
 @dataclass(frozen=True, slots=True)
 class AnalyzeResult(Generic[TResModelRequiredId]):

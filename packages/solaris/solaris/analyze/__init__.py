@@ -15,7 +15,7 @@ from .output import DBOutputter, JsonOutputter, OpenAPISchemaOutputter, SchemaOu
 from .output.db import is_mapped_class
 from .output.openapi_builder import OpenAPIBuilder
 from .output.schema_generate import seerapi_common_models
-from .typing_ import AnalyzeResult
+from .typing_ import AnalyzeResult, JsonFormat
 
 ANALYZER_DEFAULT_PACKAGE_NAME = 'solaris.analyze.analyzers'
 
@@ -72,8 +72,9 @@ def analyze_result_to_json(
     base_output_dir: str | Path = '.',
     data_output_dir: str | Path,
     base_data_url: str | None = None,
-    merge_json_table: bool = False,
+    json_format: JsonFormat = 'split',
     output_named_data: bool = False,
+    shard_max_bytes: int = 1_048_576,
 ) -> None:
     """分析数据并输出到 JSON 文件"""
     json_outputter = JsonOutputter(
@@ -81,10 +82,11 @@ def analyze_result_to_json(
         base_output_dir=base_output_dir,
         data_output_dir=data_output_dir,
         base_data_url=base_data_url,
+        shard_max_bytes=shard_max_bytes,
     )
     json_outputter.run(
         results,
-        merge_json_table=merge_json_table,
+        json_format=json_format,
         output_named_data=output_named_data,
     )
 
@@ -317,27 +319,21 @@ def run_all_analyzer(
             refresh=True,
         )
 
-        try:
-            # 根据类型创建分析器实例
-            # 检查是否使用了 PostAnalyzerMixin
-            if issubclass(analyzer_cls, PostAnalyzerMixin):
-                # 后处理分析器需要传入依赖结果
-                analyzer = analyzer_cls(input_results=analyzer_results)
-            else:
-                # 数据源分析器直接创建
-                analyzer = analyzer_cls()
+        # 根据类型创建分析器实例
+        # 检查是否使用了 PostAnalyzerMixin
+        if issubclass(analyzer_cls, PostAnalyzerMixin):
+            # 后处理分析器需要传入依赖结果
+            analyzer = analyzer_cls(input_results=analyzer_results)
+        else:
+            # 数据源分析器直接创建
+            analyzer = analyzer_cls()
 
-            # 执行分析
+        # 执行分析
 
-            result = analyzer.analyze()
+        result = analyzer.analyze()
 
-            # 存储结果
-            analyzer_results[analyzer_cls] = list(result)
-            all_results.extend(result)
-
-        except Exception as e:
-            raise AnalyzerExecutionError(
-                f'分析器 {analyzer_cls.__name__} 执行失败：{e}'
-            ) from e
+        # 存储结果
+        analyzer_results[analyzer_cls] = list(result)
+        all_results.extend(result)
 
     return all_results

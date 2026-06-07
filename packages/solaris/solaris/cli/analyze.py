@@ -1,6 +1,6 @@
 from importlib.metadata import version
 from pathlib import Path
-from typing import TypeVar
+from typing import TypeVar, cast
 
 import click
 
@@ -12,6 +12,8 @@ from solaris.analyze import (
     import_analyzer_classes,
     run_all_analyzer,
 )
+from solaris.analyze.typing_ import JsonFormat
+from solaris.analyze.output import json_format_names
 from solaris.analyze.base import (
     BaseAnalyzer,
     DataImportConfig,
@@ -139,13 +141,22 @@ def analyze(
     '仅在 --output-mode 为 json 或 all 时有效',
 )
 @click.option(
-    '--merge-json-table/--no-merge-json-table',
-    default=False,
+    '--json-format',
+    type=click.Choice(json_format_names()),
+    default='split',
     show_default=True,
-    help='是否以合并表形式输出 JSON（每个资源目录下生成 id.json；'
-    '若同时启用 --output-named-data，命名资源还会生成 name.json）。'
-    '关闭时则按 ID/名称分散为 index.json。'
+    help='JSON 输出子模式：split 按 ID/名称分散为 index.json；'
+    'merged 在每个资源目录下生成 id.json；'
+    'sharded 按字节上限分片并生成 id-index / name-index 中间表。'
     '仅在 --output-mode 为 json 或 all 时有效',
+)
+@click.option(
+    '--shard-max-bytes',
+    type=int,
+    default=1_048_576,
+    show_default=True,
+    help='sharded 子模式下单文件最大字节数（默认 1MB），'
+    '仅在 --json-format sharded 时有效',
 )
 @click.option(
     '-d',
@@ -181,7 +192,8 @@ def run_command(
     api_url: str | None,
     api_version: str | None,
     output_named_data: bool,
-    merge_json_table: bool,
+    json_format: JsonFormat,
+    shard_max_bytes: int,
 ) -> None:
     """运行分析器并输出结果到JSON文件或数据库"""
     analyzer_classes = ctx.obj['analyzer_classes']
@@ -217,7 +229,8 @@ def run_command(
             base_data_url=base_json_url,
             metadata=metadata,
             output_named_data=output_named_data,
-            merge_json_table=merge_json_table,
+            json_format=cast(JsonFormat, json_format),
+            shard_max_bytes=shard_max_bytes,
         )
     if output_mode in ('db', 'all'):
         click.echo('正在输出数据到数据库...')

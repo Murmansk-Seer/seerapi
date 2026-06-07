@@ -99,6 +99,8 @@ solaris analyze --list-analyzers
 |------|--------|------|
 | `-w, --source-dir` | 环境变量或 `./source` | 数据源目录 |
 | `-m, --output-mode` | `json` | 输出模式：json/db/all |
+| `--json-format` | `split` | JSON 子模式：split / merged / sharded（sharded 输出紧凑 JSON；id 分片 + id-index；`id-index.resource_hash` 为各 id 分片 `hash` 的聚合指纹，用于判断资源数据是否变化） |
+| `--shard-max-bytes` | `1048576` | sharded 单文件字节上限（默认 1MB） |
 | `--json-output-dir` | `data` | JSON 文件输出目录 |
 | `--schema-output-dir` | `schema` | JSON Schema 输出目录 |
 | `-d, --db-url` | `solaris.db` | 数据库文件路径 |

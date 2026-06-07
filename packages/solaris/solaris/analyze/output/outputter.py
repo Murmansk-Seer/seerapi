@@ -26,12 +26,19 @@ from seerapi_models.common import (
     ResourceRef,
 )
 from seerapi_models.metadata import ApiMetadata
-from solaris.analyze.typing_ import AnalyzeResult, NameGenerator, TResModelRequiredId
+from solaris.analyze.typing_ import (
+    AnalyzeResult,
+    JsonFormat,
+    NameGenerator,
+    TResModelRequiredId,
+)
 from solaris.analyze.utils import to_json
 from solaris.typing import JSONObject
 from solaris.utils import join_url
 
 from .db import DBManager
+from .json_format import resolve_json_format
+from .sharding import DEFAULT_MAX_SHARD_BYTES
 from .openapi_builder import (
     OpenAPIBuilder,
     build_ref_string,
@@ -568,6 +575,7 @@ class JsonOutputter(DataOutputterProtocol):
         base_output_dir: str | Path = '.',
         data_output_dir: str | Path,
         base_data_url: str | None = None,
+        shard_max_bytes: int = DEFAULT_MAX_SHARD_BYTES,
     ) -> None:
         """初始化 JSON 输出器
 
@@ -576,8 +584,10 @@ class JsonOutputter(DataOutputterProtocol):
                 base_output_dir: 基础输出目录
                 data_output_dir: 数据输出目录（相对于版本目录）
                 base_data_url: 数据基础 URL（可选）
+                shard_max_bytes: sharded 子模式单文件字节上限
         """
         self.metadata = metadata
+        self.shard_max_bytes = shard_max_bytes
 
         # 计算 URL
         version = metadata.api_version
@@ -598,8 +608,15 @@ class JsonOutputter(DataOutputterProtocol):
 
         # 创建输出目录
         self.data_output_dir.mkdir(parents=True, exist_ok=True)
+        self.json_compact = False
 
-    def _dump_data(self, data: Any, path: Path | str) -> None:
+    def _dump_data(
+        self,
+        data: Any,
+        path: Path | str,
+        *,
+        compact: bool | None = None,
+    ) -> str:
         if isinstance(data, BaseModel):
             payload: MutableMapping[str, Any] = data.model_dump(by_alias=True)
         elif isinstance(data, MutableMapping):
@@ -608,11 +625,17 @@ class JsonOutputter(DataOutputterProtocol):
         else:
             raise ValueError(f'Invalid data type: {type(data)}')
 
-        payload['hash'] = _calc_hash(to_json(payload, indent=None))
+        if compact is None:
+            compact = self.json_compact
+        indent = None if compact else 2
+
+        file_hash = _calc_hash(to_json(payload, indent=None))
+        payload['hash'] = file_hash
 
         path = self.data_output_dir.joinpath(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(to_json(payload))
+        path.write_bytes(to_json(payload, indent=indent))
+        return file_hash
 
     def _output_merged_json(
         self,
@@ -719,14 +742,14 @@ class JsonOutputter(DataOutputterProtocol):
         self,
         result: AnalyzeResult[TResModelRequiredId],
         *,
-        merge_json_table: bool,
+        json_format: JsonFormat,
         output_name_data: bool,
     ) -> tuple[str, str] | None:
         """处理单个分析结果
 
         Args:
                 result: 分析结果
-                merge_json_table: 是否合并为单个 JSON 文件
+                json_format: JSON 输出子模式（split / merged）
                 output_name_data: 是否输出名称映射
         Returns:
                 如果需要输出，返回 (resource_name, resource_url)，否则返回 None
@@ -735,46 +758,19 @@ class JsonOutputter(DataOutputterProtocol):
         if result.output_mode not in ('json', 'all'):
             return None
 
-        # 提取基本信息
         model = result.model
         resource_name = model.resource_name()
         data = result.data
 
-        # 根据模式输出
-        if merge_json_table:
-            self._output_merged_json(resource_name, data)
-            if output_name_data and is_named_model(model):
-                merged_name_data: dict[str, NamedData[TResModelRequiredId]] = {}
-                for name_field in get_name_fields(model):
+        fmt_cls = resolve_json_format(json_format)
+        fmt_cls.write_resource(
+            self,
+            resource_name=resource_name,
+            model=model,
+            data=data,
+            output_named_data=output_name_data,
+        )
 
-                    def _name_generator(
-                        m: TResModelRequiredId, field: str = name_field
-                    ) -> str | None:
-                        return getattr(m, field, None)
-
-                    name_data = self._generate_name_data(
-                        data, name_generator=_name_generator
-                    )
-                    merged_name_data.update(name_data)
-                self._output_merged_named_json(merged_name_data, resource_name)
-        else:
-            self._output_individual_json(data, resource_name)
-            # 输出名称映射
-            if output_name_data and is_named_model(model):
-                # 遍历所有定义的名称字段
-                for name_field in get_name_fields(model):
-
-                    def _name_generator(
-                        m: TResModelRequiredId, field: str = name_field
-                    ) -> str | None:
-                        return getattr(m, field, None)
-
-                    name_data = self._generate_name_data(
-                        data, name_generator=_name_generator
-                    )
-                    self._output_named_json(name_data, resource_name)
-
-        # 返回索引信息
         return resource_name, join_url(self.data_url, resource_name)
 
     def _output_metadata(self) -> None:
@@ -793,16 +789,18 @@ class JsonOutputter(DataOutputterProtocol):
         self,
         results: Sequence[AnalyzeResult],
         *,
-        merge_json_table: bool = False,
+        json_format: JsonFormat = 'split',
         output_named_data: bool = False,
     ) -> None:
         """执行 JSON 输出流程
 
         Args:
                 results: 分析结果序列
-                merge_json_table: 是否合并为单个 JSON 文件
+                json_format: JSON 输出子模式（split / merged）
                 output_named_data: 是否输出名称映射
         """
+        self.json_compact = json_format == 'sharded'
+
         # 处理所有结果
         root_index_data: dict[str, str] = {}
         for result in (pbar_result := tqdm(results, leave=False)):
@@ -815,7 +813,7 @@ class JsonOutputter(DataOutputterProtocol):
             # 处理单个结果
             result_info = self._process_single_result(
                 result,
-                merge_json_table=merge_json_table,
+                json_format=json_format,
                 output_name_data=output_named_data,
             )
             if result_info is not None:
