@@ -86,28 +86,28 @@ solaris analyze --list-analyzers
 
 ### parse 命令
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--source-dir` | `source` | 客户端数据源目录 |
-| `--output-dir` | `output` | 解析结果输出目录 |
-| `--package-name` | `solaris.parse.parsers` | 解析器包名（可多个） |
-| `-l, --list-parsers` | - | 显示所有可用解析器 |
+| 参数                 | 默认值                  | 说明                 |
+| -------------------- | ----------------------- | -------------------- |
+| `--source-dir`       | `source`                | 客户端数据源目录     |
+| `--output-dir`       | `output`                | 解析结果输出目录     |
+| `--package-name`     | `solaris.parse.parsers` | 解析器包名（可多个） |
+| `-l, --list-parsers` | -                       | 显示所有可用解析器   |
 
 ### analyze 命令
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `-w, --source-dir` | 环境变量或 `./source` | 数据源目录 |
-| `-m, --output-mode` | `json` | 输出模式：json/db/all |
-| `--json-format` | `split` | JSON 子模式：split / merged / sharded（sharded 输出紧凑 JSON；id 分片 + id-index；`id-index.resource_hash` 为各 id 分片 `hash` 的聚合指纹，用于判断资源数据是否变化） |
-| `--shard-max-bytes` | `1048576` | sharded 单文件字节上限（默认 1MB） |
-| `--json-output-dir` | `data` | JSON 文件输出目录 |
-| `--schema-output-dir` | `schema` | JSON Schema 输出目录 |
-| `-d, --db-url` | `solaris.db` | 数据库文件路径 |
-| `--api-url` | 环境变量 | API 基础 URL |
-| `--api-version` | 环境变量 | API 版本号 |
-| `--package-name` | `solaris.analyze.analyzers` | 分析器包名（可多个） |
-| `-l, --list-analyzers` | - | 显示所有可用分析器 |
+| 参数                   | 默认值                      | 说明                                                                                                                                                                  |
+| ---------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-w, --source-dir`     | 环境变量或 `./source`       | 数据源目录                                                                                                                                                            |
+| `-m, --output-mode`    | `json`                      | 输出模式：json/db/all                                                                                                                                                 |
+| `--json-format`        | `split`                     | JSON 子模式：split / merged / sharded（sharded 输出紧凑 JSON；id 分片 + id-index；`resource_hash` 同时写入 `id-index.json` 与纯文本 `resource.hash`） |
+| `--shard-max-bytes`    | `1048576`                   | sharded 单文件字节上限（默认 1MB）                                                                                                                                    |
+| `--json-output-dir`    | `data`                      | JSON 文件输出目录                                                                                                                                                     |
+| `--schema-output-dir`  | `schema`                    | JSON Schema 输出目录                                                                                                                                                  |
+| `-d, --db-url`         | `solaris.db`                | 数据库文件路径                                                                                                                                                        |
+| `--api-url`            | 环境变量                    | API 基础 URL                                                                                                                                                          |
+| `--api-version`        | 环境变量                    | API 版本号                                                                                                                                                            |
+| `--package-name`       | `solaris.analyze.analyzers` | 分析器包名（可多个）                                                                                                                                                  |
+| `-l, --list-analyzers` | -                           | 显示所有可用分析器                                                                                                                                                    |
 
 ## 环境变量
 

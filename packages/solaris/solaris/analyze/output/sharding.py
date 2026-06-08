@@ -44,6 +44,16 @@ def calc_resource_hash(shard_hashes: Mapping[str, str]) -> str:
     return _calc_hash(to_json(payload, indent=None))
 
 
+def _write_resource_hash_file(
+    outputter: JsonOutputter,
+    resource_name: str,
+    resource_hash: str,
+) -> None:
+    path = outputter.data_output_dir.joinpath(resource_name, 'resource.hash')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(resource_hash, encoding='utf-8')
+
+
 def pack_records(
     items: list[tuple[str, Any]],
     max_bytes: int,
@@ -221,12 +231,13 @@ def write_sharded_resource(
             'count': len(shard_records),
         }
 
+    resource_hash = calc_resource_hash(shard_hashes)
     id_index = {
         'format': SHARDED_FORMAT_VERSION,
         'max_shard_bytes': max_shard_bytes,
         'shard_count': len(data_shards),
         'shards': shard_meta,
-        'resource_hash': calc_resource_hash(shard_hashes),
+        'resource_hash': resource_hash,
         'by_id': by_id,
     }
     write_maybe_sharded_index(
@@ -237,6 +248,7 @@ def write_sharded_resource(
         'by_id',
         max_shard_bytes,
     )
+    _write_resource_hash_file(outputter, resource_name, resource_hash)
 
     if not output_named_data or not is_named_model(model):
         return
