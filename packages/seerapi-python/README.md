@@ -40,7 +40,7 @@ async def main():
         
         # 获取所有精灵（自动分页）
         count = 0
-        async for pet in client.list('pet'):
+        async for pet in client.list('pet', expand=True):
             print(f"ID: {pet.id}, 名称: {pet.name}")
             count += 1
             if count >= 10:  # 只显示前 10 个
@@ -114,12 +114,13 @@ skill = await client.get('skill', id=100)
 equip = await client.get('equip', id=50)
 ```
 
-##### `list(resource_name)`
+##### `list(resource_name, *, expand=True)`
 
 获取所有资源的异步生成器，自动处理分页。
 
 **参数：**
 - `resource_name` (str): 资源类型名称
+- `expand` (bool): 是否让 API 直接返回完整资源对象。默认为 `True`（每页一次请求）。仅需轻量引用时可设为 `False`（通过 N+1 请求获取完整数据）。
 
 **返回：**
 - `AsyncGenerator`: 异步生成器，用于遍历所有资源
@@ -127,8 +128,12 @@ equip = await client.get('equip', id=50)
 **示例：**
 
 ```python
-# 遍历所有精灵
+# 遍历所有精灵（默认 expand=True，每页一次请求）
 async for pet in client.list('pet'):
+    print(pet.name)
+
+# 仅需引用时逐条 get（expand=False）
+async for pet in client.list('pet', expand=False):
     print(pet.name)
 
 # 只获取前 100 个
@@ -146,7 +151,7 @@ async for pet in client.list('pet'):
 
 **参数：**
 - `resource_name` (str): 资源类型名称
-- `page_info` (PageInfo): 分页信息对象
+- `page_info` (PageInfo): 分页信息对象，默认 `expand=True` 直接返回完整资源对象
 
 **返回：**
 - `PagedResponse` 对象，包含：
@@ -162,8 +167,12 @@ async for pet in client.list('pet'):
 ```python
 from seerapi import PageInfo
 
-# 获取前 20 条记录
+# 获取前 20 条记录（默认 expand=True，每页一次请求）
 page_info = PageInfo(offset=0, limit=20)
+response = await client.paginated_list('pet', page_info)
+
+# 轻量引用 + 逐条 get
+page_info = PageInfo(offset=0, limit=20, expand=False)
 response = await client.paginated_list('pet', page_info)
 
 # 查看总数
@@ -173,7 +182,7 @@ print(f"总数: {response.count}")
 async for pet in response.results:
     print(pet.name)
 
-# 获取下一页
+# 获取下一页（expand 会从 response.next 中继承）
 if response.next:
     next_response = await client.paginated_list('pet', response.next)
 ```
@@ -208,13 +217,14 @@ if response.next:
 **属性：**
 - `offset` (int): 偏移量，默认为 0
 - `limit` (int): 每页记录数，默认为 100
+- `expand` (bool): 是否返回完整资源对象，默认为 `True`。设为 `False` 时返回轻量引用并由客户端逐条 get
 
 **示例：**
 
 ```python
 from seerapi import PageInfo
 
-# 获取第 1-10 条记录
+# 获取第 1-10 条记录（expand 默认为 True）
 page1 = PageInfo(offset=0, limit=10)
 
 # 获取第 11-20 条记录

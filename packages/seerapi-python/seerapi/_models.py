@@ -9,6 +9,7 @@ T = TypeVar('T')
 class PageInfo:
     offset: int = field(default=0)
     limit: int = field(default=100)
+    expand: bool = field(default=True)
 
     def __post_init__(self) -> None:
         if self.offset < 0:
