@@ -1,6 +1,6 @@
 from collections import defaultdict
 from collections.abc import Mapping
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from openapi_pydantic import (
     Components,
@@ -90,12 +90,10 @@ class OpenAPIBuilder:
             servers=self.servers,
             paths=self.paths,
         )
-        self.add_ref(Response(description='Not Modified'), name='NotModified')
-        for name, parameter in self._components().items():
-            self.add_ref(parameter, name=name)
+        self._add_components()
 
-    def _components(self) -> dict[str, Obj]:
-        return {
+    def _add_components(self) -> None:
+        components: dict[str, Obj] = {
             # Path 参数组件
             'id': Parameter(
                 name='id',
@@ -125,8 +123,17 @@ class OpenAPIBuilder:
                 description='从哪个位置开始返回结果',
                 schema=Schema(type=DataType.INTEGER, default=0),
             ),
-            # 响应组件
-            '304_NotModified': Response(description='Not Modified'),
+            'expand': Parameter(
+                name='expand',
+                required=False,
+                param_in='query',  # type: ignore
+                description=(
+                    '控制 results 的返回格式：\n'
+                    '- `false`（默认）：返回轻量引用（NamedResourceRef）\n'
+                    '- `true`：返回完整资源对象'
+                ),
+                schema=Schema(type=DataType.BOOLEAN, default=False),
+            ),
             # 响应头组件
             'Etag': Header(
                 description='Entity tag，用于缓存控制',
@@ -141,6 +148,19 @@ class OpenAPIBuilder:
                 ),
             ),
         }
+        for name, component in components.items():
+            self.add_ref(component, name=name)
+
+        responses: dict[str, Response] = {
+            '304_NotModified': Response(
+                description='Not Modified',
+                headers={
+                    'ETag': self.create_ref(Header, name='Etag'),
+                },
+            ),
+        }
+        for name, response in responses.items():
+            self.add_ref(response, name=name)
 
     def build(self) -> OpenAPI:
         new_openapi = self.openapi.model_copy()
@@ -167,6 +187,31 @@ class OpenAPIBuilder:
     def create_200_response(self, schema_ref: str) -> Response:
         ref_string = build_ref_string(Schema, name=schema_ref)
         media_type = MediaType(schema=Reference(ref=ref_string))  # type: ignore
+        return self._create_200_response(media_type)
+
+    def create_200_response_one_of(
+        self,
+        schema_refs: list[str],
+        *,
+        description: str | None = None,
+    ) -> Response:
+        one_of = cast(
+            list[Reference | Schema],
+            [
+                Reference(ref=build_ref_string(Schema, name=schema_ref))  # type: ignore
+                for schema_ref in schema_refs
+            ],
+        )
+        media_type = MediaType(
+            schema=Schema(
+                oneOf=one_of,
+                description=description
+                or '实际返回格式由 expand 查询参数决定，见 expand 参数说明。',
+            )
+        )
+        return self._create_200_response(media_type)
+
+    def _create_200_response(self, media_type: MediaType) -> Response:
         return Response(
             description='OK',
             content={
@@ -184,5 +229,17 @@ class OpenAPIBuilder:
     ) -> dict[str, Response | Reference]:
         return {
             '200': self.create_200_response(response_schema_ref),
+            '304': self.create_ref(Response, name='304_NotModified'),
+        }
+
+    def create_paginated_responses(
+        self,
+        list_schema_ref: str,
+        expanded_list_schema_ref: str,
+    ) -> dict[str, Response | Reference]:
+        return {
+            '200': self.create_200_response_one_of(
+                [list_schema_ref, expanded_list_schema_ref]
+            ),
             '304': self.create_ref(Response, name='304_NotModified'),
         }

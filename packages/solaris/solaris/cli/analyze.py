@@ -12,14 +12,14 @@ from solaris.analyze import (
     import_analyzer_classes,
     run_all_analyzer,
 )
-from solaris.analyze.typing_ import JsonFormat
-from solaris.analyze.output import json_format_names
 from solaris.analyze.base import (
     BaseAnalyzer,
     DataImportConfig,
     DataSourceDirSettings,
 )
+from solaris.analyze.output import json_format_names
 from solaris.analyze.settings import ApiMetadataSettings
+from solaris.analyze.typing_ import JsonFormat
 from solaris.settings import BaseSettings, CreateSettingsError
 
 TSettings = TypeVar('TSettings', bound=BaseSettings)

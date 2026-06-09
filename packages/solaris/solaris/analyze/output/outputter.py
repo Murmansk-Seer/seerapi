@@ -38,7 +38,6 @@ from solaris.utils import join_url
 
 from .db import DBManager
 from .json_format import resolve_json_format
-from .sharding import DEFAULT_MAX_SHARD_BYTES
 from .openapi_builder import (
     OpenAPIBuilder,
     build_ref_string,
@@ -53,6 +52,7 @@ from .schema_generate import (
     create_extra_schema,
     create_generator,
 )
+from .sharding import DEFAULT_MAX_SHARD_BYTES
 
 
 class HashPartial(BaseGeneralModel):
@@ -105,6 +105,26 @@ def _generate_api_resource_list(data: DataMap[TResModelRequiredId]) -> ApiResour
         )
 
     return ApiResourceList(count=len(refs), results=refs)
+
+
+def _api_resource_list_pagination_properties() -> dict[str, JSONObject]:
+    """从 ApiResourceList 提取分页字段的 JSON Schema properties。"""
+    properties: dict[str, JSONObject] = {}
+    for name, field in ApiResourceList.model_fields.items():
+        if name == 'results':
+            continue
+        description = field.description
+        if field.annotation is int:
+            properties[name] = {
+                'type': 'integer',
+                'description': description,
+            }
+        else:
+            properties[name] = {
+                'anyOf': [{'type': 'string'}, {'type': 'null'}],
+                'description': description,
+            }
+    return properties
 
 
 def _generate_named_data_json_schema(resource_ref_path: str, common_ref_path: str):
@@ -407,11 +427,35 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
             ],
         }
 
+    def _create_expanded_list_schema(self, resource_name: str) -> JSONObject:
+        results_field = ApiResourceList.model_fields['results']
+        return cast(
+            JSONObject,
+            {
+                'type': 'object',
+                'properties': {
+                    **_api_resource_list_pagination_properties(),
+                    'results': {
+                        'type': 'array',
+                        'description': results_field.description,
+                        'items': {
+                            '$ref': build_ref_string(Schema, name=resource_name),
+                        },
+                    },
+                },
+                'required': ['count', 'results'],
+                **create_extra_schema(model_name=resource_name),
+            },
+        )
+
     def _name_ref_str(self, resource_name: str) -> str:
         return f'{resource_name}_NamedData'
 
     def _list_ref_str(self, resource_name: str) -> str:
         return f'{resource_name}_List'
+
+    def _list_expanded_ref_str(self, resource_name: str) -> str:
+        return f'{resource_name}_ListExpanded'
 
     def _id_ref_str(self, resource_name: str) -> str:
         return resource_name
@@ -426,6 +470,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
         *,
         resource_name: str,
         schema: JSONObject,
+        expanded_schema: JSONObject | None = None,
     ) -> None:
         builder = self.openapi_builder
         p: str
@@ -469,6 +514,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
             case 'paginated':
                 p = self._build_path(resource_name) + '/'
                 schema_ref = self._list_ref_str(resource_name)
+                expanded_schema_ref = self._list_expanded_ref_str(resource_name)
                 title = f'{comment.name_cn}资源列表'
                 operation_id = f'get_{resource_name}_list'
                 path_item = PathItem(
@@ -476,8 +522,11 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                         parameters=[
                             builder.create_ref(Parameter, name='offset'),
                             builder.create_ref(Parameter, name='limit'),
+                            builder.create_ref(Parameter, name='expand'),
                         ],
-                        responses=builder.create_responses(schema_ref),
+                        responses=builder.create_paginated_responses(
+                            schema_ref, expanded_schema_ref
+                        ),
                         tags=tags,
                         operationId=operation_id,
                         summary=f'获取{comment.name_cn}资源列表',
@@ -492,6 +541,13 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
         schema_obj.examples = comment.examples
         schema_obj.title = title
         builder.add_ref(schema_obj, name=schema_ref)
+
+        if expanded_schema is not None:
+            expanded_schema_ref = self._list_expanded_ref_str(resource_name)
+            expanded_obj = Schema.model_validate(expanded_schema)
+            expanded_obj.title = f'{title}（expand=true）'
+            expanded_obj.description = 'expand=true 时返回完整资源对象列表'
+            builder.add_ref(expanded_obj, name=expanded_schema_ref)
 
     def run(
         self,
@@ -536,11 +592,13 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
 
             # 生成 ApiResourceList schema
             api_resource_list_schema = self._create_list_schema(resource_name)
+            expanded_list_schema = self._create_expanded_list_schema(resource_name)
             self._add_path_to_openapi(
                 'paginated',
                 comment,
                 resource_name=resource_name,
                 schema=cast(JSONObject, api_resource_list_schema),
+                expanded_schema=cast(JSONObject, expanded_list_schema),
             )
 
         # metadata schema

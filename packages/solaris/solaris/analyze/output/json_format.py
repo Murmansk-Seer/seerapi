@@ -73,9 +73,7 @@ def _collect_name_data(
         ) -> str | None:
             return getattr(m, field, None)
 
-        name_data = outputter._generate_name_data(
-            data, name_generator=_name_generator
-        )
+        name_data = outputter._generate_name_data(data, name_generator=_name_generator)
         merged_name_data.update(name_data)
     return merged_name_data
 

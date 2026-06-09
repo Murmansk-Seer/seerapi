@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterator
 from typing import cast
 from typing_extensions import Self
 
@@ -24,7 +24,15 @@ def _parse_url_params(url: str) -> QueryParams:
     return URL(url=url).params
 
 
-def _parse_url_page_info(url: str) -> PageInfo | None:
+def _parse_bool_param(value: str) -> bool:
+    return value.lower() in ('true', '1', 'yes')
+
+
+def _parse_url_page_info(
+    url: str | None,
+    *,
+    expand_fallback: bool = True,
+) -> PageInfo | None:
     if url is None:
         return None
 
@@ -32,9 +40,13 @@ def _parse_url_page_info(url: str) -> PageInfo | None:
     if 'offset' not in params or 'limit' not in params:
         return None
 
+    expand = (
+        _parse_bool_param(params['expand']) if 'expand' in params else expand_fallback
+    )
     return PageInfo(
         offset=int(params['offset']),
         limit=int(params['limit']),
+        expand=expand,
     )
 
 
@@ -106,50 +118,77 @@ class SeerAPI:
         page_info: PageInfo,
     ) -> PagedResponse[T_ModelInstance]:
         res_name = self._get_resource_name(resource_name)
+        model_type = MODEL_MAP[res_name]
 
-        async def create_generator(
-            data: list[dict],
-        ) -> AsyncGenerator[T_ModelInstance, None]:
-            for item in data:
-                yield await self.get(res_name, item['id'])
+        params: dict[str, int | bool] = {
+            'offset': page_info.offset,
+            'limit': page_info.limit,
+            'expand': page_info.expand,
+        }
 
-        response = await self._client.get(
-            f'/{res_name}/',
-            params={'offset': page_info.offset, 'limit': page_info.limit},
-        )
+        if page_info.expand:
+
+            async def create_generator(
+                data: list[dict],
+            ) -> AsyncGenerator[T_ModelInstance, None]:
+                for item in data:
+                    yield cast(T_ModelInstance, model_type.model_validate(item))
+
+        else:
+
+            async def create_generator(
+                data: list[dict],
+            ) -> AsyncGenerator[T_ModelInstance, None]:
+                for item in data:
+                    yield await self.get(res_name, item['id'])
+
+        response = await self._client.get(f'/{res_name}/', params=params)
         response.raise_for_status()
         response_json = response.json()
+        expand_fallback = page_info.expand
         return PagedResponse(
             count=response_json['count'],
             results=create_generator(response_json['results']),
-            next=_parse_url_page_info(response_json['next']),
-            previous=_parse_url_page_info(response_json['previous']),
-            first=_parse_url_page_info(response_json['first']),
-            last=_parse_url_page_info(response_json['last']),
+            next=_parse_url_page_info(
+                response_json['next'], expand_fallback=expand_fallback
+            ),
+            previous=_parse_url_page_info(
+                response_json['previous'], expand_fallback=expand_fallback
+            ),
+            first=_parse_url_page_info(
+                response_json['first'], expand_fallback=expand_fallback
+            ),
+            last=_parse_url_page_info(
+                response_json['last'], expand_fallback=expand_fallback
+            ),
         )
 
-    async def list(
-        self, resource_name: ResourceArg[T_ModelInstance]
-    ) -> AsyncGenerator[T_ModelInstance, None]:
+    def list(
+        self,
+        resource_name: ResourceArg[T_ModelInstance],
+        *,
+        expand: bool = True,
+    ) -> AsyncIterator[T_ModelInstance]:
         """获取所有资源的异步生成器，自动处理分页"""
-        res_name = self._get_resource_name(resource_name)
+        return self._list_gen(resource_name, expand=expand)
 
-        async def create_generator(page_info: PageInfo):
-            while True:
-                paged_response = await self.paginated_list(res_name, page_info)
+    async def _list_gen(
+        self,
+        resource_name: ResourceArg[T_ModelInstance],
+        *,
+        expand: bool = True,
+    ) -> AsyncIterator[T_ModelInstance]:
+        page_info = PageInfo(offset=0, limit=10, expand=expand)
+        while True:
+            paged_response = await self.paginated_list(resource_name, page_info)
 
-                # 生成当前页的所有结果
-                async for item in paged_response.results:
-                    yield item
+            async for item in paged_response.results:
+                yield item
 
-                # 检查是否还有下一页
-                if paged_response.next is None:
-                    break
+            if paged_response.next is None:
+                break
 
-                # 更新到下一页
-                page_info = paged_response.next
-
-        return create_generator(PageInfo(offset=0, limit=10))
+            page_info = paged_response.next
 
     async def get_by_name(
         self, resource_name: NamedResourceArg[T_NamedModelInstance], name: str

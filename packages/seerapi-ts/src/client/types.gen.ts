@@ -315,6 +315,38 @@ export type Achievement = HashPartial & {
 export type AchievementList = CommonApiResourceList;
 
 /**
+ * 成就资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type AchievementListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Achievement>;
+};
+
+/**
  * 成就分支资源
  */
 export type AchievementBranch = HashPartial & {
@@ -355,6 +387,38 @@ export type AchievementBranch = HashPartial & {
  * 成就分支资源列表
  */
 export type AchievementBranchList = CommonApiResourceList;
+
+/**
+ * 成就分支资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type AchievementBranchListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<AchievementBranch>;
+};
 
 /**
  * 成就类型资源
@@ -398,6 +462,38 @@ export type AchievementType = HashPartial & {
 export type AchievementTypeList = CommonApiResourceList;
 
 /**
+ * 成就类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type AchievementTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<AchievementType>;
+};
+
+/**
  * 成就分类资源
  */
 export type AchievementCategory = HashPartial & {
@@ -423,6 +519,38 @@ export type AchievementCategory = HashPartial & {
  * 成就分类资源列表
  */
 export type AchievementCategoryList = CommonApiResourceList;
+
+/**
+ * 成就分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type AchievementCategoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<AchievementCategory>;
+};
 
 /**
  * 成就称号资源
@@ -508,6 +636,38 @@ export type Title = HashPartial & {
 export type TitleList = CommonApiResourceList;
 
 /**
+ * 成就称号资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type TitleListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Title>;
+};
+
+/**
  * 活动资源
  */
 export type Activity = HashPartial & {
@@ -556,6 +716,38 @@ export type Activity = HashPartial & {
 export type ActivityList = CommonApiResourceList;
 
 /**
+ * 活动资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type ActivityListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Activity>;
+};
+
+/**
  * 活动类型资源
  */
 export type ActivityType = HashPartial & {
@@ -577,6 +769,38 @@ export type ActivityType = HashPartial & {
  * 活动类型资源列表
  */
 export type ActivityTypeList = CommonApiResourceList;
+
+/**
+ * 活动类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type ActivityTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<ActivityType>;
+};
 
 /**
  * 状态资源
@@ -618,6 +842,38 @@ export type BattleEffect = HashPartial & {
 export type BattleEffectList = CommonApiResourceList;
 
 /**
+ * 状态资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type BattleEffectListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<BattleEffect>;
+};
+
+/**
  * 状态类型资源
  */
 export type BattleEffectType = HashPartial & {
@@ -647,6 +903,38 @@ export type BattleEffectType = HashPartial & {
 export type BattleEffectTypeList = CommonApiResourceList;
 
 /**
+ * 状态类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type BattleEffectTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<BattleEffectType>;
+};
+
+/**
  * 抗性类型资源
  */
 export type ResistanceCategory = HashPartial & {
@@ -674,6 +962,38 @@ export type ResistanceCategory = HashPartial & {
  * 抗性类型资源列表
  */
 export type ResistanceCategoryList = CommonApiResourceList;
+
+/**
+ * 抗性类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type ResistanceCategoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<ResistanceCategory>;
+};
 
 /**
  * 头像资源
@@ -711,6 +1031,38 @@ export type AvatarHead = HashPartial & {
 export type AvatarHeadList = CommonApiResourceList;
 
 /**
+ * 头像资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type AvatarHeadListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<AvatarHead>;
+};
+
+/**
  * 头像框资源
  */
 export type AvatarFrame = HashPartial & {
@@ -744,6 +1096,38 @@ export type AvatarFrame = HashPartial & {
  * 头像框资源列表
  */
 export type AvatarFrameList = CommonApiResourceList;
+
+/**
+ * 头像框资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type AvatarFrameListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<AvatarFrame>;
+};
 
 /**
  * 名片背景资源
@@ -781,6 +1165,38 @@ export type NamecardBackground = HashPartial & {
 export type NamecardBackgroundList = CommonApiResourceList;
 
 /**
+ * 名片背景资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type NamecardBackgroundListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<NamecardBackground>;
+};
+
+/**
  * 昵称背景资源
  */
 export type NicknameBackground = HashPartial & {
@@ -816,6 +1232,38 @@ export type NicknameBackground = HashPartial & {
 export type NicknameBackgroundList = CommonApiResourceList;
 
 /**
+ * 昵称背景资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type NicknameBackgroundListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<NicknameBackground>;
+};
+
+/**
  * 主页背景资源
  */
 export type HomepageBackground = HashPartial & {
@@ -849,6 +1297,38 @@ export type HomepageBackground = HashPartial & {
  * 主页背景资源列表
  */
 export type HomepageBackgroundList = CommonApiResourceList;
+
+/**
+ * 主页背景资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type HomepageBackgroundListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<HomepageBackground>;
+};
 
 /**
  * 特性资源
@@ -894,6 +1374,38 @@ export type PetEffect = HashPartial & {
 export type PetEffectList = CommonApiResourceList;
 
 /**
+ * 特性资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetEffectListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetEffect>;
+};
+
+/**
  * 特性组资源
  */
 export type PetEffectGroup = HashPartial & {
@@ -921,6 +1433,38 @@ export type PetEffectGroup = HashPartial & {
  * 特性组资源列表
  */
 export type PetEffectGroupList = CommonApiResourceList;
+
+/**
+ * 特性组资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetEffectGroupListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetEffectGroup>;
+};
 
 /**
  * 特质效果资源
@@ -959,6 +1503,38 @@ export type PetVariation = HashPartial & {
 export type PetVariationList = CommonApiResourceList;
 
 /**
+ * 特质效果资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetVariationListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetVariation>;
+};
+
+/**
  * eid效果资源
  */
 export type EidEffect = HashPartial & {
@@ -980,6 +1556,38 @@ export type EidEffect = HashPartial & {
  * eid效果资源列表
  */
 export type EidEffectList = CommonApiResourceList;
+
+/**
+ * eid效果资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type EidEffectListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<EidEffect>;
+};
 
 /**
  * 能量珠资源
@@ -1027,6 +1635,38 @@ export type EnergyBead = HashPartial & {
  * 能量珠资源列表
  */
 export type EnergyBeadList = CommonApiResourceList;
+
+/**
+ * 能量珠资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type EnergyBeadListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<EnergyBead>;
+};
 
 /**
  * 部件资源
@@ -1143,6 +1783,38 @@ export type Equip = HashPartial & {
 export type EquipList = CommonApiResourceList;
 
 /**
+ * 部件资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type EquipListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Equip>;
+};
+
+/**
  * 套装资源
  */
 export type Suit = HashPartial & {
@@ -1227,6 +1899,38 @@ export type Suit = HashPartial & {
 export type SuitList = CommonApiResourceList;
 
 /**
+ * 套装资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SuitListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Suit>;
+};
+
+/**
  * 部件类型资源
  */
 export type EquipType = HashPartial & {
@@ -1256,6 +1960,38 @@ export type EquipType = HashPartial & {
 export type EquipTypeList = CommonApiResourceList;
 
 /**
+ * 部件类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type EquipTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<EquipType>;
+};
+
+/**
  * 部件能力加成生效场合资源
  */
 export type EquipEffectiveOccasion = HashPartial & {
@@ -1283,6 +2019,38 @@ export type EquipEffectiveOccasion = HashPartial & {
  * 部件能力加成生效场合资源列表
  */
 export type EquipEffectiveOccasionList = CommonApiResourceList;
+
+/**
+ * 部件能力加成生效场合资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type EquipEffectiveOccasionListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<EquipEffectiveOccasion>;
+};
 
 /**
  * 魂印资源
@@ -1372,6 +2140,38 @@ export type Soulmark = HashPartial & {
 export type SoulmarkList = CommonApiResourceList;
 
 /**
+ * 魂印资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SoulmarkListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Soulmark>;
+};
+
+/**
  * 魂印标签资源
  */
 export type SoulmarkTag = HashPartial & {
@@ -1399,6 +2199,38 @@ export type SoulmarkTag = HashPartial & {
  * 魂印标签资源列表
  */
 export type SoulmarkTagList = CommonApiResourceList;
+
+/**
+ * 魂印标签资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SoulmarkTagListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SoulmarkTag>;
+};
 
 /**
  * 属性资源
@@ -1448,6 +2280,38 @@ export type ElementType = HashPartial & {
 export type ElementTypeList = CommonApiResourceList;
 
 /**
+ * 属性资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type ElementTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<ElementType>;
+};
+
+/**
  * 属性组合资源
  */
 export type ElementTypeCombination = HashPartial & {
@@ -1482,6 +2346,38 @@ export type ElementTypeCombination = HashPartial & {
 export type ElementTypeCombinationList = CommonApiResourceList;
 
 /**
+ * 属性组合资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type ElementTypeCombinationListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<ElementTypeCombination>;
+};
+
+/**
  * 错误码资源
  */
 export type ErrorCode = HashPartial & {
@@ -1509,6 +2405,38 @@ export type ErrorCode = HashPartial & {
  * 错误码资源列表
  */
 export type ErrorCodeList = CommonApiResourceList;
+
+/**
+ * 错误码资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type ErrorCodeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<ErrorCode>;
+};
 
 /**
  * 术语条目资源
@@ -1556,6 +2484,38 @@ export type GlossaryEntry = HashPartial & {
  * 术语条目资源列表
  */
 export type GlossaryEntryList = CommonApiResourceList;
+
+/**
+ * 术语条目资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type GlossaryEntryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<GlossaryEntry>;
+};
 
 /**
  * 宝石资源
@@ -1636,6 +2596,38 @@ export type Gem = HashPartial & {
 export type GemList = CommonApiResourceList;
 
 /**
+ * 宝石资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type GemListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Gem>;
+};
+
+/**
  * 宝石类别资源
  */
 export type GemCategory = HashPartial & {
@@ -1671,6 +2663,38 @@ export type GemCategory = HashPartial & {
 export type GemCategoryList = CommonApiResourceList;
 
 /**
+ * 宝石类别资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type GemCategoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<GemCategory>;
+};
+
+/**
  * 宝石世代类别资源
  */
 export type GemGenerationCategory = HashPartial & {
@@ -1692,6 +2716,38 @@ export type GemGenerationCategory = HashPartial & {
  * 宝石世代类别资源列表
  */
 export type GemGenerationCategoryList = CommonApiResourceList;
+
+/**
+ * 宝石世代类别资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type GemGenerationCategoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<GemGenerationCategory>;
+};
 
 /**
  * 一代刻印宝石资源
@@ -1766,6 +2822,38 @@ export type GemGen1 = HashPartial & {
 export type GemGen1List = CommonApiResourceList;
 
 /**
+ * 一代刻印宝石资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type GemGen1ListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<GemGen1>;
+};
+
+/**
  * 二代刻印宝石资源
  */
 export type GemGen2 = HashPartial & {
@@ -1823,6 +2911,38 @@ export type GemGen2 = HashPartial & {
 export type GemGen2List = CommonApiResourceList;
 
 /**
+ * 二代刻印宝石资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type GemGen2ListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<GemGen2>;
+};
+
+/**
  * 精灵技能激活道具资源
  */
 export type SkillActivationItem = HashPartial & {
@@ -1853,6 +2973,38 @@ export type SkillActivationItem = HashPartial & {
  * 精灵技能激活道具资源列表
  */
 export type SkillActivationItemList = CommonApiResourceList;
+
+/**
+ * 精灵技能激活道具资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillActivationItemListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillActivationItem>;
+};
 
 /**
  * 技能石资源
@@ -1933,6 +3085,38 @@ export type SkillStone = HashPartial & {
 export type SkillStoneList = CommonApiResourceList;
 
 /**
+ * 技能石资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillStoneListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillStone>;
+};
+
+/**
  * 技能石分类资源
  */
 export type SkillStoneCategory = HashPartial & {
@@ -1961,6 +3145,38 @@ export type SkillStoneCategory = HashPartial & {
  * 技能石分类资源列表
  */
 export type SkillStoneCategoryList = CommonApiResourceList;
+
+/**
+ * 技能石分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillStoneCategoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillStoneCategory>;
+};
 
 /**
  * 刻印资源
@@ -2031,12 +3247,54 @@ export type Mintmark = HashPartial & {
      * 该刻印所绑定的技能列表，仅当该刻印为技能刻印时有效
      */
     skill?: Array<CommonResourceRef> | null;
+    /**
+     * 关联刻印，非 null 时表示该刻印在游戏内等效于所关联的刻印
+     */
+    connect?: CommonResourceRef | null;
+    /**
+     * Is Hidden
+     *
+     * 是否为隐藏刻印，隐藏刻印不会在图鉴中显示
+     */
+    is_hidden?: boolean;
 };
 
 /**
  * 刻印资源列表
  */
 export type MintmarkList = CommonApiResourceList;
+
+/**
+ * 刻印资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type MintmarkListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Mintmark>;
+};
 
 /**
  * 能力刻印资源
@@ -2075,6 +3333,38 @@ export type AbilityMintmark = HashPartial & {
  * 能力刻印资源列表
  */
 export type AbilityMintmarkList = CommonApiResourceList;
+
+/**
+ * 能力刻印资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type AbilityMintmarkListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<AbilityMintmark>;
+};
 
 /**
  * 技能刻印资源
@@ -2137,6 +3427,38 @@ export type SkillMintmark = HashPartial & {
 export type SkillMintmarkList = CommonApiResourceList;
 
 /**
+ * 技能刻印资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillMintmarkListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillMintmark>;
+};
+
+/**
  * 全能刻印资源
  */
 export type UniversalMintmark = HashPartial & {
@@ -2176,12 +3498,54 @@ export type UniversalMintmark = HashPartial & {
      * 刻印隐藏属性值，仅当该刻印为全能刻印并具有隐藏属性时有效
      */
     extra_attr_value?: CommonSixAttributes | null;
+    /**
+     * 关联刻印，非 null 时表示该刻印在游戏内等效于所关联的刻印
+     */
+    connect?: CommonResourceRef | null;
+    /**
+     * Is Hidden
+     *
+     * 是否为隐藏刻印，隐藏刻印不会在图鉴中显示
+     */
+    is_hidden?: boolean;
 };
 
 /**
  * 全能刻印资源列表
  */
 export type UniversalMintmarkList = CommonApiResourceList;
+
+/**
+ * 全能刻印资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type UniversalMintmarkListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<UniversalMintmark>;
+};
 
 /**
  * 刻印系列分类资源
@@ -2213,6 +3577,38 @@ export type MintmarkClass = HashPartial & {
 export type MintmarkClassList = CommonApiResourceList;
 
 /**
+ * 刻印系列分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type MintmarkClassListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<MintmarkClass>;
+};
+
+/**
  * 刻印类型分类资源
  */
 export type MintmarkType = HashPartial & {
@@ -2242,6 +3638,38 @@ export type MintmarkType = HashPartial & {
 export type MintmarkTypeList = CommonApiResourceList;
 
 /**
+ * 刻印类型分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type MintmarkTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<MintmarkType>;
+};
+
+/**
  * 刻印稀有度分类资源
  */
 export type MintmarkRarity = HashPartial & {
@@ -2263,6 +3691,38 @@ export type MintmarkRarity = HashPartial & {
  * 刻印稀有度分类资源列表
  */
 export type MintmarkRarityList = CommonApiResourceList;
+
+/**
+ * 刻印稀有度分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type MintmarkRarityListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<MintmarkRarity>;
+};
 
 /**
  * 性格资源
@@ -2301,6 +3761,38 @@ export type Nature = HashPartial & {
 export type NatureList = CommonApiResourceList;
 
 /**
+ * 性格资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type NatureListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Nature>;
+};
+
+/**
  * 巅峰圣战赛季资源
  */
 export type PeakSeason = HashPartial & {
@@ -2328,6 +3820,38 @@ export type PeakSeason = HashPartial & {
  * 巅峰圣战赛季资源列表
  */
 export type PeakSeasonList = CommonApiResourceList;
+
+/**
+ * 巅峰圣战赛季资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PeakSeasonListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PeakSeason>;
+};
 
 /**
  * 巅峰禁限池资源
@@ -2371,6 +3895,38 @@ export type PeakPool = HashPartial & {
 export type PeakPoolList = CommonApiResourceList;
 
 /**
+ * 巅峰禁限池资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PeakPoolListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PeakPool>;
+};
+
+/**
  * 巅峰专家模式禁限池资源
  */
 export type PeakExpertPool = HashPartial & {
@@ -2410,6 +3966,38 @@ export type PeakExpertPool = HashPartial & {
  * 巅峰专家模式禁限池资源列表
  */
 export type PeakExpertPoolList = CommonApiResourceList;
+
+/**
+ * 巅峰专家模式禁限池资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PeakExpertPoolListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PeakExpertPool>;
+};
 
 /**
  * 巅峰圣战禁限池票选资源
@@ -2457,6 +4045,38 @@ export type PeakPoolVote = HashPartial & {
  * 巅峰圣战禁限池票选资源列表
  */
 export type PeakPoolVoteList = CommonApiResourceList;
+
+/**
+ * 巅峰圣战禁限池票选资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PeakPoolVoteListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PeakPoolVote>;
+};
 
 /**
  * 精灵资源
@@ -2633,6 +4253,38 @@ export type Pet = HashPartial & {
 export type PetList = CommonApiResourceList;
 
 /**
+ * 精灵资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Pet>;
+};
+
+/**
  * 精灵类别资源
  */
 export type PetClass = HashPartial & {
@@ -2692,6 +4344,38 @@ export type PetClass = HashPartial & {
 export type PetClassList = CommonApiResourceList;
 
 /**
+ * 精灵类别资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetClassListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetClass>;
+};
+
+/**
  * 精灵性别分类资源
  */
 export type PetGender = HashPartial & {
@@ -2725,6 +4409,38 @@ export type PetGender = HashPartial & {
  * 精灵性别分类资源列表
  */
 export type PetGenderList = CommonApiResourceList;
+
+/**
+ * 精灵性别分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetGenderListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetGender>;
+};
 
 /**
  * 精灵VIP加成分类资源
@@ -2762,6 +4478,38 @@ export type PetVipbuff = HashPartial & {
 export type PetVipbuffList = CommonApiResourceList;
 
 /**
+ * 精灵VIP加成分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetVipbuffListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetVipbuff>;
+};
+
+/**
  * 精灵坐骑类型分类资源
  */
 export type PetMountType = HashPartial & {
@@ -2797,6 +4545,38 @@ export type PetMountType = HashPartial & {
 export type PetMountTypeList = CommonApiResourceList;
 
 /**
+ * 精灵坐骑类型分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetMountTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetMountType>;
+};
+
+/**
  * 精灵神谕觉醒信息资源
  */
 export type PetAdvance = HashPartial & {
@@ -2819,6 +4599,38 @@ export type PetAdvance = HashPartial & {
  * 精灵神谕觉醒信息资源列表
  */
 export type PetAdvanceList = CommonApiResourceList;
+
+/**
+ * 精灵神谕觉醒信息资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetAdvanceListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetAdvance>;
+};
 
 /**
  * 精灵皮肤资源
@@ -2872,6 +4684,38 @@ export type PetSkin = HashPartial & {
 export type PetSkinList = CommonApiResourceList;
 
 /**
+ * 精灵皮肤资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetSkinListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetSkin>;
+};
+
+/**
  * 精灵皮肤类型资源
  */
 export type PetSkinCategory = HashPartial & {
@@ -2893,6 +4737,38 @@ export type PetSkinCategory = HashPartial & {
  * 精灵皮肤类型资源列表
  */
 export type PetSkinCategoryList = CommonApiResourceList;
+
+/**
+ * 精灵皮肤类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetSkinCategoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetSkinCategory>;
+};
 
 /**
  * 精灵皮肤系列资源
@@ -2930,6 +4806,38 @@ export type PetSkinSeries = HashPartial & {
 export type PetSkinSeriesList = CommonApiResourceList;
 
 /**
+ * 精灵皮肤系列资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetSkinSeriesListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetSkinSeries>;
+};
+
+/**
  * 精灵皮肤系列子类型资源
  */
 export type PetSkinSeriesSubType = HashPartial & {
@@ -2958,6 +4866,38 @@ export type PetSkinSeriesSubType = HashPartial & {
  * 精灵皮肤系列子类型资源列表
  */
 export type PetSkinSeriesSubTypeList = CommonApiResourceList;
+
+/**
+ * 精灵皮肤系列子类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetSkinSeriesSubTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetSkinSeriesSubType>;
+};
 
 /**
  * 精灵图鉴条目资源
@@ -3020,6 +4960,38 @@ export type PetEncyclopediaEntry = HashPartial & {
 export type PetEncyclopediaEntryList = CommonApiResourceList;
 
 /**
+ * 精灵图鉴条目资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetEncyclopediaEntryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetEncyclopediaEntry>;
+};
+
+/**
  * 精灵故事系列资源
  */
 export type PetArchiveStoryBook = HashPartial & {
@@ -3047,6 +5019,38 @@ export type PetArchiveStoryBook = HashPartial & {
  * 精灵故事系列资源列表
  */
 export type PetArchiveStoryBookList = CommonApiResourceList;
+
+/**
+ * 精灵故事系列资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetArchiveStoryBookListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetArchiveStoryBook>;
+};
 
 /**
  * 技能资源
@@ -3148,6 +5152,38 @@ export type Skill = HashPartial & {
 export type SkillList = CommonApiResourceList;
 
 /**
+ * 技能资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Skill>;
+};
+
+/**
  * 技能效果资源
  */
 export type SkillEffectType = HashPartial & {
@@ -3225,6 +5261,38 @@ export type SkillEffectType = HashPartial & {
 export type SkillEffectTypeList = CommonApiResourceList;
 
 /**
+ * 技能效果资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillEffectTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillEffectType>;
+};
+
+/**
  * 技能效果参数资源
  */
 export type SkillEffectParam = HashPartial & {
@@ -3246,6 +5314,38 @@ export type SkillEffectParam = HashPartial & {
  * 技能效果参数资源列表
  */
 export type SkillEffectParamList = CommonApiResourceList;
+
+/**
+ * 技能效果参数资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillEffectParamListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillEffectParam>;
+};
 
 /**
  * 技能隐藏效果资源
@@ -3283,6 +5383,38 @@ export type SkillHideEffect = HashPartial & {
 export type SkillHideEffectList = CommonApiResourceList;
 
 /**
+ * 技能隐藏效果资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillHideEffectListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillHideEffect>;
+};
+
+/**
  * 技能分类资源
  */
 export type SkillCategory = HashPartial & {
@@ -3312,6 +5444,38 @@ export type SkillCategory = HashPartial & {
 export type SkillCategoryList = CommonApiResourceList;
 
 /**
+ * 技能分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillCategoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillCategory>;
+};
+
+/**
  * 技能效果类型标签资源
  */
 export type SkillEffectTypeTag = HashPartial & {
@@ -3339,6 +5503,38 @@ export type SkillEffectTypeTag = HashPartial & {
  * 技能效果类型标签资源列表
  */
 export type SkillEffectTypeTagList = CommonApiResourceList;
+
+/**
+ * 技能效果类型标签资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SkillEffectTypeTagListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SkillEffectTypeTag>;
+};
 
 export type ApiMetadata = HashPartial & {
     /**
@@ -3692,6 +5888,13 @@ export type Limit = number;
  */
 export type Offset = number;
 
+/**
+ * 控制 results 的返回格式：
+ * - `false`（默认）：返回轻量引用（NamedResourceRef）
+ * - `true`：返回完整资源对象
+ */
+export type Expand = boolean;
+
 export type GetAchievementByIdData = {
     body?: never;
     path: {
@@ -3725,15 +5928,21 @@ export type GetAchievementListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/achievement/';
 };
 
 export type GetAchievementListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: AchievementList;
+    200: AchievementList | AchievementListExpanded;
 };
 
 export type GetAchievementListResponse = GetAchievementListResponses[keyof GetAchievementListResponses];
@@ -3771,15 +5980,21 @@ export type GetAchievementBranchListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/achievement_branch/';
 };
 
 export type GetAchievementBranchListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: AchievementBranchList;
+    200: AchievementBranchList | AchievementBranchListExpanded;
 };
 
 export type GetAchievementBranchListResponse = GetAchievementBranchListResponses[keyof GetAchievementBranchListResponses];
@@ -3817,15 +6032,21 @@ export type GetAchievementTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/achievement_type/';
 };
 
 export type GetAchievementTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: AchievementTypeList;
+    200: AchievementTypeList | AchievementTypeListExpanded;
 };
 
 export type GetAchievementTypeListResponse = GetAchievementTypeListResponses[keyof GetAchievementTypeListResponses];
@@ -3863,15 +6084,21 @@ export type GetAchievementCategoryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/achievement_category/';
 };
 
 export type GetAchievementCategoryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: AchievementCategoryList;
+    200: AchievementCategoryList | AchievementCategoryListExpanded;
 };
 
 export type GetAchievementCategoryListResponse = GetAchievementCategoryListResponses[keyof GetAchievementCategoryListResponses];
@@ -3909,15 +6136,21 @@ export type GetTitleListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/title/';
 };
 
 export type GetTitleListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: TitleList;
+    200: TitleList | TitleListExpanded;
 };
 
 export type GetTitleListResponse = GetTitleListResponses[keyof GetTitleListResponses];
@@ -3955,15 +6188,21 @@ export type GetActivityListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/activity/';
 };
 
 export type GetActivityListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: ActivityList;
+    200: ActivityList | ActivityListExpanded;
 };
 
 export type GetActivityListResponse = GetActivityListResponses[keyof GetActivityListResponses];
@@ -4001,15 +6240,21 @@ export type GetActivityTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/activity_type/';
 };
 
 export type GetActivityTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: ActivityTypeList;
+    200: ActivityTypeList | ActivityTypeListExpanded;
 };
 
 export type GetActivityTypeListResponse = GetActivityTypeListResponses[keyof GetActivityTypeListResponses];
@@ -4047,15 +6292,21 @@ export type GetBattleEffectListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/battle_effect/';
 };
 
 export type GetBattleEffectListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: BattleEffectList;
+    200: BattleEffectList | BattleEffectListExpanded;
 };
 
 export type GetBattleEffectListResponse = GetBattleEffectListResponses[keyof GetBattleEffectListResponses];
@@ -4093,15 +6344,21 @@ export type GetBattleEffectTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/battle_effect_type/';
 };
 
 export type GetBattleEffectTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: BattleEffectTypeList;
+    200: BattleEffectTypeList | BattleEffectTypeListExpanded;
 };
 
 export type GetBattleEffectTypeListResponse = GetBattleEffectTypeListResponses[keyof GetBattleEffectTypeListResponses];
@@ -4139,15 +6396,21 @@ export type GetResistanceCategoryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/resistance_category/';
 };
 
 export type GetResistanceCategoryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: ResistanceCategoryList;
+    200: ResistanceCategoryList | ResistanceCategoryListExpanded;
 };
 
 export type GetResistanceCategoryListResponse = GetResistanceCategoryListResponses[keyof GetResistanceCategoryListResponses];
@@ -4185,15 +6448,21 @@ export type GetAvatarHeadListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/avatar_head/';
 };
 
 export type GetAvatarHeadListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: AvatarHeadList;
+    200: AvatarHeadList | AvatarHeadListExpanded;
 };
 
 export type GetAvatarHeadListResponse = GetAvatarHeadListResponses[keyof GetAvatarHeadListResponses];
@@ -4231,15 +6500,21 @@ export type GetAvatarFrameListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/avatar_frame/';
 };
 
 export type GetAvatarFrameListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: AvatarFrameList;
+    200: AvatarFrameList | AvatarFrameListExpanded;
 };
 
 export type GetAvatarFrameListResponse = GetAvatarFrameListResponses[keyof GetAvatarFrameListResponses];
@@ -4277,15 +6552,21 @@ export type GetNamecardBackgroundListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/namecard_background/';
 };
 
 export type GetNamecardBackgroundListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: NamecardBackgroundList;
+    200: NamecardBackgroundList | NamecardBackgroundListExpanded;
 };
 
 export type GetNamecardBackgroundListResponse = GetNamecardBackgroundListResponses[keyof GetNamecardBackgroundListResponses];
@@ -4323,15 +6604,21 @@ export type GetNicknameBackgroundListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/nickname_background/';
 };
 
 export type GetNicknameBackgroundListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: NicknameBackgroundList;
+    200: NicknameBackgroundList | NicknameBackgroundListExpanded;
 };
 
 export type GetNicknameBackgroundListResponse = GetNicknameBackgroundListResponses[keyof GetNicknameBackgroundListResponses];
@@ -4369,15 +6656,21 @@ export type GetHomepageBackgroundListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/homepage_background/';
 };
 
 export type GetHomepageBackgroundListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: HomepageBackgroundList;
+    200: HomepageBackgroundList | HomepageBackgroundListExpanded;
 };
 
 export type GetHomepageBackgroundListResponse = GetHomepageBackgroundListResponses[keyof GetHomepageBackgroundListResponses];
@@ -4415,15 +6708,21 @@ export type GetPetEffectListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_effect/';
 };
 
 export type GetPetEffectListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetEffectList;
+    200: PetEffectList | PetEffectListExpanded;
 };
 
 export type GetPetEffectListResponse = GetPetEffectListResponses[keyof GetPetEffectListResponses];
@@ -4461,15 +6760,21 @@ export type GetPetEffectGroupListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_effect_group/';
 };
 
 export type GetPetEffectGroupListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetEffectGroupList;
+    200: PetEffectGroupList | PetEffectGroupListExpanded;
 };
 
 export type GetPetEffectGroupListResponse = GetPetEffectGroupListResponses[keyof GetPetEffectGroupListResponses];
@@ -4507,15 +6812,21 @@ export type GetPetVariationListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_variation/';
 };
 
 export type GetPetVariationListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetVariationList;
+    200: PetVariationList | PetVariationListExpanded;
 };
 
 export type GetPetVariationListResponse = GetPetVariationListResponses[keyof GetPetVariationListResponses];
@@ -4553,15 +6864,21 @@ export type GetEidEffectListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/eid_effect/';
 };
 
 export type GetEidEffectListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: EidEffectList;
+    200: EidEffectList | EidEffectListExpanded;
 };
 
 export type GetEidEffectListResponse = GetEidEffectListResponses[keyof GetEidEffectListResponses];
@@ -4599,15 +6916,21 @@ export type GetEnergyBeadListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/energy_bead/';
 };
 
 export type GetEnergyBeadListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: EnergyBeadList;
+    200: EnergyBeadList | EnergyBeadListExpanded;
 };
 
 export type GetEnergyBeadListResponse = GetEnergyBeadListResponses[keyof GetEnergyBeadListResponses];
@@ -4645,15 +6968,21 @@ export type GetEquipListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/equip/';
 };
 
 export type GetEquipListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: EquipList;
+    200: EquipList | EquipListExpanded;
 };
 
 export type GetEquipListResponse = GetEquipListResponses[keyof GetEquipListResponses];
@@ -4691,15 +7020,21 @@ export type GetSuitListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/suit/';
 };
 
 export type GetSuitListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SuitList;
+    200: SuitList | SuitListExpanded;
 };
 
 export type GetSuitListResponse = GetSuitListResponses[keyof GetSuitListResponses];
@@ -4737,15 +7072,21 @@ export type GetEquipTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/equip_type/';
 };
 
 export type GetEquipTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: EquipTypeList;
+    200: EquipTypeList | EquipTypeListExpanded;
 };
 
 export type GetEquipTypeListResponse = GetEquipTypeListResponses[keyof GetEquipTypeListResponses];
@@ -4783,15 +7124,21 @@ export type GetEquipEffectiveOccasionListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/equip_effective_occasion/';
 };
 
 export type GetEquipEffectiveOccasionListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: EquipEffectiveOccasionList;
+    200: EquipEffectiveOccasionList | EquipEffectiveOccasionListExpanded;
 };
 
 export type GetEquipEffectiveOccasionListResponse = GetEquipEffectiveOccasionListResponses[keyof GetEquipEffectiveOccasionListResponses];
@@ -4829,15 +7176,21 @@ export type GetSoulmarkListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/soulmark/';
 };
 
 export type GetSoulmarkListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SoulmarkList;
+    200: SoulmarkList | SoulmarkListExpanded;
 };
 
 export type GetSoulmarkListResponse = GetSoulmarkListResponses[keyof GetSoulmarkListResponses];
@@ -4875,15 +7228,21 @@ export type GetSoulmarkTagListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/soulmark_tag/';
 };
 
 export type GetSoulmarkTagListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SoulmarkTagList;
+    200: SoulmarkTagList | SoulmarkTagListExpanded;
 };
 
 export type GetSoulmarkTagListResponse = GetSoulmarkTagListResponses[keyof GetSoulmarkTagListResponses];
@@ -4921,15 +7280,21 @@ export type GetElementTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/element_type/';
 };
 
 export type GetElementTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: ElementTypeList;
+    200: ElementTypeList | ElementTypeListExpanded;
 };
 
 export type GetElementTypeListResponse = GetElementTypeListResponses[keyof GetElementTypeListResponses];
@@ -4967,15 +7332,21 @@ export type GetElementTypeCombinationListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/element_type_combination/';
 };
 
 export type GetElementTypeCombinationListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: ElementTypeCombinationList;
+    200: ElementTypeCombinationList | ElementTypeCombinationListExpanded;
 };
 
 export type GetElementTypeCombinationListResponse = GetElementTypeCombinationListResponses[keyof GetElementTypeCombinationListResponses];
@@ -5013,15 +7384,21 @@ export type GetErrorCodeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/error_code/';
 };
 
 export type GetErrorCodeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: ErrorCodeList;
+    200: ErrorCodeList | ErrorCodeListExpanded;
 };
 
 export type GetErrorCodeListResponse = GetErrorCodeListResponses[keyof GetErrorCodeListResponses];
@@ -5059,15 +7436,21 @@ export type GetGlossaryEntryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/glossary_entry/';
 };
 
 export type GetGlossaryEntryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: GlossaryEntryList;
+    200: GlossaryEntryList | GlossaryEntryListExpanded;
 };
 
 export type GetGlossaryEntryListResponse = GetGlossaryEntryListResponses[keyof GetGlossaryEntryListResponses];
@@ -5105,15 +7488,21 @@ export type GetGemListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/gem/';
 };
 
 export type GetGemListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: GemList;
+    200: GemList | GemListExpanded;
 };
 
 export type GetGemListResponse = GetGemListResponses[keyof GetGemListResponses];
@@ -5151,15 +7540,21 @@ export type GetGemCategoryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/gem_category/';
 };
 
 export type GetGemCategoryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: GemCategoryList;
+    200: GemCategoryList | GemCategoryListExpanded;
 };
 
 export type GetGemCategoryListResponse = GetGemCategoryListResponses[keyof GetGemCategoryListResponses];
@@ -5197,15 +7592,21 @@ export type GetGemGenerationCategoryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/gem_generation_category/';
 };
 
 export type GetGemGenerationCategoryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: GemGenerationCategoryList;
+    200: GemGenerationCategoryList | GemGenerationCategoryListExpanded;
 };
 
 export type GetGemGenerationCategoryListResponse = GetGemGenerationCategoryListResponses[keyof GetGemGenerationCategoryListResponses];
@@ -5243,15 +7644,21 @@ export type GetGemGen1ListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/gem_gen1/';
 };
 
 export type GetGemGen1ListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: GemGen1List;
+    200: GemGen1List | GemGen1ListExpanded;
 };
 
 export type GetGemGen1ListResponse = GetGemGen1ListResponses[keyof GetGemGen1ListResponses];
@@ -5289,15 +7696,21 @@ export type GetGemGen2ListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/gem_gen2/';
 };
 
 export type GetGemGen2ListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: GemGen2List;
+    200: GemGen2List | GemGen2ListExpanded;
 };
 
 export type GetGemGen2ListResponse = GetGemGen2ListResponses[keyof GetGemGen2ListResponses];
@@ -5335,15 +7748,21 @@ export type GetSkillActivationItemListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_activation_item/';
 };
 
 export type GetSkillActivationItemListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillActivationItemList;
+    200: SkillActivationItemList | SkillActivationItemListExpanded;
 };
 
 export type GetSkillActivationItemListResponse = GetSkillActivationItemListResponses[keyof GetSkillActivationItemListResponses];
@@ -5381,15 +7800,21 @@ export type GetSkillStoneListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_stone/';
 };
 
 export type GetSkillStoneListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillStoneList;
+    200: SkillStoneList | SkillStoneListExpanded;
 };
 
 export type GetSkillStoneListResponse = GetSkillStoneListResponses[keyof GetSkillStoneListResponses];
@@ -5427,15 +7852,21 @@ export type GetSkillStoneCategoryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_stone_category/';
 };
 
 export type GetSkillStoneCategoryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillStoneCategoryList;
+    200: SkillStoneCategoryList | SkillStoneCategoryListExpanded;
 };
 
 export type GetSkillStoneCategoryListResponse = GetSkillStoneCategoryListResponses[keyof GetSkillStoneCategoryListResponses];
@@ -5473,15 +7904,21 @@ export type GetMintmarkListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/mintmark/';
 };
 
 export type GetMintmarkListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: MintmarkList;
+    200: MintmarkList | MintmarkListExpanded;
 };
 
 export type GetMintmarkListResponse = GetMintmarkListResponses[keyof GetMintmarkListResponses];
@@ -5519,15 +7956,21 @@ export type GetAbilityMintmarkListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/ability_mintmark/';
 };
 
 export type GetAbilityMintmarkListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: AbilityMintmarkList;
+    200: AbilityMintmarkList | AbilityMintmarkListExpanded;
 };
 
 export type GetAbilityMintmarkListResponse = GetAbilityMintmarkListResponses[keyof GetAbilityMintmarkListResponses];
@@ -5565,15 +8008,21 @@ export type GetSkillMintmarkListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_mintmark/';
 };
 
 export type GetSkillMintmarkListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillMintmarkList;
+    200: SkillMintmarkList | SkillMintmarkListExpanded;
 };
 
 export type GetSkillMintmarkListResponse = GetSkillMintmarkListResponses[keyof GetSkillMintmarkListResponses];
@@ -5611,15 +8060,21 @@ export type GetUniversalMintmarkListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/universal_mintmark/';
 };
 
 export type GetUniversalMintmarkListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: UniversalMintmarkList;
+    200: UniversalMintmarkList | UniversalMintmarkListExpanded;
 };
 
 export type GetUniversalMintmarkListResponse = GetUniversalMintmarkListResponses[keyof GetUniversalMintmarkListResponses];
@@ -5657,15 +8112,21 @@ export type GetMintmarkClassListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/mintmark_class/';
 };
 
 export type GetMintmarkClassListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: MintmarkClassList;
+    200: MintmarkClassList | MintmarkClassListExpanded;
 };
 
 export type GetMintmarkClassListResponse = GetMintmarkClassListResponses[keyof GetMintmarkClassListResponses];
@@ -5703,15 +8164,21 @@ export type GetMintmarkTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/mintmark_type/';
 };
 
 export type GetMintmarkTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: MintmarkTypeList;
+    200: MintmarkTypeList | MintmarkTypeListExpanded;
 };
 
 export type GetMintmarkTypeListResponse = GetMintmarkTypeListResponses[keyof GetMintmarkTypeListResponses];
@@ -5749,15 +8216,21 @@ export type GetMintmarkRarityListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/mintmark_rarity/';
 };
 
 export type GetMintmarkRarityListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: MintmarkRarityList;
+    200: MintmarkRarityList | MintmarkRarityListExpanded;
 };
 
 export type GetMintmarkRarityListResponse = GetMintmarkRarityListResponses[keyof GetMintmarkRarityListResponses];
@@ -5795,15 +8268,21 @@ export type GetNatureListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/nature/';
 };
 
 export type GetNatureListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: NatureList;
+    200: NatureList | NatureListExpanded;
 };
 
 export type GetNatureListResponse = GetNatureListResponses[keyof GetNatureListResponses];
@@ -5841,15 +8320,21 @@ export type GetPeakSeasonListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/peak_season/';
 };
 
 export type GetPeakSeasonListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PeakSeasonList;
+    200: PeakSeasonList | PeakSeasonListExpanded;
 };
 
 export type GetPeakSeasonListResponse = GetPeakSeasonListResponses[keyof GetPeakSeasonListResponses];
@@ -5887,15 +8372,21 @@ export type GetPeakPoolListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/peak_pool/';
 };
 
 export type GetPeakPoolListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PeakPoolList;
+    200: PeakPoolList | PeakPoolListExpanded;
 };
 
 export type GetPeakPoolListResponse = GetPeakPoolListResponses[keyof GetPeakPoolListResponses];
@@ -5933,15 +8424,21 @@ export type GetPeakExpertPoolListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/peak_expert_pool/';
 };
 
 export type GetPeakExpertPoolListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PeakExpertPoolList;
+    200: PeakExpertPoolList | PeakExpertPoolListExpanded;
 };
 
 export type GetPeakExpertPoolListResponse = GetPeakExpertPoolListResponses[keyof GetPeakExpertPoolListResponses];
@@ -5979,15 +8476,21 @@ export type GetPeakPoolVoteListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/peak_pool_vote/';
 };
 
 export type GetPeakPoolVoteListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PeakPoolVoteList;
+    200: PeakPoolVoteList | PeakPoolVoteListExpanded;
 };
 
 export type GetPeakPoolVoteListResponse = GetPeakPoolVoteListResponses[keyof GetPeakPoolVoteListResponses];
@@ -6025,15 +8528,21 @@ export type GetPetListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet/';
 };
 
 export type GetPetListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetList;
+    200: PetList | PetListExpanded;
 };
 
 export type GetPetListResponse = GetPetListResponses[keyof GetPetListResponses];
@@ -6071,15 +8580,21 @@ export type GetPetClassListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_class/';
 };
 
 export type GetPetClassListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetClassList;
+    200: PetClassList | PetClassListExpanded;
 };
 
 export type GetPetClassListResponse = GetPetClassListResponses[keyof GetPetClassListResponses];
@@ -6117,15 +8632,21 @@ export type GetPetGenderListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_gender/';
 };
 
 export type GetPetGenderListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetGenderList;
+    200: PetGenderList | PetGenderListExpanded;
 };
 
 export type GetPetGenderListResponse = GetPetGenderListResponses[keyof GetPetGenderListResponses];
@@ -6163,15 +8684,21 @@ export type GetPetVipbuffListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_vipbuff/';
 };
 
 export type GetPetVipbuffListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetVipbuffList;
+    200: PetVipbuffList | PetVipbuffListExpanded;
 };
 
 export type GetPetVipbuffListResponse = GetPetVipbuffListResponses[keyof GetPetVipbuffListResponses];
@@ -6209,15 +8736,21 @@ export type GetPetMountTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_mount_type/';
 };
 
 export type GetPetMountTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetMountTypeList;
+    200: PetMountTypeList | PetMountTypeListExpanded;
 };
 
 export type GetPetMountTypeListResponse = GetPetMountTypeListResponses[keyof GetPetMountTypeListResponses];
@@ -6255,15 +8788,21 @@ export type GetPetAdvanceListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_advance/';
 };
 
 export type GetPetAdvanceListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetAdvanceList;
+    200: PetAdvanceList | PetAdvanceListExpanded;
 };
 
 export type GetPetAdvanceListResponse = GetPetAdvanceListResponses[keyof GetPetAdvanceListResponses];
@@ -6301,15 +8840,21 @@ export type GetPetSkinListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_skin/';
 };
 
 export type GetPetSkinListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetSkinList;
+    200: PetSkinList | PetSkinListExpanded;
 };
 
 export type GetPetSkinListResponse = GetPetSkinListResponses[keyof GetPetSkinListResponses];
@@ -6347,15 +8892,21 @@ export type GetPetSkinCategoryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_skin_category/';
 };
 
 export type GetPetSkinCategoryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetSkinCategoryList;
+    200: PetSkinCategoryList | PetSkinCategoryListExpanded;
 };
 
 export type GetPetSkinCategoryListResponse = GetPetSkinCategoryListResponses[keyof GetPetSkinCategoryListResponses];
@@ -6393,15 +8944,21 @@ export type GetPetSkinSeriesListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_skin_series/';
 };
 
 export type GetPetSkinSeriesListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetSkinSeriesList;
+    200: PetSkinSeriesList | PetSkinSeriesListExpanded;
 };
 
 export type GetPetSkinSeriesListResponse = GetPetSkinSeriesListResponses[keyof GetPetSkinSeriesListResponses];
@@ -6439,15 +8996,21 @@ export type GetPetSkinSeriesSubTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_skin_series_sub_type/';
 };
 
 export type GetPetSkinSeriesSubTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetSkinSeriesSubTypeList;
+    200: PetSkinSeriesSubTypeList | PetSkinSeriesSubTypeListExpanded;
 };
 
 export type GetPetSkinSeriesSubTypeListResponse = GetPetSkinSeriesSubTypeListResponses[keyof GetPetSkinSeriesSubTypeListResponses];
@@ -6485,15 +9048,21 @@ export type GetPetEncyclopediaEntryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_encyclopedia_entry/';
 };
 
 export type GetPetEncyclopediaEntryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetEncyclopediaEntryList;
+    200: PetEncyclopediaEntryList | PetEncyclopediaEntryListExpanded;
 };
 
 export type GetPetEncyclopediaEntryListResponse = GetPetEncyclopediaEntryListResponses[keyof GetPetEncyclopediaEntryListResponses];
@@ -6531,15 +9100,21 @@ export type GetPetArchiveStoryBookListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/pet_archive_story_book/';
 };
 
 export type GetPetArchiveStoryBookListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetArchiveStoryBookList;
+    200: PetArchiveStoryBookList | PetArchiveStoryBookListExpanded;
 };
 
 export type GetPetArchiveStoryBookListResponse = GetPetArchiveStoryBookListResponses[keyof GetPetArchiveStoryBookListResponses];
@@ -6577,15 +9152,21 @@ export type GetSkillListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill/';
 };
 
 export type GetSkillListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillList;
+    200: SkillList | SkillListExpanded;
 };
 
 export type GetSkillListResponse = GetSkillListResponses[keyof GetSkillListResponses];
@@ -6623,15 +9204,21 @@ export type GetSkillEffectTypeListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_effect_type/';
 };
 
 export type GetSkillEffectTypeListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillEffectTypeList;
+    200: SkillEffectTypeList | SkillEffectTypeListExpanded;
 };
 
 export type GetSkillEffectTypeListResponse = GetSkillEffectTypeListResponses[keyof GetSkillEffectTypeListResponses];
@@ -6669,15 +9256,21 @@ export type GetSkillEffectParamListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_effect_param/';
 };
 
 export type GetSkillEffectParamListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillEffectParamList;
+    200: SkillEffectParamList | SkillEffectParamListExpanded;
 };
 
 export type GetSkillEffectParamListResponse = GetSkillEffectParamListResponses[keyof GetSkillEffectParamListResponses];
@@ -6715,15 +9308,21 @@ export type GetSkillHideEffectListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_hide_effect/';
 };
 
 export type GetSkillHideEffectListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillHideEffectList;
+    200: SkillHideEffectList | SkillHideEffectListExpanded;
 };
 
 export type GetSkillHideEffectListResponse = GetSkillHideEffectListResponses[keyof GetSkillHideEffectListResponses];
@@ -6761,15 +9360,21 @@ export type GetSkillCategoryListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_category/';
 };
 
 export type GetSkillCategoryListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillCategoryList;
+    200: SkillCategoryList | SkillCategoryListExpanded;
 };
 
 export type GetSkillCategoryListResponse = GetSkillCategoryListResponses[keyof GetSkillCategoryListResponses];
@@ -6807,15 +9412,21 @@ export type GetSkillEffectTypeTagListData = {
          * 每页返回的最大结果数
          */
         limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
     };
     url: 'v1/skill_effect_type_tag/';
 };
 
 export type GetSkillEffectTypeTagListResponses = {
     /**
-     * OK
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: SkillEffectTypeTagList;
+    200: SkillEffectTypeTagList | SkillEffectTypeTagListExpanded;
 };
 
 export type GetSkillEffectTypeTagListResponse = GetSkillEffectTypeTagListResponses[keyof GetSkillEffectTypeTagListResponses];

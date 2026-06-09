@@ -10,6 +10,10 @@ from seerapi._typing import T_ModelInstance, T_NamedModelInstance
 import seerapi_models as M
 from seerapi_models.common import NamedData, ResourceRef
 
+def _parse_url_page_info(
+    url: str | None, *, expand_fallback: bool = True
+) -> PageInfo | None: ...
+
 class SeerAPI:
     scheme: str
     hostname: str
@@ -575,285 +579,293 @@ class SeerAPI:
         self, resource_name: ResourceRef[T_ModelInstance], page_info: PageInfo
     ) -> PagedResponse[T_ModelInstance]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['activity']
+    def list(
+        self, resource_name: Literal['activity'], *, expand: bool = True
     ) -> AsyncGenerator[M.Activity]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['activity_type']
+    def list(
+        self, resource_name: Literal['activity_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.ActivityType]: ...
     @overload
     @overload
-    async def list(
-        self, resource_name: Literal['achievement']
+    def list(
+        self, resource_name: Literal['achievement'], *, expand: bool = True
     ) -> AsyncGenerator[M.Achievement]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['achievement_branch']
+    def list(
+        self, resource_name: Literal['achievement_branch'], *, expand: bool = True
     ) -> AsyncGenerator[M.AchievementBranch]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['achievement_category']
+    def list(
+        self, resource_name: Literal['achievement_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.AchievementCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['achievement_type']
+    def list(
+        self, resource_name: Literal['achievement_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.AchievementType]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['title']
+    def list(
+        self, resource_name: Literal['title'], *, expand: bool = True
     ) -> AsyncGenerator[M.Title]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['battle_effect']
+    def list(
+        self, resource_name: Literal['battle_effect'], *, expand: bool = True
     ) -> AsyncGenerator[M.BattleEffect]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['battle_effect_type']
+    def list(
+        self, resource_name: Literal['battle_effect_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.BattleEffectCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['resistance_category']
+    def list(
+        self, resource_name: Literal['resistance_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.ResistanceCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_effect']
+    def list(
+        self, resource_name: Literal['pet_effect'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetEffect]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_effect_group']
+    def list(
+        self, resource_name: Literal['pet_effect_group'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetEffectGroup]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_variation']
+    def list(
+        self, resource_name: Literal['pet_variation'], *, expand: bool = True
     ) -> AsyncGenerator[M.VariationEffect]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['energy_bead']
+    def list(
+        self, resource_name: Literal['energy_bead'], *, expand: bool = True
     ) -> AsyncGenerator[M.EnergyBead]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['equip']
+    def list(
+        self, resource_name: Literal['equip'], *, expand: bool = True
     ) -> AsyncGenerator[M.Equip]: ...
     @overload
-    async def list(self, resource_name: Literal['suit']) -> AsyncGenerator[M.Suit]: ...
+    def list(
+        self, resource_name: Literal['suit'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Suit]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['equip_type']
+    def list(
+        self, resource_name: Literal['equip_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.EquipType]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['equip_effective_occasion']
+    def list(
+        self, resource_name: Literal['equip_effective_occasion'], *, expand: bool = True
     ) -> AsyncGenerator[M.EquipEffectiveOccasion]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['soulmark']
+    def list(
+        self, resource_name: Literal['soulmark'], *, expand: bool = True
     ) -> AsyncGenerator[M.Soulmark]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['soulmark_tag']
+    def list(
+        self, resource_name: Literal['soulmark_tag'], *, expand: bool = True
     ) -> AsyncGenerator[M.SoulmarkTagCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['element_type']
+    def list(
+        self, resource_name: Literal['element_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.ElementType]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['element_type_combination']
+    def list(
+        self, resource_name: Literal['element_type_combination'], *, expand: bool = True
     ) -> AsyncGenerator[M.TypeCombination]: ...
     @overload
-    async def list(self, resource_name: Literal['item']) -> AsyncGenerator[M.Item]: ...
+    def list(
+        self, resource_name: Literal['item'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Item]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['item_category']
+    def list(
+        self, resource_name: Literal['item_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.ItemCategory]: ...
     @overload
-    async def list(self, resource_name: Literal['gem']) -> AsyncGenerator[M.Gem]: ...
+    def list(
+        self, resource_name: Literal['gem'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Gem]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['gem_category']
+    def list(
+        self, resource_name: Literal['gem_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.GemCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['gem_generation_category']
+    def list(
+        self, resource_name: Literal['gem_generation_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.GemGenCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_activation_item']
+    def list(
+        self, resource_name: Literal['skill_activation_item'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillActivationItem]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_stone']
+    def list(
+        self, resource_name: Literal['skill_stone'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillStone]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_stone_category']
+    def list(
+        self, resource_name: Literal['skill_stone_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillStoneCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['mintmark']
+    def list(
+        self, resource_name: Literal['mintmark'], *, expand: bool = True
     ) -> AsyncGenerator[M.Mintmark]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['ability_mintmark']
+    def list(
+        self, resource_name: Literal['ability_mintmark'], *, expand: bool = True
     ) -> AsyncGenerator[M.AbilityMintmark]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_mintmark']
+    def list(
+        self, resource_name: Literal['skill_mintmark'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillMintmark]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['universal_mintmark']
+    def list(
+        self, resource_name: Literal['universal_mintmark'], *, expand: bool = True
     ) -> AsyncGenerator[M.UniversalMintmark]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['mintmark_class']
+    def list(
+        self, resource_name: Literal['mintmark_class'], *, expand: bool = True
     ) -> AsyncGenerator[M.MintmarkClassCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['mintmark_type']
+    def list(
+        self, resource_name: Literal['mintmark_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.MintmarkTypeCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['mintmark_rarity']
+    def list(
+        self, resource_name: Literal['mintmark_rarity'], *, expand: bool = True
     ) -> AsyncGenerator[M.MintmarkRarityCategory]: ...
     @overload
-    async def list(self, resource_name: Literal['pet']) -> AsyncGenerator[M.Pet]: ...
+    def list(
+        self, resource_name: Literal['pet'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Pet]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_class']
+    def list(
+        self, resource_name: Literal['pet_class'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetClass]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_gender']
+    def list(
+        self, resource_name: Literal['pet_gender'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetGenderCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_vipbuff']
+    def list(
+        self, resource_name: Literal['pet_vipbuff'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetVipBuffCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_mount_type']
+    def list(
+        self, resource_name: Literal['pet_mount_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetMountTypeCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_skin']
+    def list(
+        self, resource_name: Literal['pet_skin'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetSkin]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_skin_category']
+    def list(
+        self, resource_name: Literal['pet_skin_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetSkinCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_skin_series']
+    def list(
+        self, resource_name: Literal['pet_skin_series'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetSkinSeries]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_skin_series_sub_type']
+    def list(
+        self, resource_name: Literal['pet_skin_series_sub_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetSkinSeriesSubType]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_archive_story_entry']
+    def list(
+        self, resource_name: Literal['pet_archive_story_entry'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetArchiveStoryEntry]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_archive_story_book']
+    def list(
+        self, resource_name: Literal['pet_archive_story_book'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetArchiveStoryBook]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_encyclopedia_entry']
+    def list(
+        self, resource_name: Literal['pet_encyclopedia_entry'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetEncyclopediaEntry]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['nature']
+    def list(
+        self, resource_name: Literal['nature'], *, expand: bool = True
     ) -> AsyncGenerator[M.Nature]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill']
+    def list(
+        self, resource_name: Literal['skill'], *, expand: bool = True
     ) -> AsyncGenerator[M.Skill]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_effect_type']
+    def list(
+        self, resource_name: Literal['skill_effect_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillEffectType]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_effect_param']
+    def list(
+        self, resource_name: Literal['skill_effect_param'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillEffectParam]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_hide_effect']
+    def list(
+        self, resource_name: Literal['skill_hide_effect'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillHideEffect]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_category']
+    def list(
+        self, resource_name: Literal['skill_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillCategory]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['skill_effect_type_tag']
+    def list(
+        self, resource_name: Literal['skill_effect_type_tag'], *, expand: bool = True
     ) -> AsyncGenerator[M.SkillEffectTypeTag]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['eid_effect']
+    def list(
+        self, resource_name: Literal['eid_effect'], *, expand: bool = True
     ) -> AsyncGenerator[M.EidEffect]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['peak_pool']
+    def list(
+        self, resource_name: Literal['peak_pool'], *, expand: bool = True
     ) -> AsyncGenerator[M.PeakPool]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['peak_expert_pool']
+    def list(
+        self, resource_name: Literal['peak_expert_pool'], *, expand: bool = True
     ) -> AsyncGenerator[M.PeakExpertPool]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['peak_season']
+    def list(
+        self, resource_name: Literal['peak_season'], *, expand: bool = True
     ) -> AsyncGenerator[M.PeakSeason]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['glossary_entry']
+    def list(
+        self, resource_name: Literal['glossary_entry'], *, expand: bool = True
     ) -> AsyncGenerator[M.GlossaryEntry]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['pet_advance']
+    def list(
+        self, resource_name: Literal['pet_advance'], *, expand: bool = True
     ) -> AsyncGenerator[M.PetAdvance]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['peak_pool_vote']
+    def list(
+        self, resource_name: Literal['peak_pool_vote'], *, expand: bool = True
     ) -> AsyncGenerator[M.PeakPoolVote]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['avatar_head']
+    def list(
+        self, resource_name: Literal['avatar_head'], *, expand: bool = True
     ) -> AsyncGenerator[M.AvatarHead]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['avatar_frame']
+    def list(
+        self, resource_name: Literal['avatar_frame'], *, expand: bool = True
     ) -> AsyncGenerator[M.AvatarFrame]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['namecard_background']
+    def list(
+        self, resource_name: Literal['namecard_background'], *, expand: bool = True
     ) -> AsyncGenerator[M.NamecardBackground]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['nickname_background']
+    def list(
+        self, resource_name: Literal['nickname_background'], *, expand: bool = True
     ) -> AsyncGenerator[M.NicknameBackground]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['homepage_background']
+    def list(
+        self, resource_name: Literal['homepage_background'], *, expand: bool = True
     ) -> AsyncGenerator[M.HomepageBackground]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['emoji']
+    def list(
+        self, resource_name: Literal['emoji'], *, expand: bool = True
     ) -> AsyncGenerator[M.Emoji]: ...
     @overload
-    async def list(
-        self, resource_name: Literal['error_code']
+    def list(
+        self, resource_name: Literal['error_code'], *, expand: bool = True
     ) -> AsyncGenerator[M.ErrorCode]: ...
     @overload
-    async def list(
-        self, resource_name: type[T_ModelInstance]
+    def list(
+        self, resource_name: type[T_ModelInstance], *, expand: bool = True
     ) -> AsyncGenerator[T_ModelInstance]: ...
     @overload
-    async def list(
-        self, resource_name: ResourceRef[T_ModelInstance]
+    def list(
+        self, resource_name: ResourceRef[T_ModelInstance], *, expand: bool = True
     ) -> AsyncGenerator[T_ModelInstance]: ...
     @overload
     async def get_by_name(

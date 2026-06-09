@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import warnings
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+import warnings
 
 from pydantic import BaseModel
+
 from seerapi_models.build_model import BaseResModel
 from solaris.analyze.typing_ import TResModelRequiredId
 from solaris.analyze.utils import to_json
@@ -36,6 +37,13 @@ def serialize_record(model: BaseModel | Mapping[str, Any]) -> Any:
     if isinstance(model, BaseModel):
         return model.model_dump(by_alias=True)
     return dict(model)
+
+
+def serialize_record_with_hash(model: BaseModel | Mapping[str, Any]) -> dict[str, Any]:
+    """序列化单条资源记录并附加 ``hash``（与 split 模式单文件一致，符合 ``$id`` schema）。"""
+    record = serialize_record(model)
+    record['hash'] = _calc_hash(to_json(record, indent=None))
+    return record
 
 
 def calc_resource_hash(shard_hashes: Mapping[str, str]) -> str:
@@ -210,7 +218,7 @@ def write_sharded_resource(
     from .outputter import is_named_model
 
     items = [
-        (str(res_id), serialize_record(record))
+        (str(res_id), serialize_record_with_hash(record))
         for res_id, record in sorted(data.items())
     ]
     compact = outputter.json_compact

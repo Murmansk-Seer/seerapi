@@ -679,6 +679,8 @@ export const universalMintmarkPart = sqliteTable("universal_mintmark_part", {
 	baseAttrValueId: integer("base_attr_value_id").references(() => mintmarkBaseAttr.id),
 	maxAttrValueId: integer("max_attr_value_id").references(() => mintmarkMaxAttr.id),
 	extraAttrValueId: integer("extra_attr_value_id").references(() => mintmarkExtraAttr.id),
+	isHidden: numeric("is_hidden").notNull(),
+	connectId: integer("connect_id").references(() => mintmark.id),
 });
 
 export const titlePart = sqliteTable("title_part", {

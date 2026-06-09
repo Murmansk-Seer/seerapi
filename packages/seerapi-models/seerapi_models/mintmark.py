@@ -116,6 +116,13 @@ class UniversalMintmark(MintmarkBase, MintmarkResRefs):
         default=None,
         description='刻印隐藏属性值，仅当该刻印为全能刻印并具有隐藏属性时有效',
     )
+    connect: ResourceRef['Mintmark'] | None = Field(
+        default=None,
+        description='关联刻印，非 null 时表示该刻印在游戏内等效于所关联的刻印',
+    )
+    is_hidden: bool = Field(
+        default=False, description='是否为隐藏刻印，隐藏刻印不会在图鉴中显示'
+    )
 
     @classmethod
     def resource_name(cls) -> str:
@@ -163,6 +170,7 @@ class UniversalPartORM(BaseResModelWithOptionalId, table=True):
     mintmark: 'MintmarkORM' = Relationship(
         back_populates='universal_part',
         sa_relationship_kwargs={
+            'foreign_keys': '[UniversalPartORM.mintmark_id]',
             'primaryjoin': 'MintmarkORM.id == UniversalPartORM.mintmark_id',
         },
     )
@@ -187,6 +195,19 @@ class UniversalPartORM(BaseResModelWithOptionalId, table=True):
     )
     extra_attr_value_id: int | None = Field(
         default=None, foreign_key='mintmark_extra_attr.id'
+    )
+    is_hidden: bool = Field(
+        default=False, description='是否为隐藏刻印，隐藏刻印不会在图鉴中显示'
+    )
+    connect_id: int | None = Field(default=None, foreign_key='mintmark.id')
+    connect: Optional['MintmarkORM'] = Relationship(
+        back_populates='connected_universal_parts',
+        sa_relationship_kwargs={
+            'foreign_keys': '[UniversalPartORM.connect_id]',
+            'primaryjoin': 'UniversalPartORM.connect_id == MintmarkORM.id',
+            'remote_side': 'MintmarkORM.id',
+            'uselist': False,
+        },
     )
 
     @classmethod
@@ -213,6 +234,13 @@ class Mintmark(MintmarkBase, MintmarkResRefs, ConvertToORM['MintmarkORM']):
     )
     skill: list[ResourceRef['Skill']] | None = Field(
         default=None, description='该刻印所绑定的技能列表，仅当该刻印为技能刻印时有效'
+    )
+    connect: ResourceRef['Mintmark'] | None = Field(
+        default=None,
+        description='关联刻印，非 null 时表示该刻印在游戏内等效于所关联的刻印',
+    )
+    is_hidden: bool = Field(
+        default=False, description='是否为隐藏刻印，隐藏刻印不会在图鉴中显示'
     )
 
     @classmethod
@@ -263,6 +291,8 @@ class Mintmark(MintmarkBase, MintmarkResRefs, ConvertToORM['MintmarkORM']):
                 )
                 if self.extra_attr_value
                 else None,
+                is_hidden=self.is_hidden,
+                connect_id=self.connect.id if self.connect else None,
             )
 
         return MintmarkORM(
@@ -333,7 +363,15 @@ class MintmarkORM(MintmarkBase, table=True):
     universal_part: Optional['UniversalPartORM'] = Relationship(
         back_populates='mintmark',
         sa_relationship_kwargs={
+            'foreign_keys': '[UniversalPartORM.mintmark_id]',
             'primaryjoin': 'MintmarkORM.id == UniversalPartORM.mintmark_id',
+        },
+    )
+    connected_universal_parts: list['UniversalPartORM'] = Relationship(
+        back_populates='connect',
+        sa_relationship_kwargs={
+            'foreign_keys': '[UniversalPartORM.connect_id]',
+            'primaryjoin': 'MintmarkORM.id == UniversalPartORM.connect_id',
         },
     )
     pet: list['PetORM'] = Relationship(
