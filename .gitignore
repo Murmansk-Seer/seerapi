@@ -29,6 +29,10 @@ Thumbs.db
 
 # Output
 packages/solaris/output/
+ironsbot-data.sqlite
+ironsbot-data.sqlite.sha256
+aliases-data.sqlite
+aliases-data.sqlite.sha256
 
 # Claude Code
 .claude/

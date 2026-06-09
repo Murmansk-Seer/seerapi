@@ -1,0 +1,54 @@
+name: Build IronsBot Data DB
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_ironsbot_data_db.py"
+      - ".github/workflows/build-ironsbot-data-db.yml"
+  schedule:
+    - cron: "5 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install parser dependency
+        run: python -m pip install UnityPy
+
+      - name: Build IronsBot database
+        run: python scripts/build_ironsbot_data_db.py
+
+      - name: Generate SHA256 checksum
+        run: sha256sum ironsbot-data.sqlite > ironsbot-data.sqlite.sha256
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ironsbot-data-latest
+          name: IronsBot Data DB
+          make_latest: false
+          body: |
+            IronsBot full runtime data database.
+
+            This database is built from the Murmansk5000/seer-data SQLite plus
+            Murmansk5000 custom tables parsed from official Seer Unity
+            ConfigPackage data, Murmansk5000/seer-unity-config-parser JSON,
+            and weekly preview metadata.
+
+            Last build commit: ${{ github.sha }}
+          files: |
+            ironsbot-data.sqlite
+            ironsbot-data.sqlite.sha256
