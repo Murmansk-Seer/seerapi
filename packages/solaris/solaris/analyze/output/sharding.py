@@ -38,6 +38,13 @@ def serialize_record(model: BaseModel | Mapping[str, Any]) -> Any:
     return dict(model)
 
 
+def serialize_record_with_hash(model: BaseModel | Mapping[str, Any]) -> dict[str, Any]:
+    """序列化单条资源记录并附加 ``hash``（与 split 模式单文件一致，符合 ``$id`` schema）。"""
+    record = serialize_record(model)
+    record['hash'] = _calc_hash(to_json(record, indent=None))
+    return record
+
+
 def calc_resource_hash(shard_hashes: Mapping[str, str]) -> str:
     """按分片 id 聚合各分片 file hash，得到资源级数据指纹。"""
     payload = {sid: shard_hashes[sid] for sid in sorted(shard_hashes)}
@@ -210,7 +217,7 @@ def write_sharded_resource(
     from .outputter import is_named_model
 
     items = [
-        (str(res_id), serialize_record(record))
+        (str(res_id), serialize_record_with_hash(record))
         for res_id, record in sorted(data.items())
     ]
     compact = outputter.json_compact
