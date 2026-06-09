@@ -154,6 +154,10 @@ class MintmarkAnalyzer(BaseDataSourceAnalyzer):
                 desc=mintmark['effect_des'],
                 mintmark_class=class_ref,
                 skill=skill_refs,
+                connect=ResourceRef.from_model(Mintmark, id=connect)
+                if (connect := mintmark['connect'])
+                else None,
+                is_hidden=mintmark['hide'] == 1,
                 **attr_kwargs,
             )
             mintmark_map[id_] = mintmark_obj

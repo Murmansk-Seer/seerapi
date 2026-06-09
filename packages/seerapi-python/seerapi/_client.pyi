@@ -10,11 +10,9 @@ from seerapi._typing import T_ModelInstance, T_NamedModelInstance
 import seerapi_models as M
 from seerapi_models.common import NamedData, ResourceRef
 
-
 def _parse_url_page_info(
     url: str | None, *, expand_fallback: bool = True
 ) -> PageInfo | None: ...
-
 
 class SeerAPI:
     scheme: str
@@ -642,7 +640,9 @@ class SeerAPI:
         self, resource_name: Literal['equip'], *, expand: bool = True
     ) -> AsyncGenerator[M.Equip]: ...
     @overload
-    def list(self, resource_name: Literal['suit'], *, expand: bool = True) -> AsyncGenerator[M.Suit]: ...
+    def list(
+        self, resource_name: Literal['suit'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Suit]: ...
     @overload
     def list(
         self, resource_name: Literal['equip_type'], *, expand: bool = True
@@ -668,13 +668,17 @@ class SeerAPI:
         self, resource_name: Literal['element_type_combination'], *, expand: bool = True
     ) -> AsyncGenerator[M.TypeCombination]: ...
     @overload
-    def list(self, resource_name: Literal['item'], *, expand: bool = True) -> AsyncGenerator[M.Item]: ...
+    def list(
+        self, resource_name: Literal['item'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Item]: ...
     @overload
     def list(
         self, resource_name: Literal['item_category'], *, expand: bool = True
     ) -> AsyncGenerator[M.ItemCategory]: ...
     @overload
-    def list(self, resource_name: Literal['gem'], *, expand: bool = True) -> AsyncGenerator[M.Gem]: ...
+    def list(
+        self, resource_name: Literal['gem'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Gem]: ...
     @overload
     def list(
         self, resource_name: Literal['gem_category'], *, expand: bool = True
@@ -724,7 +728,9 @@ class SeerAPI:
         self, resource_name: Literal['mintmark_rarity'], *, expand: bool = True
     ) -> AsyncGenerator[M.MintmarkRarityCategory]: ...
     @overload
-    def list(self, resource_name: Literal['pet'], *, expand: bool = True) -> AsyncGenerator[M.Pet]: ...
+    def list(
+        self, resource_name: Literal['pet'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Pet]: ...
     @overload
     def list(
         self, resource_name: Literal['pet_class'], *, expand: bool = True

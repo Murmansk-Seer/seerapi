@@ -1,8 +1,8 @@
 import asyncio
 
+from hishel.httpx import AsyncCacheClient
 import httpx
 import pytest
-from hishel.httpx import AsyncCacheClient
 
 from seerapi import PageInfo, SeerAPI
 from seerapi._client import _parse_url_page_info

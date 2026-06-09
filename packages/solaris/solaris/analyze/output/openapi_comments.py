@@ -727,6 +727,8 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
                     'percent': False,
                     'total': 260,
                 },
+                'is_hidden': False,
+                'connect': None,
                 'hash': '84g9d7ak',
             }
         ],
@@ -764,6 +766,8 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
                     'total': 10,
                 },
                 'skill': [],
+                'is_hidden': False,
+                'connect': None,
                 'hash': '7d5f8c9e',
             }
         ],

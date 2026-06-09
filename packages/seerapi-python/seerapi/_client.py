@@ -41,9 +41,7 @@ def _parse_url_page_info(
         return None
 
     expand = (
-        _parse_bool_param(params['expand'])
-        if 'expand' in params
-        else expand_fallback
+        _parse_bool_param(params['expand']) if 'expand' in params else expand_fallback
     )
     return PageInfo(
         offset=int(params['offset']),

@@ -3247,6 +3247,16 @@ export type Mintmark = HashPartial & {
      * 该刻印所绑定的技能列表，仅当该刻印为技能刻印时有效
      */
     skill?: Array<CommonResourceRef> | null;
+    /**
+     * 关联刻印，非 null 时表示该刻印在游戏内等效于所关联的刻印
+     */
+    connect?: CommonResourceRef | null;
+    /**
+     * Is Hidden
+     *
+     * 是否为隐藏刻印，隐藏刻印不会在图鉴中显示
+     */
+    is_hidden?: boolean;
 };
 
 /**
@@ -3488,6 +3498,16 @@ export type UniversalMintmark = HashPartial & {
      * 刻印隐藏属性值，仅当该刻印为全能刻印并具有隐藏属性时有效
      */
     extra_attr_value?: CommonSixAttributes | null;
+    /**
+     * 关联刻印，非 null 时表示该刻印在游戏内等效于所关联的刻印
+     */
+    connect?: CommonResourceRef | null;
+    /**
+     * Is Hidden
+     *
+     * 是否为隐藏刻印，隐藏刻印不会在图鉴中显示
+     */
+    is_hidden?: boolean;
 };
 
 /**

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import warnings
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+import warnings
 
 from pydantic import BaseModel
+
 from seerapi_models.build_model import BaseResModel
 from solaris.analyze.typing_ import TResModelRequiredId
 from solaris.analyze.utils import to_json

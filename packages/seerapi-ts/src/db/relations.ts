@@ -463,7 +463,12 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		mintmarkMaxAttrs: r.many.mintmarkMaxAttr(),
 		skillMintmarkParts: r.many.skillMintmarkPart(),
-		universalMintmarkParts: r.many.universalMintmarkPart(),
+		universalMintmarkPartsConnectId: r.many.universalMintmarkPart({
+			alias: "universalMintmarkPart_connectId_mintmark_id"
+		}),
+		universalMintmarkPartsMintmarkId: r.many.universalMintmarkPart({
+			alias: "universalMintmarkPart_mintmarkId_mintmark_id"
+		}),
 		skills: r.many.skill({
 			from: r.mintmark.id.through(r.skillmintmarklink.mintmarkId),
 			to: r.skill.id.through(r.skillmintmarklink.skillId)
@@ -483,6 +488,11 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 	},
 	universalMintmarkPart: {
+		mintmarkConnectId: r.one.mintmark({
+			from: r.universalMintmarkPart.connectId,
+			to: r.mintmark.id,
+			alias: "universalMintmarkPart_connectId_mintmark_id"
+		}),
 		mintmarkExtraAttr: r.one.mintmarkExtraAttr({
 			from: r.universalMintmarkPart.extraAttrValueId,
 			to: r.mintmarkExtraAttr.id
@@ -499,9 +509,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.universalMintmarkPart.mintmarkClassId,
 			to: r.mintmarkClass.id
 		}),
-		mintmark: r.one.mintmark({
+		mintmarkMintmarkId: r.one.mintmark({
 			from: r.universalMintmarkPart.mintmarkId,
-			to: r.mintmark.id
+			to: r.mintmark.id,
+			alias: "universalMintmarkPart_mintmarkId_mintmark_id"
 		}),
 	},
 	mintmarkExtraAttr: {

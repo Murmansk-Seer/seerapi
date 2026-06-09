@@ -38,7 +38,6 @@ from solaris.utils import join_url
 
 from .db import DBManager
 from .json_format import resolve_json_format
-from .sharding import DEFAULT_MAX_SHARD_BYTES
 from .openapi_builder import (
     OpenAPIBuilder,
     build_ref_string,
@@ -53,6 +52,7 @@ from .schema_generate import (
     create_extra_schema,
     create_generator,
 )
+from .sharding import DEFAULT_MAX_SHARD_BYTES
 
 
 class HashPartial(BaseGeneralModel):
