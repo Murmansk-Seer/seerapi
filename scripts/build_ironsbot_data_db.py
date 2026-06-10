@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DB = ROOT / os.environ.get("IRONSBOT_DATA_OUTPUT", "ironsbot-data.sqlite")
 UPSTREAM_SEERAPI_URL = os.environ.get(
     "IRONSBOT_DATA_UPSTREAM_SEERAPI_URL",
-    "https://github.com/Murmansk5000/seer-data/releases/download/latest/seerapi-data.sqlite",
+    "https://github.com/SeerAPI/api-data/releases/download/latest/seerapi-data.sqlite",
 )
 CONFIG_PACKAGE_BASE_URL = os.environ.get(
     "IRONSBOT_DATA_CONFIG_PACKAGE_BASE_URL",
@@ -69,6 +69,10 @@ WEEKLY_PREVIEW_SOURCE_URL = (
 SIGNED_BYTE_MAX = 127
 SIGNED_BYTE_MOD = 256
 HTTP_TIMEOUT_SECONDS = 180
+HTTP_RETRY_ATTEMPTS = int(os.environ.get("IRONSBOT_DATA_HTTP_RETRY_ATTEMPTS", "3"))
+HTTP_RETRY_BACKOFF_SECONDS = float(
+    os.environ.get("IRONSBOT_DATA_HTTP_RETRY_BACKOFF_SECONDS", "2")
+)
 logger = logging.getLogger(__name__)
 
 
@@ -171,8 +175,40 @@ def _request(url: str, *, method: str | None = None) -> Request:
     )
 
 
+def _urlopen_with_retries(request: Request):
+    attempts = max(1, HTTP_RETRY_ATTEMPTS)
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            return urlopen(request, timeout=HTTP_TIMEOUT_SECONDS)
+        except HTTPError as e:
+            last_error = e
+            if e.code < 500 and e.code != 429:
+                raise
+        except (URLError, TimeoutError, OSError) as e:
+            last_error = e
+
+        if attempt >= attempts:
+            break
+
+        delay = HTTP_RETRY_BACKOFF_SECONDS * attempt
+        logger.warning(
+            "HTTP request failed (%s/%s): %s; retrying in %.1fs",
+            attempt,
+            attempts,
+            last_error,
+            delay,
+        )
+        time.sleep(delay)
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("HTTP request failed without an exception")
+
+
 def _download_bytes(url: str) -> bytes:
-    with urlopen(_request(url), timeout=HTTP_TIMEOUT_SECONDS) as response:
+    with _urlopen_with_retries(_request(url)) as response:
         return response.read()
 
 
@@ -180,7 +216,7 @@ def _download_file(url: str, path: Path) -> None:
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     tmp_path.unlink(missing_ok=True)
     with (
-        urlopen(_request(url), timeout=HTTP_TIMEOUT_SECONDS) as response,
+        _urlopen_with_retries(_request(url)) as response,
         tmp_path.open("wb") as output,
     ):
         shutil.copyfileobj(response, output)
@@ -189,9 +225,8 @@ def _download_file(url: str, path: Path) -> None:
 
 def _probe_weekly_preview_image() -> dict[str, str]:
     try:
-        with urlopen(
-            _request(WEEKLY_PREVIEW_IMAGE_URL, method="HEAD"),
-            timeout=HTTP_TIMEOUT_SECONDS,
+        with _urlopen_with_retries(
+            _request(WEEKLY_PREVIEW_IMAGE_URL, method="HEAD")
         ) as response:
             headers = response.headers
             return {
