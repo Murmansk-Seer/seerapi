@@ -1,6 +1,9 @@
 name: Build IronsBot Data DB
 
 on:
+  workflow_run:
+    workflows: ["Sync Upstream"]
+    types: [completed]
   push:
     branches: [main]
     paths:
@@ -12,6 +15,7 @@ on:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
