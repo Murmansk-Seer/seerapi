@@ -49,7 +49,7 @@ jobs:
           body: |
             IronsBot full runtime data database.
 
-            This database is built from the SeerAPI/api-data SQLite plus
+            This database is built from the Murmansk5000/seer-data SQLite plus
             Murmansk5000 custom tables parsed from official Seer Unity
             ConfigPackage data, Murmansk5000/seer-unity-config-parser JSON,
             and weekly preview metadata.

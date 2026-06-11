@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DB = ROOT / os.environ.get("IRONSBOT_DATA_OUTPUT", "ironsbot-data.sqlite")
 UPSTREAM_SEERAPI_URL = os.environ.get(
     "IRONSBOT_DATA_UPSTREAM_SEERAPI_URL",
-    "https://github.com/SeerAPI/api-data/releases/download/latest/seerapi-data.sqlite",
+    "https://github.com/Murmansk5000/seer-data/releases/download/latest/seerapi-data.sqlite",
 )
 CONFIG_PACKAGE_BASE_URL = os.environ.get(
     "IRONSBOT_DATA_CONFIG_PACKAGE_BASE_URL",
