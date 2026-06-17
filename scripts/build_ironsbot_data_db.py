@@ -8,16 +8,16 @@ are merged into the final SQLite file before it is published.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import io
 import json
 import logging
 import os
+from pathlib import Path
 import shutil
 import sqlite3
 import struct
 import time
-from dataclasses import dataclass
-from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
@@ -38,16 +38,19 @@ MINTMARK_BYTES_NAME = "mintmark.bytes"
 SKIN_STORE_POOL_BYTES_NAME = "skinStorePool.bytes"
 SKIN_SHOP_BYTES_NAME = "skin_shop.bytes"
 ITEMS_TIP_BYTES_NAME = "itemsTip.bytes"
+EFFECT_ICON_BYTES_NAME = "effectIcon.bytes"
 CONFIG_TEXT_ASSETS = {
     MINTMARK_BYTES_NAME,
     SKIN_STORE_POOL_BYTES_NAME,
     SKIN_SHOP_BYTES_NAME,
     ITEMS_TIP_BYTES_NAME,
+    EFFECT_ICON_BYTES_NAME,
 }
 MINTMARK_QUALITY_TABLE = "mintmark_quality"
 SKIN_STORE_PRICE_TABLE = "skin_store_price"
 SKIN_SHOP_PRICE_TABLE = "skin_shop_price"
 SKIN_ITEM_TIP_TABLE = "skin_item_tip"
+SOULMARK_ICON_TABLE = "soulmark_icon"
 AUTOCARD_CARD_TABLE = "autocard_card"
 AUTOCARD_ROLE_TABLE = "autocard_role"
 AUTOCARD_NATURE_TABLE = "autocard_nature"
@@ -91,6 +94,7 @@ class ConfigPackageData:
     skin_store_prices: list["SkinStorePrice"]
     skin_shop_prices: list["SkinShopPrice"]
     skin_item_tips: dict[int, str]
+    soulmark_icons: list["SoulmarkIcon"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +118,14 @@ class SkinShopPrice:
     card_price: int
     diamond_price: int
     original_price: int
+
+
+@dataclass(frozen=True, slots=True)
+class SoulmarkIcon:
+    soulmark_id: int
+    pet_id: int
+    effect_id: int
+    icon_id: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,7 +302,7 @@ def _find_config_bundle(manifest_data: bytes) -> BundleInfo:
     if len(bundles) == 1:
         return bundles[0]
 
-    raise ValueError("ConfigPackage bundle not found")  # noqa: TRY003
+    raise ValueError("ConfigPackage bundle not found")
 
 
 def _extract_text_assets(bundle_data: bytes, wanted: set[str]) -> dict[str, bytes]:
@@ -317,7 +329,7 @@ def _extract_text_assets(bundle_data: bytes, wanted: set[str]) -> dict[str, byte
 
     missing = wanted.difference(result)
     if missing:
-        raise ValueError(  # noqa: TRY003
+        raise ValueError(
             f"ConfigPackage text assets missing: {sorted(missing)}"
         )
     return result
@@ -486,6 +498,70 @@ def _parse_items_tip(data: bytes) -> dict[int, str]:
     return result
 
 
+def _skip_optional_text_array(reader: BytesReader) -> None:
+    if not reader.read_bool():
+        return
+
+    count = reader.read_i32()
+    for _ in range(count):
+        reader.read_text()
+
+
+def _parse_effect_icon(data: bytes) -> list[SoulmarkIcon]:
+    if not data:
+        return []
+
+    reader = BytesReader(data)
+    if not reader.read_bool():
+        return []
+    if not reader.read_bool():
+        return []
+
+    result: list[SoulmarkIcon] = []
+    count = reader.read_i32()
+    for _ in range(count):
+        soulmark_id = reader.read_i32()
+        reader.read_text()  # analyze
+        reader.read_text()  # args
+        reader.read_text()  # come
+        _skip_optional_text_array(reader)  # des
+        effect_id = reader.read_i32()
+        icon_id = reader.read_i32()
+        reader.read_i32()  # intensify
+        reader.read_i32()  # isAdv
+        _skip_optional_int_array(reader)  # kind
+        reader.read_i32()  # label
+        reader.read_i32()  # limitedType
+
+        pet_ids: list[int] = []
+        if reader.read_bool():
+            pet_count = reader.read_i32()
+            pet_ids = [reader.read_i32() for _ in range(pet_count)]
+
+        _skip_optional_int_array(reader)  # specificId
+        _skip_optional_text_array(reader)  # tag
+        reader.read_i32()  # target
+        reader.read_text()  # tips
+        reader.read_i32()  # to
+        reader.read_i32()  # type
+
+        if soulmark_id <= 0 or icon_id <= 0:
+            continue
+        if not pet_ids:
+            pet_ids = [0]
+        result.extend(
+            SoulmarkIcon(
+                soulmark_id=soulmark_id,
+                pet_id=pet_id,
+                effect_id=effect_id,
+                icon_id=icon_id,
+            )
+            for pet_id in pet_ids
+        )
+
+    return result
+
+
 def _fetch_config_package_data() -> ConfigPackageData:
     base_url = CONFIG_PACKAGE_BASE_URL.rstrip("/") + "/"
     version_url = urljoin(base_url, f"PackageManifest_{PACKAGE_NAME}.version")
@@ -504,6 +580,7 @@ def _fetch_config_package_data() -> ConfigPackageData:
         skin_store_prices=_parse_skin_store_pool(assets[SKIN_STORE_POOL_BYTES_NAME]),
         skin_shop_prices=_parse_skin_shop(assets[SKIN_SHOP_BYTES_NAME]),
         skin_item_tips=_parse_items_tip(assets[ITEMS_TIP_BYTES_NAME]),
+        soulmark_icons=_parse_effect_icon(assets[EFFECT_ICON_BYTES_NAME]),
     )
 
 
@@ -573,7 +650,7 @@ def _quick_check(path: Path) -> None:
     with sqlite3.connect(path) as conn:
         result = conn.execute("PRAGMA quick_check").fetchone()
     if not result or result[0] != "ok":
-        raise sqlite3.DatabaseError(  # noqa: TRY003
+        raise sqlite3.DatabaseError(
             f"SQLite quick_check failed: {result}"
         )
 
@@ -909,6 +986,51 @@ def _merge_ironsbot_tables(
                 )
             ],
         )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {SOULMARK_ICON_TABLE} (
+                soulmark_id INTEGER NOT NULL,
+                pet_id INTEGER NOT NULL,
+                effect_id INTEGER NOT NULL,
+                icon_id INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                updated_at REAL NOT NULL,
+                PRIMARY KEY (soulmark_id, pet_id)
+            )
+            """
+        )
+        conn.execute(f"DELETE FROM {SOULMARK_ICON_TABLE}")
+        conn.executemany(
+            f"""
+            INSERT INTO {SOULMARK_ICON_TABLE}
+                (
+                    soulmark_id,
+                    pet_id,
+                    effect_id,
+                    icon_id,
+                    source,
+                    updated_at
+                )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    item.soulmark_id,
+                    item.pet_id,
+                    item.effect_id,
+                    item.icon_id,
+                    "ConfigPackage/effectIcon.bytes",
+                    now,
+                )
+                for item in config_data.soulmark_icons
+            ],
+        )
+        conn.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS idx_{SOULMARK_ICON_TABLE}_soulmark_id
+            ON {SOULMARK_ICON_TABLE} (soulmark_id)
+            """
+        )
         _replace_autocard_tables(conn, autocard_data, now)
         conn.execute(
             """
@@ -928,6 +1050,7 @@ def _merge_ironsbot_tables(
             "skin_store_price_count": str(len(config_data.skin_store_prices)),
             "skin_shop_price_count": str(len(config_data.skin_shop_prices)),
             "skin_item_tip_count": str(len(config_data.skin_item_tips)),
+            "soulmark_icon_count": str(len(config_data.soulmark_icons)),
             "autocard_card_count": str(len(autocard_data.cards)),
             "autocard_role_count": str(len(autocard_data.roles)),
             "autocard_nature_count": str(len(autocard_data.natures)),
@@ -957,7 +1080,7 @@ def main() -> None:
     logger.info("Loading official ConfigPackage: %s", CONFIG_PACKAGE_BASE_URL)
     config_data = _fetch_config_package_data()
     if not config_data.mintmark_quality:
-        raise ValueError("mintmark Quality map is empty")  # noqa: TRY003
+        raise ValueError("mintmark Quality map is empty")
     logger.info(
         "Loading autocard JSON data: %s",
         AUTOCARD_JSON_DIR or AUTOCARD_JSON_BASE_URL,
@@ -977,12 +1100,13 @@ def main() -> None:
     logger.info(
         (
             "Built %s (%.2f MB), mintmark_quality rows: %s, "
-            "skin shop rows: %s, autocard cards: %s"
+            "skin shop rows: %s, soulmark icons: %s, autocard cards: %s"
         ),
         OUTPUT_DB,
         size_mb,
         len(config_data.mintmark_quality),
         len(config_data.skin_shop_prices),
+        len(config_data.soulmark_icons),
         len(autocard_data.cards),
     )
 
