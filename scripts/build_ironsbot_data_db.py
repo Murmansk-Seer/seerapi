@@ -986,6 +986,28 @@ def _merge_ironsbot_tables(
                 )
             ],
         )
+        soulmark_icon_rows = [
+            (
+                soulmark_id,
+                pet_id,
+                effect_id,
+                icon_id,
+                "ConfigPackage/effectIcon.bytes",
+                now,
+            )
+            for soulmark_id, pet_id, effect_id, icon_id in sorted(
+                {
+                    (
+                        item.soulmark_id,
+                        item.pet_id,
+                        item.effect_id,
+                        item.icon_id,
+                    )
+                    for item in config_data.soulmark_icons
+                }
+            )
+        ]
+        conn.execute(f"DROP TABLE IF EXISTS {SOULMARK_ICON_TABLE}")
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {SOULMARK_ICON_TABLE} (
@@ -995,11 +1017,10 @@ def _merge_ironsbot_tables(
                 icon_id INTEGER NOT NULL,
                 source TEXT NOT NULL,
                 updated_at REAL NOT NULL,
-                PRIMARY KEY (soulmark_id, pet_id)
+                PRIMARY KEY (soulmark_id, pet_id, effect_id, icon_id)
             )
             """
         )
-        conn.execute(f"DELETE FROM {SOULMARK_ICON_TABLE}")
         conn.executemany(
             f"""
             INSERT INTO {SOULMARK_ICON_TABLE}
@@ -1010,20 +1031,10 @@ def _merge_ironsbot_tables(
                     icon_id,
                     source,
                     updated_at
-                )
+            )
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            [
-                (
-                    item.soulmark_id,
-                    item.pet_id,
-                    item.effect_id,
-                    item.icon_id,
-                    "ConfigPackage/effectIcon.bytes",
-                    now,
-                )
-                for item in config_data.soulmark_icons
-            ],
+            soulmark_icon_rows,
         )
         conn.execute(
             f"""
@@ -1050,7 +1061,7 @@ def _merge_ironsbot_tables(
             "skin_store_price_count": str(len(config_data.skin_store_prices)),
             "skin_shop_price_count": str(len(config_data.skin_shop_prices)),
             "skin_item_tip_count": str(len(config_data.skin_item_tips)),
-            "soulmark_icon_count": str(len(config_data.soulmark_icons)),
+            "soulmark_icon_count": str(len(soulmark_icon_rows)),
             "autocard_card_count": str(len(autocard_data.cards)),
             "autocard_role_count": str(len(autocard_data.roles)),
             "autocard_nature_count": str(len(autocard_data.natures)),
