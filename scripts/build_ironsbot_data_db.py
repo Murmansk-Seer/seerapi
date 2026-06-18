@@ -8,6 +8,7 @@ are merged into the final SQLite file before it is published.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import io
 import json
@@ -39,6 +40,21 @@ SKIN_STORE_POOL_BYTES_NAME = "skinStorePool.bytes"
 SKIN_SHOP_BYTES_NAME = "skin_shop.bytes"
 ITEMS_TIP_BYTES_NAME = "itemsTip.bytes"
 EFFECT_ICON_BYTES_NAME = "effectIcon.bytes"
+EFFECT_ICON_ASSET_BASE_URL = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_ASSET_BASE_URL",
+    "https://seer.61.com/resource/effectIcon/",
+)
+EFFECT_ICON_ASSET_SUFFIX = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_ASSET_SUFFIX",
+    ".swf",
+)
+EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS = float(
+    os.environ.get("IRONSBOT_DATA_EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS", "15")
+)
+EFFECT_ICON_ASSET_VERIFY_WORKERS = max(
+    1,
+    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_ASSET_VERIFY_WORKERS", "16")),
+)
 CONFIG_TEXT_ASSETS = {
     MINTMARK_BYTES_NAME,
     SKIN_STORE_POOL_BYTES_NAME,
@@ -129,6 +145,17 @@ class SoulmarkIcon:
 
 
 @dataclass(frozen=True, slots=True)
+class EffectIconAssetCheck:
+    icon_id: int
+    url: str
+    available: bool
+    status: int
+    content_type: str
+    content_length: int | None
+    error: str
+
+
+@dataclass(frozen=True, slots=True)
 class AutocardData:
     cards: list[dict[str, object]]
     roles: list[dict[str, object]]
@@ -179,10 +206,18 @@ class BytesReader:
         return value
 
 
-def _request(url: str, *, method: str | None = None) -> Request:
+def _request(
+    url: str,
+    *,
+    method: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> Request:
+    request_headers = {"User-Agent": "IronsBot data builder"}
+    if headers:
+        request_headers.update(headers)
     return Request(
         url,
-        headers={"User-Agent": "IronsBot data builder"},
+        headers=request_headers,
         method=method,
     )
 
@@ -560,6 +595,198 @@ def _parse_effect_icon(data: bytes) -> list[SoulmarkIcon]:
         )
 
     return result
+
+
+def _effect_icon_asset_url(icon_id: int) -> str:
+    base_url = EFFECT_ICON_ASSET_BASE_URL.rstrip("/") + "/"
+    return urljoin(base_url, f"{icon_id}{EFFECT_ICON_ASSET_SUFFIX}")
+
+
+def _parse_content_length(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _short_error(error: Exception | str) -> str:
+    return str(error).replace("\n", " ")[:200]
+
+
+def _is_effect_icon_asset_content(
+    content_type: str,
+    header: bytes = b"",
+) -> bool:
+    normalized_content_type = content_type.lower().split(";", maxsplit=1)[0]
+    return normalized_content_type in {
+        "application/x-shockwave-flash",
+        "application/vnd.adobe.flash.movie",
+    } or header.startswith((b"CWS", b"FWS", b"ZWS"))
+
+
+def _probe_effect_icon_asset_range(
+    icon_id: int,
+    url: str,
+    *,
+    prior_error: str = "",
+) -> EffectIconAssetCheck:
+    try:
+        request = _request(url, method="GET", headers={"Range": "bytes=0-15"})
+        with urlopen(
+            request,
+            timeout=EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS,
+        ) as response:
+            content_type = response.headers.get_content_type()
+            content_length = _parse_content_length(
+                response.headers.get("Content-Length")
+            )
+            header = response.read(16)
+            available = response.status in (200, 206) and (
+                _is_effect_icon_asset_content(content_type, header)
+            )
+            error = ""
+            if not available:
+                error = prior_error or (
+                    f"unexpected ranged response: {response.status} "
+                    f"{content_type}"
+                )
+            return EffectIconAssetCheck(
+                icon_id=icon_id,
+                url=url,
+                available=available,
+                status=response.status,
+                content_type=content_type,
+                content_length=content_length,
+                error=error,
+            )
+    except HTTPError as e:
+        return EffectIconAssetCheck(
+            icon_id=icon_id,
+            url=url,
+            available=False,
+            status=e.code,
+            content_type=e.headers.get_content_type(),
+            content_length=_parse_content_length(e.headers.get("Content-Length")),
+            error="" if e.code == 404 else _short_error(e),
+        )
+    except (URLError, TimeoutError, OSError) as e:
+        return EffectIconAssetCheck(
+            icon_id=icon_id,
+            url=url,
+            available=False,
+            status=0,
+            content_type="",
+            content_length=None,
+            error=prior_error or _short_error(e),
+        )
+
+
+def _verify_effect_icon_asset(icon_id: int) -> EffectIconAssetCheck:
+    url = _effect_icon_asset_url(icon_id)
+    try:
+        with urlopen(
+            _request(url, method="HEAD"),
+            timeout=EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS,
+        ) as response:
+            content_type = response.headers.get_content_type()
+            content_length = _parse_content_length(
+                response.headers.get("Content-Length")
+            )
+            available = (
+                response.status == 200
+                and (content_length is None or content_length > 0)
+                and _is_effect_icon_asset_content(content_type)
+            )
+            if available:
+                return EffectIconAssetCheck(
+                    icon_id=icon_id,
+                    url=url,
+                    available=True,
+                    status=response.status,
+                    content_type=content_type,
+                    content_length=content_length,
+                    error="",
+                )
+            return _probe_effect_icon_asset_range(
+                icon_id,
+                url,
+                prior_error=(
+                    f"unexpected HEAD response: {response.status} {content_type}"
+                ),
+            )
+    except HTTPError as e:
+        if e.code in {403, 405, 501}:
+            return _probe_effect_icon_asset_range(
+                icon_id,
+                url,
+                prior_error=_short_error(e),
+            )
+        return EffectIconAssetCheck(
+            icon_id=icon_id,
+            url=url,
+            available=False,
+            status=e.code,
+            content_type=e.headers.get_content_type(),
+            content_length=_parse_content_length(e.headers.get("Content-Length")),
+            error="" if e.code == 404 else _short_error(e),
+        )
+    except (URLError, TimeoutError, OSError) as e:
+        ranged_check = _probe_effect_icon_asset_range(
+            icon_id,
+            url,
+            prior_error=_short_error(e),
+        )
+        return ranged_check
+
+
+def _verify_effect_icon_assets(
+    icon_ids: set[int],
+) -> dict[int, EffectIconAssetCheck]:
+    if not icon_ids:
+        return {}
+
+    logger.info(
+        "Validating official effect icon assets: %s unique icons",
+        len(icon_ids),
+    )
+    checks: dict[int, EffectIconAssetCheck] = {}
+    worker_count = min(EFFECT_ICON_ASSET_VERIFY_WORKERS, len(icon_ids))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            executor.submit(_verify_effect_icon_asset, icon_id): icon_id
+            for icon_id in sorted(icon_ids)
+        }
+        for future in as_completed(futures):
+            icon_id = futures[future]
+            try:
+                checks[icon_id] = future.result()
+            except Exception as e:
+                checks[icon_id] = EffectIconAssetCheck(
+                    icon_id=icon_id,
+                    url=_effect_icon_asset_url(icon_id),
+                    available=False,
+                    status=0,
+                    content_type="",
+                    content_length=None,
+                    error=_short_error(e),
+                )
+
+    available_count = sum(1 for check in checks.values() if check.available)
+    missing_checks = [
+        check for check in checks.values() if not check.available
+    ]
+    if available_count == 0:
+        raise ValueError("No official effect icon assets could be verified")
+    if missing_checks:
+        logger.warning(
+            "Effect icon asset validation missing %s/%s icons; first missing: %s",
+            len(missing_checks),
+            len(checks),
+            ", ".join(str(check.icon_id) for check in missing_checks[:10]),
+        )
+    return checks
 
 
 def _fetch_config_package_data() -> ConfigPackageData:
@@ -986,27 +1213,39 @@ def _merge_ironsbot_tables(
                 )
             ],
         )
-        soulmark_icon_rows = [
-            (
-                soulmark_id,
-                pet_id,
-                effect_id,
-                icon_id,
-                "ConfigPackage/effectIcon.bytes",
-                now,
+        deduplicated_soulmark_icons = sorted(
+            {
+                (
+                    item.soulmark_id,
+                    item.pet_id,
+                    item.effect_id,
+                    item.icon_id,
+                )
+                for item in config_data.soulmark_icons
+            }
+        )
+        effect_icon_asset_checks = _verify_effect_icon_assets(
+            {icon_id for _, _, _, icon_id in deduplicated_soulmark_icons}
+        )
+        soulmark_icon_rows = []
+        for soulmark_id, pet_id, effect_id, icon_id in deduplicated_soulmark_icons:
+            asset_check = effect_icon_asset_checks[icon_id]
+            soulmark_icon_rows.append(
+                (
+                    soulmark_id,
+                    pet_id,
+                    effect_id,
+                    icon_id,
+                    asset_check.url if asset_check.available else None,
+                    int(asset_check.available),
+                    asset_check.status,
+                    asset_check.content_type,
+                    asset_check.content_length,
+                    asset_check.error,
+                    "ConfigPackage/effectIcon.bytes",
+                    now,
+                )
             )
-            for soulmark_id, pet_id, effect_id, icon_id in sorted(
-                {
-                    (
-                        item.soulmark_id,
-                        item.pet_id,
-                        item.effect_id,
-                        item.icon_id,
-                    )
-                    for item in config_data.soulmark_icons
-                }
-            )
-        ]
         conn.execute(f"DROP TABLE IF EXISTS {SOULMARK_ICON_TABLE}")
         conn.execute(
             f"""
@@ -1015,6 +1254,12 @@ def _merge_ironsbot_tables(
                 pet_id INTEGER NOT NULL,
                 effect_id INTEGER NOT NULL,
                 icon_id INTEGER NOT NULL,
+                icon_asset_url TEXT,
+                icon_asset_available INTEGER NOT NULL,
+                icon_asset_status INTEGER NOT NULL,
+                icon_asset_content_type TEXT NOT NULL,
+                icon_asset_content_length INTEGER,
+                icon_asset_error TEXT NOT NULL,
                 source TEXT NOT NULL,
                 updated_at REAL NOT NULL,
                 PRIMARY KEY (soulmark_id, pet_id, effect_id, icon_id)
@@ -1029,10 +1274,16 @@ def _merge_ironsbot_tables(
                     pet_id,
                     effect_id,
                     icon_id,
+                    icon_asset_url,
+                    icon_asset_available,
+                    icon_asset_status,
+                    icon_asset_content_type,
+                    icon_asset_content_length,
+                    icon_asset_error,
                     source,
                     updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             soulmark_icon_rows,
         )
@@ -1057,6 +1308,19 @@ def _merge_ironsbot_tables(
             "config_package_base_url": CONFIG_PACKAGE_BASE_URL,
             "config_package_version": config_data.version,
             "config_bundle_url": config_data.bundle_url,
+            "effect_icon_asset_base_url": EFFECT_ICON_ASSET_BASE_URL,
+            "effect_icon_asset_suffix": EFFECT_ICON_ASSET_SUFFIX,
+            "effect_icon_asset_checked_count": str(len(effect_icon_asset_checks)),
+            "effect_icon_asset_available_count": str(
+                sum(1 for check in effect_icon_asset_checks.values() if check.available)
+            ),
+            "effect_icon_asset_missing_count": str(
+                sum(
+                    1
+                    for check in effect_icon_asset_checks.values()
+                    if not check.available
+                )
+            ),
             "mintmark_quality_count": str(len(config_data.mintmark_quality)),
             "skin_store_price_count": str(len(config_data.skin_store_prices)),
             "skin_shop_price_count": str(len(config_data.skin_shop_prices)),
