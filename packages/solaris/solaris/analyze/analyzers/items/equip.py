@@ -137,7 +137,15 @@ class EquipAnalyzer(BaseItemAnalyzer):
             OtherAttribute.from_list(other_attr_args) if any(other_attr_args) else None
         )
         attr_args = split_string_arg(equip_bonus_data['Attribute'])
-        equip_attr = SixAttributes.from_list(attr_args, percent=add_way)
+        equip_attr = SixAttributes(
+            hp=attr_args[0],
+            atk=attr_args[1],
+            def_=attr_args[2],
+            sp_atk=attr_args[3],
+            sp_def=attr_args[4],
+            spd=attr_args[5],
+            percent=add_way,
+        )
         return EquipBonusItem(
             desc=equip_bonus_data['Desc'],
             attribute=equip_attr,
