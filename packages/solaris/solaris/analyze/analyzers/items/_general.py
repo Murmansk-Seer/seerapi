@@ -96,7 +96,11 @@ class ItemAnalyzer(BaseItemAnalyzer):
             )
 
         item_map: dict[int, 'Item'] = {}
+        _range_ = _range()
         for id_, category in category_map.items():
+            if id_ not in _range_:
+                continue
+
             item_data = self.get_category_items(id_)['root']['items']
             for item in item_data:
                 category.item.append(ResourceRef.from_model(Item, id=item['id']))
