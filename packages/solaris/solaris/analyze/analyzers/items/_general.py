@@ -36,8 +36,11 @@ class BaseItemAnalyzer(BaseDataSourceAnalyzer):
         super().__init__()
         if 'unity' not in self.data:
             return
-
+        _range_ = _range()
         for cat in self.item_category_data['root']['cats']:
+            if cat['id'] not in _range_:
+                continue
+
             key = f'itemsOptimizeCatItems{cat["id"]}.json'
             item_data = self.get_category_items(cat['id'])
             self.data['unity'][key] = cast(
@@ -93,7 +96,11 @@ class ItemAnalyzer(BaseItemAnalyzer):
             )
 
         item_map: dict[int, 'Item'] = {}
+        _range_ = _range()
         for id_, category in category_map.items():
+            if id_ not in _range_:
+                continue
+
             item_data = self.get_category_items(id_)['root']['items']
             for item in item_data:
                 category.item.append(ResourceRef.from_model(Item, id=item['id']))
