@@ -12,6 +12,12 @@ on:
   schedule:
     - cron: "5 */6 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        type: boolean
+        description: "Force rebuild even when seer-data release is unchanged"
+        required: false
+        default: false
 
 jobs:
   build:
@@ -25,22 +31,72 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
+
+      - name: Check seer-data release changes
+        id: source_check
+        env:
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
+        run: |
+          set -e
+          remote_sha="$(
+            curl -fsSL https://github.com/Murmansk5000/seer-data/releases/download/latest/seerapi-data.sqlite.sha256 \
+              | awk '{print $1}'
+          )"
+          previous_sha=""
+          if [ -f .build-state/seer-data-sha256 ]; then
+            previous_sha="$(cat .build-state/seer-data-sha256)"
+          fi
+
+          echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
+          echo "previous_sha=${previous_sha}" >> "$GITHUB_OUTPUT"
+
+          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ -n "${previous_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "seer-data release is unchanged (${remote_sha}); skipping IronsBot DB build."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, remote=${remote_sha}, previous=${previous_sha:-none}"
+          fi
+
+      - name: Skip unchanged build
+        if: steps.source_check.outputs.skip == 'true'
+        run: echo "No seer-data release changes; workflow succeeded without rebuilding."
 
       - name: Setup Python
+        if: steps.source_check.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
       - name: Install parser dependency
+        if: steps.source_check.outputs.skip != 'true'
         run: python -m pip install UnityPy
 
       - name: Build IronsBot database
+        if: steps.source_check.outputs.skip != 'true'
         run: python scripts/build_ironsbot_data_db.py
 
       - name: Generate SHA256 checksum
+        if: steps.source_check.outputs.skip != 'true'
         run: sha256sum ironsbot-data.sqlite > ironsbot-data.sqlite.sha256
 
+      - name: Record seer-data source checksum
+        if: steps.source_check.outputs.skip != 'true'
+        run: |
+          set -e
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          mkdir -p .build-state
+          printf '%s\n' "${{ steps.source_check.outputs.remote_sha }}" > .build-state/seer-data-sha256
+          git add .build-state/seer-data-sha256
+          if ! git diff --cached --quiet; then
+            git commit -m "Record seer-data source checksum"
+            git push origin main
+          fi
+
       - name: Upload to Release
+        if: steps.source_check.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ironsbot-data-latest
@@ -55,6 +111,7 @@ jobs:
             and weekly preview metadata.
 
             Last build commit: ${{ github.sha }}
+            Source seer-data sha256: ${{ steps.source_check.outputs.remote_sha }}
           files: |
             ironsbot-data.sqlite
             ironsbot-data.sqlite.sha256
