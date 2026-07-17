@@ -3,7 +3,7 @@ import { defineConfig } from '@hey-api/openapi-ts';
 
 const LOCAL_OPENAPI_PATH = '../../output/v1/openapi.json';
 const REMOTE_OPENAPI_URL =
-    'https://raw.githubusercontent.com/SeerAPI/api-data/refs/heads/main/data/v1/openapi.json';
+    'https://raw.githubusercontent.com/Murmansk-Seer/api-data/main/data/v1/openapi.json';
 
 function resolveInput(): string {
     if (process.env.OPENAPI_INPUT) return process.env.OPENAPI_INPUT;
