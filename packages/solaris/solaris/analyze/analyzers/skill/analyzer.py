@@ -329,15 +329,17 @@ class SkillAnalyzer(BaseSkillEffectAnalyzer):
 
         result = {}
         for move in unity_data:
+            if (flash_move := flash_data_map.get(move['id'])) is None:
+                continue
             move_id = move['id']
             crit_rate = None
             if move['category'] != 4:
-                crit_rate = clac_crit_rate(flash_data_map[move_id].get('CritRate', 1))
+                crit_rate = clac_crit_rate(flash_move.get('CritRate', 1))
 
             result[move_id] = {
                 **move,
                 'crit_rate': crit_rate,
-                **flash_data_map[move_id],
+                **flash_move,
             }
 
         return result
