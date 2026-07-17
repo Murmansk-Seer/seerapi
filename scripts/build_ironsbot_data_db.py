@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DB = ROOT / os.environ.get("IRONSBOT_DATA_OUTPUT", "ironsbot-data.sqlite")
 UPSTREAM_SEERAPI_URL = os.environ.get(
     "IRONSBOT_DATA_UPSTREAM_SEERAPI_URL",
-    "https://github.com/Murmansk5000/seer-data/releases/download/latest/seerapi-data.sqlite",
+    "https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite",
 )
 CONFIG_PACKAGE_BASE_URL = os.environ.get(
     "IRONSBOT_DATA_CONFIG_PACKAGE_BASE_URL",
@@ -73,17 +73,17 @@ AUTOCARD_NATURE_TABLE = "autocard_nature"
 AUTOCARD_JSON_DIR = os.environ.get("IRONSBOT_DATA_AUTOCARD_JSON_DIR", "")
 AUTOCARD_JSON_BASE_URL = os.environ.get(
     "IRONSBOT_DATA_AUTOCARD_JSON_BASE_URL",
-    "https://raw.githubusercontent.com/Murmansk5000/seer-unity-config-parser/main/json/",
+    "https://raw.githubusercontent.com/Murmansk-Seer/seer-unity-config-parser/main/json/",
 )
 AUTOCARD_CONTENT_FILE = "autocardContent.json"
 AUTOCARD_NATURE_FILE = "autocardNature.json"
 AUTOCARD_ROLE_FILE = "autocardRole.json"
 WEEKLY_PREVIEW_IMAGE_URL = (
-    "https://cnb.cool/HurryWang/seer-unity-preview-img-dumper-cnb/-/git/raw/"
-    "master/img/preview.png"
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "seer-unity-preview-img-dumper/main/img/preview.png"
 )
 WEEKLY_PREVIEW_SOURCE_URL = (
-    "https://github.com/WhY15w/seer-unity-preview-img-dumper"
+    "https://github.com/Murmansk-Seer/seer-unity-preview-img-dumper"
 )
 SIGNED_BYTE_MAX = 127
 SIGNED_BYTE_MOD = 256
