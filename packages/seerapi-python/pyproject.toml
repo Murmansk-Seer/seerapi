@@ -22,11 +22,15 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+	"click>=8.2.1",
 	"hishel[httpx]>=1.1.5",
 	"httpx>=0.28.1",
 	"seerapi-models>=106.4.0,<107.0.0",
 	"typing-extensions>=4.15.0",
 ]
+
+[project.scripts]
+seerapi = "seerapi.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/SeerAPI/seerapi"

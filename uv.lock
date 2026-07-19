@@ -1724,6 +1724,7 @@ name = "seerapi"
 version = "106.4.0"
 source = { editable = "packages/seerapi-python" }
 dependencies = [
+    { name = "click" },
     { name = "hishel", extra = ["httpx"] },
     { name = "httpx" },
     { name = "seerapi-models" },
@@ -1732,6 +1733,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.2.1" },
     { name = "hishel", extras = ["httpx"], specifier = ">=1.1.5" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "seerapi-models", editable = "packages/seerapi-models" },
