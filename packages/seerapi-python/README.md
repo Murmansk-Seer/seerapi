@@ -9,6 +9,7 @@
 - 🎯 **类型安全**：完整的类型提示支持，提供良好的 IDE 智能提示
 - 📦 **分页支持**：内置分页处理，方便获取大量数据
 - 🔄 **同步兼容**：提供 `async_to_sync` 装饰器，在同步代码中也能使用
+- 🖥️ **CLI 工具**：内置 `seerapi` 命令行，输出紧凑 JSON，适合 LLM 与脚本调用
 ## 安装
 
 使用 pip 安装：
@@ -286,6 +287,79 @@ async def safe_get_pet(pet_id: int):
 asyncio.run(safe_get_pet(999999))
 ```
 
+## CLI 用法
+
+安装后可直接使用 `seerapi` 命令。默认输出紧凑 JSON（stdout），错误信息输出到 stderr。
+
+### 全局选项
+
+```bash
+seerapi --hostname api.seerapi.com --scheme https --version-path v1 --pretty
+```
+
+也支持环境变量 `SEERAPI_HOSTNAME`、`SEERAPI_SCHEME`。
+
+### 推荐工作流（LLM / 脚本）
+
+1. 发现资源：`seerapi resources`
+2. 查看 schema：`seerapi describe pet`
+3. 查询数据：`seerapi get pet 1` 或 `seerapi list pet --limit 20`
+
+### 命令示例
+
+```bash
+# 列出所有可用资源
+seerapi resources
+
+# 查看单个资源的 JSON Schema（默认 item = /schemas/<resource>/$id）
+seerapi describe pet
+seerapi describe skill --fields id,name,power
+seerapi describe pet --scope list   # 分页列表
+seerapi describe skill --scope name # NamedData 包装（仅 NamedModel）
+
+# 按 ID 获取
+seerapi get pet 1
+seerapi get skill 38088 --pretty
+
+# 分页列表（默认 offset=0, limit=20, expand=true）
+seerapi list pet
+seerapi list pet --offset 20 --limit 10
+seerapi list pet --no-expand
+seerapi list pet --fields id,name
+
+# 按名称获取（仅 supports_name_lookup=true 的资源）
+seerapi get-by-name skill "虚妄幻境"
+
+# 安装 agent skill（目标目录因工具而异）
+seerapi skill install --target ~/.cursor/skills
+# 或：export SEERAPI_SKILL_DIR=~/.cursor/skills && seerapi skill install
+```
+
+`list` 输出包含可复现的分页参数对象，便于翻页：
+
+```json
+{
+  "count": 1234,
+  "offset": 0,
+  "limit": 20,
+  "results": [...],
+  "next": {"offset": 20, "limit": 20, "expand": true}
+}
+```
+
+无效资源名返回 exit code 2，stderr 为 JSON 错误对象（含 `did_you_mean` 建议）。
+
+### Agent Skill
+
+随包分发 agent skill，教 AI 按正确工作流调用 `seerapi` CLI。
+
+```bash
+seerapi skill path
+seerapi skill install --target <your-agent-skills-dir>
+```
+
+`--target` 指向你使用的 AI 工具的 skills 父目录（会自动创建 `seerapi-cli` 子目录）。也可设置环境变量 `SEERAPI_SKILL_DIR` 省略每次传参。
+
 ## 开发环境设置
 
 ### 环境要求
@@ -328,6 +402,7 @@ ruff check --fix .
 
 ## 依赖项
 
+- [click](https://click.palletsprojects.com/) - CLI 框架
 - [httpx](https://www.python-httpx.org/) - 现代化的 HTTP 客户端
 - [hishel](https://hishel.com/) - HTTP 缓存库
 - [seerapi-models](https://github.com/SeerAPI/seerapi/tree/main/packages/seerapi-models) - SeerAPI 数据模型（同一 monorepo）
