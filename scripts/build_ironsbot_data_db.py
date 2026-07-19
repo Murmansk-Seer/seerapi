@@ -67,6 +67,7 @@ SKIN_STORE_PRICE_TABLE = "skin_store_price"
 SKIN_SHOP_PRICE_TABLE = "skin_shop_price"
 SKIN_ITEM_TIP_TABLE = "skin_item_tip"
 ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
+EFFECT_DESCRIPTION_TABLE = "effect_description"
 SOULMARK_ICON_TABLE = "soulmark_icon"
 AUTOCARD_CARD_TABLE = "autocard_card"
 AUTOCARD_ROLE_TABLE = "autocard_role"
@@ -100,6 +101,11 @@ SPECIAL_SKILL_SHOP_URL = os.environ.get(
     "IRONSBOT_DATA_SPECIAL_SKILL_SHOP_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/spHideMovesShop.json",
+)
+EFFECT_DESCRIPTION_URL = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_DESCRIPTION_URL",
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "config-sources/main/unity/effectDes.json",
 )
 BATTLEPASS_SHOP_SOURCE_KEY = "battlepass_shop"
 BATTLEPASS_SHOP_SOURCE_NAME = "战令商店"
@@ -164,12 +170,20 @@ class ItemExchangePrice:
     source_name: str
     source_entry_id: int
     item_id: int
+    item_name: str
     item_quantity: int
     currency_item_id: int
     amount: int
     purchase_limit: int | None
     start_time: int
     end_time: int
+
+
+@dataclass(frozen=True, slots=True)
+class EffectDescription:
+    effect_id: int
+    name: str
+    description: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -594,6 +608,7 @@ def _parse_commodity_shop(
                 source_name=source_name,
                 source_entry_id=source_entry_id,
                 item_id=item_id,
+                item_name=_item_text(row, "item_name", "itemname").strip(),
                 item_quantity=item_quantity,
                 currency_item_id=currency_item_id,
                 amount=amount,
@@ -650,12 +665,46 @@ def _parse_special_skill_shop(data: bytes) -> list[ItemExchangePrice]:
                 source_name=SPECIAL_SKILL_SHOP_SOURCE_NAME,
                 source_entry_id=source_entry_id,
                 item_id=item_id,
+                item_name=_item_text(row, "item_name", "itemname").strip(),
                 item_quantity=1,
                 currency_item_id=currency_item_id,
                 amount=amount,
                 purchase_limit=limit if limit > 0 else None,
                 start_time=0,
                 end_time=0,
+            )
+        )
+
+    return result
+
+
+def _parse_effect_descriptions(data: bytes) -> list[EffectDescription]:
+    raw = json.loads(data.decode("utf-8-sig"))
+    root = raw.get("root")
+    if not isinstance(root, dict):
+        return []
+    rows = root.get("item", [])
+    if not isinstance(rows, list):
+        return []
+
+    result: list[EffectDescription] = []
+    seen_ids: set[int] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if _item_int(row, "kind") != 1:
+            continue
+        effect_id = _item_int(row, "id")
+        name = _item_text(row, "kinddes").strip()
+        description = _item_text(row, "desc").strip()
+        if effect_id <= 0 or not name or not description or effect_id in seen_ids:
+            continue
+        seen_ids.add(effect_id)
+        result.append(
+            EffectDescription(
+                effect_id=effect_id,
+                name=name,
+                description=description,
             )
         )
 
@@ -1005,6 +1054,24 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
     return prices
 
 
+def _load_effect_descriptions() -> list[EffectDescription]:
+    try:
+        return _parse_effect_descriptions(_download_bytes(EFFECT_DESCRIPTION_URL))
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        OSError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ) as error:
+        logger.warning(
+            "Effect description source skipped: %s",
+            _short_error(error),
+        )
+        return []
+
+
 def _load_autocard_json(filename: str) -> tuple[dict[str, object], str]:
     if AUTOCARD_JSON_DIR:
         path = Path(AUTOCARD_JSON_DIR) / filename
@@ -1235,6 +1302,7 @@ def _merge_ironsbot_tables(
     config_data: ConfigPackageData,
     autocard_data: AutocardData,
     item_exchange_prices: list[ItemExchangePrice],
+    effect_descriptions: list[EffectDescription],
     weekly_preview_probe: dict[str, str],
 ) -> None:
     now = time.time()
@@ -1401,6 +1469,7 @@ def _merge_ironsbot_tables(
                 source_name TEXT NOT NULL,
                 source_entry_id INTEGER NOT NULL,
                 item_id INTEGER NOT NULL,
+                item_name TEXT NOT NULL,
                 item_quantity INTEGER NOT NULL,
                 currency_item_id INTEGER NOT NULL,
                 amount INTEGER NOT NULL,
@@ -1420,6 +1489,7 @@ def _merge_ironsbot_tables(
                     source_name,
                     source_entry_id,
                     item_id,
+                    item_name,
                     item_quantity,
                     currency_item_id,
                     amount,
@@ -1428,7 +1498,7 @@ def _merge_ironsbot_tables(
                     end_time,
                     updated_at
                 )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -1436,6 +1506,7 @@ def _merge_ironsbot_tables(
                     item.source_name,
                     item.source_entry_id,
                     item.item_id,
+                    item.item_name,
                     item.item_quantity,
                     item.currency_item_id,
                     item.amount,
@@ -1451,6 +1522,39 @@ def _merge_ironsbot_tables(
             f"""
             CREATE INDEX IF NOT EXISTS idx_{ITEM_EXCHANGE_PRICE_TABLE}_item_id
             ON {ITEM_EXCHANGE_PRICE_TABLE} (item_id)
+            """
+        )
+        conn.execute(f"DROP TABLE IF EXISTS {EFFECT_DESCRIPTION_TABLE}")
+        conn.execute(
+            f"""
+            CREATE TABLE {EFFECT_DESCRIPTION_TABLE} (
+                effect_id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                updated_at REAL NOT NULL
+            )
+            """
+        )
+        conn.executemany(
+            f"""
+            INSERT INTO {EFFECT_DESCRIPTION_TABLE}
+                (effect_id, name, description, updated_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            [
+                (
+                    effect.effect_id,
+                    effect.name,
+                    effect.description,
+                    now,
+                )
+                for effect in effect_descriptions
+            ],
+        )
+        conn.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS idx_{EFFECT_DESCRIPTION_TABLE}_name
+            ON {EFFECT_DESCRIPTION_TABLE} (name)
             """
         )
         deduplicated_soulmark_icons = sorted(
@@ -1569,6 +1673,8 @@ def _merge_ironsbot_tables(
             "item_exchange_price_source_urls": "\n".join(
                 (BATTLEPASS_SHOP_URL, ACTIVITY_SHOP_URL, SPECIAL_SKILL_SHOP_URL)
             ),
+            "effect_description_count": str(len(effect_descriptions)),
+            "effect_description_source_url": EFFECT_DESCRIPTION_URL,
             "soulmark_icon_count": str(len(soulmark_icon_rows)),
             "autocard_card_count": str(len(autocard_data.cards)),
             "autocard_role_count": str(len(autocard_data.roles)),
@@ -1607,6 +1713,8 @@ def main() -> None:
     autocard_data = _load_autocard_data()
     logger.info("Loading official item exchange prices")
     item_exchange_prices = _load_item_exchange_prices()
+    logger.info("Loading official named effect descriptions")
+    effect_descriptions = _load_effect_descriptions()
     logger.info("Probing weekly preview image: %s", WEEKLY_PREVIEW_IMAGE_URL)
     weekly_preview_probe = _probe_weekly_preview_image()
 
@@ -1615,6 +1723,7 @@ def main() -> None:
         config_data=config_data,
         autocard_data=autocard_data,
         item_exchange_prices=item_exchange_prices,
+        effect_descriptions=effect_descriptions,
         weekly_preview_probe=weekly_preview_probe,
     )
     _quick_check(OUTPUT_DB)
@@ -1622,7 +1731,7 @@ def main() -> None:
     logger.info(
         (
             "Built %s (%.2f MB), mintmark_quality rows: %s, "
-            "skin shop rows: %s, exchange price rows: %s, "
+            "skin shop rows: %s, exchange price rows: %s, effect descriptions: %s, "
             "soulmark icons: %s, autocard cards: %s"
         ),
         OUTPUT_DB,
@@ -1630,6 +1739,7 @@ def main() -> None:
         len(config_data.mintmark_quality),
         len(config_data.skin_shop_prices),
         len(item_exchange_prices),
+        len(effect_descriptions),
         len(config_data.soulmark_icons),
         len(autocard_data.cards),
     )
