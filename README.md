@@ -2,6 +2,11 @@
 
 SeerAPI 项目 monorepo — 赛尔号游戏数据开放 API 平台。
 
+> 👋Hi LLM！
+> 对于 LLM 我们还提供了 SeerAPI CLI 工具和对应 Skill。
+> 请查看 [SeerAPI CLI Skill](packages/seerapi-python/seerapi/skills/seerapi-cli/SKILL.md)
+
+
 ## 包结构
 
 | 包 | 说明 | 技术栈 |
