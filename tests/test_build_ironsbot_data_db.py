@@ -47,6 +47,7 @@ def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
             source_name="战令商店",
             source_entry_id=1005,
             item_id=1728296,
+            item_name="",
             item_quantity=1,
             currency_item_id=1726710,
             amount=2000,
@@ -57,16 +58,25 @@ def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
     ]
 
 
-def test_parse_special_skill_shop_reads_resonance_crystal_price() -> None:
+def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
     payload = {
         "item": [
             {
                 "coin_id": 1726992,
-                "id": 1,
-                "item_id": 1725170,
+                "id": 3,
+                "item_id": 1727009,
+                "item_name": "魔灵密卷",
                 "limit": 1,
-                "price": 200,
-            }
+                "price": 400,
+            },
+            {
+                "coin_id": 1726992,
+                "id": 44,
+                "item_id": 1728277,
+                "item_name": "咎者焚卷",
+                "limit": 1,
+                "price": 400,
+            },
         ]
     }
 
@@ -78,14 +88,63 @@ def test_parse_special_skill_shop_reads_resonance_crystal_price() -> None:
         builder.ItemExchangePrice(
             source_key="special_skill_shop",
             source_name="追加技能商店",
-            source_entry_id=1,
-            item_id=1725170,
+            source_entry_id=3,
+            item_id=1727009,
+            item_name="魔灵密卷",
             item_quantity=1,
             currency_item_id=1726992,
-            amount=200,
+            amount=400,
             purchase_limit=1,
             start_time=0,
             end_time=0,
+        ),
+        builder.ItemExchangePrice(
+            source_key="special_skill_shop",
+            source_name="追加技能商店",
+            source_entry_id=44,
+            item_id=1728277,
+            item_name="咎者焚卷",
+            item_quantity=1,
+            currency_item_id=1726992,
+            amount=400,
+            purchase_limit=1,
+            start_time=0,
+            end_time=0,
+        ),
+    ]
+
+
+def test_parse_effect_descriptions_keeps_named_entries() -> None:
+    payload = {
+        "root": {
+            "item": [
+                {
+                    "id": 544,
+                    "kind": 1,
+                    "kinddes": "冥妖之悼",
+                    "desc": "效果说明",
+                },
+                {"id": 545, "kind": 1, "kinddes": "", "desc": "忽略"},
+                {"id": 546, "kind": 1, "kinddes": "无说明", "desc": ""},
+                {
+                    "id": 547,
+                    "kind": 4,
+                    "kinddes": "己方",
+                    "desc": "不是专属效果",
+                },
+            ]
+        }
+    }
+
+    rows = builder._parse_effect_descriptions(
+        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    )
+
+    assert rows == [
+        builder.EffectDescription(
+            effect_id=544,
+            name="冥妖之悼",
+            description="效果说明",
         )
     ]
 
@@ -97,12 +156,18 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         source_name="战令商店",
         source_entry_id=1005,
         item_id=1728296,
+        item_name="双源魂蒂",
         item_quantity=1,
         currency_item_id=1726710,
         amount=2000,
         purchase_limit=6,
         start_time=0,
         end_time=0,
+    )
+    effect_description = builder.EffectDescription(
+        effect_id=544,
+        name="冥妖之悼",
+        description="效果说明",
     )
     config_data = builder.ConfigPackageData(
         version="test",
@@ -125,14 +190,22 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         config_data=config_data,
         autocard_data=autocard_data,
         item_exchange_prices=[price],
+        effect_descriptions=[effect_description],
         weekly_preview_probe={},
     )
 
     with sqlite3.connect(database) as connection:
         row = connection.execute(
             """
-            SELECT item_id, currency_item_id, amount, purchase_limit, source_name
+            SELECT item_id, item_name, currency_item_id, amount, purchase_limit, source_name
             FROM item_exchange_price
             """
         ).fetchone()
-    assert row == (1728296, 1726710, 2000, 6, "战令商店")
+        effect_row = connection.execute(
+            """
+            SELECT effect_id, name, description
+            FROM effect_description
+            """
+        ).fetchone()
+    assert row == (1728296, "双源魂蒂", 1726710, 2000, 6, "战令商店")
+    assert effect_row == (544, "冥妖之悼", "效果说明")
