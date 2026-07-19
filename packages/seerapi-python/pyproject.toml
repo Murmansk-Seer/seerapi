@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "seerapi"
-version = "106.4.0"
+version = "106.4.1"
 description = "SeerAPI Python Client"
 authors = [{ name = "Nattsu39", email = "Nattsu39@outlook.com" }]
 license = { file = "LICENSE" }

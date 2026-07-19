@@ -1721,7 +1721,7 @@ wheels = [
 
 [[package]]
 name = "seerapi"
-version = "106.4.0"
+version = "106.4.1"
 source = { editable = "packages/seerapi-python" }
 dependencies = [
     { name = "click" },
