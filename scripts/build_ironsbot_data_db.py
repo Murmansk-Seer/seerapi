@@ -66,6 +66,7 @@ MINTMARK_QUALITY_TABLE = "mintmark_quality"
 SKIN_STORE_PRICE_TABLE = "skin_store_price"
 SKIN_SHOP_PRICE_TABLE = "skin_shop_price"
 SKIN_ITEM_TIP_TABLE = "skin_item_tip"
+ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
 SOULMARK_ICON_TABLE = "soulmark_icon"
 AUTOCARD_CARD_TABLE = "autocard_card"
 AUTOCARD_ROLE_TABLE = "autocard_role"
@@ -85,6 +86,27 @@ WEEKLY_PREVIEW_IMAGE_URL = (
 WEEKLY_PREVIEW_SOURCE_URL = (
     "https://github.com/Murmansk-Seer/seer-unity-preview-img-dumper"
 )
+BATTLEPASS_SHOP_URL = os.environ.get(
+    "IRONSBOT_DATA_BATTLEPASS_SHOP_URL",
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "config-sources/main/unity/battlepassShop.json",
+)
+ACTIVITY_SHOP_URL = os.environ.get(
+    "IRONSBOT_DATA_ACTIVITY_SHOP_URL",
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "config-sources/main/unity/Activity_ShopConfig.json",
+)
+SPECIAL_SKILL_SHOP_URL = os.environ.get(
+    "IRONSBOT_DATA_SPECIAL_SKILL_SHOP_URL",
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "config-sources/main/unity/spHideMovesShop.json",
+)
+BATTLEPASS_SHOP_SOURCE_KEY = "battlepass_shop"
+BATTLEPASS_SHOP_SOURCE_NAME = "战令商店"
+ACTIVITY_SHOP_SOURCE_KEY = "activity_shop"
+ACTIVITY_SHOP_SOURCE_NAME = "活动商店"
+SPECIAL_SKILL_SHOP_SOURCE_KEY = "special_skill_shop"
+SPECIAL_SKILL_SHOP_SOURCE_NAME = "追加技能商店"
 SIGNED_BYTE_MAX = 127
 SIGNED_BYTE_MOD = 256
 HTTP_TIMEOUT_SECONDS = 180
@@ -134,6 +156,20 @@ class SkinShopPrice:
     card_price: int
     diamond_price: int
     original_price: int
+
+
+@dataclass(frozen=True, slots=True)
+class ItemExchangePrice:
+    source_key: str
+    source_name: str
+    source_entry_id: int
+    item_id: int
+    item_quantity: int
+    currency_item_id: int
+    amount: int
+    purchase_limit: int | None
+    start_time: int
+    end_time: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -513,6 +549,119 @@ def _parse_skin_shop(data: bytes) -> list[SkinShopPrice]:
     return result
 
 
+def _parse_commodity_shop(
+    data: bytes,
+    *,
+    source_key: str,
+    source_name: str,
+) -> list[ItemExchangePrice]:
+    raw = json.loads(data.decode("utf-8-sig"))
+    rows = raw.get("item", [])
+    if not isinstance(rows, list):
+        return []
+
+    result: list[ItemExchangePrice] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        commodity = str(row.get("commodity", ""))
+        parts = commodity.split("_")
+        if len(parts) != 3 or parts[0] != "1":
+            continue
+        try:
+            item_id = int(parts[1])
+            commodity_quantity = int(parts[2])
+        except ValueError:
+            continue
+
+        source_entry_id = _item_int(row, "id")
+        currency_item_id = _item_int(row, "consumeitemid")
+        amount = _item_int(row, "price")
+        item_quantity = _item_int(row, "quantity") or commodity_quantity
+        if (
+            source_entry_id <= 0
+            or item_id <= 0
+            or item_quantity <= 0
+            or currency_item_id <= 0
+            or amount <= 0
+        ):
+            continue
+
+        limit = _item_int(row, "limit")
+        result.append(
+            ItemExchangePrice(
+                source_key=source_key,
+                source_name=source_name,
+                source_entry_id=source_entry_id,
+                item_id=item_id,
+                item_quantity=item_quantity,
+                currency_item_id=currency_item_id,
+                amount=amount,
+                purchase_limit=limit if limit > 0 else None,
+                start_time=_item_int(row, "timestart", "starttime"),
+                end_time=_item_int(row, "timeend", "endtime"),
+            )
+        )
+
+    return result
+
+
+def _parse_battlepass_shop(data: bytes) -> list[ItemExchangePrice]:
+    return _parse_commodity_shop(
+        data,
+        source_key=BATTLEPASS_SHOP_SOURCE_KEY,
+        source_name=BATTLEPASS_SHOP_SOURCE_NAME,
+    )
+
+
+def _parse_activity_shop(data: bytes) -> list[ItemExchangePrice]:
+    return _parse_commodity_shop(
+        data,
+        source_key=ACTIVITY_SHOP_SOURCE_KEY,
+        source_name=ACTIVITY_SHOP_SOURCE_NAME,
+    )
+
+
+def _parse_special_skill_shop(data: bytes) -> list[ItemExchangePrice]:
+    raw = json.loads(data.decode("utf-8-sig"))
+    rows = raw.get("item", [])
+    if not isinstance(rows, list):
+        return []
+
+    result: list[ItemExchangePrice] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        source_entry_id = _item_int(row, "id")
+        item_id = _item_int(row, "item_id")
+        currency_item_id = _item_int(row, "coin_id")
+        amount = _item_int(row, "price")
+        if (
+            source_entry_id <= 0
+            or item_id <= 0
+            or currency_item_id <= 0
+            or amount <= 0
+        ):
+            continue
+        limit = _item_int(row, "limit")
+        result.append(
+            ItemExchangePrice(
+                source_key=SPECIAL_SKILL_SHOP_SOURCE_KEY,
+                source_name=SPECIAL_SKILL_SHOP_SOURCE_NAME,
+                source_entry_id=source_entry_id,
+                item_id=item_id,
+                item_quantity=1,
+                currency_item_id=currency_item_id,
+                amount=amount,
+                purchase_limit=limit if limit > 0 else None,
+                start_time=0,
+                end_time=0,
+            )
+        )
+
+    return result
+
+
 def _parse_items_tip(data: bytes) -> dict[int, str]:
     if not data:
         return {}
@@ -826,6 +975,36 @@ def _load_autocard_data() -> AutocardData:
     )
 
 
+def _load_item_exchange_prices() -> list[ItemExchangePrice]:
+    sources = (
+        (BATTLEPASS_SHOP_SOURCE_NAME, BATTLEPASS_SHOP_URL, _parse_battlepass_shop),
+        (ACTIVITY_SHOP_SOURCE_NAME, ACTIVITY_SHOP_URL, _parse_activity_shop),
+        (
+            SPECIAL_SKILL_SHOP_SOURCE_NAME,
+            SPECIAL_SKILL_SHOP_URL,
+            _parse_special_skill_shop,
+        ),
+    )
+    prices: list[ItemExchangePrice] = []
+    for source_name, source_url, parser in sources:
+        try:
+            prices.extend(parser(_download_bytes(source_url)))
+        except (
+            HTTPError,
+            URLError,
+            TimeoutError,
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ) as error:
+            logger.warning(
+                "Item exchange price source skipped (%s): %s",
+                source_name,
+                _short_error(error),
+            )
+    return prices
+
+
 def _load_autocard_json(filename: str) -> tuple[dict[str, object], str]:
     if AUTOCARD_JSON_DIR:
         path = Path(AUTOCARD_JSON_DIR) / filename
@@ -1055,6 +1234,7 @@ def _merge_ironsbot_tables(
     *,
     config_data: ConfigPackageData,
     autocard_data: AutocardData,
+    item_exchange_prices: list[ItemExchangePrice],
     weekly_preview_probe: dict[str, str],
 ) -> None:
     now = time.time()
@@ -1213,6 +1393,66 @@ def _merge_ironsbot_tables(
                 )
             ],
         )
+        conn.execute(f"DROP TABLE IF EXISTS {ITEM_EXCHANGE_PRICE_TABLE}")
+        conn.execute(
+            f"""
+            CREATE TABLE {ITEM_EXCHANGE_PRICE_TABLE} (
+                source_key TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                source_entry_id INTEGER NOT NULL,
+                item_id INTEGER NOT NULL,
+                item_quantity INTEGER NOT NULL,
+                currency_item_id INTEGER NOT NULL,
+                amount INTEGER NOT NULL,
+                purchase_limit INTEGER,
+                start_time INTEGER NOT NULL,
+                end_time INTEGER NOT NULL,
+                updated_at REAL NOT NULL,
+                PRIMARY KEY (source_key, source_entry_id)
+            )
+            """
+        )
+        conn.executemany(
+            f"""
+            INSERT INTO {ITEM_EXCHANGE_PRICE_TABLE}
+                (
+                    source_key,
+                    source_name,
+                    source_entry_id,
+                    item_id,
+                    item_quantity,
+                    currency_item_id,
+                    amount,
+                    purchase_limit,
+                    start_time,
+                    end_time,
+                    updated_at
+                )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    item.source_key,
+                    item.source_name,
+                    item.source_entry_id,
+                    item.item_id,
+                    item.item_quantity,
+                    item.currency_item_id,
+                    item.amount,
+                    item.purchase_limit,
+                    item.start_time,
+                    item.end_time,
+                    now,
+                )
+                for item in item_exchange_prices
+            ],
+        )
+        conn.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS idx_{ITEM_EXCHANGE_PRICE_TABLE}_item_id
+            ON {ITEM_EXCHANGE_PRICE_TABLE} (item_id)
+            """
+        )
         deduplicated_soulmark_icons = sorted(
             {
                 (
@@ -1325,6 +1565,10 @@ def _merge_ironsbot_tables(
             "skin_store_price_count": str(len(config_data.skin_store_prices)),
             "skin_shop_price_count": str(len(config_data.skin_shop_prices)),
             "skin_item_tip_count": str(len(config_data.skin_item_tips)),
+            "item_exchange_price_count": str(len(item_exchange_prices)),
+            "item_exchange_price_source_urls": "\n".join(
+                (BATTLEPASS_SHOP_URL, ACTIVITY_SHOP_URL, SPECIAL_SKILL_SHOP_URL)
+            ),
             "soulmark_icon_count": str(len(soulmark_icon_rows)),
             "autocard_card_count": str(len(autocard_data.cards)),
             "autocard_role_count": str(len(autocard_data.roles)),
@@ -1361,6 +1605,8 @@ def main() -> None:
         AUTOCARD_JSON_DIR or AUTOCARD_JSON_BASE_URL,
     )
     autocard_data = _load_autocard_data()
+    logger.info("Loading official item exchange prices")
+    item_exchange_prices = _load_item_exchange_prices()
     logger.info("Probing weekly preview image: %s", WEEKLY_PREVIEW_IMAGE_URL)
     weekly_preview_probe = _probe_weekly_preview_image()
 
@@ -1368,6 +1614,7 @@ def main() -> None:
         OUTPUT_DB,
         config_data=config_data,
         autocard_data=autocard_data,
+        item_exchange_prices=item_exchange_prices,
         weekly_preview_probe=weekly_preview_probe,
     )
     _quick_check(OUTPUT_DB)
@@ -1375,12 +1622,14 @@ def main() -> None:
     logger.info(
         (
             "Built %s (%.2f MB), mintmark_quality rows: %s, "
-            "skin shop rows: %s, soulmark icons: %s, autocard cards: %s"
+            "skin shop rows: %s, exchange price rows: %s, "
+            "soulmark icons: %s, autocard cards: %s"
         ),
         OUTPUT_DB,
         size_mb,
         len(config_data.mintmark_quality),
         len(config_data.skin_shop_prices),
+        len(item_exchange_prices),
         len(config_data.soulmark_icons),
         len(autocard_data.cards),
     )
