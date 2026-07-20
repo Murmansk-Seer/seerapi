@@ -153,21 +153,17 @@ def test_parse_effect_descriptions_keeps_named_entries() -> None:
     ]
 
 
-def test_parse_item_names_reads_exchange_currency_names() -> None:
+def test_parse_unity_item_names_reads_exchange_currency_names() -> None:
     payload = {
-        "Items": {
-            "Cat": [
-                {
-                    "Item": [
-                        {"ID": 1726992, "Name": "共振晶体"},
-                        {"ID": 1726710, "Name": "共鸣锚点"},
-                    ]
-                }
+        "root": {
+            "items": [
+                {"id": 1726992, "name": "共振晶体"},
+                {"id": 1726710, "name": "共鸣锚点"},
             ]
         }
     }
 
-    names = builder._parse_item_names(
+    names = builder._parse_unity_item_names(
         json.dumps(payload, ensure_ascii=False).encode("utf-8")
     )
 
@@ -221,7 +217,7 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
                     {
                         "key": 1,
                         "type": "1",
-                        "name": "Elemental inheritance",
+                        "name": "雷电传承",
                         "member_pet_ids": [3142, 3150],
                         "cost": 3,
                     },
@@ -238,8 +234,8 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
                 + [
                     {
                         "pet_id": 3142,
-                        "before_description": "Before inheritance",
-                        "after_description": "After inheritance",
+                        "before_description": "强化前魂印",
+                        "after_description": "强化后魂印",
                         "skill_ids": ["123"],
                     }
                 ],

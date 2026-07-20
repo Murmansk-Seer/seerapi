@@ -105,10 +105,10 @@ SPECIAL_SKILL_SHOP_URL = os.environ.get(
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/spHideMovesShop.json",
 )
-ITEMS_URL = os.environ.get(
-    "IRONSBOT_DATA_ITEMS_URL",
+UNITY_ITEM_CATALOG_URL = os.environ.get(
+    "IRONSBOT_DATA_UNITY_ITEM_CATALOG_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
-    "config-sources/main/html5/xml/items.json",
+    "config-sources/main/unity/itemsOptimizeCatItems17.json",
 )
 EFFECT_DESCRIPTION_URL = os.environ.get(
     "IRONSBOT_DATA_EFFECT_DESCRIPTION_URL",
@@ -1071,7 +1071,9 @@ def _load_autocard_data() -> AutocardData:
 
 def _load_item_exchange_prices() -> list[ItemExchangePrice]:
     try:
-        currency_names = _parse_item_names(_download_bytes(ITEMS_URL))
+        currency_names = _parse_unity_item_names(
+            _download_bytes(UNITY_ITEM_CATALOG_URL)
+        )
     except (
         HTTPError,
         URLError,
@@ -1080,7 +1082,7 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
         UnicodeDecodeError,
         json.JSONDecodeError,
     ) as error:
-        logger.warning("Official item names skipped: %s", _short_error(error))
+        logger.warning("Official Unity item names skipped: %s", _short_error(error))
         currency_names = {}
 
     sources = (
@@ -1179,35 +1181,33 @@ def _item_text(item: dict[str, object], *names: str) -> str:
     return ""
 
 
-def _parse_item_names(data: bytes) -> dict[int, str]:
-    """Read official item IDs and names for exchange-currency labels."""
+def _parse_unity_item_names(data: bytes) -> dict[int, str]:
+    """Read exchange-currency labels from the official Unity item catalog."""
 
     raw = json.loads(data.decode("utf-8-sig"))
-    items_root = raw.get("Items", {})
+    if not isinstance(raw, dict):
+        raise ValueError("Unity item catalog root must be an object")
+    items_root = raw.get("root")
     if not isinstance(items_root, dict):
-        return {}
-    categories = items_root.get("Cat", [])
-    if isinstance(categories, dict):
-        categories = [categories]
-    if not isinstance(categories, list):
-        return {}
+        raise ValueError("Unity item catalog has no root object")
+    rows = items_root.get("items")
+    if not isinstance(rows, list):
+        raise ValueError("Unity item catalog has no items list")
 
     item_names: dict[int, str] = {}
-    for category in categories:
-        if not isinstance(category, dict):
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
             continue
-        rows = category.get("Item", [])
-        if isinstance(rows, dict):
-            rows = [rows]
-        if not isinstance(rows, list):
+        item_id = _item_int(row, "id")
+        item_name = _item_text(row, "name").strip()
+        if item_id <= 0 or not item_name:
             continue
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            item_id = _item_int(row, "ID", "id")
-            item_name = _item_text(row, "Name", "name").strip()
-            if item_id > 0 and item_name:
-                item_names[item_id] = item_name
+        existing_name = item_names.setdefault(item_id, item_name)
+        if existing_name != item_name:
+            raise ValueError(
+                f"Unity item catalog has conflicting name for item {item_id} "
+                f"at index {index}"
+            )
     return item_names
 
 
@@ -2044,7 +2044,7 @@ def _merge_ironsbot_tables(
                     BATTLEPASS_SHOP_URL,
                     ACTIVITY_SHOP_URL,
                     SPECIAL_SKILL_SHOP_URL,
-                    ITEMS_URL,
+                    UNITY_ITEM_CATALOG_URL,
                 )
             ),
             "effect_description_count": str(len(effect_descriptions)),
