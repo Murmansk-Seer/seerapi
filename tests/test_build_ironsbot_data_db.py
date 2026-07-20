@@ -4,7 +4,11 @@ from pathlib import Path
 import sqlite3
 import sys
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "build_ironsbot_data_db.py"
+SCRIPT_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "build_ironsbot_data_db.py"
+)
 SPEC = importlib.util.spec_from_file_location("build_ironsbot_data_db", SCRIPT_PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError
@@ -149,6 +153,59 @@ def test_parse_effect_descriptions_keeps_named_entries() -> None:
     ]
 
 
+def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
+    partners = {
+        "data": [
+            {
+                "id": 15,
+                "partnerName": "源初之夜",
+                "partnerMonsterId": "4329|3491",
+                "cost": 8,
+            }
+        ]
+    }
+    upgrades = {
+        "data": [
+            {
+                "monID": 4329,
+                "descBefore": "强化前魂印",
+                "descAfter": "强化后魂印",
+                "skill": "36696",
+            },
+            {
+                "monID": 9999,
+                "descBefore": "未加入羁绊组",
+                "descAfter": "未加入羁绊组",
+                "skill": "1",
+            },
+        ]
+    }
+
+    data = builder._parse_pet_partner_data(
+        json.dumps(partners, ensure_ascii=False).encode("utf-8"),
+        json.dumps(upgrades, ensure_ascii=False).encode("utf-8"),
+    )
+
+    assert data.groups == [
+        builder.PetPartnerGroup(
+            group_id=15,
+            name="源初之夜",
+            member_pet_ids=(4329, 3491),
+            cost_item_id=1722827,
+            cost_item_name="契约徽章",
+            cost_item_quantity=8,
+        )
+    ]
+    assert data.upgrades == [
+        builder.PetPartnerUpgrade(
+            pet_id=4329,
+            before_description="强化前魂印",
+            after_description="强化后魂印",
+            skill_id=36696,
+        )
+    ]
+
+
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     database = tmp_path / "ironsbot-data.sqlite"
     price = builder.ItemExchangePrice(
@@ -184,6 +241,26 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         natures=[],
         source="test",
     )
+    pet_partner_data = builder.PetPartnerData(
+        groups=[
+            builder.PetPartnerGroup(
+                group_id=15,
+                name="源初之夜",
+                member_pet_ids=(4329, 3491),
+                cost_item_id=1722827,
+                cost_item_name="契约徽章",
+                cost_item_quantity=8,
+            )
+        ],
+        upgrades=[
+            builder.PetPartnerUpgrade(
+                pet_id=4329,
+                before_description="强化前魂印",
+                after_description="强化后魂印",
+                skill_id=36696,
+            )
+        ],
+    )
 
     builder._merge_ironsbot_tables(
         database,
@@ -191,13 +268,20 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         autocard_data=autocard_data,
         item_exchange_prices=[price],
         effect_descriptions=[effect_description],
+        pet_partner_data=pet_partner_data,
         weekly_preview_probe={},
     )
 
     with sqlite3.connect(database) as connection:
         row = connection.execute(
             """
-            SELECT item_id, item_name, currency_item_id, amount, purchase_limit, source_name
+            SELECT
+                item_id,
+                item_name,
+                currency_item_id,
+                amount,
+                purchase_limit,
+                source_name
             FROM item_exchange_price
             """
         ).fetchone()
@@ -207,5 +291,19 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             FROM effect_description
             """
         ).fetchone()
+        partner_row = connection.execute(
+            """
+            SELECT group_id, name, cost_item_id, cost_item_quantity
+            FROM pet_partner_group
+            """
+        ).fetchone()
+        partner_upgrade_row = connection.execute(
+            """
+            SELECT pet_id, group_id, skill_id
+            FROM pet_partner_upgrade
+            """
+        ).fetchone()
     assert row == (1728296, "双源魂蒂", 1726710, 2000, 6, "战令商店")
     assert effect_row == (544, "冥妖之悼", "效果说明")
+    assert partner_row == (15, "源初之夜", 1722827, 8)
+    assert partner_upgrade_row == (4329, 15, 36696)
