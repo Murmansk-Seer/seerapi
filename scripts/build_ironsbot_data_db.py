@@ -69,6 +69,9 @@ SKIN_ITEM_TIP_TABLE = "skin_item_tip"
 ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
 EFFECT_DESCRIPTION_TABLE = "effect_description"
 SOULMARK_ICON_TABLE = "soulmark_icon"
+PET_PARTNER_GROUP_TABLE = "pet_partner_group"
+PET_PARTNER_MEMBER_TABLE = "pet_partner_member"
+PET_PARTNER_UPGRADE_TABLE = "pet_partner_upgrade"
 AUTOCARD_CARD_TABLE = "autocard_card"
 AUTOCARD_ROLE_TABLE = "autocard_role"
 AUTOCARD_NATURE_TABLE = "autocard_nature"
@@ -107,6 +110,18 @@ EFFECT_DESCRIPTION_URL = os.environ.get(
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/effectDes.json",
 )
+PARTNER_CONFIG_URL = os.environ.get(
+    "IRONSBOT_DATA_PARTNER_CONFIG_URL",
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "config-sources/main/html5/json/partner.json",
+)
+PARTNER_EFFECT_UPGRADE_URL = os.environ.get(
+    "IRONSBOT_DATA_PARTNER_EFFECT_UPGRADE_URL",
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "config-sources/main/html5/json/partnerEffectUpgrade.json",
+)
+CONTRACT_BADGE_ITEM_ID = 1722827
+CONTRACT_BADGE_ITEM_NAME = "契约徽章"
 BATTLEPASS_SHOP_SOURCE_KEY = "battlepass_shop"
 BATTLEPASS_SHOP_SOURCE_NAME = "战令商店"
 ACTIVITY_SHOP_SOURCE_KEY = "activity_shop"
@@ -184,6 +199,30 @@ class EffectDescription:
     effect_id: int
     name: str
     description: str
+
+
+@dataclass(frozen=True, slots=True)
+class PetPartnerGroup:
+    group_id: int
+    name: str
+    member_pet_ids: tuple[int, ...]
+    cost_item_id: int
+    cost_item_name: str
+    cost_item_quantity: int
+
+
+@dataclass(frozen=True, slots=True)
+class PetPartnerUpgrade:
+    pet_id: int
+    before_description: str
+    after_description: str
+    skill_id: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class PetPartnerData:
+    groups: list[PetPartnerGroup]
+    upgrades: list[PetPartnerUpgrade]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1115,6 +1154,100 @@ def _item_text(item: dict[str, object], *names: str) -> str:
     return ""
 
 
+def _parse_pet_partner_data(
+    partner_data: bytes,
+    partner_effect_upgrade_data: bytes,
+) -> PetPartnerData:
+    """Parse official contract-partner groups and soulmark upgrade data."""
+
+    raw_groups = json.loads(partner_data.decode("utf-8-sig"))
+    group_rows = raw_groups.get("data", [])
+    if not isinstance(group_rows, list):
+        return PetPartnerData(groups=[], upgrades=[])
+
+    groups: list[PetPartnerGroup] = []
+    member_pet_ids: set[int] = set()
+    seen_group_ids: set[int] = set()
+    for row in group_rows:
+        if not isinstance(row, dict):
+            continue
+        group_id = _item_int(row, "id")
+        name = _item_text(row, "partnerName").strip()
+        cost = _item_int(row, "cost")
+        try:
+            members = tuple(
+                int(value)
+                for value in _item_text(row, "partnerMonsterId").split("|")
+                if int(value) > 0
+            )
+        except ValueError:
+            continue
+        if (
+            group_id <= 0
+            or not name
+            or cost <= 0
+            or len(members) < 2
+            or group_id in seen_group_ids
+            or any(member_id in member_pet_ids for member_id in members)
+        ):
+            continue
+        seen_group_ids.add(group_id)
+        member_pet_ids.update(members)
+        groups.append(
+            PetPartnerGroup(
+                group_id=group_id,
+                name=name,
+                member_pet_ids=members,
+                cost_item_id=CONTRACT_BADGE_ITEM_ID,
+                cost_item_name=CONTRACT_BADGE_ITEM_NAME,
+                cost_item_quantity=cost,
+            )
+        )
+
+    raw_upgrades = json.loads(partner_effect_upgrade_data.decode("utf-8-sig"))
+    upgrade_rows = raw_upgrades.get("data", [])
+    if not isinstance(upgrade_rows, list):
+        return PetPartnerData(groups=groups, upgrades=[])
+
+    upgrades: dict[int, PetPartnerUpgrade] = {}
+    for row in upgrade_rows:
+        if not isinstance(row, dict):
+            continue
+        pet_id = _item_int(row, "monID")
+        if pet_id <= 0 or pet_id not in member_pet_ids or pet_id in upgrades:
+            continue
+        skill_id = _item_int(row, "skill")
+        upgrades[pet_id] = PetPartnerUpgrade(
+            pet_id=pet_id,
+            before_description=_item_text(row, "descBefore").strip(),
+            after_description=_item_text(row, "descAfter").strip(),
+            skill_id=skill_id if skill_id > 0 else None,
+        )
+
+    return PetPartnerData(
+        groups=sorted(groups, key=lambda group: group.group_id),
+        upgrades=[upgrades[pet_id] for pet_id in sorted(upgrades)],
+    )
+
+
+def _load_pet_partner_data() -> PetPartnerData:
+    try:
+        return _parse_pet_partner_data(
+            _download_bytes(PARTNER_CONFIG_URL),
+            _download_bytes(PARTNER_EFFECT_UPGRADE_URL),
+        )
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        OSError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ) as error:
+        logger.warning("Pet partner source skipped: %s", _short_error(error))
+        return PetPartnerData(groups=[], upgrades=[])
+
+
 def _dump_json(item: dict[str, object]) -> str:
     return json.dumps(item, ensure_ascii=False, separators=(",", ":"))
 
@@ -1296,6 +1429,141 @@ def _replace_autocard_tables(
     )
 
 
+def _replace_pet_partner_tables(
+    conn: sqlite3.Connection,
+    data: PetPartnerData,
+    updated_at: float,
+) -> None:
+    """Replace contract-partner tables derived from official game config."""
+
+    conn.execute(f"DROP TABLE IF EXISTS {PET_PARTNER_UPGRADE_TABLE}")
+    conn.execute(f"DROP TABLE IF EXISTS {PET_PARTNER_MEMBER_TABLE}")
+    conn.execute(f"DROP TABLE IF EXISTS {PET_PARTNER_GROUP_TABLE}")
+    conn.execute(
+        f"""
+        CREATE TABLE {PET_PARTNER_GROUP_TABLE} (
+            group_id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            cost_item_id INTEGER NOT NULL,
+            cost_item_name TEXT NOT NULL,
+            cost_item_quantity INTEGER NOT NULL,
+            required_pet_count INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            updated_at REAL NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        f"""
+        CREATE TABLE {PET_PARTNER_MEMBER_TABLE} (
+            group_id INTEGER NOT NULL,
+            pet_id INTEGER NOT NULL,
+            display_order INTEGER NOT NULL,
+            PRIMARY KEY (group_id, pet_id)
+        )
+        """
+    )
+    conn.execute(
+        f"""
+        CREATE TABLE {PET_PARTNER_UPGRADE_TABLE} (
+            pet_id INTEGER PRIMARY KEY,
+            group_id INTEGER NOT NULL,
+            before_description TEXT NOT NULL,
+            after_description TEXT NOT NULL,
+            skill_id INTEGER,
+            source TEXT NOT NULL,
+            updated_at REAL NOT NULL
+        )
+        """
+    )
+    conn.executemany(
+        f"""
+        INSERT INTO {PET_PARTNER_GROUP_TABLE}
+            (
+                group_id,
+                name,
+                cost_item_id,
+                cost_item_name,
+                cost_item_quantity,
+                required_pet_count,
+                source,
+                updated_at
+            )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                group.group_id,
+                group.name,
+                group.cost_item_id,
+                group.cost_item_name,
+                group.cost_item_quantity,
+                len(group.member_pet_ids),
+                "partner.json",
+                updated_at,
+            )
+            for group in data.groups
+        ],
+    )
+    conn.executemany(
+        f"""
+        INSERT INTO {PET_PARTNER_MEMBER_TABLE}
+            (group_id, pet_id, display_order)
+        VALUES (?, ?, ?)
+        """,
+        [
+            (group.group_id, pet_id, display_order)
+            for group in data.groups
+            for display_order, pet_id in enumerate(group.member_pet_ids, start=1)
+        ],
+    )
+    group_id_by_pet = {
+        pet_id: group.group_id
+        for group in data.groups
+        for pet_id in group.member_pet_ids
+    }
+    conn.executemany(
+        f"""
+        INSERT INTO {PET_PARTNER_UPGRADE_TABLE}
+            (
+                pet_id,
+                group_id,
+                before_description,
+                after_description,
+                skill_id,
+                source,
+                updated_at
+            )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                upgrade.pet_id,
+                group_id_by_pet[upgrade.pet_id],
+                upgrade.before_description,
+                upgrade.after_description,
+                upgrade.skill_id,
+                "partnerEffectUpgrade.json",
+                updated_at,
+            )
+            for upgrade in data.upgrades
+            if upgrade.pet_id in group_id_by_pet
+        ],
+    )
+    conn.execute(
+        f"""
+        CREATE INDEX idx_{PET_PARTNER_MEMBER_TABLE}_pet_id
+        ON {PET_PARTNER_MEMBER_TABLE} (pet_id)
+        """
+    )
+    conn.execute(
+        f"""
+        CREATE INDEX idx_{PET_PARTNER_UPGRADE_TABLE}_group_id
+        ON {PET_PARTNER_UPGRADE_TABLE} (group_id)
+        """
+    )
+
+
 def _merge_ironsbot_tables(
     db_path: Path,
     *,
@@ -1303,6 +1571,7 @@ def _merge_ironsbot_tables(
     autocard_data: AutocardData,
     item_exchange_prices: list[ItemExchangePrice],
     effect_descriptions: list[EffectDescription],
+    pet_partner_data: PetPartnerData,
     weekly_preview_probe: dict[str, str],
 ) -> None:
     now = time.time()
@@ -1638,6 +1907,7 @@ def _merge_ironsbot_tables(
             """
         )
         _replace_autocard_tables(conn, autocard_data, now)
+        _replace_pet_partner_tables(conn, pet_partner_data, now)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS ironsbot_metadata (
@@ -1675,6 +1945,11 @@ def _merge_ironsbot_tables(
             ),
             "effect_description_count": str(len(effect_descriptions)),
             "effect_description_source_url": EFFECT_DESCRIPTION_URL,
+            "pet_partner_group_count": str(len(pet_partner_data.groups)),
+            "pet_partner_upgrade_count": str(len(pet_partner_data.upgrades)),
+            "pet_partner_source_urls": "\n".join(
+                (PARTNER_CONFIG_URL, PARTNER_EFFECT_UPGRADE_URL)
+            ),
             "soulmark_icon_count": str(len(soulmark_icon_rows)),
             "autocard_card_count": str(len(autocard_data.cards)),
             "autocard_role_count": str(len(autocard_data.roles)),
@@ -1715,6 +1990,8 @@ def main() -> None:
     item_exchange_prices = _load_item_exchange_prices()
     logger.info("Loading official named effect descriptions")
     effect_descriptions = _load_effect_descriptions()
+    logger.info("Loading official contract-partner data")
+    pet_partner_data = _load_pet_partner_data()
     logger.info("Probing weekly preview image: %s", WEEKLY_PREVIEW_IMAGE_URL)
     weekly_preview_probe = _probe_weekly_preview_image()
 
@@ -1724,6 +2001,7 @@ def main() -> None:
         autocard_data=autocard_data,
         item_exchange_prices=item_exchange_prices,
         effect_descriptions=effect_descriptions,
+        pet_partner_data=pet_partner_data,
         weekly_preview_probe=weekly_preview_probe,
     )
     _quick_check(OUTPUT_DB)
@@ -1732,7 +2010,7 @@ def main() -> None:
         (
             "Built %s (%.2f MB), mintmark_quality rows: %s, "
             "skin shop rows: %s, exchange price rows: %s, effect descriptions: %s, "
-            "soulmark icons: %s, autocard cards: %s"
+            "soulmark icons: %s, contract partners: %s, autocard cards: %s"
         ),
         OUTPUT_DB,
         size_mb,
@@ -1741,6 +2019,7 @@ def main() -> None:
         len(item_exchange_prices),
         len(effect_descriptions),
         len(config_data.soulmark_icons),
+        len(pet_partner_data.groups),
         len(autocard_data.cards),
     )
 
