@@ -203,8 +203,33 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
     }
 
     data = builder._parse_pet_partner_data(
-        json.dumps(partners, ensure_ascii=False).encode("utf-8"),
-        json.dumps(upgrades, ensure_ascii=False).encode("utf-8"),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "source": {
+                    "package": "ConfigPackage",
+                    "config_package_version": "test-version",
+                },
+                "groups": [
+                    {
+                        "key": partners["data"][0]["id"],
+                        "name": partners["data"][0]["partnerName"],
+                        "member_pet_ids": [4329, 3491],
+                        "cost": partners["data"][0]["cost"],
+                    }
+                ],
+                "upgrades": [
+                    {
+                        "pet_id": upgrade["monID"],
+                        "before_description": upgrade["descBefore"],
+                        "after_description": upgrade["descAfter"],
+                        "skill_ids": [upgrade["skill"]],
+                    }
+                    for upgrade in upgrades["data"]
+                ],
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
     )
 
     assert data.groups == [

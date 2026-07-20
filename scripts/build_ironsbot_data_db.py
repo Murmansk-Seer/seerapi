@@ -115,16 +115,12 @@ EFFECT_DESCRIPTION_URL = os.environ.get(
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/effectDes.json",
 )
-PARTNER_CONFIG_URL = os.environ.get(
-    "IRONSBOT_DATA_PARTNER_CONFIG_URL",
+PARTNER_CONTRACTS_URL = os.environ.get(
+    "IRONSBOT_DATA_PARTNER_CONTRACTS_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
-    "config-sources/main/html5/json/partner.json",
+    "config-sources/main/unity/partner_contracts.json",
 )
-PARTNER_EFFECT_UPGRADE_URL = os.environ.get(
-    "IRONSBOT_DATA_PARTNER_EFFECT_UPGRADE_URL",
-    "https://raw.githubusercontent.com/Murmansk-Seer/"
-    "config-sources/main/html5/json/partnerEffectUpgrade.json",
-)
+PARTNER_CONTRACTS_SCHEMA_VERSION = 1
 CONTRACT_BADGE_ITEM_ID = 1722827
 CONTRACT_BADGE_ITEM_NAME = "契约徽章"
 BATTLEPASS_SHOP_SOURCE_KEY = "battlepass_shop"
@@ -1211,43 +1207,69 @@ def _parse_item_names(data: bytes) -> dict[int, str]:
     return item_names
 
 
-def _parse_pet_partner_data(
-    partner_data: bytes,
-    partner_effect_upgrade_data: bytes,
-) -> PetPartnerData:
-    """Parse official contract-partner groups and soulmark upgrade data."""
+def _partner_contract_int(value: object, label: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"Invalid contract {label}: {value!r}")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"Invalid contract {label}: {value!r}") from error
 
-    raw_groups = json.loads(partner_data.decode("utf-8-sig"))
-    group_rows = raw_groups.get("data", [])
+
+def _parse_pet_partner_data(partner_contracts_data: bytes) -> PetPartnerData:
+    """Parse canonical contract data extracted from the official ConfigPackage."""
+
+    raw = json.loads(partner_contracts_data.decode("utf-8-sig"))
+    if not isinstance(raw, dict):
+        raise ValueError("Partner contracts root must be an object")
+    if raw.get("schema_version") != PARTNER_CONTRACTS_SCHEMA_VERSION:
+        raise ValueError(
+            "Unsupported partner contracts schema: "
+            f"{raw.get('schema_version')!r}"
+        )
+    source = raw.get("source")
+    if (
+        not isinstance(source, dict)
+        or source.get("package") != "ConfigPackage"
+        or not isinstance(source.get("config_package_version"), str)
+        or not source["config_package_version"].strip()
+    ):
+        raise ValueError("Partner contracts are not sourced from ConfigPackage")
+
+    group_rows = raw.get("groups")
     if not isinstance(group_rows, list):
-        return PetPartnerData(groups=[], upgrades=[])
+        raise ValueError("Partner contracts groups must be a list")
 
     groups: list[PetPartnerGroup] = []
     member_pet_ids: set[int] = set()
     seen_group_ids: set[int] = set()
-    for row in group_rows:
+    for index, row in enumerate(group_rows):
         if not isinstance(row, dict):
-            continue
-        group_id = _item_int(row, "id")
-        name = _item_text(row, "partnerName").strip()
-        cost = _item_int(row, "cost")
-        try:
-            members = tuple(
-                int(value)
-                for value in _item_text(row, "partnerMonsterId").split("|")
-                if int(value) > 0
+            raise ValueError(f"Partner contract group {index} must be an object")
+        group_id = _partner_contract_int(row.get("key"), f"groups[{index}].key")
+        name = _item_text(row, "name").strip()
+        cost = _partner_contract_int(row.get("cost"), f"groups[{index}].cost")
+        raw_members = row.get("member_pet_ids")
+        if not isinstance(raw_members, list):
+            raise ValueError(f"Partner contract group {group_id} has invalid members")
+        members = tuple(
+            _partner_contract_int(
+                member_id,
+                f"groups[{index}].member_pet_ids[{member_index}]",
             )
-        except ValueError:
-            continue
+            for member_index, member_id in enumerate(raw_members)
+        )
         if (
             group_id <= 0
             or not name
             or cost <= 0
             or len(members) < 2
             or group_id in seen_group_ids
+            or any(member_id <= 0 for member_id in members)
+            or len(set(members)) != len(members)
             or any(member_id in member_pet_ids for member_id in members)
         ):
-            continue
+            raise ValueError(f"Invalid partner contract group {group_id}")
         seen_group_ids.add(group_id)
         member_pet_ids.update(members)
         groups.append(
@@ -1261,24 +1283,33 @@ def _parse_pet_partner_data(
             )
         )
 
-    raw_upgrades = json.loads(partner_effect_upgrade_data.decode("utf-8-sig"))
-    upgrade_rows = raw_upgrades.get("data", [])
+    upgrade_rows = raw.get("upgrades")
     if not isinstance(upgrade_rows, list):
-        return PetPartnerData(groups=groups, upgrades=[])
+        raise ValueError("Partner contract upgrades must be a list")
 
     upgrades: dict[int, PetPartnerUpgrade] = {}
-    for row in upgrade_rows:
+    for index, row in enumerate(upgrade_rows):
         if not isinstance(row, dict):
-            continue
-        pet_id = _item_int(row, "monID")
+            raise ValueError(f"Partner contract upgrade {index} must be an object")
+        pet_id = _partner_contract_int(row.get("pet_id"), f"upgrades[{index}].pet_id")
         if pet_id <= 0 or pet_id not in member_pet_ids or pet_id in upgrades:
             continue
-        skill_id = _item_int(row, "skill")
+        raw_skill_ids = row.get("skill_ids", [])
+        if not isinstance(raw_skill_ids, list):
+            raise ValueError(f"Partner contract upgrade {pet_id} has invalid skill IDs")
+        skill_ids = [
+            _partner_contract_int(
+                skill_id,
+                f"upgrades[{index}].skill_ids[{skill_index}]",
+            )
+            for skill_index, skill_id in enumerate(raw_skill_ids)
+        ]
+        skill_id = next((value for value in skill_ids if value > 0), None)
         upgrades[pet_id] = PetPartnerUpgrade(
             pet_id=pet_id,
-            before_description=_item_text(row, "descBefore").strip(),
-            after_description=_item_text(row, "descAfter").strip(),
-            skill_id=skill_id if skill_id > 0 else None,
+            before_description=_item_text(row, "before_description").strip(),
+            after_description=_item_text(row, "after_description").strip(),
+            skill_id=skill_id,
         )
 
     return PetPartnerData(
@@ -1289,10 +1320,7 @@ def _parse_pet_partner_data(
 
 def _load_pet_partner_data() -> PetPartnerData:
     try:
-        return _parse_pet_partner_data(
-            _download_bytes(PARTNER_CONFIG_URL),
-            _download_bytes(PARTNER_EFFECT_UPGRADE_URL),
-        )
+        return _parse_pet_partner_data(_download_bytes(PARTNER_CONTRACTS_URL))
     except (
         HTTPError,
         URLError,
@@ -1300,9 +1328,12 @@ def _load_pet_partner_data() -> PetPartnerData:
         OSError,
         UnicodeDecodeError,
         json.JSONDecodeError,
+        ValueError,
     ) as error:
-        logger.warning("Pet partner source skipped: %s", _short_error(error))
-        return PetPartnerData(groups=[], upgrades=[])
+        raise RuntimeError(
+            "Unable to load official ConfigPackage partner contracts: "
+            f"{_short_error(error)}"
+        ) from error
 
 
 def _dump_json(item: dict[str, object]) -> str:
@@ -1556,7 +1587,7 @@ def _replace_pet_partner_tables(
                 group.cost_item_name,
                 group.cost_item_quantity,
                 len(group.member_pet_ids),
-                "partner.json",
+                "ConfigPackage/partner.bytes",
                 updated_at,
             )
             for group in data.groups
@@ -1600,7 +1631,7 @@ def _replace_pet_partner_tables(
                 upgrade.before_description,
                 upgrade.after_description,
                 upgrade.skill_id,
-                "partnerEffectUpgrade.json",
+                "ConfigPackage/partnerEffectUpgrade.bytes",
                 updated_at,
             )
             for upgrade in data.upgrades
@@ -2012,9 +2043,7 @@ def _merge_ironsbot_tables(
             "effect_description_source_url": EFFECT_DESCRIPTION_URL,
             "pet_partner_group_count": str(len(pet_partner_data.groups)),
             "pet_partner_upgrade_count": str(len(pet_partner_data.upgrades)),
-            "pet_partner_source_urls": "\n".join(
-                (PARTNER_CONFIG_URL, PARTNER_EFFECT_UPGRADE_URL)
-            ),
+            "pet_partner_source_url": PARTNER_CONTRACTS_URL,
             "soulmark_icon_count": str(len(soulmark_icon_rows)),
             "autocard_card_count": str(len(autocard_data.cards)),
             "autocard_role_count": str(len(autocard_data.roles)),
