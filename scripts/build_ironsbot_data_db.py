@@ -9,7 +9,7 @@ are merged into the final SQLite file before it is published.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import io
 import json
 import logging
@@ -105,6 +105,11 @@ SPECIAL_SKILL_SHOP_URL = os.environ.get(
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/spHideMovesShop.json",
 )
+ITEMS_URL = os.environ.get(
+    "IRONSBOT_DATA_ITEMS_URL",
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "config-sources/main/html5/xml/items.json",
+)
 EFFECT_DESCRIPTION_URL = os.environ.get(
     "IRONSBOT_DATA_EFFECT_DESCRIPTION_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
@@ -127,7 +132,7 @@ BATTLEPASS_SHOP_SOURCE_NAME = "战令商店"
 ACTIVITY_SHOP_SOURCE_KEY = "activity_shop"
 ACTIVITY_SHOP_SOURCE_NAME = "活动商店"
 SPECIAL_SKILL_SHOP_SOURCE_KEY = "special_skill_shop"
-SPECIAL_SKILL_SHOP_SOURCE_NAME = "追加技能商店"
+SPECIAL_SKILL_SHOP_SOURCE_NAME = "微光秘境"
 SIGNED_BYTE_MAX = 127
 SIGNED_BYTE_MOD = 256
 HTTP_TIMEOUT_SECONDS = 180
@@ -192,6 +197,7 @@ class ItemExchangePrice:
     purchase_limit: int | None
     start_time: int
     end_time: int
+    currency_name: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1064,6 +1070,19 @@ def _load_autocard_data() -> AutocardData:
 
 
 def _load_item_exchange_prices() -> list[ItemExchangePrice]:
+    try:
+        currency_names = _parse_item_names(_download_bytes(ITEMS_URL))
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        OSError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ) as error:
+        logger.warning("Official item names skipped: %s", _short_error(error))
+        currency_names = {}
+
     sources = (
         (BATTLEPASS_SHOP_SOURCE_NAME, BATTLEPASS_SHOP_URL, _parse_battlepass_shop),
         (ACTIVITY_SHOP_SOURCE_NAME, ACTIVITY_SHOP_URL, _parse_activity_shop),
@@ -1076,7 +1095,13 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
     prices: list[ItemExchangePrice] = []
     for source_name, source_url, parser in sources:
         try:
-            prices.extend(parser(_download_bytes(source_url)))
+            prices.extend(
+                replace(
+                    price,
+                    currency_name=currency_names.get(price.currency_item_id, ""),
+                )
+                for price in parser(_download_bytes(source_url))
+            )
         except (
             HTTPError,
             URLError,
@@ -1152,6 +1177,38 @@ def _item_text(item: dict[str, object], *names: str) -> str:
         if value is not None:
             return str(value)
     return ""
+
+
+def _parse_item_names(data: bytes) -> dict[int, str]:
+    """Read official item IDs and names for exchange-currency labels."""
+
+    raw = json.loads(data.decode("utf-8-sig"))
+    items_root = raw.get("Items", {})
+    if not isinstance(items_root, dict):
+        return {}
+    categories = items_root.get("Cat", [])
+    if isinstance(categories, dict):
+        categories = [categories]
+    if not isinstance(categories, list):
+        return {}
+
+    item_names: dict[int, str] = {}
+    for category in categories:
+        if not isinstance(category, dict):
+            continue
+        rows = category.get("Item", [])
+        if isinstance(rows, dict):
+            rows = [rows]
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            item_id = _item_int(row, "ID", "id")
+            item_name = _item_text(row, "Name", "name").strip()
+            if item_id > 0 and item_name:
+                item_names[item_id] = item_name
+    return item_names
 
 
 def _parse_pet_partner_data(
@@ -1741,6 +1798,7 @@ def _merge_ironsbot_tables(
                 item_name TEXT NOT NULL,
                 item_quantity INTEGER NOT NULL,
                 currency_item_id INTEGER NOT NULL,
+                currency_name TEXT NOT NULL,
                 amount INTEGER NOT NULL,
                 purchase_limit INTEGER,
                 start_time INTEGER NOT NULL,
@@ -1761,13 +1819,14 @@ def _merge_ironsbot_tables(
                     item_name,
                     item_quantity,
                     currency_item_id,
+                    currency_name,
                     amount,
                     purchase_limit,
                     start_time,
                     end_time,
                     updated_at
                 )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -1778,6 +1837,7 @@ def _merge_ironsbot_tables(
                     item.item_name,
                     item.item_quantity,
                     item.currency_item_id,
+                    item.currency_name,
                     item.amount,
                     item.purchase_limit,
                     item.start_time,
@@ -1941,7 +2001,12 @@ def _merge_ironsbot_tables(
             "skin_item_tip_count": str(len(config_data.skin_item_tips)),
             "item_exchange_price_count": str(len(item_exchange_prices)),
             "item_exchange_price_source_urls": "\n".join(
-                (BATTLEPASS_SHOP_URL, ACTIVITY_SHOP_URL, SPECIAL_SKILL_SHOP_URL)
+                (
+                    BATTLEPASS_SHOP_URL,
+                    ACTIVITY_SHOP_URL,
+                    SPECIAL_SKILL_SHOP_URL,
+                    ITEMS_URL,
+                )
             ),
             "effect_description_count": str(len(effect_descriptions)),
             "effect_description_source_url": EFFECT_DESCRIPTION_URL,

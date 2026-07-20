@@ -91,7 +91,7 @@ def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
     assert prices == [
         builder.ItemExchangePrice(
             source_key="special_skill_shop",
-            source_name="追加技能商店",
+            source_name="微光秘境",
             source_entry_id=3,
             item_id=1727009,
             item_name="魔灵密卷",
@@ -104,7 +104,7 @@ def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
         ),
         builder.ItemExchangePrice(
             source_key="special_skill_shop",
-            source_name="追加技能商店",
+            source_name="微光秘境",
             source_entry_id=44,
             item_id=1728277,
             item_name="咎者焚卷",
@@ -151,6 +151,27 @@ def test_parse_effect_descriptions_keeps_named_entries() -> None:
             description="效果说明",
         )
     ]
+
+
+def test_parse_item_names_reads_exchange_currency_names() -> None:
+    payload = {
+        "Items": {
+            "Cat": [
+                {
+                    "Item": [
+                        {"ID": 1726992, "Name": "共振晶体"},
+                        {"ID": 1726710, "Name": "共鸣锚点"},
+                    ]
+                }
+            ]
+        }
+    }
+
+    names = builder._parse_item_names(
+        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    )
+
+    assert names == {1726992: "共振晶体", 1726710: "共鸣锚点"}
 
 
 def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
@@ -216,6 +237,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         item_name="双源魂蒂",
         item_quantity=1,
         currency_item_id=1726710,
+        currency_name="共鸣锚点",
         amount=2000,
         purchase_limit=6,
         start_time=0,
@@ -279,6 +301,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
                 item_id,
                 item_name,
                 currency_item_id,
+                currency_name,
                 amount,
                 purchase_limit,
                 source_name
@@ -303,7 +326,15 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             FROM pet_partner_upgrade
             """
         ).fetchone()
-    assert row == (1728296, "双源魂蒂", 1726710, 2000, 6, "战令商店")
+    assert row == (
+        1728296,
+        "双源魂蒂",
+        1726710,
+        "共鸣锚点",
+        2000,
+        6,
+        "战令商店",
+    )
     assert effect_row == (544, "冥妖之悼", "效果说明")
     assert partner_row == (15, "源初之夜", 1722827, 8)
     assert partner_upgrade_row == (4329, 15, 36696)
