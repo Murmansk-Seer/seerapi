@@ -121,6 +121,10 @@ PARTNER_CONTRACTS_URL = os.environ.get(
     "config-sources/main/unity/partner_contracts.json",
 )
 PARTNER_CONTRACTS_SCHEMA_VERSION = 1
+# ``partner.bytes`` uses two unrelated group types. Only type 2 is the
+# contract/bond system paid with Contract Badges; type 1 is the elemental king
+# inheritance system and has a different, currently unmodelled, currency.
+PARTNER_CONTRACT_GROUP_TYPE = "2"
 CONTRACT_BADGE_ITEM_ID = 1722827
 CONTRACT_BADGE_ITEM_NAME = "契约徽章"
 BATTLEPASS_SHOP_SOURCE_KEY = "battlepass_shop"
@@ -1247,6 +1251,7 @@ def _parse_pet_partner_data(partner_contracts_data: bytes) -> PetPartnerData:
         if not isinstance(row, dict):
             raise ValueError(f"Partner contract group {index} must be an object")
         group_id = _partner_contract_int(row.get("key"), f"groups[{index}].key")
+        group_type = _item_text(row, "type").strip()
         name = _item_text(row, "name").strip()
         cost = _partner_contract_int(row.get("cost"), f"groups[{index}].cost")
         raw_members = row.get("member_pet_ids")
@@ -1261,6 +1266,7 @@ def _parse_pet_partner_data(partner_contracts_data: bytes) -> PetPartnerData:
         )
         if (
             group_id <= 0
+            or not group_type
             or not name
             or cost <= 0
             or len(members) < 2
@@ -1270,6 +1276,8 @@ def _parse_pet_partner_data(partner_contracts_data: bytes) -> PetPartnerData:
             or any(member_id in member_pet_ids for member_id in members)
         ):
             raise ValueError(f"Invalid partner contract group {group_id}")
+        if group_type != PARTNER_CONTRACT_GROUP_TYPE:
+            continue
         seen_group_ids.add(group_id)
         member_pet_ids.update(members)
         groups.append(

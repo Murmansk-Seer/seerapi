@@ -213,10 +213,18 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
                 "groups": [
                     {
                         "key": partners["data"][0]["id"],
+                        "type": "2",
                         "name": partners["data"][0]["partnerName"],
                         "member_pet_ids": [4329, 3491],
                         "cost": partners["data"][0]["cost"],
-                    }
+                    },
+                    {
+                        "key": 1,
+                        "type": "1",
+                        "name": "Elemental inheritance",
+                        "member_pet_ids": [3142, 3150],
+                        "cost": 3,
+                    },
                 ],
                 "upgrades": [
                     {
@@ -226,6 +234,14 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
                         "skill_ids": [upgrade["skill"]],
                     }
                     for upgrade in upgrades["data"]
+                ]
+                + [
+                    {
+                        "pet_id": 3142,
+                        "before_description": "Before inheritance",
+                        "after_description": "After inheritance",
+                        "skill_ids": ["123"],
+                    }
                 ],
             },
             ensure_ascii=False,
@@ -250,6 +266,8 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
             skill_id=36696,
         )
     ]
+    assert all(3142 not in group.member_pet_ids for group in data.groups)
+    assert all(upgrade.pet_id != 3142 for upgrade in data.upgrades)
 
 
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
