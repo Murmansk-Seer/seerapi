@@ -153,6 +153,55 @@ def test_parse_effect_descriptions_keeps_named_entries() -> None:
     ]
 
 
+def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
+    payload = {
+        "config": {
+            "item": [
+                {
+                    "id": 147,
+                    "dec": "旧日之晷",
+                    "des": "状态说明",
+                    "tips": "旧日之晷",
+                    "show_monster": 4125,
+                },
+                {
+                    "id": 148,
+                    "dec": "宙变之殢",
+                    "des": "另一条说明",
+                    "tips": "时晷",
+                    "show_monster": 0,
+                },
+                {"id": 0, "dec": "忽略"},
+            ]
+        }
+    }
+
+    rows = builder._parse_special_effect_statuses(
+        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    )
+
+    assert rows == [
+        builder.SpecialEffectStatus(
+            status_id=147,
+            name="旧日之晷",
+            description="状态说明",
+            show_monster_id=4125,
+        ),
+        builder.SpecialEffectStatus(
+            status_id=148,
+            name="宙变之殢",
+            description="另一条说明",
+            show_monster_id=0,
+        ),
+        builder.SpecialEffectStatus(
+            status_id=148,
+            name="时晷",
+            description="另一条说明",
+            show_monster_id=0,
+        ),
+    ]
+
+
 def test_parse_unity_item_names_reads_exchange_currency_names() -> None:
     payload = {
         "root": {
@@ -287,6 +336,12 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         name="冥妖之悼",
         description="效果说明",
     )
+    special_effect_status = builder.SpecialEffectStatus(
+        status_id=147,
+        name="旧日之晷",
+        description="状态说明",
+        show_monster_id=4125,
+    )
     config_data = builder.ConfigPackageData(
         version="test",
         bundle_url="https://example.invalid/config.bytes",
@@ -329,6 +384,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         autocard_data=autocard_data,
         item_exchange_prices=[price],
         effect_descriptions=[effect_description],
+        special_effect_statuses=[special_effect_status],
         pet_partner_data=pet_partner_data,
         weekly_preview_probe={},
     )
@@ -353,6 +409,12 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             FROM effect_description
             """
         ).fetchone()
+        special_effect_status_row = connection.execute(
+            """
+            SELECT status_id, name, description, show_monster_id
+            FROM special_effect_status
+            """
+        ).fetchone()
         partner_row = connection.execute(
             """
             SELECT group_id, name, cost_item_id, cost_item_quantity
@@ -375,5 +437,6 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         "战令商店",
     )
     assert effect_row == (544, "冥妖之悼", "效果说明")
+    assert special_effect_status_row == (147, "旧日之晷", "状态说明", 4125)
     assert partner_row == (15, "源初之夜", 1722827, 8)
     assert partner_upgrade_row == (4329, 15, 36696)

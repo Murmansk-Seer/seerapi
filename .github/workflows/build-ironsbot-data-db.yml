@@ -43,6 +43,7 @@ jobs:
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
           PARTNER_CONTRACTS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/partner_contracts.json
           UNITY_ITEM_CATALOG_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/itemsOptimizeCatItems17.json
+          SPECIAL_EFFECT_STATUS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/signIconFight.json
         run: |
           set -e
           remote_sha="$(
@@ -55,9 +56,13 @@ jobs:
           remote_item_catalog_sha="$(
             curl -fsSL "${UNITY_ITEM_CATALOG_URL}" | sha256sum | awk '{print $1}'
           )"
+          remote_special_effect_status_sha="$(
+            curl -fsSL "${SPECIAL_EFFECT_STATUS_URL}" | sha256sum | awk '{print $1}'
+          )"
           previous_sha=""
           previous_partner_sha=""
           previous_item_catalog_sha=""
+          previous_special_effect_status_sha=""
           if [ -f .build-state/api-data-sha256 ]; then
             previous_sha="$(cat .build-state/api-data-sha256)"
           fi
@@ -67,6 +72,9 @@ jobs:
           if [ -f .build-state/unity-item-catalog-sha256 ]; then
             previous_item_catalog_sha="$(cat .build-state/unity-item-catalog-sha256)"
           fi
+          if [ -f .build-state/special-effect-status-sha256 ]; then
+            previous_special_effect_status_sha="$(cat .build-state/special-effect-status-sha256)"
+          fi
 
           echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
           echo "previous_sha=${previous_sha}" >> "$GITHUB_OUTPUT"
@@ -74,13 +82,15 @@ jobs:
           echo "previous_partner_sha=${previous_partner_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_item_catalog_sha=${remote_item_catalog_sha}" >> "$GITHUB_OUTPUT"
           echo "previous_item_catalog_sha=${previous_item_catalog_sha}" >> "$GITHUB_OUTPUT"
+          echo "remote_special_effect_status_sha=${remote_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
+          echo "previous_special_effect_status_sha=${previous_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
 
-          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ]; then
+          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "api-data release, official partner contracts, and Unity item catalog are unchanged; skipping IronsBot DB build."
+            echo "api-data release, official partner contracts, Unity item catalog, and special effect statuses are unchanged; skipping IronsBot DB build."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, api-data=${remote_sha}/${previous_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}"
+            echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, api-data=${remote_sha}/${previous_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
       - name: Skip unchanged build
@@ -115,7 +125,8 @@ jobs:
           printf '%s\n' "${{ steps.source_check.outputs.remote_sha }}" > .build-state/api-data-sha256
           printf '%s\n' "${{ steps.source_check.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
           printf '%s\n' "${{ steps.source_check.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
-          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256
+          printf '%s\n' "${{ steps.source_check.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
+          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256
           if ! git diff --cached --quiet; then
             git commit -m "Record IronsBot data source checksums"
             git push origin main
@@ -140,6 +151,7 @@ jobs:
             Source api-data sha256: ${{ steps.source_check.outputs.remote_sha }}
             Source partner contracts sha256: ${{ steps.source_check.outputs.remote_partner_sha }}
             Source Unity item catalog sha256: ${{ steps.source_check.outputs.remote_item_catalog_sha }}
+            Source special effect statuses sha256: ${{ steps.source_check.outputs.remote_special_effect_status_sha }}
           files: |
             ironsbot-data.sqlite
             ironsbot-data.sqlite.sha256
