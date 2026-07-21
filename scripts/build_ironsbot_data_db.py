@@ -68,6 +68,7 @@ SKIN_SHOP_PRICE_TABLE = "skin_shop_price"
 SKIN_ITEM_TIP_TABLE = "skin_item_tip"
 ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
 EFFECT_DESCRIPTION_TABLE = "effect_description"
+SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
 SOULMARK_ICON_TABLE = "soulmark_icon"
 PET_PARTNER_GROUP_TABLE = "pet_partner_group"
 PET_PARTNER_MEMBER_TABLE = "pet_partner_member"
@@ -114,6 +115,11 @@ EFFECT_DESCRIPTION_URL = os.environ.get(
     "IRONSBOT_DATA_EFFECT_DESCRIPTION_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/effectDes.json",
+)
+SPECIAL_EFFECT_STATUS_URL = os.environ.get(
+    "IRONSBOT_DATA_SPECIAL_EFFECT_STATUS_URL",
+    "https://raw.githubusercontent.com/Murmansk-Seer/"
+    "config-sources/main/unity/signIconFight.json",
 )
 PARTNER_CONTRACTS_URL = os.environ.get(
     "IRONSBOT_DATA_PARTNER_CONTRACTS_URL",
@@ -205,6 +211,14 @@ class EffectDescription:
     effect_id: int
     name: str
     description: str
+
+
+@dataclass(frozen=True, slots=True)
+class SpecialEffectStatus:
+    status_id: int
+    name: str
+    description: str
+    show_monster_id: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -756,6 +770,51 @@ def _parse_effect_descriptions(data: bytes) -> list[EffectDescription]:
     return result
 
 
+def _parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
+    raw = json.loads(data.decode("utf-8-sig"))
+    config = raw.get("config")
+    if not isinstance(config, dict):
+        return []
+    rows = config.get("item", [])
+    if not isinstance(rows, list):
+        return []
+
+    result: list[SpecialEffectStatus] = []
+    seen: set[tuple[int, str]] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        status_id = _item_int(row, "id")
+        if status_id <= 0:
+            continue
+        names = tuple(
+            dict.fromkeys(
+                name
+                for name in (
+                    _item_text(row, "dec").strip(),
+                    _item_text(row, "tips").strip(),
+                )
+                if name
+            )
+        )
+        description = _item_text(row, "des").strip()
+        show_monster_id = _item_int(row, "show_monster")
+        for name in names:
+            key = (status_id, name)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(
+                SpecialEffectStatus(
+                    status_id=status_id,
+                    name=name,
+                    description=description,
+                    show_monster_id=show_monster_id,
+                )
+            )
+    return sorted(result, key=lambda item: (item.status_id, item.name))
+
+
 def _parse_items_tip(data: bytes) -> dict[int, str]:
     if not data:
         return {}
@@ -1133,6 +1192,26 @@ def _load_effect_descriptions() -> list[EffectDescription]:
     ) as error:
         logger.warning(
             "Effect description source skipped: %s",
+            _short_error(error),
+        )
+        return []
+
+
+def _load_special_effect_statuses() -> list[SpecialEffectStatus]:
+    try:
+        return _parse_special_effect_statuses(
+            _download_bytes(SPECIAL_EFFECT_STATUS_URL)
+        )
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        OSError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ) as error:
+        logger.warning(
+            "Special effect status source skipped: %s",
             _short_error(error),
         )
         return []
@@ -1667,6 +1746,7 @@ def _merge_ironsbot_tables(
     autocard_data: AutocardData,
     item_exchange_prices: list[ItemExchangePrice],
     effect_descriptions: list[EffectDescription],
+    special_effect_statuses: list[SpecialEffectStatus],
     pet_partner_data: PetPartnerData,
     weekly_preview_probe: dict[str, str],
 ) -> None:
@@ -1925,6 +2005,42 @@ def _merge_ironsbot_tables(
             ON {EFFECT_DESCRIPTION_TABLE} (name)
             """
         )
+        conn.execute(f"DROP TABLE IF EXISTS {SPECIAL_EFFECT_STATUS_TABLE}")
+        conn.execute(
+            f"""
+            CREATE TABLE {SPECIAL_EFFECT_STATUS_TABLE} (
+                status_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                show_monster_id INTEGER NOT NULL,
+                updated_at REAL NOT NULL,
+                PRIMARY KEY (status_id, name)
+            )
+            """
+        )
+        conn.executemany(
+            f"""
+            INSERT INTO {SPECIAL_EFFECT_STATUS_TABLE}
+                (status_id, name, description, show_monster_id, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    status.status_id,
+                    status.name,
+                    status.description,
+                    status.show_monster_id,
+                    now,
+                )
+                for status in special_effect_statuses
+            ],
+        )
+        conn.execute(
+            f"""
+            CREATE INDEX idx_{SPECIAL_EFFECT_STATUS_TABLE}_name
+            ON {SPECIAL_EFFECT_STATUS_TABLE} (name)
+            """
+        )
         deduplicated_soulmark_icons = sorted(
             {
                 (
@@ -2049,6 +2165,8 @@ def _merge_ironsbot_tables(
             ),
             "effect_description_count": str(len(effect_descriptions)),
             "effect_description_source_url": EFFECT_DESCRIPTION_URL,
+            "special_effect_status_count": str(len(special_effect_statuses)),
+            "special_effect_status_source_url": SPECIAL_EFFECT_STATUS_URL,
             "pet_partner_group_count": str(len(pet_partner_data.groups)),
             "pet_partner_upgrade_count": str(len(pet_partner_data.upgrades)),
             "pet_partner_source_url": PARTNER_CONTRACTS_URL,
@@ -2092,6 +2210,8 @@ def main() -> None:
     item_exchange_prices = _load_item_exchange_prices()
     logger.info("Loading official named effect descriptions")
     effect_descriptions = _load_effect_descriptions()
+    logger.info("Loading official special effect statuses")
+    special_effect_statuses = _load_special_effect_statuses()
     logger.info("Loading official contract-partner data")
     pet_partner_data = _load_pet_partner_data()
     logger.info("Probing weekly preview image: %s", WEEKLY_PREVIEW_IMAGE_URL)
@@ -2103,6 +2223,7 @@ def main() -> None:
         autocard_data=autocard_data,
         item_exchange_prices=item_exchange_prices,
         effect_descriptions=effect_descriptions,
+        special_effect_statuses=special_effect_statuses,
         pet_partner_data=pet_partner_data,
         weekly_preview_probe=weekly_preview_probe,
     )
@@ -2112,6 +2233,7 @@ def main() -> None:
         (
             "Built %s (%.2f MB), mintmark_quality rows: %s, "
             "skin shop rows: %s, exchange price rows: %s, effect descriptions: %s, "
+            "special effect statuses: %s, "
             "soulmark icons: %s, contract partners: %s, autocard cards: %s"
         ),
         OUTPUT_DB,
@@ -2120,6 +2242,7 @@ def main() -> None:
         len(config_data.skin_shop_prices),
         len(item_exchange_prices),
         len(effect_descriptions),
+        len(special_effect_statuses),
         len(config_data.soulmark_icons),
         len(pet_partner_data.groups),
         len(autocard_data.cards),
