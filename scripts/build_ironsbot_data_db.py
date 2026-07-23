@@ -19,11 +19,12 @@ import shutil
 import sqlite3
 import struct
 import subprocess
-import time
 import tempfile
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
+import xml.etree.ElementTree as ET
 
 from PIL import Image, UnidentifiedImageError
 
@@ -83,6 +84,12 @@ EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS = float(
 EFFECT_ICON_PNG_RENDER_WORKERS = max(
     1,
     int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS", "4")),
+)
+# These SWFs assemble the visible icon from several symbols. Exporting the
+# largest individual shape only returns a background or glow layer.
+EFFECT_ICON_COMPOSITE_IDS = frozenset({358, 556, 597, 613, 824})
+EFFECT_ICON_PRESENTATION_FILTERS = frozenset(
+    {"COLORMATRIXFILTER", "GLOWFILTER"}
 )
 CONFIG_TEXT_ASSETS = {
     MINTMARK_BYTES_NAME,
@@ -1159,6 +1166,139 @@ def _visible_png_pixel_count(data: bytes) -> int:
     return sum(alpha_histogram[1:])
 
 
+def _run_ffdec_command(args: list[str]) -> None:
+    completed = subprocess.run(
+        args,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
+    )
+    if completed.returncode == 0:
+        return
+    message = (completed.stderr or "").strip() or (
+        completed.stdout or ""
+    ).strip()
+    raise RuntimeError(f"FFDec exited {completed.returncode}: {message}")
+
+
+def _select_visible_png(
+    output_dir: Path,
+    *,
+    prefer_item_sprite: bool = False,
+) -> bytes:
+    candidates: list[tuple[int, bytes, Path]] = []
+    invalid_errors: list[str] = []
+    for png_path in sorted(output_dir.rglob("*.png")):
+        png_data = png_path.read_bytes()
+        try:
+            visible_pixels = _visible_png_pixel_count(png_data)
+        except ValueError as e:
+            invalid_errors.append(f"{png_path.name}: {e}")
+            continue
+        if visible_pixels > 0:
+            candidates.append((visible_pixels, png_data, png_path))
+        else:
+            invalid_errors.append(f"{png_path.name}: fully transparent")
+    if prefer_item_sprite:
+        item_candidates = [
+            candidate
+            for candidate in candidates
+            if any(part.endswith("_item") for part in candidate[2].parts)
+        ]
+        if item_candidates:
+            candidates = item_candidates
+    if not candidates:
+        details = "; ".join(invalid_errors[:5]) or "no PNG files exported"
+        raise ValueError(f"FFDec produced no visible PNG: {details}")
+    _, png_data, _ = max(
+        candidates,
+        key=lambda candidate: (candidate[0], len(candidate[1])),
+    )
+    return png_data
+
+
+def _crop_png_to_visible_bounds(data: bytes) -> bytes:
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            rgba = image.convert("RGBA")
+            bounds = rgba.getchannel("A").getbbox()
+            if bounds is None:
+                raise ValueError("renderer output is fully transparent")
+            cropped = rgba.crop(bounds)
+            output = io.BytesIO()
+            cropped.save(output, format="PNG")
+    except (OSError, UnidentifiedImageError) as e:
+        raise ValueError(f"renderer output is an invalid PNG: {e}") from e
+    return output.getvalue()
+
+
+def _strip_effect_icon_presentation_filters(xml_path: Path) -> None:
+    tree = ET.parse(xml_path)
+    for parent in tree.iter():
+        filter_list = parent.find("surfaceFilterList")
+        if filter_list is None:
+            continue
+        for filter_node in list(filter_list):
+            if filter_node.attrib.get("type") in EFFECT_ICON_PRESENTATION_FILTERS:
+                filter_list.remove(filter_node)
+        if len(filter_list) == 0:
+            parent.remove(filter_list)
+            if "placeFlagHasFilterList" in parent.attrib:
+                parent.set("placeFlagHasFilterList", "false")
+    tree.write(xml_path, encoding="utf-8", xml_declaration=True)
+
+
+def _render_composite_effect_icon_png(
+    swf_path: Path,
+    temp_path: Path,
+) -> bytes:
+    xml_path = temp_path / "icon.xml"
+    cleaned_swf_path = temp_path / "icon-clean.swf"
+    output_dir = temp_path / "sprites"
+    output_dir.mkdir()
+    _run_ffdec_command(
+        [
+            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            "-jar",
+            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            "-swf2xml",
+            str(swf_path),
+            str(xml_path),
+        ]
+    )
+    _strip_effect_icon_presentation_filters(xml_path)
+    _run_ffdec_command(
+        [
+            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            "-jar",
+            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            "-xml2swf",
+            str(xml_path),
+            str(cleaned_swf_path),
+        ]
+    )
+    _run_ffdec_command(
+        [
+            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            "-jar",
+            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            "-zoom",
+            str(EFFECT_ICON_PNG_RENDER_ZOOM),
+            "-ignorebackground",
+            "-format",
+            "sprite:png",
+            "-export",
+            "sprite",
+            str(output_dir),
+            str(cleaned_swf_path),
+        ]
+    )
+    return _crop_png_to_visible_bounds(
+        _select_visible_png(output_dir, prefer_item_sprite=True)
+    )
+
+
 def _render_effect_icon_png(
     icon_id: int,
     check: EffectIconAssetCheck,
@@ -1187,53 +1327,31 @@ def _render_effect_icon_png(
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             swf_path = temp_path / f"{icon_id}.swf"
-            output_dir = temp_path / "shapes"
-            output_dir.mkdir()
             swf_path.write_bytes(swf_data)
-            completed = subprocess.run(
-                [
-                    EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
-                    "-jar",
-                    str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
-                    "-zoom",
-                    str(EFFECT_ICON_PNG_RENDER_ZOOM),
-                    "-format",
-                    "shape:png",
-                    "-export",
-                    "shape",
-                    str(output_dir),
-                    str(swf_path),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
-            )
-            if completed.returncode != 0:
-                message = completed.stderr.strip() or completed.stdout.strip()
-                raise RuntimeError(
-                    f"FFDec exited {completed.returncode}: {message}"
+            if icon_id in EFFECT_ICON_COMPOSITE_IDS:
+                png_data = _render_composite_effect_icon_png(
+                    swf_path,
+                    temp_path,
                 )
-            candidates: list[tuple[int, bytes, Path]] = []
-            invalid_errors: list[str] = []
-            for png_path in sorted(output_dir.rglob("*.png")):
-                png_data = png_path.read_bytes()
-                try:
-                    visible_pixels = _visible_png_pixel_count(png_data)
-                except ValueError as e:
-                    invalid_errors.append(f"{png_path.name}: {e}")
-                    continue
-                if visible_pixels > 0:
-                    candidates.append((visible_pixels, png_data, png_path))
-                else:
-                    invalid_errors.append(f"{png_path.name}: fully transparent")
-            if not candidates:
-                details = "; ".join(invalid_errors[:5]) or "no PNG files exported"
-                raise ValueError(f"FFDec produced no visible PNG: {details}")
-            _, png_data, _ = max(
-                candidates,
-                key=lambda candidate: (candidate[0], len(candidate[1])),
-            )
+            else:
+                output_dir = temp_path / "shapes"
+                output_dir.mkdir()
+                _run_ffdec_command(
+                    [
+                        EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+                        "-jar",
+                        str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+                        "-zoom",
+                        str(EFFECT_ICON_PNG_RENDER_ZOOM),
+                        "-format",
+                        "shape:png",
+                        "-export",
+                        "shape",
+                        str(output_dir),
+                        str(swf_path),
+                    ]
+                )
+                png_data = _select_visible_png(output_dir)
         return EffectIconPngRender(
             icon_id=icon_id,
             available=True,
@@ -1242,7 +1360,13 @@ def _render_effect_icon_png(
             data=png_data,
             error="",
         )
-    except (OSError, subprocess.SubprocessError, ValueError, RuntimeError) as e:
+    except (
+        ET.ParseError,
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        RuntimeError,
+    ) as e:
         return EffectIconPngRender(
             icon_id=icon_id,
             available=False,
@@ -2393,7 +2517,10 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_enabled": str(
                 int(EFFECT_ICON_PNG_RENDER_ENABLED)
             ),
-            "effect_icon_png_renderer": "ffdec-shape",
+            "effect_icon_png_renderer": "ffdec-shape+filtered-sprite",
+            "effect_icon_png_composite_ids": ",".join(
+                str(icon_id) for icon_id in sorted(EFFECT_ICON_COMPOSITE_IDS)
+            ),
             "effect_icon_png_render_java_command": (
                 EFFECT_ICON_PNG_RENDER_JAVA_COMMAND
             ),

@@ -279,6 +279,93 @@ def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) ->
     assert "fully transparent" in render.error
 
 
+def test_render_composite_effect_icon_png_exports_clean_item_sprite(
+    monkeypatch,
+) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=613,
+        url="https://example.test/613.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
+    calls: list[list[str]] = []
+
+    def fake_run(args, **_kwargs):
+        calls.append(args)
+        if "-swf2xml" in args:
+            Path(args[-1]).write_text(
+                """
+                <swf>
+                  <item type="PlaceObject3Tag"
+                        placeFlagHasFilterList="true">
+                    <surfaceFilterList>
+                      <item type="COLORMATRIXFILTER" />
+                      <item type="GLOWFILTER" />
+                      <item type="BLURFILTER" />
+                    </surfaceFilterList>
+                  </item>
+                </swf>
+                """,
+                encoding="utf-8",
+            )
+        elif "-xml2swf" in args:
+            tree = builder.ET.parse(args[-2])
+            filter_types = [
+                node.attrib["type"]
+                for node in tree.findall(".//surfaceFilterList/item")
+            ]
+            assert filter_types == ["BLURFILTER"]
+            Path(args[-1]).write_bytes(b"FWS")
+        else:
+            assert args[-1].endswith("icon-clean.swf")
+            output_dir = Path(args[-2])
+            item_dir = output_dir / "DefineSprite_6_item"
+            item_dir.mkdir()
+            (item_dir / "1.png").write_bytes(_test_png())
+        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+
+    render = builder._render_effect_icon_png(613, check)
+
+    assert render.available is True
+    assert render.data is not None
+    assert len(calls) == 3
+    assert "-swf2xml" in calls[0]
+    assert "-xml2swf" in calls[1]
+    assert "sprite" in calls[2]
+
+
+def test_strip_effect_icon_presentation_filters_removes_empty_list(
+    tmp_path,
+) -> None:
+    xml_path = tmp_path / "icon.xml"
+    xml_path.write_text(
+        """
+        <swf>
+          <item type="PlaceObject3Tag" placeFlagHasFilterList="true">
+            <surfaceFilterList>
+              <item type="COLORMATRIXFILTER" />
+              <item type="GLOWFILTER" />
+            </surfaceFilterList>
+          </item>
+        </swf>
+        """,
+        encoding="utf-8",
+    )
+
+    builder._strip_effect_icon_presentation_filters(xml_path)
+
+    item = builder.ET.parse(xml_path).find(".//item")
+    assert item is not None
+    assert item.attrib["placeFlagHasFilterList"] == "false"
+    assert item.find("surfaceFilterList") is None
+
+
 def test_parse_unity_item_names_reads_exchange_currency_names() -> None:
     payload = {
         "root": {
