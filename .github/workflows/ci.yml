@@ -62,7 +62,7 @@ jobs:
         run: uv sync --all-packages
 
       - name: Run pytest
-        run: uv run pytest packages/seerapi-models/tests packages/solaris/tests -v
+        run: uv run pytest packages/seerapi-models/tests packages/seerapi-python/tests packages/solaris/tests -v
 
   generate-schema:
     name: Generate schema data
