@@ -103,21 +103,30 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Setup Java
+        if: steps.source_check.outputs.skip != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
       - name: Install parser dependency
         if: steps.source_check.outputs.skip != 'true'
         run: python -m pip install UnityPy
 
-      - name: Install SWF renderer
+      - name: Install FFDec SWF renderer
         if: steps.source_check.outputs.skip != 'true'
         run: |
-          sudo apt-get update
-          if ! sudo apt-get install -y swftools; then
-            curl -fsSL \
-              -o /tmp/swftools.deb \
-              https://archive.ubuntu.com/ubuntu/pool/universe/s/swftools/swftools_0.9.2+git20130725-4.1_amd64.deb
-            sudo apt-get install -y /tmp/swftools.deb
-          fi
-          swfrender --help >/dev/null || true
+          curl -fsSL \
+            -o /tmp/ffdec.zip \
+            https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.2.1/ffdec_26.2.1.zip
+          echo "0333b56998a55bd83f4e0deb678a811fcdc45607582b4f5dd438309c8c3ad5ce  /tmp/ffdec.zip" \
+            | sha256sum --check
+          sudo mkdir -p /opt/ffdec
+          sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
+          test -f /opt/ffdec/ffdec.jar
+          echo "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR=/opt/ffdec/ffdec.jar" \
+            >> "$GITHUB_ENV"
 
       - name: Build IronsBot database
         if: steps.source_check.outputs.skip != 'true'

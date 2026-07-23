@@ -1,8 +1,11 @@
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sqlite3
 import sys
+
+from PIL import Image
 
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1]
@@ -202,8 +205,14 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
     ]
 
 
-def test_render_effect_icon_png_uses_swfrender(monkeypatch) -> None:
-    png_data = b"\x89PNG\r\n\x1a\nrendered"
+def _test_png(*, alpha: int = 255) -> bytes:
+    output = io.BytesIO()
+    Image.new("RGBA", (2, 2), (10, 20, 30, alpha)).save(output, format="PNG")
+    return output.getvalue()
+
+
+def test_render_effect_icon_png_uses_ffdec_with_input_file_last(monkeypatch) -> None:
+    png_data = _test_png()
     check = builder.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
@@ -217,13 +226,21 @@ def test_render_effect_icon_png_uses_swfrender(monkeypatch) -> None:
     monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
 
     def fake_run(args, **_kwargs):
-        output_path = args[args.index("-o") + 1]
-        Path(output_path).write_bytes(png_data)
+        assert args[-1].endswith("1644.swf")
+        output_dir = Path(args[-2])
+        nested_output_dir = output_dir / "1644"
+        nested_output_dir.mkdir()
+        (nested_output_dir / "1.png").write_bytes(png_data)
         return builder.subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.setattr(builder.subprocess, "run", fake_run)
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_COMMAND", "swfrender")
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_SIZE", 96)
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_JAVA_COMMAND", "java")
+    monkeypatch.setattr(
+        builder,
+        "EFFECT_ICON_PNG_RENDER_FFDEC_JAR",
+        Path("ffdec.jar"),
+    )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_ZOOM", 6)
 
     render = builder._render_effect_icon_png(1644, check)
 
@@ -235,6 +252,31 @@ def test_render_effect_icon_png_uses_swfrender(monkeypatch) -> None:
         data=png_data,
         error="",
     )
+
+
+def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
+
+    def fake_run(args, **_kwargs):
+        (Path(args[-2]) / "1.png").write_bytes(_test_png(alpha=0))
+        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+
+    render = builder._render_effect_icon_png(1644, check)
+
+    assert render.available is False
+    assert render.data is None
+    assert "fully transparent" in render.error
 
 
 def test_parse_unity_item_names_reads_exchange_currency_names() -> None:

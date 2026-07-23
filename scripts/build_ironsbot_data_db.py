@@ -25,6 +25,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
+from PIL import Image, UnidentifiedImageError
+
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DB = ROOT / os.environ.get("IRONSBOT_DATA_OUTPUT", "ironsbot-data.sqlite")
 UPSTREAM_SEERAPI_URL = os.environ.get(
@@ -61,16 +63,22 @@ EFFECT_ICON_PNG_RENDER_ENABLED = os.environ.get(
     "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED",
     "1",
 ).lower() not in {"0", "false", "no", "off"}
-EFFECT_ICON_PNG_RENDER_COMMAND = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_COMMAND",
-    "swfrender",
+EFFECT_ICON_PNG_RENDER_JAVA_COMMAND = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_JAVA_COMMAND",
+    "java",
 )
-EFFECT_ICON_PNG_RENDER_SIZE = max(
-    16,
-    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_SIZE", "96")),
+EFFECT_ICON_PNG_RENDER_FFDEC_JAR = Path(
+    os.environ.get(
+        "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR",
+        "ffdec.jar",
+    )
+)
+EFFECT_ICON_PNG_RENDER_ZOOM = max(
+    1,
+    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ZOOM", "6")),
 )
 EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS = float(
-    os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS", "20")
+    os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS", "60")
 )
 EFFECT_ICON_PNG_RENDER_WORKERS = max(
     1,
@@ -1139,6 +1147,18 @@ def _download_effect_icon_asset(check: EffectIconAssetCheck) -> bytes:
         return data
 
 
+def _visible_png_pixel_count(data: bytes) -> int:
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("renderer output is not PNG")
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.load()
+            alpha_histogram = image.convert("RGBA").getchannel("A").histogram()
+    except (OSError, UnidentifiedImageError) as e:
+        raise ValueError(f"renderer output is an invalid PNG: {e}") from e
+    return sum(alpha_histogram[1:])
+
+
 def _render_effect_icon_png(
     icon_id: int,
     check: EffectIconAssetCheck,
@@ -1167,17 +1187,21 @@ def _render_effect_icon_png(
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             swf_path = temp_path / f"{icon_id}.swf"
-            png_path = temp_path / f"{icon_id}.png"
+            output_dir = temp_path / "shapes"
+            output_dir.mkdir()
             swf_path.write_bytes(swf_data)
             completed = subprocess.run(
                 [
-                    EFFECT_ICON_PNG_RENDER_COMMAND,
-                    "-X",
-                    str(EFFECT_ICON_PNG_RENDER_SIZE),
-                    "-Y",
-                    str(EFFECT_ICON_PNG_RENDER_SIZE),
-                    "-o",
-                    str(png_path),
+                    EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+                    "-jar",
+                    str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+                    "-zoom",
+                    str(EFFECT_ICON_PNG_RENDER_ZOOM),
+                    "-format",
+                    "shape:png",
+                    "-export",
+                    "shape",
+                    str(output_dir),
                     str(swf_path),
                 ],
                 check=False,
@@ -1188,12 +1212,28 @@ def _render_effect_icon_png(
             if completed.returncode != 0:
                 message = completed.stderr.strip() or completed.stdout.strip()
                 raise RuntimeError(
-                    f"{EFFECT_ICON_PNG_RENDER_COMMAND} exited "
-                    f"{completed.returncode}: {message}"
+                    f"FFDec exited {completed.returncode}: {message}"
                 )
-            png_data = png_path.read_bytes()
-        if not png_data.startswith(b"\x89PNG\r\n\x1a\n"):
-            raise ValueError("renderer output is not PNG")
+            candidates: list[tuple[int, bytes, Path]] = []
+            invalid_errors: list[str] = []
+            for png_path in sorted(output_dir.rglob("*.png")):
+                png_data = png_path.read_bytes()
+                try:
+                    visible_pixels = _visible_png_pixel_count(png_data)
+                except ValueError as e:
+                    invalid_errors.append(f"{png_path.name}: {e}")
+                    continue
+                if visible_pixels > 0:
+                    candidates.append((visible_pixels, png_data, png_path))
+                else:
+                    invalid_errors.append(f"{png_path.name}: fully transparent")
+            if not candidates:
+                details = "; ".join(invalid_errors[:5]) or "no PNG files exported"
+                raise ValueError(f"FFDec produced no visible PNG: {details}")
+            _, png_data, _ = max(
+                candidates,
+                key=lambda candidate: (candidate[0], len(candidate[1])),
+            )
         return EffectIconPngRender(
             icon_id=icon_id,
             available=True,
@@ -1218,6 +1258,15 @@ def _render_effect_icon_png_assets(
 ) -> dict[int, EffectIconPngRender]:
     if not checks:
         return {}
+    if EFFECT_ICON_PNG_RENDER_ENABLED:
+        if shutil.which(EFFECT_ICON_PNG_RENDER_JAVA_COMMAND) is None:
+            raise FileNotFoundError(
+                f"Java command not found: {EFFECT_ICON_PNG_RENDER_JAVA_COMMAND}"
+            )
+        if not EFFECT_ICON_PNG_RENDER_FFDEC_JAR.is_file():
+            raise FileNotFoundError(
+                f"FFDec jar not found: {EFFECT_ICON_PNG_RENDER_FFDEC_JAR}"
+            )
 
     logger.info(
         "Rendering official effect icon PNGs: %s unique icons",
@@ -1245,6 +1294,16 @@ def _render_effect_icon_png_assets(
                 )
 
     available_count = sum(1 for render in renders.values() if render.available)
+    if EFFECT_ICON_PNG_RENDER_ENABLED and available_count == 0:
+        first_errors = "; ".join(
+            render.error
+            for render in list(renders.values())[:5]
+            if render.error
+        )
+        raise ValueError(
+            "FFDec did not render any visible effect icon PNGs"
+            + (f": {first_errors}" if first_errors else "")
+        )
     logger.info(
         "Rendered official effect icon PNGs: %s/%s available",
         available_count,
@@ -2334,8 +2393,14 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_enabled": str(
                 int(EFFECT_ICON_PNG_RENDER_ENABLED)
             ),
-            "effect_icon_png_render_command": EFFECT_ICON_PNG_RENDER_COMMAND,
-            "effect_icon_png_render_size": str(EFFECT_ICON_PNG_RENDER_SIZE),
+            "effect_icon_png_renderer": "ffdec-shape",
+            "effect_icon_png_render_java_command": (
+                EFFECT_ICON_PNG_RENDER_JAVA_COMMAND
+            ),
+            "effect_icon_png_render_ffdec_jar": str(
+                EFFECT_ICON_PNG_RENDER_FFDEC_JAR
+            ),
+            "effect_icon_png_render_zoom": str(EFFECT_ICON_PNG_RENDER_ZOOM),
             "effect_icon_png_render_checked_count": str(
                 len(effect_icon_png_renders)
             ),
