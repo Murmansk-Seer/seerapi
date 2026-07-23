@@ -18,7 +18,9 @@ from pathlib import Path
 import shutil
 import sqlite3
 import struct
+import subprocess
 import time
+import tempfile
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
@@ -54,6 +56,25 @@ EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS = float(
 EFFECT_ICON_ASSET_VERIFY_WORKERS = max(
     1,
     int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_ASSET_VERIFY_WORKERS", "16")),
+)
+EFFECT_ICON_PNG_RENDER_ENABLED = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED",
+    "1",
+).lower() not in {"0", "false", "no", "off"}
+EFFECT_ICON_PNG_RENDER_COMMAND = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_COMMAND",
+    "swfrender",
+)
+EFFECT_ICON_PNG_RENDER_SIZE = max(
+    16,
+    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_SIZE", "96")),
+)
+EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS = float(
+    os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS", "20")
+)
+EFFECT_ICON_PNG_RENDER_WORKERS = max(
+    1,
+    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS", "4")),
 )
 CONFIG_TEXT_ASSETS = {
     MINTMARK_BYTES_NAME,
@@ -261,6 +282,16 @@ class EffectIconAssetCheck:
     status: int
     content_type: str
     content_length: int | None
+    error: str
+
+
+@dataclass(frozen=True, slots=True)
+class EffectIconPngRender:
+    icon_id: int
+    available: bool
+    content_type: str
+    content_length: int | None
+    data: bytes | None
     error: str
 
 
@@ -1089,6 +1120,137 @@ def _verify_effect_icon_assets(
             ", ".join(str(check.icon_id) for check in missing_checks[:10]),
         )
     return checks
+
+
+def _download_effect_icon_asset(check: EffectIconAssetCheck) -> bytes:
+    with urlopen(
+        _request(check.url, method="GET"),
+        timeout=EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS,
+    ) as response:
+        content_type = response.headers.get_content_type()
+        data = response.read()
+        if response.status != 200 or not _is_effect_icon_asset_content(
+            content_type,
+            data[:16],
+        ):
+            raise ValueError(
+                f"unexpected SWF response: {response.status} {content_type}"
+            )
+        return data
+
+
+def _render_effect_icon_png(
+    icon_id: int,
+    check: EffectIconAssetCheck,
+) -> EffectIconPngRender:
+    if not EFFECT_ICON_PNG_RENDER_ENABLED:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=False,
+            content_type="",
+            content_length=None,
+            data=None,
+            error="PNG rendering disabled",
+        )
+    if not check.available:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=False,
+            content_type="",
+            content_length=None,
+            data=None,
+            error=check.error or "SWF asset unavailable",
+        )
+
+    try:
+        swf_data = _download_effect_icon_asset(check)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            swf_path = temp_path / f"{icon_id}.swf"
+            png_path = temp_path / f"{icon_id}.png"
+            swf_path.write_bytes(swf_data)
+            completed = subprocess.run(
+                [
+                    EFFECT_ICON_PNG_RENDER_COMMAND,
+                    "-X",
+                    str(EFFECT_ICON_PNG_RENDER_SIZE),
+                    "-Y",
+                    str(EFFECT_ICON_PNG_RENDER_SIZE),
+                    "-o",
+                    str(png_path),
+                    str(swf_path),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
+            )
+            if completed.returncode != 0:
+                message = completed.stderr.strip() or completed.stdout.strip()
+                raise RuntimeError(
+                    f"{EFFECT_ICON_PNG_RENDER_COMMAND} exited "
+                    f"{completed.returncode}: {message}"
+                )
+            png_data = png_path.read_bytes()
+        if not png_data.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("renderer output is not PNG")
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=True,
+            content_type="image/png",
+            content_length=len(png_data),
+            data=png_data,
+            error="",
+        )
+    except (OSError, subprocess.SubprocessError, ValueError, RuntimeError) as e:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=False,
+            content_type="",
+            content_length=None,
+            data=None,
+            error=_short_error(e),
+        )
+
+
+def _render_effect_icon_png_assets(
+    checks: dict[int, EffectIconAssetCheck],
+) -> dict[int, EffectIconPngRender]:
+    if not checks:
+        return {}
+
+    logger.info(
+        "Rendering official effect icon PNGs: %s unique icons",
+        len(checks),
+    )
+    renders: dict[int, EffectIconPngRender] = {}
+    worker_count = min(EFFECT_ICON_PNG_RENDER_WORKERS, len(checks))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            executor.submit(_render_effect_icon_png, icon_id, check): icon_id
+            for icon_id, check in sorted(checks.items())
+        }
+        for future in as_completed(futures):
+            icon_id = futures[future]
+            try:
+                renders[icon_id] = future.result()
+            except Exception as e:
+                renders[icon_id] = EffectIconPngRender(
+                    icon_id=icon_id,
+                    available=False,
+                    content_type="",
+                    content_length=None,
+                    data=None,
+                    error=_short_error(e),
+                )
+
+    available_count = sum(1 for render in renders.values() if render.available)
+    logger.info(
+        "Rendered official effect icon PNGs: %s/%s available",
+        available_count,
+        len(renders),
+    )
+    return renders
 
 
 def _fetch_config_package_data() -> ConfigPackageData:
@@ -2055,9 +2217,13 @@ def _merge_ironsbot_tables(
         effect_icon_asset_checks = _verify_effect_icon_assets(
             {icon_id for _, _, _, icon_id in deduplicated_soulmark_icons}
         )
+        effect_icon_png_renders = _render_effect_icon_png_assets(
+            effect_icon_asset_checks
+        )
         soulmark_icon_rows = []
         for soulmark_id, pet_id, effect_id, icon_id in deduplicated_soulmark_icons:
             asset_check = effect_icon_asset_checks[icon_id]
+            png_render = effect_icon_png_renders[icon_id]
             soulmark_icon_rows.append(
                 (
                     soulmark_id,
@@ -2070,6 +2236,11 @@ def _merge_ironsbot_tables(
                     asset_check.content_type,
                     asset_check.content_length,
                     asset_check.error,
+                    png_render.data,
+                    int(png_render.available),
+                    png_render.content_type,
+                    png_render.content_length,
+                    png_render.error,
                     "ConfigPackage/effectIcon.bytes",
                     now,
                 )
@@ -2088,6 +2259,11 @@ def _merge_ironsbot_tables(
                 icon_asset_content_type TEXT NOT NULL,
                 icon_asset_content_length INTEGER,
                 icon_asset_error TEXT NOT NULL,
+                icon_png BLOB,
+                icon_png_available INTEGER NOT NULL,
+                icon_png_content_type TEXT NOT NULL,
+                icon_png_content_length INTEGER,
+                icon_png_error TEXT NOT NULL,
                 source TEXT NOT NULL,
                 updated_at REAL NOT NULL,
                 PRIMARY KEY (soulmark_id, pet_id, effect_id, icon_id)
@@ -2108,10 +2284,15 @@ def _merge_ironsbot_tables(
                     icon_asset_content_type,
                     icon_asset_content_length,
                     icon_asset_error,
+                    icon_png,
+                    icon_png_available,
+                    icon_png_content_type,
+                    icon_png_content_length,
+                    icon_png_error,
                     source,
                     updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             soulmark_icon_rows,
         )
@@ -2148,6 +2329,28 @@ def _merge_ironsbot_tables(
                     1
                     for check in effect_icon_asset_checks.values()
                     if not check.available
+                )
+            ),
+            "effect_icon_png_render_enabled": str(
+                int(EFFECT_ICON_PNG_RENDER_ENABLED)
+            ),
+            "effect_icon_png_render_command": EFFECT_ICON_PNG_RENDER_COMMAND,
+            "effect_icon_png_render_size": str(EFFECT_ICON_PNG_RENDER_SIZE),
+            "effect_icon_png_render_checked_count": str(
+                len(effect_icon_png_renders)
+            ),
+            "effect_icon_png_render_available_count": str(
+                sum(
+                    1
+                    for render in effect_icon_png_renders.values()
+                    if render.available
+                )
+            ),
+            "effect_icon_png_render_missing_count": str(
+                sum(
+                    1
+                    for render in effect_icon_png_renders.values()
+                    if not render.available
                 )
             ),
             "mintmark_quality_count": str(len(config_data.mintmark_quality)),

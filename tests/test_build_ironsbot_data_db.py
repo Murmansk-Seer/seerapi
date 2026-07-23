@@ -202,6 +202,41 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
     ]
 
 
+def test_render_effect_icon_png_uses_swfrender(monkeypatch) -> None:
+    png_data = b"\x89PNG\r\n\x1a\nrendered"
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+
+    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
+
+    def fake_run(args, **_kwargs):
+        output_path = args[args.index("-o") + 1]
+        Path(output_path).write_bytes(png_data)
+        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_COMMAND", "swfrender")
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_SIZE", 96)
+
+    render = builder._render_effect_icon_png(1644, check)
+
+    assert render == builder.EffectIconPngRender(
+        icon_id=1644,
+        available=True,
+        content_type="image/png",
+        content_length=len(png_data),
+        data=png_data,
+        error="",
+    )
+
+
 def test_parse_unity_item_names_reads_exchange_currency_names() -> None:
     payload = {
         "root": {
