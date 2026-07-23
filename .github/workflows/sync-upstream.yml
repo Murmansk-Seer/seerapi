@@ -5,6 +5,10 @@ on:
     - cron: "30 19 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: sync-upstream-${{ github.repository }}
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -16,41 +20,63 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
-      - name: Merge upstream main
+      - name: Merge conflict-free upstream changes
+        id: merge
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/SeerAPI/seerapi.git || git remote set-url upstream https://github.com/SeerAPI/seerapi.git
           git fetch upstream main
-          if git merge -X theirs -m "Sync upstream seerapi 同步上游 SeerAPI" upstream/main; then
-            git push origin main
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Upstream main is already included."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          conflicts="$(git diff --name-only --diff-filter=U)"
-          if [ -z "$conflicts" ]; then
-            echo "Merge failed without unresolved file conflicts."
-            git status --short
+          if ! git merge --no-ff --no-commit upstream/main; then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            {
+              echo "## Upstream sync stopped"
+              echo
+              echo "The upstream changes conflict with fork-specific code."
+              echo "No files were pushed. Resolve these paths manually:"
+              echo '```text'
+              printf '%s\n' "$conflicts"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            git merge --abort
             exit 1
           fi
 
-          echo "$conflicts" | while IFS= read -r file; do
-            [ -z "$file" ] && continue
-            echo "Taking upstream version for conflicted file: $file"
-            if git checkout --theirs -- "$file" 2>/dev/null; then
-              git add -- "$file"
-            else
-              git rm -f --ignore-unmatch -- "$file"
-            fi
-          done
+          git commit -m "Sync upstream seerapi 同步上游 SeerAPI"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
-          if git diff --name-only --diff-filter=U | grep -q .; then
-            echo "Unresolved conflicts remain:"
-            git diff --name-only --diff-filter=U
-            exit 1
-          fi
+      - name: Install uv
+        if: steps.merge.outputs.changed == 'true'
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
 
-          git commit --no-edit
-          git push origin main
+      - name: Set up Python
+        if: steps.merge.outputs.changed == 'true'
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        if: steps.merge.outputs.changed == 'true'
+        run: uv sync --all-packages
+
+      - name: Validate merged code
+        if: steps.merge.outputs.changed == 'true'
+        run: |
+          uv run pytest -q
+          uv run pytest packages/seerapi-models/tests packages/seerapi-python/tests packages/solaris/tests -q
+          uv run ruff check .
+          uv run ruff format --check packages/seerapi-models packages/seerapi-python packages/solaris
+
+      - name: Push verified merge
+        if: steps.merge.outputs.changed == 'true'
+        run: git push origin HEAD:main
