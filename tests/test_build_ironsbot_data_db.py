@@ -1,8 +1,11 @@
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sqlite3
 import sys
+
+from PIL import Image
 
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1]
@@ -200,6 +203,167 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
             show_monster_id=0,
         ),
     ]
+
+
+def _test_png(*, alpha: int = 255) -> bytes:
+    output = io.BytesIO()
+    Image.new("RGBA", (2, 2), (10, 20, 30, alpha)).save(output, format="PNG")
+    return output.getvalue()
+
+
+def test_render_effect_icon_png_uses_ffdec_with_input_file_last(monkeypatch) -> None:
+    png_data = _test_png()
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+
+    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
+
+    def fake_run(args, **_kwargs):
+        assert args[-1].endswith("1644.swf")
+        output_dir = Path(args[-2])
+        nested_output_dir = output_dir / "1644"
+        nested_output_dir.mkdir()
+        (nested_output_dir / "1.png").write_bytes(png_data)
+        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_JAVA_COMMAND", "java")
+    monkeypatch.setattr(
+        builder,
+        "EFFECT_ICON_PNG_RENDER_FFDEC_JAR",
+        Path("ffdec.jar"),
+    )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_ZOOM", 6)
+
+    render = builder._render_effect_icon_png(1644, check)
+
+    assert render == builder.EffectIconPngRender(
+        icon_id=1644,
+        available=True,
+        content_type="image/png",
+        content_length=len(png_data),
+        data=png_data,
+        error="",
+    )
+
+
+def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
+
+    def fake_run(args, **_kwargs):
+        (Path(args[-2]) / "1.png").write_bytes(_test_png(alpha=0))
+        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+
+    render = builder._render_effect_icon_png(1644, check)
+
+    assert render.available is False
+    assert render.data is None
+    assert "fully transparent" in render.error
+
+
+def test_render_composite_effect_icon_png_exports_clean_item_sprite(
+    monkeypatch,
+) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=613,
+        url="https://example.test/613.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
+    calls: list[list[str]] = []
+
+    def fake_run(args, **_kwargs):
+        calls.append(args)
+        if "-swf2xml" in args:
+            Path(args[-1]).write_text(
+                """
+                <swf>
+                  <item type="PlaceObject3Tag"
+                        placeFlagHasFilterList="true">
+                    <surfaceFilterList>
+                      <item type="COLORMATRIXFILTER" />
+                      <item type="GLOWFILTER" />
+                      <item type="BLURFILTER" />
+                    </surfaceFilterList>
+                  </item>
+                </swf>
+                """,
+                encoding="utf-8",
+            )
+        elif "-xml2swf" in args:
+            tree = builder.ET.parse(args[-2])
+            filter_types = [
+                node.attrib["type"]
+                for node in tree.findall(".//surfaceFilterList/item")
+            ]
+            assert filter_types == ["BLURFILTER"]
+            Path(args[-1]).write_bytes(b"FWS")
+        else:
+            assert args[-1].endswith("icon-clean.swf")
+            output_dir = Path(args[-2])
+            item_dir = output_dir / "DefineSprite_6_item"
+            item_dir.mkdir()
+            (item_dir / "1.png").write_bytes(_test_png())
+        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+
+    render = builder._render_effect_icon_png(613, check)
+
+    assert render.available is True
+    assert render.data is not None
+    assert len(calls) == 3
+    assert "-swf2xml" in calls[0]
+    assert "-xml2swf" in calls[1]
+    assert "sprite" in calls[2]
+
+
+def test_strip_effect_icon_presentation_filters_removes_empty_list(
+    tmp_path,
+) -> None:
+    xml_path = tmp_path / "icon.xml"
+    xml_path.write_text(
+        """
+        <swf>
+          <item type="PlaceObject3Tag" placeFlagHasFilterList="true">
+            <surfaceFilterList>
+              <item type="COLORMATRIXFILTER" />
+              <item type="GLOWFILTER" />
+            </surfaceFilterList>
+          </item>
+        </swf>
+        """,
+        encoding="utf-8",
+    )
+
+    builder._strip_effect_icon_presentation_filters(xml_path)
+
+    item = builder.ET.parse(xml_path).find(".//item")
+    assert item is not None
+    assert item.attrib["placeFlagHasFilterList"] == "false"
+    assert item.find("surfaceFilterList") is None
 
 
 def test_parse_unity_item_names_reads_exchange_currency_names() -> None:

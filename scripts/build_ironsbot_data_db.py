@@ -18,10 +18,15 @@ from pathlib import Path
 import shutil
 import sqlite3
 import struct
+import subprocess
+import tempfile
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
+import xml.etree.ElementTree as ET
+
+from PIL import Image, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DB = ROOT / os.environ.get("IRONSBOT_DATA_OUTPUT", "ironsbot-data.sqlite")
@@ -54,6 +59,37 @@ EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS = float(
 EFFECT_ICON_ASSET_VERIFY_WORKERS = max(
     1,
     int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_ASSET_VERIFY_WORKERS", "16")),
+)
+EFFECT_ICON_PNG_RENDER_ENABLED = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED",
+    "1",
+).lower() not in {"0", "false", "no", "off"}
+EFFECT_ICON_PNG_RENDER_JAVA_COMMAND = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_JAVA_COMMAND",
+    "java",
+)
+EFFECT_ICON_PNG_RENDER_FFDEC_JAR = Path(
+    os.environ.get(
+        "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR",
+        "ffdec.jar",
+    )
+)
+EFFECT_ICON_PNG_RENDER_ZOOM = max(
+    1,
+    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ZOOM", "6")),
+)
+EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS = float(
+    os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS", "60")
+)
+EFFECT_ICON_PNG_RENDER_WORKERS = max(
+    1,
+    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS", "4")),
+)
+# These SWFs assemble the visible icon from several symbols. Exporting the
+# largest individual shape only returns a background or glow layer.
+EFFECT_ICON_COMPOSITE_IDS = frozenset({358, 556, 597, 613, 824})
+EFFECT_ICON_PRESENTATION_FILTERS = frozenset(
+    {"COLORMATRIXFILTER", "GLOWFILTER"}
 )
 CONFIG_TEXT_ASSETS = {
     MINTMARK_BYTES_NAME,
@@ -261,6 +297,16 @@ class EffectIconAssetCheck:
     status: int
     content_type: str
     content_length: int | None
+    error: str
+
+
+@dataclass(frozen=True, slots=True)
+class EffectIconPngRender:
+    icon_id: int
+    available: bool
+    content_type: str
+    content_length: int | None
+    data: bytes | None
     error: str
 
 
@@ -1089,6 +1135,305 @@ def _verify_effect_icon_assets(
             ", ".join(str(check.icon_id) for check in missing_checks[:10]),
         )
     return checks
+
+
+def _download_effect_icon_asset(check: EffectIconAssetCheck) -> bytes:
+    with urlopen(
+        _request(check.url, method="GET"),
+        timeout=EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS,
+    ) as response:
+        content_type = response.headers.get_content_type()
+        data = response.read()
+        if response.status != 200 or not _is_effect_icon_asset_content(
+            content_type,
+            data[:16],
+        ):
+            raise ValueError(
+                f"unexpected SWF response: {response.status} {content_type}"
+            )
+        return data
+
+
+def _visible_png_pixel_count(data: bytes) -> int:
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("renderer output is not PNG")
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.load()
+            alpha_histogram = image.convert("RGBA").getchannel("A").histogram()
+    except (OSError, UnidentifiedImageError) as e:
+        raise ValueError(f"renderer output is an invalid PNG: {e}") from e
+    return sum(alpha_histogram[1:])
+
+
+def _run_ffdec_command(args: list[str]) -> None:
+    completed = subprocess.run(
+        args,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
+    )
+    if completed.returncode == 0:
+        return
+    message = (completed.stderr or "").strip() or (
+        completed.stdout or ""
+    ).strip()
+    raise RuntimeError(f"FFDec exited {completed.returncode}: {message}")
+
+
+def _select_visible_png(
+    output_dir: Path,
+    *,
+    prefer_item_sprite: bool = False,
+) -> bytes:
+    candidates: list[tuple[int, bytes, Path]] = []
+    invalid_errors: list[str] = []
+    for png_path in sorted(output_dir.rglob("*.png")):
+        png_data = png_path.read_bytes()
+        try:
+            visible_pixels = _visible_png_pixel_count(png_data)
+        except ValueError as e:
+            invalid_errors.append(f"{png_path.name}: {e}")
+            continue
+        if visible_pixels > 0:
+            candidates.append((visible_pixels, png_data, png_path))
+        else:
+            invalid_errors.append(f"{png_path.name}: fully transparent")
+    if prefer_item_sprite:
+        item_candidates = [
+            candidate
+            for candidate in candidates
+            if any(part.endswith("_item") for part in candidate[2].parts)
+        ]
+        if item_candidates:
+            candidates = item_candidates
+    if not candidates:
+        details = "; ".join(invalid_errors[:5]) or "no PNG files exported"
+        raise ValueError(f"FFDec produced no visible PNG: {details}")
+    _, png_data, _ = max(
+        candidates,
+        key=lambda candidate: (candidate[0], len(candidate[1])),
+    )
+    return png_data
+
+
+def _crop_png_to_visible_bounds(data: bytes) -> bytes:
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            rgba = image.convert("RGBA")
+            bounds = rgba.getchannel("A").getbbox()
+            if bounds is None:
+                raise ValueError("renderer output is fully transparent")
+            cropped = rgba.crop(bounds)
+            output = io.BytesIO()
+            cropped.save(output, format="PNG")
+    except (OSError, UnidentifiedImageError) as e:
+        raise ValueError(f"renderer output is an invalid PNG: {e}") from e
+    return output.getvalue()
+
+
+def _strip_effect_icon_presentation_filters(xml_path: Path) -> None:
+    tree = ET.parse(xml_path)
+    for parent in tree.iter():
+        filter_list = parent.find("surfaceFilterList")
+        if filter_list is None:
+            continue
+        for filter_node in list(filter_list):
+            if filter_node.attrib.get("type") in EFFECT_ICON_PRESENTATION_FILTERS:
+                filter_list.remove(filter_node)
+        if len(filter_list) == 0:
+            parent.remove(filter_list)
+            if "placeFlagHasFilterList" in parent.attrib:
+                parent.set("placeFlagHasFilterList", "false")
+    tree.write(xml_path, encoding="utf-8", xml_declaration=True)
+
+
+def _render_composite_effect_icon_png(
+    swf_path: Path,
+    temp_path: Path,
+) -> bytes:
+    xml_path = temp_path / "icon.xml"
+    cleaned_swf_path = temp_path / "icon-clean.swf"
+    output_dir = temp_path / "sprites"
+    output_dir.mkdir()
+    _run_ffdec_command(
+        [
+            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            "-jar",
+            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            "-swf2xml",
+            str(swf_path),
+            str(xml_path),
+        ]
+    )
+    _strip_effect_icon_presentation_filters(xml_path)
+    _run_ffdec_command(
+        [
+            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            "-jar",
+            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            "-xml2swf",
+            str(xml_path),
+            str(cleaned_swf_path),
+        ]
+    )
+    _run_ffdec_command(
+        [
+            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            "-jar",
+            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            "-zoom",
+            str(EFFECT_ICON_PNG_RENDER_ZOOM),
+            "-ignorebackground",
+            "-format",
+            "sprite:png",
+            "-export",
+            "sprite",
+            str(output_dir),
+            str(cleaned_swf_path),
+        ]
+    )
+    return _crop_png_to_visible_bounds(
+        _select_visible_png(output_dir, prefer_item_sprite=True)
+    )
+
+
+def _render_effect_icon_png(
+    icon_id: int,
+    check: EffectIconAssetCheck,
+) -> EffectIconPngRender:
+    if not EFFECT_ICON_PNG_RENDER_ENABLED:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=False,
+            content_type="",
+            content_length=None,
+            data=None,
+            error="PNG rendering disabled",
+        )
+    if not check.available:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=False,
+            content_type="",
+            content_length=None,
+            data=None,
+            error=check.error or "SWF asset unavailable",
+        )
+
+    try:
+        swf_data = _download_effect_icon_asset(check)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            swf_path = temp_path / f"{icon_id}.swf"
+            swf_path.write_bytes(swf_data)
+            if icon_id in EFFECT_ICON_COMPOSITE_IDS:
+                png_data = _render_composite_effect_icon_png(
+                    swf_path,
+                    temp_path,
+                )
+            else:
+                output_dir = temp_path / "shapes"
+                output_dir.mkdir()
+                _run_ffdec_command(
+                    [
+                        EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+                        "-jar",
+                        str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+                        "-zoom",
+                        str(EFFECT_ICON_PNG_RENDER_ZOOM),
+                        "-format",
+                        "shape:png",
+                        "-export",
+                        "shape",
+                        str(output_dir),
+                        str(swf_path),
+                    ]
+                )
+                png_data = _select_visible_png(output_dir)
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=True,
+            content_type="image/png",
+            content_length=len(png_data),
+            data=png_data,
+            error="",
+        )
+    except (
+        ET.ParseError,
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        RuntimeError,
+    ) as e:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=False,
+            content_type="",
+            content_length=None,
+            data=None,
+            error=_short_error(e),
+        )
+
+
+def _render_effect_icon_png_assets(
+    checks: dict[int, EffectIconAssetCheck],
+) -> dict[int, EffectIconPngRender]:
+    if not checks:
+        return {}
+    if EFFECT_ICON_PNG_RENDER_ENABLED:
+        if shutil.which(EFFECT_ICON_PNG_RENDER_JAVA_COMMAND) is None:
+            raise FileNotFoundError(
+                f"Java command not found: {EFFECT_ICON_PNG_RENDER_JAVA_COMMAND}"
+            )
+        if not EFFECT_ICON_PNG_RENDER_FFDEC_JAR.is_file():
+            raise FileNotFoundError(
+                f"FFDec jar not found: {EFFECT_ICON_PNG_RENDER_FFDEC_JAR}"
+            )
+
+    logger.info(
+        "Rendering official effect icon PNGs: %s unique icons",
+        len(checks),
+    )
+    renders: dict[int, EffectIconPngRender] = {}
+    worker_count = min(EFFECT_ICON_PNG_RENDER_WORKERS, len(checks))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            executor.submit(_render_effect_icon_png, icon_id, check): icon_id
+            for icon_id, check in sorted(checks.items())
+        }
+        for future in as_completed(futures):
+            icon_id = futures[future]
+            try:
+                renders[icon_id] = future.result()
+            except Exception as e:
+                renders[icon_id] = EffectIconPngRender(
+                    icon_id=icon_id,
+                    available=False,
+                    content_type="",
+                    content_length=None,
+                    data=None,
+                    error=_short_error(e),
+                )
+
+    available_count = sum(1 for render in renders.values() if render.available)
+    if EFFECT_ICON_PNG_RENDER_ENABLED and available_count == 0:
+        first_errors = "; ".join(
+            render.error
+            for render in list(renders.values())[:5]
+            if render.error
+        )
+        raise ValueError(
+            "FFDec did not render any visible effect icon PNGs"
+            + (f": {first_errors}" if first_errors else "")
+        )
+    logger.info(
+        "Rendered official effect icon PNGs: %s/%s available",
+        available_count,
+        len(renders),
+    )
+    return renders
 
 
 def _fetch_config_package_data() -> ConfigPackageData:
@@ -2055,9 +2400,13 @@ def _merge_ironsbot_tables(
         effect_icon_asset_checks = _verify_effect_icon_assets(
             {icon_id for _, _, _, icon_id in deduplicated_soulmark_icons}
         )
+        effect_icon_png_renders = _render_effect_icon_png_assets(
+            effect_icon_asset_checks
+        )
         soulmark_icon_rows = []
         for soulmark_id, pet_id, effect_id, icon_id in deduplicated_soulmark_icons:
             asset_check = effect_icon_asset_checks[icon_id]
+            png_render = effect_icon_png_renders[icon_id]
             soulmark_icon_rows.append(
                 (
                     soulmark_id,
@@ -2070,6 +2419,11 @@ def _merge_ironsbot_tables(
                     asset_check.content_type,
                     asset_check.content_length,
                     asset_check.error,
+                    png_render.data,
+                    int(png_render.available),
+                    png_render.content_type,
+                    png_render.content_length,
+                    png_render.error,
                     "ConfigPackage/effectIcon.bytes",
                     now,
                 )
@@ -2088,6 +2442,11 @@ def _merge_ironsbot_tables(
                 icon_asset_content_type TEXT NOT NULL,
                 icon_asset_content_length INTEGER,
                 icon_asset_error TEXT NOT NULL,
+                icon_png BLOB,
+                icon_png_available INTEGER NOT NULL,
+                icon_png_content_type TEXT NOT NULL,
+                icon_png_content_length INTEGER,
+                icon_png_error TEXT NOT NULL,
                 source TEXT NOT NULL,
                 updated_at REAL NOT NULL,
                 PRIMARY KEY (soulmark_id, pet_id, effect_id, icon_id)
@@ -2108,10 +2467,15 @@ def _merge_ironsbot_tables(
                     icon_asset_content_type,
                     icon_asset_content_length,
                     icon_asset_error,
+                    icon_png,
+                    icon_png_available,
+                    icon_png_content_type,
+                    icon_png_content_length,
+                    icon_png_error,
                     source,
                     updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             soulmark_icon_rows,
         )
@@ -2148,6 +2512,37 @@ def _merge_ironsbot_tables(
                     1
                     for check in effect_icon_asset_checks.values()
                     if not check.available
+                )
+            ),
+            "effect_icon_png_render_enabled": str(
+                int(EFFECT_ICON_PNG_RENDER_ENABLED)
+            ),
+            "effect_icon_png_renderer": "ffdec-shape+filtered-sprite",
+            "effect_icon_png_composite_ids": ",".join(
+                str(icon_id) for icon_id in sorted(EFFECT_ICON_COMPOSITE_IDS)
+            ),
+            "effect_icon_png_render_java_command": (
+                EFFECT_ICON_PNG_RENDER_JAVA_COMMAND
+            ),
+            "effect_icon_png_render_ffdec_jar": str(
+                EFFECT_ICON_PNG_RENDER_FFDEC_JAR
+            ),
+            "effect_icon_png_render_zoom": str(EFFECT_ICON_PNG_RENDER_ZOOM),
+            "effect_icon_png_render_checked_count": str(
+                len(effect_icon_png_renders)
+            ),
+            "effect_icon_png_render_available_count": str(
+                sum(
+                    1
+                    for render in effect_icon_png_renders.values()
+                    if render.available
+                )
+            ),
+            "effect_icon_png_render_missing_count": str(
+                sum(
+                    1
+                    for render in effect_icon_png_renders.values()
+                    if not render.available
                 )
             ),
             "mintmark_quality_count": str(len(config_data.mintmark_quality)),
