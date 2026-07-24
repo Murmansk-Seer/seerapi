@@ -254,6 +254,54 @@ def test_render_effect_icon_png_uses_ffdec_with_input_file_last(monkeypatch) -> 
     )
 
 
+def test_render_effect_icon_png_retries_transient_verification_failure(
+    monkeypatch,
+) -> None:
+    png_data = _test_png()
+    check = builder.EffectIconAssetCheck(
+        icon_id=806,
+        url="https://seer.61.com/resource/effectIcon/806.swf",
+        available=False,
+        status=0,
+        content_type="",
+        content_length=None,
+        error="TLS handshake timed out",
+    )
+    download_calls: list[builder.EffectIconAssetCheck] = []
+
+    def fake_download(asset_check):
+        download_calls.append(asset_check)
+        return b"FWS"
+
+    def fake_run(args, **_kwargs):
+        (Path(args[-2]) / "1.png").write_bytes(png_data)
+        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr(builder, "_download_effect_icon_asset", fake_download)
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+
+    render = builder._render_effect_icon_png(806, check)
+
+    assert download_calls == [check]
+    assert render.available is True
+    assert render.data == png_data
+    assert builder._effect_icon_runtime_asset_url(check) == check.url
+
+
+def test_effect_icon_runtime_asset_url_omits_confirmed_missing_asset() -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=999999,
+        url="https://seer.61.com/resource/effectIcon/999999.swf",
+        available=False,
+        status=404,
+        content_type="text/html",
+        content_length=None,
+        error="",
+    )
+
+    assert builder._effect_icon_runtime_asset_url(check) is None
+
+
 def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) -> None:
     check = builder.EffectIconAssetCheck(
         icon_id=1644,

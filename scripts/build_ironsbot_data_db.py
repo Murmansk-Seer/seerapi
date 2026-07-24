@@ -1154,6 +1154,14 @@ def _download_effect_icon_asset(check: EffectIconAssetCheck) -> bytes:
         return data
 
 
+def _effect_icon_runtime_asset_url(
+    check: EffectIconAssetCheck,
+) -> str | None:
+    if check.available or check.status == 0:
+        return check.url
+    return None
+
+
 def _visible_png_pixel_count(data: bytes) -> int:
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
         raise ValueError("renderer output is not PNG")
@@ -1312,7 +1320,7 @@ def _render_effect_icon_png(
             data=None,
             error="PNG rendering disabled",
         )
-    if not check.available:
+    if not check.available and check.status != 0:
         return EffectIconPngRender(
             icon_id=icon_id,
             available=False,
@@ -2413,7 +2421,7 @@ def _merge_ironsbot_tables(
                     pet_id,
                     effect_id,
                     icon_id,
-                    asset_check.url if asset_check.available else None,
+                    _effect_icon_runtime_asset_url(asset_check),
                     int(asset_check.available),
                     asset_check.status,
                     asset_check.content_type,
