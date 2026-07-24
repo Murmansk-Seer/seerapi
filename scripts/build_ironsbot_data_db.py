@@ -81,13 +81,32 @@ EFFECT_ICON_PNG_RENDER_ZOOM = max(
 EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS = float(
     os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS", "60")
 )
+EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS = float(
+    os.environ.get(
+        "IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS",
+        "12",
+    )
+)
+EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS = float(
+    os.environ.get(
+        "IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS",
+        "20",
+    )
+)
 EFFECT_ICON_PNG_RENDER_WORKERS = max(
     1,
     int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS", "4")),
 )
-# These SWFs assemble the visible icon from several symbols. Exporting the
-# largest individual shape only returns a background or glow layer.
-EFFECT_ICON_COMPOSITE_IDS = frozenset({358, 556, 597, 613, 824})
+EFFECT_ICON_PNG_CACHE_VERSION = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_VERSION",
+    "ffdec-sprite-v1",
+)
+EFFECT_ICON_PNG_CACHE_DIR = Path(
+    os.environ.get(
+        "IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR",
+        str(ROOT / ".cache" / "effect-icon-png"),
+    )
+)
 EFFECT_ICON_PRESENTATION_FILTERS = frozenset(
     {"COLORMATRIXFILTER", "GLOWFILTER"}
 )
@@ -1154,6 +1173,14 @@ def _download_effect_icon_asset(check: EffectIconAssetCheck) -> bytes:
         return data
 
 
+def _effect_icon_runtime_asset_url(
+    check: EffectIconAssetCheck,
+) -> str | None:
+    if check.available or check.status == 0:
+        return check.url
+    return None
+
+
 def _visible_png_pixel_count(data: bytes) -> int:
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
         raise ValueError("renderer output is not PNG")
@@ -1166,13 +1193,17 @@ def _visible_png_pixel_count(data: bytes) -> int:
     return sum(alpha_histogram[1:])
 
 
-def _run_ffdec_command(args: list[str]) -> None:
+def _run_ffdec_command(
+    args: list[str],
+    *,
+    timeout_seconds: float | None = None,
+) -> None:
     completed = subprocess.run(
         args,
         check=False,
         capture_output=True,
         text=True,
-        timeout=EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
+        timeout=timeout_seconds or EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
     )
     if completed.returncode == 0:
         return
@@ -1265,7 +1296,8 @@ def _render_composite_effect_icon_png(
             "-swf2xml",
             str(swf_path),
             str(xml_path),
-        ]
+        ],
+        timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
     )
     _strip_effect_icon_presentation_filters(xml_path)
     _run_ffdec_command(
@@ -1276,7 +1308,8 @@ def _render_composite_effect_icon_png(
             "-xml2swf",
             str(xml_path),
             str(cleaned_swf_path),
-        ]
+        ],
+        timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
     )
     _run_ffdec_command(
         [
@@ -1292,11 +1325,37 @@ def _render_composite_effect_icon_png(
             "sprite",
             str(output_dir),
             str(cleaned_swf_path),
-        ]
+        ],
+        timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
     )
     return _crop_png_to_visible_bounds(
         _select_visible_png(output_dir, prefer_item_sprite=True)
     )
+
+
+def _render_shape_effect_icon_png(
+    swf_path: Path,
+    temp_path: Path,
+) -> bytes:
+    output_dir = temp_path / "shapes"
+    output_dir.mkdir()
+    _run_ffdec_command(
+        [
+            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            "-jar",
+            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            "-zoom",
+            str(EFFECT_ICON_PNG_RENDER_ZOOM),
+            "-format",
+            "shape:png",
+            "-export",
+            "shape",
+            str(output_dir),
+            str(swf_path),
+        ],
+        timeout_seconds=EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS,
+    )
+    return _select_visible_png(output_dir)
 
 
 def _render_effect_icon_png(
@@ -1312,7 +1371,7 @@ def _render_effect_icon_png(
             data=None,
             error="PNG rendering disabled",
         )
-    if not check.available:
+    if not check.available and check.status != 0:
         return EffectIconPngRender(
             icon_id=icon_id,
             available=False,
@@ -1322,36 +1381,43 @@ def _render_effect_icon_png(
             error=check.error or "SWF asset unavailable",
         )
 
+    cached_png = _load_effect_icon_png_cache(icon_id)
+    if cached_png is not None:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=True,
+            content_type="image/png",
+            content_length=len(cached_png),
+            data=cached_png,
+            error="",
+        )
+
     try:
         swf_data = _download_effect_icon_asset(check)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             swf_path = temp_path / f"{icon_id}.swf"
             swf_path.write_bytes(swf_data)
-            if icon_id in EFFECT_ICON_COMPOSITE_IDS:
+            try:
                 png_data = _render_composite_effect_icon_png(
                     swf_path,
                     temp_path,
                 )
-            else:
-                output_dir = temp_path / "shapes"
-                output_dir.mkdir()
-                _run_ffdec_command(
-                    [
-                        EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
-                        "-jar",
-                        str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
-                        "-zoom",
-                        str(EFFECT_ICON_PNG_RENDER_ZOOM),
-                        "-format",
-                        "shape:png",
-                        "-export",
-                        "shape",
-                        str(output_dir),
-                        str(swf_path),
-                    ]
+            except (
+                ET.ParseError,
+                OSError,
+                subprocess.SubprocessError,
+                ValueError,
+                RuntimeError,
+            ) as composite_error:
+                logger.warning(
+                    "Composite effect icon render failed for %s; "
+                    "falling back to shape export: %s",
+                    icon_id,
+                    _short_error(composite_error),
                 )
-                png_data = _select_visible_png(output_dir)
+                png_data = _render_shape_effect_icon_png(swf_path, temp_path)
+        _save_effect_icon_png_cache(icon_id, png_data)
         return EffectIconPngRender(
             icon_id=icon_id,
             available=True,
@@ -1374,6 +1440,49 @@ def _render_effect_icon_png(
             content_length=None,
             data=None,
             error=_short_error(e),
+        )
+
+
+def _effect_icon_png_cache_path(icon_id: int) -> Path:
+    return (
+        EFFECT_ICON_PNG_CACHE_DIR
+        / EFFECT_ICON_PNG_CACHE_VERSION
+        / f"{icon_id}-sprite-z{EFFECT_ICON_PNG_RENDER_ZOOM}.png"
+    )
+
+
+def _load_effect_icon_png_cache(icon_id: int) -> bytes | None:
+    path = _effect_icon_png_cache_path(icon_id)
+    if not path.is_file():
+        return None
+    try:
+        data = path.read_bytes()
+        _visible_png_pixel_count(data)
+    except (OSError, ValueError) as e:
+        logger.warning(
+            "Ignoring invalid cached effect icon PNG %s: %s",
+            path,
+            _short_error(e),
+        )
+        return None
+    return data
+
+
+def _save_effect_icon_png_cache(icon_id: int, data: bytes) -> None:
+    try:
+        _visible_png_pixel_count(data)
+        path = _effect_icon_png_cache_path(icon_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+        temp_path = Path(temp_name)
+        with os.fdopen(fd, "wb") as file:
+            file.write(data)
+        temp_path.replace(path)
+    except (OSError, ValueError) as e:
+        logger.warning(
+            "Failed to cache effect icon PNG %s: %s",
+            icon_id,
+            _short_error(e),
         )
 
 
@@ -1403,6 +1512,7 @@ def _render_effect_icon_png_assets(
             executor.submit(_render_effect_icon_png, icon_id, check): icon_id
             for icon_id, check in sorted(checks.items())
         }
+        completed_count = 0
         for future in as_completed(futures):
             icon_id = futures[future]
             try:
@@ -1415,6 +1525,18 @@ def _render_effect_icon_png_assets(
                     content_length=None,
                     data=None,
                     error=_short_error(e),
+                )
+            completed_count += 1
+            if completed_count % 20 == 0 or completed_count == len(futures):
+                available_count = sum(
+                    1 for render in renders.values() if render.available
+                )
+                logger.info(
+                    "Effect icon PNG render progress: %s/%s completed, "
+                    "%s available",
+                    completed_count,
+                    len(futures),
+                    available_count,
                 )
 
     available_count = sum(1 for render in renders.values() if render.available)
@@ -2413,7 +2535,7 @@ def _merge_ironsbot_tables(
                     pet_id,
                     effect_id,
                     icon_id,
-                    asset_check.url if asset_check.available else None,
+                    _effect_icon_runtime_asset_url(asset_check),
                     int(asset_check.available),
                     asset_check.status,
                     asset_check.content_type,
@@ -2517,10 +2639,7 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_enabled": str(
                 int(EFFECT_ICON_PNG_RENDER_ENABLED)
             ),
-            "effect_icon_png_renderer": "ffdec-shape+filtered-sprite",
-            "effect_icon_png_composite_ids": ",".join(
-                str(icon_id) for icon_id in sorted(EFFECT_ICON_COMPOSITE_IDS)
-            ),
+            "effect_icon_png_renderer": "ffdec-filtered-sprite+shape-fallback",
             "effect_icon_png_render_java_command": (
                 EFFECT_ICON_PNG_RENDER_JAVA_COMMAND
             ),

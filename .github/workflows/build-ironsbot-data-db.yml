@@ -27,6 +27,7 @@ jobs:
   build:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     permissions:
       contents: write
 
@@ -128,8 +129,21 @@ jobs:
           echo "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR=/opt/ffdec/ffdec.jar" \
             >> "$GITHUB_ENV"
 
+      - name: Restore effect icon PNG cache
+        if: steps.source_check.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: .cache/effect-icon-png
+          key: ${{ runner.os }}-effect-icon-png-sprite-v1-${{ steps.source_check.outputs.remote_special_effect_status_sha }}
+          restore-keys: |
+            ${{ runner.os }}-effect-icon-png-sprite-v1-
+
       - name: Build IronsBot database
         if: steps.source_check.outputs.skip != 'true'
+        env:
+          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "12"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "20"
         run: python scripts/build_ironsbot_data_db.py
 
       - name: Generate SHA256 checksum
