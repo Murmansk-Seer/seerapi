@@ -6,6 +6,7 @@ import sqlite3
 import sys
 
 from PIL import Image
+import pytest
 
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1]
@@ -18,6 +19,15 @@ if SPEC is None or SPEC.loader is None:
 builder = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = builder
 SPEC.loader.exec_module(builder)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(
+        builder,
+        "EFFECT_ICON_PNG_CACHE_DIR",
+        tmp_path / "effect-icon-png",
+    )
 
 
 def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
@@ -209,6 +219,33 @@ def _test_png(*, alpha: int = 255) -> bytes:
     output = io.BytesIO()
     Image.new("RGBA", (2, 2), (10, 20, 30, alpha)).save(output, format="PNG")
     return output.getvalue()
+
+
+def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
+    png_data = _test_png()
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
+    cache_path = builder._effect_icon_png_cache_path(1644)
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_bytes(png_data)
+    monkeypatch.setattr(
+        builder,
+        "_download_effect_icon_asset",
+        lambda _check: (_ for _ in ()).throw(AssertionError),
+    )
+
+    render = builder._render_effect_icon_png(1644, check)
+
+    assert render.available is True
+    assert render.data == png_data
 
 
 def test_render_effect_icon_png_uses_ffdec_with_input_file_last(monkeypatch) -> None:

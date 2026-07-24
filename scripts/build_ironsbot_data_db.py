@@ -85,6 +85,16 @@ EFFECT_ICON_PNG_RENDER_WORKERS = max(
     1,
     int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS", "4")),
 )
+EFFECT_ICON_PNG_CACHE_VERSION = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_VERSION",
+    "ffdec-filtered-v1",
+)
+EFFECT_ICON_PNG_CACHE_DIR = Path(
+    os.environ.get(
+        "IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR",
+        str(ROOT / ".cache" / "effect-icon-png"),
+    )
+)
 # These SWFs assemble the visible icon from several symbols. Exporting the
 # largest individual shape only returns a background or glow layer.
 EFFECT_ICON_COMPOSITE_IDS = frozenset({358, 556, 597, 613, 824})
@@ -1330,6 +1340,17 @@ def _render_effect_icon_png(
             error=check.error or "SWF asset unavailable",
         )
 
+    cached_png = _load_effect_icon_png_cache(icon_id)
+    if cached_png is not None:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=True,
+            content_type="image/png",
+            content_length=len(cached_png),
+            data=cached_png,
+            error="",
+        )
+
     try:
         swf_data = _download_effect_icon_asset(check)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1360,6 +1381,7 @@ def _render_effect_icon_png(
                     ]
                 )
                 png_data = _select_visible_png(output_dir)
+        _save_effect_icon_png_cache(icon_id, png_data)
         return EffectIconPngRender(
             icon_id=icon_id,
             available=True,
@@ -1382,6 +1404,50 @@ def _render_effect_icon_png(
             content_length=None,
             data=None,
             error=_short_error(e),
+        )
+
+
+def _effect_icon_png_cache_path(icon_id: int) -> Path:
+    mode = "composite" if icon_id in EFFECT_ICON_COMPOSITE_IDS else "shape"
+    return (
+        EFFECT_ICON_PNG_CACHE_DIR
+        / EFFECT_ICON_PNG_CACHE_VERSION
+        / f"{icon_id}-{mode}-z{EFFECT_ICON_PNG_RENDER_ZOOM}.png"
+    )
+
+
+def _load_effect_icon_png_cache(icon_id: int) -> bytes | None:
+    path = _effect_icon_png_cache_path(icon_id)
+    if not path.is_file():
+        return None
+    try:
+        data = path.read_bytes()
+        _visible_png_pixel_count(data)
+    except (OSError, ValueError) as e:
+        logger.warning(
+            "Ignoring invalid cached effect icon PNG %s: %s",
+            path,
+            _short_error(e),
+        )
+        return None
+    return data
+
+
+def _save_effect_icon_png_cache(icon_id: int, data: bytes) -> None:
+    try:
+        _visible_png_pixel_count(data)
+        path = _effect_icon_png_cache_path(icon_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+        temp_path = Path(temp_name)
+        with os.fdopen(fd, "wb") as file:
+            file.write(data)
+        temp_path.replace(path)
+    except (OSError, ValueError) as e:
+        logger.warning(
+            "Failed to cache effect icon PNG %s: %s",
+            icon_id,
+            _short_error(e),
         )
 
 

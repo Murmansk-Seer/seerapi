@@ -128,8 +128,19 @@ jobs:
           echo "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR=/opt/ffdec/ffdec.jar" \
             >> "$GITHUB_ENV"
 
+      - name: Restore effect icon PNG cache
+        if: steps.source_check.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: .cache/effect-icon-png
+          key: ${{ runner.os }}-effect-icon-png-v1-${{ steps.source_check.outputs.remote_special_effect_status_sha }}
+          restore-keys: |
+            ${{ runner.os }}-effect-icon-png-v1-
+
       - name: Build IronsBot database
         if: steps.source_check.outputs.skip != 'true'
+        env:
+          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
         run: python scripts/build_ironsbot_data_db.py
 
       - name: Generate SHA256 checksum
