@@ -81,6 +81,18 @@ EFFECT_ICON_PNG_RENDER_ZOOM = max(
 EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS = float(
     os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS", "60")
 )
+EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS = float(
+    os.environ.get(
+        "IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS",
+        "12",
+    )
+)
+EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS = float(
+    os.environ.get(
+        "IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS",
+        "20",
+    )
+)
 EFFECT_ICON_PNG_RENDER_WORKERS = max(
     1,
     int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS", "4")),
@@ -1181,13 +1193,17 @@ def _visible_png_pixel_count(data: bytes) -> int:
     return sum(alpha_histogram[1:])
 
 
-def _run_ffdec_command(args: list[str]) -> None:
+def _run_ffdec_command(
+    args: list[str],
+    *,
+    timeout_seconds: float | None = None,
+) -> None:
     completed = subprocess.run(
         args,
         check=False,
         capture_output=True,
         text=True,
-        timeout=EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
+        timeout=timeout_seconds or EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
     )
     if completed.returncode == 0:
         return
@@ -1280,7 +1296,8 @@ def _render_composite_effect_icon_png(
             "-swf2xml",
             str(swf_path),
             str(xml_path),
-        ]
+        ],
+        timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
     )
     _strip_effect_icon_presentation_filters(xml_path)
     _run_ffdec_command(
@@ -1291,7 +1308,8 @@ def _render_composite_effect_icon_png(
             "-xml2swf",
             str(xml_path),
             str(cleaned_swf_path),
-        ]
+        ],
+        timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
     )
     _run_ffdec_command(
         [
@@ -1307,7 +1325,8 @@ def _render_composite_effect_icon_png(
             "sprite",
             str(output_dir),
             str(cleaned_swf_path),
-        ]
+        ],
+        timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
     )
     return _crop_png_to_visible_bounds(
         _select_visible_png(output_dir, prefer_item_sprite=True)
@@ -1333,7 +1352,8 @@ def _render_shape_effect_icon_png(
             "shape",
             str(output_dir),
             str(swf_path),
-        ]
+        ],
+        timeout_seconds=EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS,
     )
     return _select_visible_png(output_dir)
 
@@ -1492,6 +1512,7 @@ def _render_effect_icon_png_assets(
             executor.submit(_render_effect_icon_png, icon_id, check): icon_id
             for icon_id, check in sorted(checks.items())
         }
+        completed_count = 0
         for future in as_completed(futures):
             icon_id = futures[future]
             try:
@@ -1504,6 +1525,18 @@ def _render_effect_icon_png_assets(
                     content_length=None,
                     data=None,
                     error=_short_error(e),
+                )
+            completed_count += 1
+            if completed_count % 20 == 0 or completed_count == len(futures):
+                available_count = sum(
+                    1 for render in renders.values() if render.available
+                )
+                logger.info(
+                    "Effect icon PNG render progress: %s/%s completed, "
+                    "%s available",
+                    completed_count,
+                    len(futures),
+                    available_count,
                 )
 
     available_count = sum(1 for render in renders.values() if render.available)
