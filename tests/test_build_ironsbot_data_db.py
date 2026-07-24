@@ -248,7 +248,7 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
     assert render.data == png_data
 
 
-def test_render_effect_icon_png_uses_ffdec_with_input_file_last(monkeypatch) -> None:
+def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> None:
     png_data = _test_png()
     check = builder.EffectIconAssetCheck(
         icon_id=1644,
@@ -261,13 +261,21 @@ def test_render_effect_icon_png_uses_ffdec_with_input_file_last(monkeypatch) -> 
     )
 
     monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
+    calls: list[list[str]] = []
 
     def fake_run(args, **_kwargs):
-        assert args[-1].endswith("1644.swf")
-        output_dir = Path(args[-2])
-        nested_output_dir = output_dir / "1644"
-        nested_output_dir.mkdir()
-        (nested_output_dir / "1.png").write_bytes(png_data)
+        calls.append(args)
+        if "-swf2xml" in args:
+            assert args[-2].endswith("1644.swf")
+            Path(args[-1]).write_text("<swf />", encoding="utf-8")
+        elif "-xml2swf" in args:
+            Path(args[-1]).write_bytes(b"FWS")
+        else:
+            assert args[-1].endswith("icon-clean.swf")
+            output_dir = Path(args[-2])
+            item_dir = output_dir / "DefineSprite_6_item"
+            item_dir.mkdir()
+            (item_dir / "1.png").write_bytes(png_data)
         return builder.subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.setattr(builder.subprocess, "run", fake_run)
@@ -289,6 +297,45 @@ def test_render_effect_icon_png_uses_ffdec_with_input_file_last(monkeypatch) -> 
         data=png_data,
         error="",
     )
+    assert len(calls) == 3
+    assert "-swf2xml" in calls[0]
+    assert "-xml2swf" in calls[1]
+    assert "sprite" in calls[2]
+
+
+def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
+    png_data = _test_png()
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+
+    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
+    calls: list[list[str]] = []
+
+    def fake_run(args, **_kwargs):
+        calls.append(args)
+        if "-swf2xml" in args:
+            raise RuntimeError("sprite export unavailable")
+        output_dir = Path(args[-2])
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "1.png").write_bytes(png_data)
+        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+
+    render = builder._render_effect_icon_png(1644, check)
+
+    assert render.available is True
+    assert render.data == png_data
+    assert len(calls) == 2
+    assert "-swf2xml" in calls[0]
+    assert "shape" in calls[1]
 
 
 def test_render_effect_icon_png_retries_transient_verification_failure(

@@ -87,7 +87,7 @@ EFFECT_ICON_PNG_RENDER_WORKERS = max(
 )
 EFFECT_ICON_PNG_CACHE_VERSION = os.environ.get(
     "IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_VERSION",
-    "ffdec-filtered-v1",
+    "ffdec-sprite-v1",
 )
 EFFECT_ICON_PNG_CACHE_DIR = Path(
     os.environ.get(
@@ -95,9 +95,6 @@ EFFECT_ICON_PNG_CACHE_DIR = Path(
         str(ROOT / ".cache" / "effect-icon-png"),
     )
 )
-# These SWFs assemble the visible icon from several symbols. Exporting the
-# largest individual shape only returns a background or glow layer.
-EFFECT_ICON_COMPOSITE_IDS = frozenset({358, 556, 597, 613, 824})
 EFFECT_ICON_PRESENTATION_FILTERS = frozenset(
     {"COLORMATRIXFILTER", "GLOWFILTER"}
 )
@@ -1317,6 +1314,30 @@ def _render_composite_effect_icon_png(
     )
 
 
+def _render_shape_effect_icon_png(
+    swf_path: Path,
+    temp_path: Path,
+) -> bytes:
+    output_dir = temp_path / "shapes"
+    output_dir.mkdir()
+    _run_ffdec_command(
+        [
+            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            "-jar",
+            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            "-zoom",
+            str(EFFECT_ICON_PNG_RENDER_ZOOM),
+            "-format",
+            "shape:png",
+            "-export",
+            "shape",
+            str(output_dir),
+            str(swf_path),
+        ]
+    )
+    return _select_visible_png(output_dir)
+
+
 def _render_effect_icon_png(
     icon_id: int,
     check: EffectIconAssetCheck,
@@ -1357,30 +1378,25 @@ def _render_effect_icon_png(
             temp_path = Path(temp_dir)
             swf_path = temp_path / f"{icon_id}.swf"
             swf_path.write_bytes(swf_data)
-            if icon_id in EFFECT_ICON_COMPOSITE_IDS:
+            try:
                 png_data = _render_composite_effect_icon_png(
                     swf_path,
                     temp_path,
                 )
-            else:
-                output_dir = temp_path / "shapes"
-                output_dir.mkdir()
-                _run_ffdec_command(
-                    [
-                        EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
-                        "-jar",
-                        str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
-                        "-zoom",
-                        str(EFFECT_ICON_PNG_RENDER_ZOOM),
-                        "-format",
-                        "shape:png",
-                        "-export",
-                        "shape",
-                        str(output_dir),
-                        str(swf_path),
-                    ]
+            except (
+                ET.ParseError,
+                OSError,
+                subprocess.SubprocessError,
+                ValueError,
+                RuntimeError,
+            ) as composite_error:
+                logger.warning(
+                    "Composite effect icon render failed for %s; "
+                    "falling back to shape export: %s",
+                    icon_id,
+                    _short_error(composite_error),
                 )
-                png_data = _select_visible_png(output_dir)
+                png_data = _render_shape_effect_icon_png(swf_path, temp_path)
         _save_effect_icon_png_cache(icon_id, png_data)
         return EffectIconPngRender(
             icon_id=icon_id,
@@ -1408,11 +1424,10 @@ def _render_effect_icon_png(
 
 
 def _effect_icon_png_cache_path(icon_id: int) -> Path:
-    mode = "composite" if icon_id in EFFECT_ICON_COMPOSITE_IDS else "shape"
     return (
         EFFECT_ICON_PNG_CACHE_DIR
         / EFFECT_ICON_PNG_CACHE_VERSION
-        / f"{icon_id}-{mode}-z{EFFECT_ICON_PNG_RENDER_ZOOM}.png"
+        / f"{icon_id}-sprite-z{EFFECT_ICON_PNG_RENDER_ZOOM}.png"
     )
 
 
@@ -2591,10 +2606,7 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_enabled": str(
                 int(EFFECT_ICON_PNG_RENDER_ENABLED)
             ),
-            "effect_icon_png_renderer": "ffdec-shape+filtered-sprite",
-            "effect_icon_png_composite_ids": ",".join(
-                str(icon_id) for icon_id in sorted(EFFECT_ICON_COMPOSITE_IDS)
-            ),
+            "effect_icon_png_renderer": "ffdec-filtered-sprite+shape-fallback",
             "effect_icon_png_render_java_command": (
                 EFFECT_ICON_PNG_RENDER_JAVA_COMMAND
             ),

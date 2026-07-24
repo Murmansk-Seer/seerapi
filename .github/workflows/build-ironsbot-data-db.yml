@@ -133,9 +133,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/effect-icon-png
-          key: ${{ runner.os }}-effect-icon-png-v1-${{ steps.source_check.outputs.remote_special_effect_status_sha }}
+          key: ${{ runner.os }}-effect-icon-png-sprite-v1-${{ steps.source_check.outputs.remote_special_effect_status_sha }}
           restore-keys: |
-            ${{ runner.os }}-effect-icon-png-v1-
+            ${{ runner.os }}-effect-icon-png-sprite-v1-
 
       - name: Build IronsBot database
         if: steps.source_check.outputs.skip != 'true'
