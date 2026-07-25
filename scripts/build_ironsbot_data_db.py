@@ -99,7 +99,7 @@ EFFECT_ICON_PNG_RENDER_WORKERS = max(
 )
 EFFECT_ICON_PNG_CACHE_VERSION = os.environ.get(
     "IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_VERSION",
-    "ffdec-sprite-v1",
+    "ffdec-canonical-sprite-v2",
 )
 EFFECT_ICON_PNG_CACHE_DIR = Path(
     os.environ.get(
@@ -110,6 +110,8 @@ EFFECT_ICON_PNG_CACHE_DIR = Path(
 EFFECT_ICON_PRESENTATION_FILTERS = frozenset(
     {"COLORMATRIXFILTER", "GLOWFILTER"}
 )
+EFFECT_ICON_DUPLICATE_ORIGIN_TOLERANCE = 40.0
+EFFECT_ICON_DUPLICATE_MATRIX_TOLERANCE = 0.02
 CONFIG_TEXT_ASSETS = {
     MINTMARK_BYTES_NAME,
     SKIN_STORE_POOL_BYTES_NAME,
@@ -1249,7 +1251,7 @@ def _select_visible_png(
     return png_data
 
 
-def _crop_png_to_visible_bounds(data: bytes) -> bytes:
+def _normalize_effect_icon_png(data: bytes) -> bytes:
     try:
         with Image.open(io.BytesIO(data)) as image:
             rgba = image.convert("RGBA")
@@ -1257,15 +1259,172 @@ def _crop_png_to_visible_bounds(data: bytes) -> bytes:
             if bounds is None:
                 raise ValueError("renderer output is fully transparent")
             cropped = rgba.crop(bounds)
+            side = max(cropped.size)
+            normalized = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+            normalized.alpha_composite(
+                cropped,
+                (
+                    (side - cropped.width) // 2,
+                    (side - cropped.height) // 2,
+                ),
+            )
             output = io.BytesIO()
-            cropped.save(output, format="PNG")
+            normalized.save(output, format="PNG")
     except (OSError, UnidentifiedImageError) as e:
         raise ValueError(f"renderer output is an invalid PNG: {e}") from e
     return output.getvalue()
 
 
-def _strip_effect_icon_presentation_filters(xml_path: Path) -> None:
-    tree = ET.parse(xml_path)
+def _effect_icon_matrix_value(
+    matrix: ET.Element | None,
+    name: str,
+    default: float,
+) -> float:
+    if matrix is None:
+        return default
+    return float(matrix.attrib.get(name, default))
+
+
+def _effect_icon_placement_area_scale(node: ET.Element) -> float:
+    matrix = node.find("matrix")
+    scale_x = _effect_icon_matrix_value(matrix, "scaleX", 1.0)
+    scale_y = _effect_icon_matrix_value(matrix, "scaleY", 1.0)
+    skew_x = _effect_icon_matrix_value(matrix, "rotateSkew0", 0.0)
+    skew_y = _effect_icon_matrix_value(matrix, "rotateSkew1", 0.0)
+    return abs(scale_x * scale_y - skew_x * skew_y)
+
+
+def _effect_icon_normalized_matrix(node: ET.Element) -> tuple[float, ...]:
+    matrix = node.find("matrix")
+    values = (
+        _effect_icon_matrix_value(matrix, "scaleX", 1.0),
+        _effect_icon_matrix_value(matrix, "rotateSkew1", 0.0),
+        _effect_icon_matrix_value(matrix, "rotateSkew0", 0.0),
+        _effect_icon_matrix_value(matrix, "scaleY", 1.0),
+    )
+    magnitude = sum(value * value for value in values) ** 0.5
+    if magnitude <= 1e-9:
+        return values
+    return tuple(value / magnitude for value in values)
+
+
+def _effect_icon_normalized_origin(node: ET.Element) -> tuple[float, float]:
+    matrix = node.find("matrix")
+    scale_x = _effect_icon_matrix_value(matrix, "scaleX", 1.0)
+    scale_y = _effect_icon_matrix_value(matrix, "scaleY", 1.0)
+    translate_x = _effect_icon_matrix_value(matrix, "translateX", 0.0)
+    translate_y = _effect_icon_matrix_value(matrix, "translateY", 0.0)
+    return (
+        translate_x / max(abs(scale_x), 1e-9),
+        translate_y / max(abs(scale_y), 1e-9),
+    )
+
+
+def _effect_icon_has_presentation_effect(node: ET.Element) -> bool:
+    return any(
+        node.attrib.get(flag) == "true"
+        for flag in (
+            "placeFlagHasBlendMode",
+            "placeFlagHasColorTransform",
+            "placeFlagHasFilterList",
+        )
+    )
+
+
+def _effect_icon_placements_share_visual_origin(
+    nodes: list[ET.Element],
+) -> bool:
+    origins = [_effect_icon_normalized_origin(node) for node in nodes]
+    matrices = [_effect_icon_normalized_matrix(node) for node in nodes]
+    origin_x = [origin[0] for origin in origins]
+    origin_y = [origin[1] for origin in origins]
+    if (
+        max(origin_x) - min(origin_x)
+        > EFFECT_ICON_DUPLICATE_ORIGIN_TOLERANCE
+        or max(origin_y) - min(origin_y)
+        > EFFECT_ICON_DUPLICATE_ORIGIN_TOLERANCE
+    ):
+        return False
+    first_matrix = matrices[0]
+    return all(
+        max(
+            abs(left - right)
+            for left, right in zip(first_matrix, matrix, strict=True)
+        )
+        <= EFFECT_ICON_DUPLICATE_MATRIX_TOLERANCE
+        for matrix in matrices[1:]
+    )
+
+
+def _clear_effect_icon_presentation(node: ET.Element) -> None:
+    for child in list(node):
+        if child.tag in {"colorTransform", "surfaceFilterList"}:
+            node.remove(child)
+    for flag in (
+        "placeFlagHasBlendMode",
+        "placeFlagHasColorTransform",
+        "placeFlagHasFilterList",
+    ):
+        if flag in node.attrib:
+            node.set(flag, "false")
+    if node.attrib.get("type") == "PlaceObject3Tag":
+        node.set("blendMode", "0")
+
+
+def _collapse_effect_icon_presentation_duplicates(
+    tree: ET.ElementTree[ET.Element[str]],
+) -> None:
+    # Effect icons often place the same symbol several times at one visual
+    # origin to build blur/glow layers. Keep one crisp representative while
+    # preserving genuinely repeated symbols at different positions.
+    for sprite in tree.iter("item"):
+        if sprite.attrib.get("type") != "DefineSpriteTag":
+            continue
+        sub_tags = sprite.find("subTags")
+        if sub_tags is None:
+            continue
+        placements_by_character: dict[str, list[ET.Element]] = {}
+        for node in sub_tags:
+            character_id = node.attrib.get("characterId")
+            if (
+                character_id
+                and node.attrib.get("type", "").startswith("PlaceObject")
+            ):
+                placements_by_character.setdefault(character_id, []).append(
+                    node
+                )
+        for nodes in placements_by_character.values():
+            if (
+                len(nodes) < 2
+                or not any(
+                    _effect_icon_has_presentation_effect(node)
+                    for node in nodes
+                )
+                or not _effect_icon_placements_share_visual_origin(nodes)
+            ):
+                continue
+            plain_nodes = [
+                node
+                for node in nodes
+                if not _effect_icon_has_presentation_effect(node)
+            ]
+            canonical = max(
+                plain_nodes or nodes,
+                key=_effect_icon_placement_area_scale,
+            )
+            canonical.set(
+                "depth",
+                str(max(int(node.attrib.get("depth", "0")) for node in nodes)),
+            )
+            _clear_effect_icon_presentation(canonical)
+            for node in nodes:
+                if node is not canonical:
+                    sub_tags.remove(node)
+
+
+def _strip_effect_icon_presentation_filters_from_tree(
+    tree: ET.ElementTree[ET.Element[str]],
+) -> None:
     for parent in tree.iter():
         filter_list = parent.find("surfaceFilterList")
         if filter_list is None:
@@ -1277,10 +1436,16 @@ def _strip_effect_icon_presentation_filters(xml_path: Path) -> None:
             parent.remove(filter_list)
             if "placeFlagHasFilterList" in parent.attrib:
                 parent.set("placeFlagHasFilterList", "false")
+
+
+def _normalize_effect_icon_display_tree(xml_path: Path) -> None:
+    tree = ET.parse(xml_path)
+    _collapse_effect_icon_presentation_duplicates(tree)
+    _strip_effect_icon_presentation_filters_from_tree(tree)
     tree.write(xml_path, encoding="utf-8", xml_declaration=True)
 
 
-def _render_composite_effect_icon_png(
+def _render_full_effect_icon_png(
     swf_path: Path,
     temp_path: Path,
 ) -> bytes:
@@ -1299,7 +1464,7 @@ def _render_composite_effect_icon_png(
         ],
         timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
     )
-    _strip_effect_icon_presentation_filters(xml_path)
+    _normalize_effect_icon_display_tree(xml_path)
     _run_ffdec_command(
         [
             EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
@@ -1328,7 +1493,7 @@ def _render_composite_effect_icon_png(
         ],
         timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
     )
-    return _crop_png_to_visible_bounds(
+    return _normalize_effect_icon_png(
         _select_visible_png(output_dir, prefer_item_sprite=True)
     )
 
@@ -1355,7 +1520,7 @@ def _render_shape_effect_icon_png(
         ],
         timeout_seconds=EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS,
     )
-    return _select_visible_png(output_dir)
+    return _normalize_effect_icon_png(_select_visible_png(output_dir))
 
 
 def _render_effect_icon_png(
@@ -1399,7 +1564,7 @@ def _render_effect_icon_png(
             swf_path = temp_path / f"{icon_id}.swf"
             swf_path.write_bytes(swf_data)
             try:
-                png_data = _render_composite_effect_icon_png(
+                png_data = _render_full_effect_icon_png(
                     swf_path,
                     temp_path,
                 )
@@ -1409,12 +1574,12 @@ def _render_effect_icon_png(
                 subprocess.SubprocessError,
                 ValueError,
                 RuntimeError,
-            ) as composite_error:
+            ) as full_render_error:
                 logger.warning(
-                    "Composite effect icon render failed for %s; "
+                    "Full effect icon render failed for %s; "
                     "falling back to shape export: %s",
                     icon_id,
-                    _short_error(composite_error),
+                    _short_error(full_render_error),
                 )
                 png_data = _render_shape_effect_icon_png(swf_path, temp_path)
         _save_effect_icon_png_cache(icon_id, png_data)
@@ -2639,7 +2804,9 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_enabled": str(
                 int(EFFECT_ICON_PNG_RENDER_ENABLED)
             ),
-            "effect_icon_png_renderer": "ffdec-filtered-sprite+shape-fallback",
+            "effect_icon_png_renderer": (
+                "ffdec-canonical-item-sprite+shape-fallback"
+            ),
             "effect_icon_png_render_java_command": (
                 EFFECT_ICON_PNG_RENDER_JAVA_COMMAND
             ),

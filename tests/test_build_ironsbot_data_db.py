@@ -351,7 +351,7 @@ def test_render_effect_icon_png_retries_transient_verification_failure(
         content_length=None,
         error="TLS handshake timed out",
     )
-    download_calls: list[builder.EffectIconAssetCheck] = []
+    download_calls: list[object] = []
 
     def fake_download(asset_check):
         download_calls.append(asset_check)
@@ -411,12 +411,12 @@ def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) ->
     assert "fully transparent" in render.error
 
 
-def test_render_composite_effect_icon_png_exports_clean_item_sprite(
+def test_render_effect_icon_png_exports_clean_item_sprite(
     monkeypatch,
 ) -> None:
     check = builder.EffectIconAssetCheck(
-        icon_id=613,
-        url="https://example.test/613.swf",
+        icon_id=1644,
+        url="https://example.test/1644.swf",
         available=True,
         status=200,
         content_type="application/x-shockwave-flash",
@@ -472,30 +472,119 @@ def test_render_composite_effect_icon_png_exports_clean_item_sprite(
     assert "sprite" in calls[2]
 
 
-def test_strip_effect_icon_presentation_filters_removes_empty_list(
+def test_normalize_effect_icon_display_tree_collapses_presentation_duplicates(
     tmp_path,
 ) -> None:
     xml_path = tmp_path / "icon.xml"
     xml_path.write_text(
         """
         <swf>
-          <item type="PlaceObject3Tag" placeFlagHasFilterList="true">
-            <surfaceFilterList>
-              <item type="COLORMATRIXFILTER" />
-              <item type="GLOWFILTER" />
-            </surfaceFilterList>
+          <item type="DefineSpriteTag" spriteId="5">
+            <subTags>
+              <item type="PlaceObject2Tag"
+                    characterId="1"
+                    depth="2">
+                <matrix scaleX="1" scaleY="1"
+                        translateX="0" translateY="0" />
+              </item>
+              <item type="PlaceObject3Tag"
+                    characterId="3"
+                    depth="3"
+                    blendMode="8"
+                    placeFlagHasBlendMode="true"
+                    placeFlagHasColorTransform="false"
+                    placeFlagHasFilterList="true">
+                <matrix scaleX="0.6" scaleY="0.6"
+                        translateX="-480" translateY="-600" />
+                <surfaceFilterList>
+                  <item type="BLURFILTER" />
+                </surfaceFilterList>
+              </item>
+              <item type="PlaceObject2Tag"
+                    characterId="4"
+                    depth="7">
+                <matrix scaleX="1" scaleY="1"
+                        translateX="0" translateY="0" />
+              </item>
+              <item type="PlaceObject3Tag"
+                    characterId="3"
+                    depth="8"
+                    blendMode="8"
+                    placeFlagHasBlendMode="true"
+                    placeFlagHasColorTransform="true"
+                    placeFlagHasFilterList="true">
+                <matrix scaleX="0.4" scaleY="0.4"
+                        translateX="-320" translateY="-400" />
+                <colorTransform alphaMultTerm="154" />
+                <surfaceFilterList>
+                  <item type="BLURFILTER" />
+                </surfaceFilterList>
+              </item>
+            </subTags>
           </item>
         </swf>
         """,
         encoding="utf-8",
     )
 
-    builder._strip_effect_icon_presentation_filters(xml_path)
+    builder._normalize_effect_icon_display_tree(xml_path)
 
-    item = builder.ET.parse(xml_path).find(".//item")
-    assert item is not None
-    assert item.attrib["placeFlagHasFilterList"] == "false"
-    assert item.find("surfaceFilterList") is None
+    tree = builder.ET.parse(xml_path)
+    placements = tree.findall(".//subTags/item")
+    character_ids = [node.attrib["characterId"] for node in placements]
+    assert character_ids == ["1", "3", "4"]
+    foreground = next(
+        node for node in placements if node.attrib["characterId"] == "3"
+    )
+    assert foreground.attrib["depth"] == "8"
+    assert foreground.attrib["placeFlagHasBlendMode"] == "false"
+    assert foreground.attrib["placeFlagHasColorTransform"] == "false"
+    assert foreground.attrib["placeFlagHasFilterList"] == "false"
+    assert foreground.find("colorTransform") is None
+    assert foreground.find("surfaceFilterList") is None
+    matrix = foreground.find("matrix")
+    assert matrix is not None
+    assert matrix.attrib["scaleX"] == "0.6"
+
+
+def test_normalize_effect_icon_display_tree_keeps_distinct_placements(
+    tmp_path,
+) -> None:
+    xml_path = tmp_path / "icon.xml"
+    xml_path.write_text(
+        """
+        <swf>
+          <item type="DefineSpriteTag" spriteId="5">
+            <subTags>
+              <item type="PlaceObject3Tag"
+                    characterId="3"
+                    depth="1"
+                    placeFlagHasBlendMode="true"
+                    placeFlagHasColorTransform="false"
+                    placeFlagHasFilterList="false">
+                <matrix scaleX="1" scaleY="1"
+                        translateX="0" translateY="0" />
+              </item>
+              <item type="PlaceObject3Tag"
+                    characterId="3"
+                    depth="2"
+                    placeFlagHasBlendMode="true"
+                    placeFlagHasColorTransform="false"
+                    placeFlagHasFilterList="false">
+                <matrix scaleX="1" scaleY="1"
+                        translateX="1000" translateY="0" />
+              </item>
+            </subTags>
+          </item>
+        </swf>
+        """,
+        encoding="utf-8",
+    )
+
+    builder._normalize_effect_icon_display_tree(xml_path)
+
+    placements = builder.ET.parse(xml_path).findall(".//subTags/item")
+    assert len(placements) == 2
 
 
 def test_parse_unity_item_names_reads_exchange_currency_names() -> None:
