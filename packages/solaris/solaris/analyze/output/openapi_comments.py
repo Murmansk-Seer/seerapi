@@ -1994,6 +1994,63 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
         description='技能资源。',
     ),
     # 道具相关
+    M.Item: APIComment(
+        name_en='item',
+        name_cn='道具',
+        examples=[
+            {
+                'id': 100274,
+                'name': '血色头盔',
+                'desc': None,
+                'max': 1,
+                'category': {
+                    'id': 1,
+                    'url': 'https://api.seerapi.com/v1/item_category/1',
+                },
+                'hash': '22019666',
+            }
+        ],
+        tags=['道具'],
+        description='道具资源。',
+    ),
+    M.ItemCategory: APIComment(
+        name_en='item_category',
+        name_cn='道具分类',
+        examples=[
+            {
+                'id': 10,
+                'name': '元神珠',
+                'max': 20,
+                'item': [
+                    {'id': 1000022, 'url': 'https://api.seerapi.com/v1/item/1000022'},
+                    {'id': 1000021, 'url': 'https://api.seerapi.com/v1/item/1000021'},
+                    {'id': 1000020, 'url': 'https://api.seerapi.com/v1/item/1000020'},
+                    {'id': 1000019, 'url': 'https://api.seerapi.com/v1/item/1000019'},
+                    {'id': 1000018, 'url': 'https://api.seerapi.com/v1/item/1000018'},
+                    {'id': 1000017, 'url': 'https://api.seerapi.com/v1/item/1000017'},
+                    {'id': 1000016, 'url': 'https://api.seerapi.com/v1/item/1000016'},
+                    {'id': 1000015, 'url': 'https://api.seerapi.com/v1/item/1000015'},
+                    {'id': 1000014, 'url': 'https://api.seerapi.com/v1/item/1000014'},
+                    {'id': 1000013, 'url': 'https://api.seerapi.com/v1/item/1000013'},
+                    {'id': 1000012, 'url': 'https://api.seerapi.com/v1/item/1000012'},
+                    {'id': 1000011, 'url': 'https://api.seerapi.com/v1/item/1000011'},
+                    {'id': 1000010, 'url': 'https://api.seerapi.com/v1/item/1000010'},
+                    {'id': 1000009, 'url': 'https://api.seerapi.com/v1/item/1000009'},
+                    {'id': 1000008, 'url': 'https://api.seerapi.com/v1/item/1000008'},
+                    {'id': 1000007, 'url': 'https://api.seerapi.com/v1/item/1000007'},
+                    {'id': 1000006, 'url': 'https://api.seerapi.com/v1/item/1000006'},
+                    {'id': 1000005, 'url': 'https://api.seerapi.com/v1/item/1000005'},
+                    {'id': 1000004, 'url': 'https://api.seerapi.com/v1/item/1000004'},
+                    {'id': 1000003, 'url': 'https://api.seerapi.com/v1/item/1000003'},
+                    {'id': 1000002, 'url': 'https://api.seerapi.com/v1/item/1000002'},
+                    {'id': 1000001, 'url': 'https://api.seerapi.com/v1/item/1000001'},
+                ],
+                'hash': '8388bf5b',
+            }
+        ],
+        tags=['道具', '分类'],
+        description='道具分类资源。',
+    ),
     M.EnergyBead: APIComment(
         name_en='energy_bead',
         name_cn='能量珠',

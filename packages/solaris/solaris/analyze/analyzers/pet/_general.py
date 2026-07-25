@@ -1,3 +1,4 @@
+from abc import ABC
 from collections import defaultdict
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, cast
@@ -54,7 +55,7 @@ general_import_config = DataImportConfig(
 )
 
 
-class BasePetAnalyzer(BaseDataSourcePostAnalyzer):
+class BasePetAnalyzer(BaseDataSourcePostAnalyzer, ABC):
     @classmethod
     def get_data_import_config(cls) -> DataImportConfig:
         return general_import_config

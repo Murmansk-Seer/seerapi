@@ -2518,6 +2518,141 @@ export type GlossaryEntryListExpanded = {
 };
 
 /**
+ * 道具资源
+ */
+export type Item = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 物品名称
+     */
+    name: string;
+    /**
+     * Desc
+     *
+     * 物品描述，可能为空（在游戏内显示为默认描述）
+     */
+    desc?: string | null;
+    /**
+     * Max
+     *
+     * 物品最大数量
+     */
+    max: number;
+    category: CommonResourceRef;
+};
+
+/**
+ * 道具资源列表
+ */
+export type ItemList = CommonApiResourceList;
+
+/**
+ * 道具资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type ItemListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Item>;
+};
+
+/**
+ * 道具分类资源
+ */
+export type ItemCategory = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 物品分类名称
+     */
+    name: string;
+    /**
+     * Max
+     *
+     * 物品最大数量
+     */
+    max: number;
+    /**
+     * Item
+     *
+     * 该分类下的所有物品
+     */
+    item?: Array<CommonResourceRef>;
+};
+
+/**
+ * 道具分类资源列表
+ */
+export type ItemCategoryList = CommonApiResourceList;
+
+/**
+ * 道具分类资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type ItemCategoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<ItemCategory>;
+};
+
+/**
  * 宝石资源
  */
 export type Gem = HashPartial & {
@@ -4900,6 +5035,124 @@ export type PetSkinSeriesSubTypeListExpanded = {
 };
 
 /**
+ * 精灵故事条目资源
+ */
+export type PetArchiveStoryEntry = HashPartial & {
+    /**
+     * Id
+     *
+     * 故事条目ID
+     */
+    id: number;
+    /**
+     * Content
+     *
+     * 故事条目内容
+     */
+    content: string;
+    pet: CommonResourceRef;
+    book: CommonResourceRef;
+};
+
+/**
+ * 精灵故事条目资源列表
+ */
+export type PetArchiveStoryEntryList = CommonApiResourceList;
+
+/**
+ * 精灵故事条目资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetArchiveStoryEntryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetArchiveStoryEntry>;
+};
+
+/**
+ * 精灵故事系列资源
+ */
+export type PetArchiveStoryBook = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 故事名称
+     */
+    name: string;
+    /**
+     * Entries
+     *
+     * 故事条目
+     */
+    entries?: Array<CommonResourceRef>;
+};
+
+/**
+ * 精灵故事系列资源列表
+ */
+export type PetArchiveStoryBookList = CommonApiResourceList;
+
+/**
+ * 精灵故事系列资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PetArchiveStoryBookListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PetArchiveStoryBook>;
+};
+
+/**
  * 精灵图鉴条目资源
  */
 export type PetEncyclopediaEntry = HashPartial & {
@@ -4989,67 +5242,6 @@ export type PetEncyclopediaEntryListExpanded = {
      * 资源列表
      */
     results: Array<PetEncyclopediaEntry>;
-};
-
-/**
- * 精灵故事系列资源
- */
-export type PetArchiveStoryBook = HashPartial & {
-    /**
-     * Id
-     *
-     * 资源ID
-     */
-    id: number;
-    /**
-     * Name
-     *
-     * 故事名称
-     */
-    name: string;
-    /**
-     * Entries
-     *
-     * 故事条目
-     */
-    entries?: Array<CommonResourceRef>;
-};
-
-/**
- * 精灵故事系列资源列表
- */
-export type PetArchiveStoryBookList = CommonApiResourceList;
-
-/**
- * 精灵故事系列资源列表（expand=true）
- *
- * expand=true 时返回完整资源对象列表
- */
-export type PetArchiveStoryBookListExpanded = {
-    /**
-     * 资源数量
-     */
-    count: number;
-    /**
-     * 下一页URL
-     */
-    next?: string | null;
-    /**
-     * 上一页URL
-     */
-    previous?: string | null;
-    /**
-     * 第一页URL
-     */
-    first?: string | null;
-    /**
-     * 最后一页URL
-     */
-    last?: string | null;
-    /**
-     * 资源列表
-     */
-    results: Array<PetArchiveStoryBook>;
 };
 
 /**
@@ -5715,6 +5907,14 @@ export type RootIndex = HashPartial & {
      */
     glossary_entry: string;
     /**
+     * item Path
+     */
+    item: string;
+    /**
+     * item_category Path
+     */
+    item_category: string;
+    /**
      * gem Path
      */
     gem: string;
@@ -5835,13 +6035,17 @@ export type RootIndex = HashPartial & {
      */
     pet_skin_series_sub_type: string;
     /**
-     * pet_encyclopedia_entry Path
+     * pet_archive_story_entry Path
      */
-    pet_encyclopedia_entry: string;
+    pet_archive_story_entry: string;
     /**
      * pet_archive_story_book Path
      */
     pet_archive_story_book: string;
+    /**
+     * pet_encyclopedia_entry Path
+     */
+    pet_encyclopedia_entry: string;
     /**
      * skill Path
      */
@@ -7455,6 +7659,110 @@ export type GetGlossaryEntryListResponses = {
 
 export type GetGlossaryEntryListResponse = GetGlossaryEntryListResponses[keyof GetGlossaryEntryListResponses];
 
+export type GetItemByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/item/{id}';
+};
+
+export type GetItemByIdResponses = {
+    /**
+     * OK
+     */
+    200: Item;
+};
+
+export type GetItemByIdResponse = GetItemByIdResponses[keyof GetItemByIdResponses];
+
+export type GetItemListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/item/';
+};
+
+export type GetItemListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: ItemList | ItemListExpanded;
+};
+
+export type GetItemListResponse = GetItemListResponses[keyof GetItemListResponses];
+
+export type GetItemCategoryByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/item_category/{id}';
+};
+
+export type GetItemCategoryByIdResponses = {
+    /**
+     * OK
+     */
+    200: ItemCategory;
+};
+
+export type GetItemCategoryByIdResponse = GetItemCategoryByIdResponses[keyof GetItemCategoryByIdResponses];
+
+export type GetItemCategoryListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/item_category/';
+};
+
+export type GetItemCategoryListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: ItemCategoryList | ItemCategoryListExpanded;
+};
+
+export type GetItemCategoryListResponse = GetItemCategoryListResponses[keyof GetItemCategoryListResponses];
+
 export type GetGemByIdData = {
     body?: never;
     path: {
@@ -9015,7 +9323,7 @@ export type GetPetSkinSeriesSubTypeListResponses = {
 
 export type GetPetSkinSeriesSubTypeListResponse = GetPetSkinSeriesSubTypeListResponses[keyof GetPetSkinSeriesSubTypeListResponses];
 
-export type GetPetEncyclopediaEntryByIdData = {
+export type GetPetArchiveStoryEntryByIdData = {
     body?: never;
     path: {
         /**
@@ -9024,19 +9332,19 @@ export type GetPetEncyclopediaEntryByIdData = {
         id: number;
     };
     query?: never;
-    url: 'v1/pet_encyclopedia_entry/{id}';
+    url: 'v1/pet_archive_story_entry/{id}';
 };
 
-export type GetPetEncyclopediaEntryByIdResponses = {
+export type GetPetArchiveStoryEntryByIdResponses = {
     /**
      * OK
      */
-    200: PetEncyclopediaEntry;
+    200: PetArchiveStoryEntry;
 };
 
-export type GetPetEncyclopediaEntryByIdResponse = GetPetEncyclopediaEntryByIdResponses[keyof GetPetEncyclopediaEntryByIdResponses];
+export type GetPetArchiveStoryEntryByIdResponse = GetPetArchiveStoryEntryByIdResponses[keyof GetPetArchiveStoryEntryByIdResponses];
 
-export type GetPetEncyclopediaEntryListData = {
+export type GetPetArchiveStoryEntryListData = {
     body?: never;
     path?: never;
     query?: {
@@ -9055,17 +9363,17 @@ export type GetPetEncyclopediaEntryListData = {
          */
         expand?: boolean;
     };
-    url: 'v1/pet_encyclopedia_entry/';
+    url: 'v1/pet_archive_story_entry/';
 };
 
-export type GetPetEncyclopediaEntryListResponses = {
+export type GetPetArchiveStoryEntryListResponses = {
     /**
      * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
      */
-    200: PetEncyclopediaEntryList | PetEncyclopediaEntryListExpanded;
+    200: PetArchiveStoryEntryList | PetArchiveStoryEntryListExpanded;
 };
 
-export type GetPetEncyclopediaEntryListResponse = GetPetEncyclopediaEntryListResponses[keyof GetPetEncyclopediaEntryListResponses];
+export type GetPetArchiveStoryEntryListResponse = GetPetArchiveStoryEntryListResponses[keyof GetPetArchiveStoryEntryListResponses];
 
 export type GetPetArchiveStoryBookByIdData = {
     body?: never;
@@ -9118,6 +9426,58 @@ export type GetPetArchiveStoryBookListResponses = {
 };
 
 export type GetPetArchiveStoryBookListResponse = GetPetArchiveStoryBookListResponses[keyof GetPetArchiveStoryBookListResponses];
+
+export type GetPetEncyclopediaEntryByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/pet_encyclopedia_entry/{id}';
+};
+
+export type GetPetEncyclopediaEntryByIdResponses = {
+    /**
+     * OK
+     */
+    200: PetEncyclopediaEntry;
+};
+
+export type GetPetEncyclopediaEntryByIdResponse = GetPetEncyclopediaEntryByIdResponses[keyof GetPetEncyclopediaEntryByIdResponses];
+
+export type GetPetEncyclopediaEntryListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/pet_encyclopedia_entry/';
+};
+
+export type GetPetEncyclopediaEntryListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: PetEncyclopediaEntryList | PetEncyclopediaEntryListExpanded;
+};
+
+export type GetPetEncyclopediaEntryListResponse = GetPetEncyclopediaEntryListResponses[keyof GetPetEncyclopediaEntryListResponses];
 
 export type GetSkillByIdData = {
     body?: never;

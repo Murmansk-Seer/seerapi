@@ -1,3 +1,4 @@
+from abc import ABC
 from functools import cached_property
 from typing import TYPE_CHECKING, TypeAlias, cast
 
@@ -31,7 +32,7 @@ def _merge_max_value(max_value: int, item_data: _ItemConfigType) -> _ItemConfigT
     return item_data
 
 
-class BaseItemAnalyzer(BaseDataSourceAnalyzer):
+class BaseItemAnalyzer(BaseDataSourceAnalyzer, ABC):
     def __init__(self) -> None:
         super().__init__()
         if 'unity' not in self.data:
@@ -70,6 +71,10 @@ class BaseItemAnalyzer(BaseDataSourceAnalyzer):
 
 
 class ItemAnalyzer(BaseItemAnalyzer):
+    @classmethod
+    def get_result_res_models(cls):
+        return (Item, ItemCategory)
+
     def _item_dict_to_model(self, item_data: list['BaseItemData']) -> dict[int, 'Item']:
         return {
             data['id']: Item(
