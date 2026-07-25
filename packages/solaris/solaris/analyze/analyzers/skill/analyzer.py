@@ -1,3 +1,4 @@
+from abc import ABC
 from functools import cached_property
 from string import Formatter
 from typing import TYPE_CHECKING
@@ -99,7 +100,7 @@ def add_condition_labels(
     return result
 
 
-class BaseSkillEffectAnalyzer(BaseDataSourcePostAnalyzer):
+class BaseSkillEffectAnalyzer(BaseDataSourcePostAnalyzer, ABC):
     @classmethod
     def get_input_analyzers(cls) -> tuple[type[BaseAnalyzer], ...]:
         return (ElementTypeAnalyzer, PetAdvanceAnalyzer)

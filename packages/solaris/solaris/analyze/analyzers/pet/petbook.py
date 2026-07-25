@@ -65,6 +65,10 @@ class PetEncyclopediaAnalyzer(BasePetAnalyzer):
 
 
 class PetArchiveStoryAnalyzer(BasePetAnalyzer):
+    @classmethod
+    def get_result_res_models(cls):
+        return (PetArchiveStoryEntry, PetArchiveStoryBook)
+
     def analyze(self) -> tuple[AnalyzeResult, ...]:
         book_map = create_category_map(
             self._get_data('patch', 'pet_archive_story_book.json'),
