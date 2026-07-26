@@ -1,12 +1,13 @@
 import importlib.util
 import io
 import json
-from pathlib import Path
 import sqlite3
 import sys
+from pathlib import Path
+from typing import Any
 
-from PIL import Image
 import pytest
+from PIL import Image
 
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1]
@@ -71,6 +72,189 @@ def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
             purchase_limit=6,
             start_time=100,
             end_time=200,
+        )
+    ]
+
+
+def _skin_asset_check(
+    kind: str,
+    resource_id: int,
+    *,
+    available: bool,
+) -> Any:
+    return builder.PetImageAssetCheck(
+        kind=kind,
+        resource_id=resource_id,
+        url=f"https://example.invalid/{kind}/{resource_id}.png",
+        available=available,
+        status=200 if available else 404,
+        content_type="image/png" if available else "text/html",
+        content_length=1 if available else None,
+        error="",
+    )
+
+
+def test_resolve_classic_skin_images_keeps_direct_assets_and_falls_back_per_kind() -> None:
+    skins = (
+        builder.ClassicSkinImageSource(250, "异次元·黄金天马", 1400250),
+        builder.ClassicSkinImageSource(268, "波西亚", 1400268),
+        builder.ClassicSkinImageSource(538, "天道魂帝", 1400538),
+        builder.ClassicSkinImageSource(734, "记忆之核", 1400734),
+        builder.ClassicSkinImageSource(761, "永恒圣拳", 1400761),
+    )
+    pets = (
+        builder.PetImageSource(3382, "天道魂帝", 3382),
+        builder.PetImageSource(3197, "永恒圣拳", 3197),
+    )
+    checks = {
+        (kind, resource_id): _skin_asset_check(
+            kind,
+            resource_id,
+            available=available,
+        )
+        for kind, resource_id, available in (
+            ("head", 1400250, True),
+            ("body", 1400250, True),
+            ("head", 1400268, True),
+            ("body", 1400268, True),
+            ("head", 1400538, False),
+            ("body", 1400538, True),
+            ("head", 1400734, True),
+            ("body", 1400734, True),
+            ("head", 1400761, False),
+            ("body", 1400761, False),
+            ("head", 3382, True),
+            ("body", 3382, True),
+            ("head", 3197, True),
+            ("body", 3197, True),
+        )
+    }
+
+    rows = builder._resolve_classic_skin_image_resources(
+        skins,
+        pets,
+        checks,
+        {},
+    )
+
+    assert rows == [
+        builder.SkinImageResolution(
+            skin_id=250,
+            head_resource_id=1400250,
+            body_resource_id=1400250,
+            head_resolution="direct_skin",
+            body_resolution="direct_skin",
+            source_pet_id=None,
+        ),
+        builder.SkinImageResolution(
+            skin_id=268,
+            head_resource_id=1400268,
+            body_resource_id=1400268,
+            head_resolution="direct_skin",
+            body_resolution="direct_skin",
+            source_pet_id=None,
+        ),
+        builder.SkinImageResolution(
+            skin_id=538,
+            head_resource_id=3382,
+            body_resource_id=1400538,
+            head_resolution="unique_name_source",
+            body_resolution="direct_skin",
+            source_pet_id=3382,
+        ),
+        builder.SkinImageResolution(
+            skin_id=734,
+            head_resource_id=1400734,
+            body_resource_id=1400734,
+            head_resolution="direct_skin",
+            body_resolution="direct_skin",
+            source_pet_id=None,
+        ),
+        builder.SkinImageResolution(
+            skin_id=761,
+            head_resource_id=3197,
+            body_resource_id=3197,
+            head_resolution="unique_name_source",
+            body_resolution="unique_name_source",
+            source_pet_id=3197,
+        ),
+    ]
+
+
+def test_resolve_classic_skin_images_uses_content_hash_for_duplicate_names() -> None:
+    skins = (
+        builder.ClassicSkinImageSource(16, "皮皮", 1400016),
+        builder.ClassicSkinImageSource(700, "皮皮", 1400700),
+    )
+    pets = (
+        builder.PetImageSource(10, "皮皮", 10),
+        builder.PetImageSource(3295, "皮皮", 3295),
+    )
+    checks = {
+        (kind, resource_id): _skin_asset_check(
+            kind,
+            resource_id,
+            available=available,
+        )
+        for kind, resource_id, available in (
+            ("head", 1400016, False),
+            ("body", 1400016, True),
+            ("head", 1400700, False),
+            ("body", 1400700, True),
+            ("head", 10, True),
+            ("body", 10, True),
+            ("head", 3295, True),
+            ("body", 3295, True),
+        )
+    }
+    hashes = {
+        ("body", 1400016): "same-as-10",
+        ("body", 1400700): "same-as-10",
+        ("body", 10): "same-as-10",
+        ("body", 3295): "different",
+    }
+
+    rows = builder._resolve_classic_skin_image_resources(
+        skins,
+        pets,
+        checks,
+        hashes,
+    )
+
+    assert [(row.skin_id, row.head_resource_id, row.source_pet_id) for row in rows] == [
+        (16, 10, 10),
+        (700, 10, 10),
+    ]
+    assert all(row.head_resolution == "content_verified_source" for row in rows)
+    assert all(row.body_resolution == "direct_skin" for row in rows)
+
+
+def test_resolve_classic_skin_images_keeps_unresolved_assets_explicit() -> None:
+    skin = builder.ClassicSkinImageSource(999, "不存在的经典皮肤", 1400999)
+    checks = {
+        (kind, skin.resource_id): _skin_asset_check(
+            kind,
+            skin.resource_id,
+            available=False,
+        )
+        for kind in builder.PET_IMAGE_ASSET_KINDS
+    }
+
+    rows = builder._resolve_classic_skin_image_resources(
+        (skin,),
+        (),
+        checks,
+        {},
+    )
+
+    assert rows == [
+        builder.SkinImageResolution(
+            skin_id=999,
+            head_resource_id=0,
+            body_resource_id=0,
+            head_resolution="unresolved",
+            body_resolution="unresolved",
+            source_pet_id=None,
         )
     ]
 
@@ -772,6 +956,16 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         special_effect_statuses=[special_effect_status],
         pet_partner_data=pet_partner_data,
         weekly_preview_probe={},
+        skin_image_resolutions=[
+            builder.SkinImageResolution(
+                skin_id=538,
+                head_resource_id=3382,
+                body_resource_id=1400538,
+                head_resolution="unique_name_source",
+                body_resolution="direct_skin",
+                source_pet_id=3382,
+            )
+        ],
     )
 
     with sqlite3.connect(database) as connection:
@@ -812,6 +1006,18 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             FROM pet_partner_upgrade
             """
         ).fetchone()
+        skin_image_row = connection.execute(
+            """
+            SELECT
+                skin_id,
+                head_resource_id,
+                body_resource_id,
+                head_resolution,
+                body_resolution,
+                source_pet_id
+            FROM skin_image_resolution
+            """
+        ).fetchone()
     assert row == (
         1728296,
         "双源魂蒂",
@@ -825,3 +1031,11 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     assert special_effect_status_row == (147, "旧日之晷", "状态说明", 4125)
     assert partner_row == (15, "源初之夜", 1722827, 8)
     assert partner_upgrade_row == (4329, 15, 36696)
+    assert skin_image_row == (
+        538,
+        3382,
+        1400538,
+        "unique_name_source",
+        "direct_skin",
+        3382,
+    )

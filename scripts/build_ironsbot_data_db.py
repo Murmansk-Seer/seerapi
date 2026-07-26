@@ -8,23 +8,24 @@ are merged into the final SQLite file before it is published.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, replace
+import hashlib
 import io
 import json
 import logging
 import os
-from pathlib import Path
 import shutil
 import sqlite3
 import struct
 import subprocess
 import tempfile
 import time
+import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, replace
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
-import xml.etree.ElementTree as ET
 
 from PIL import Image, UnidentifiedImageError
 
@@ -127,6 +128,7 @@ ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
 EFFECT_DESCRIPTION_TABLE = "effect_description"
 SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
 SOULMARK_ICON_TABLE = "soulmark_icon"
+SKIN_IMAGE_RESOLUTION_TABLE = "skin_image_resolution"
 PET_PARTNER_GROUP_TABLE = "pet_partner_group"
 PET_PARTNER_MEMBER_TABLE = "pet_partner_member"
 PET_PARTNER_UPGRADE_TABLE = "pet_partner_upgrade"
@@ -203,6 +205,19 @@ HTTP_RETRY_ATTEMPTS = int(os.environ.get("IRONSBOT_DATA_HTTP_RETRY_ATTEMPTS", "3
 HTTP_RETRY_BACKOFF_SECONDS = float(
     os.environ.get("IRONSBOT_DATA_HTTP_RETRY_BACKOFF_SECONDS", "2")
 )
+PET_IMAGE_ASSET_BASE_URL = os.environ.get(
+    "IRONSBOT_DATA_PET_IMAGE_ASSET_BASE_URL",
+    "https://newseer.61.com/web/monster/",
+)
+PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS = float(
+    os.environ.get("IRONSBOT_DATA_PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS", "15")
+)
+PET_IMAGE_ASSET_VERIFY_WORKERS = max(
+    1,
+    int(os.environ.get("IRONSBOT_DATA_PET_IMAGE_ASSET_VERIFY_WORKERS", "16")),
+)
+CLASSIC_SKIN_CATEGORY_ID = 0
+PET_IMAGE_ASSET_KINDS = ("head", "body")
 logger = logging.getLogger(__name__)
 
 
@@ -245,6 +260,42 @@ class SkinShopPrice:
     card_price: int
     diamond_price: int
     original_price: int
+
+
+@dataclass(frozen=True, slots=True)
+class PetImageAssetCheck:
+    kind: str
+    resource_id: int
+    url: str
+    available: bool
+    status: int
+    content_type: str
+    content_length: int | None
+    error: str
+
+
+@dataclass(frozen=True, slots=True)
+class ClassicSkinImageSource:
+    skin_id: int
+    name: str
+    resource_id: int
+
+
+@dataclass(frozen=True, slots=True)
+class PetImageSource:
+    pet_id: int
+    name: str
+    resource_id: int
+
+
+@dataclass(frozen=True, slots=True)
+class SkinImageResolution:
+    skin_id: int
+    head_resource_id: int
+    body_resource_id: int
+    head_resolution: str
+    body_resolution: str
+    source_pet_id: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -964,6 +1015,407 @@ def _parse_effect_icon(data: bytes) -> list[SoulmarkIcon]:
         )
 
     return result
+
+
+def _pet_image_asset_url(kind: str, resource_id: int) -> str:
+    if kind not in PET_IMAGE_ASSET_KINDS:
+        raise ValueError(f"unsupported pet image asset kind: {kind}")
+    base_url = PET_IMAGE_ASSET_BASE_URL.rstrip("/") + "/"
+    return urljoin(base_url, f"{kind}/{resource_id}.png")
+
+
+def _is_png_asset_content(content_type: str, header: bytes = b"") -> bool:
+    normalized_content_type = content_type.lower().split(";", maxsplit=1)[0]
+    return normalized_content_type == "image/png" or header.startswith(
+        b"\x89PNG\r\n\x1a\n"
+    )
+
+
+def _probe_pet_image_asset_range(
+    kind: str,
+    resource_id: int,
+    url: str,
+    *,
+    prior_error: str = "",
+) -> PetImageAssetCheck:
+    try:
+        request = _request(url, method="GET", headers={"Range": "bytes=0-15"})
+        with urlopen(request, timeout=PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS) as response:
+            content_type = response.headers.get_content_type()
+            content_length = _parse_content_length(response.headers.get("Content-Length"))
+            header = response.read(16)
+            available = response.status in (200, 206) and _is_png_asset_content(
+                content_type,
+                header,
+            )
+            return PetImageAssetCheck(
+                kind=kind,
+                resource_id=resource_id,
+                url=url,
+                available=available,
+                status=response.status,
+                content_type=content_type,
+                content_length=content_length,
+                error=(
+                    ""
+                    if available
+                    else prior_error
+                    or f"unexpected ranged response: {response.status} {content_type}"
+                ),
+            )
+    except HTTPError as error:
+        return PetImageAssetCheck(
+            kind=kind,
+            resource_id=resource_id,
+            url=url,
+            available=False,
+            status=error.code,
+            content_type=error.headers.get_content_type(),
+            content_length=_parse_content_length(error.headers.get("Content-Length")),
+            error="" if error.code == 404 else _short_error(error),
+        )
+    except (URLError, TimeoutError, OSError) as error:
+        return PetImageAssetCheck(
+            kind=kind,
+            resource_id=resource_id,
+            url=url,
+            available=False,
+            status=0,
+            content_type="",
+            content_length=None,
+            error=prior_error or _short_error(error),
+        )
+
+
+def _verify_pet_image_asset(
+    kind: str,
+    resource_id: int,
+) -> PetImageAssetCheck:
+    url = _pet_image_asset_url(kind, resource_id)
+    # The official static host serves reliable ranged GET responses but may
+    # silently stall HEAD requests. Probe one PNG header instead of turning a
+    # build into hundreds of 15-second HEAD timeouts.
+    return _probe_pet_image_asset_range(kind, resource_id, url)
+
+
+def _verify_pet_image_assets(
+    asset_keys: set[tuple[str, int]],
+) -> dict[tuple[str, int], PetImageAssetCheck]:
+    if not asset_keys:
+        return {}
+
+    logger.info(
+        "Validating classic skin image assets: %s image resources",
+        len(asset_keys),
+    )
+    checks: dict[tuple[str, int], PetImageAssetCheck] = {}
+    worker_count = min(PET_IMAGE_ASSET_VERIFY_WORKERS, len(asset_keys))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            executor.submit(_verify_pet_image_asset, kind, resource_id): (
+                kind,
+                resource_id,
+            )
+            for kind, resource_id in sorted(asset_keys)
+        }
+        for future in as_completed(futures):
+            kind, resource_id = futures[future]
+            try:
+                checks[(kind, resource_id)] = future.result()
+            except Exception as error:
+                checks[(kind, resource_id)] = PetImageAssetCheck(
+                    kind=kind,
+                    resource_id=resource_id,
+                    url=_pet_image_asset_url(kind, resource_id),
+                    available=False,
+                    status=0,
+                    content_type="",
+                    content_length=None,
+                    error=_short_error(error),
+                )
+    transient_failures = [
+        check
+        for check in checks.values()
+        if check.status == 0 or check.status >= 500
+    ]
+    if transient_failures:
+        sample = ", ".join(
+            f"{check.kind}/{check.resource_id} ({check.status})"
+            for check in transient_failures[:5]
+        )
+        raise RuntimeError(
+            "official pet image asset verification had transient failures: "
+            f"{sample}"
+        )
+    return checks
+
+
+def _download_pet_image_asset_hash(check: PetImageAssetCheck) -> str | None:
+    if not check.available:
+        return None
+    try:
+        with urlopen(
+            _request(check.url, method="GET"),
+            timeout=PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS,
+        ) as response:
+            data = response.read()
+            if response.status != 200 or not _is_png_asset_content(
+                response.headers.get_content_type(),
+                data[:16],
+            ):
+                return None
+    except (HTTPError, URLError, TimeoutError, OSError):
+        return None
+    return hashlib.sha256(data).hexdigest()
+
+
+def _source_asset_keys_for_classic_skin_fallbacks(
+    skins: tuple[ClassicSkinImageSource, ...],
+    pets: tuple[PetImageSource, ...],
+    direct_checks: dict[tuple[str, int], PetImageAssetCheck],
+) -> set[tuple[str, int]]:
+    candidates_by_name: dict[str, list[PetImageSource]] = {}
+    for pet in pets:
+        candidates_by_name.setdefault(pet.name, []).append(pet)
+
+    asset_keys: set[tuple[str, int]] = set()
+    for skin in skins:
+        missing_kinds = tuple(
+            kind
+            for kind in PET_IMAGE_ASSET_KINDS
+            if not direct_checks[(kind, skin.resource_id)].available
+        )
+        candidates = candidates_by_name.get(skin.name, [])
+        for candidate in candidates:
+            asset_keys.update(
+                (kind, candidate.resource_id) for kind in missing_kinds
+            )
+            if len(candidates) > 1 and missing_kinds:
+                asset_keys.update(
+                    (kind, candidate.resource_id)
+                    for kind in PET_IMAGE_ASSET_KINDS
+                    if direct_checks[(kind, skin.resource_id)].available
+                )
+    return asset_keys
+
+
+def _content_hash_keys_for_classic_skin_fallbacks(
+    skins: tuple[ClassicSkinImageSource, ...],
+    pets: tuple[PetImageSource, ...],
+    checks: dict[tuple[str, int], PetImageAssetCheck],
+) -> set[tuple[str, int]]:
+    candidates_by_name: dict[str, list[PetImageSource]] = {}
+    for pet in pets:
+        candidates_by_name.setdefault(pet.name, []).append(pet)
+
+    asset_keys: set[tuple[str, int]] = set()
+    for skin in skins:
+        candidates = candidates_by_name.get(skin.name, [])
+        if len(candidates) < 2:
+            continue
+        missing_kinds = tuple(
+            kind
+            for kind in PET_IMAGE_ASSET_KINDS
+            if not checks[(kind, skin.resource_id)].available
+        )
+        if not missing_kinds:
+            continue
+        counterpart_kinds = tuple(
+            kind
+            for kind in PET_IMAGE_ASSET_KINDS
+            if checks[(kind, skin.resource_id)].available
+        )
+        for counterpart_kind in counterpart_kinds:
+            asset_keys.add((counterpart_kind, skin.resource_id))
+            asset_keys.update(
+                (counterpart_kind, candidate.resource_id)
+                for candidate in candidates
+                if checks.get((counterpart_kind, candidate.resource_id))
+                and checks[(counterpart_kind, candidate.resource_id)].available
+            )
+    return asset_keys
+
+
+def _resolve_classic_skin_image_resources(
+    skins: tuple[ClassicSkinImageSource, ...],
+    pets: tuple[PetImageSource, ...],
+    checks: dict[tuple[str, int], PetImageAssetCheck],
+    asset_hashes: dict[tuple[str, int], str],
+) -> list[SkinImageResolution]:
+    candidates_by_name: dict[str, list[PetImageSource]] = {}
+    for pet in pets:
+        candidates_by_name.setdefault(pet.name, []).append(pet)
+
+    resolutions: list[SkinImageResolution] = []
+    for skin in skins:
+        direct_by_kind = {
+            kind: checks[(kind, skin.resource_id)]
+            for kind in PET_IMAGE_ASSET_KINDS
+        }
+        resource_ids = {
+            kind: skin.resource_id if check.available else 0
+            for kind, check in direct_by_kind.items()
+        }
+        resolution_names = {
+            kind: "direct_skin" if check.available else "unresolved"
+            for kind, check in direct_by_kind.items()
+        }
+        candidates = candidates_by_name.get(skin.name, [])
+        resolved_source_ids: set[int] = set()
+
+        for kind in PET_IMAGE_ASSET_KINDS:
+            if resource_ids[kind] > 0:
+                continue
+            source: PetImageSource | None = None
+            resolution_name = "unresolved"
+            if len(candidates) == 1:
+                candidate = candidates[0]
+                source_check = checks.get((kind, candidate.resource_id))
+                if source_check is not None and source_check.available:
+                    source = candidate
+                    resolution_name = "unique_name_source"
+            elif len(candidates) > 1:
+                counterpart_kind = next(
+                    (
+                        other_kind
+                        for other_kind in PET_IMAGE_ASSET_KINDS
+                        if direct_by_kind[other_kind].available
+                    ),
+                    None,
+                )
+                expected_hash = (
+                    asset_hashes.get((counterpart_kind, skin.resource_id))
+                    if counterpart_kind is not None
+                    else None
+                )
+                if expected_hash and counterpart_kind is not None:
+                    matches = [
+                        candidate
+                        for candidate in candidates
+                        if asset_hashes.get(
+                            (counterpart_kind, candidate.resource_id)
+                        )
+                        == expected_hash
+                        and checks.get((kind, candidate.resource_id)) is not None
+                        and checks[(kind, candidate.resource_id)].available
+                    ]
+                    if len(matches) == 1:
+                        source = matches[0]
+                        resolution_name = "content_verified_source"
+            if source is not None:
+                resource_ids[kind] = source.resource_id
+                resolution_names[kind] = resolution_name
+                resolved_source_ids.add(source.pet_id)
+
+        source_pet_id = (
+            next(iter(resolved_source_ids))
+            if len(resolved_source_ids) == 1
+            else None
+        )
+        resolutions.append(
+            SkinImageResolution(
+                skin_id=skin.skin_id,
+                head_resource_id=resource_ids["head"],
+                body_resource_id=resource_ids["body"],
+                head_resolution=resolution_names["head"],
+                body_resolution=resolution_names["body"],
+                source_pet_id=source_pet_id,
+            )
+        )
+    return resolutions
+
+
+def _build_classic_skin_image_resolutions(
+    db_path: Path,
+) -> list[SkinImageResolution]:
+    with sqlite3.connect(db_path) as conn:
+        skin_rows = conn.execute(
+            """
+            SELECT id, name, resource_id
+            FROM pet_skin
+            WHERE category_id = ?
+            ORDER BY id
+            """,
+            (CLASSIC_SKIN_CATEGORY_ID,),
+        ).fetchall()
+        skins = tuple(
+            ClassicSkinImageSource(
+                skin_id=int(skin_id),
+                name=str(name).strip(),
+                resource_id=int(resource_id),
+            )
+            for skin_id, name, resource_id in skin_rows
+            if int(resource_id) > 0 and str(name).strip()
+        )
+        skin_names = {skin.name for skin in skins}
+        pet_rows = conn.execute(
+            """
+            SELECT id, name, resource_id
+            FROM pet
+            WHERE resource_id > 0
+            ORDER BY id
+            """
+        ).fetchall()
+        pets = tuple(
+            PetImageSource(
+                pet_id=int(pet_id),
+                name=str(name).strip(),
+                resource_id=int(resource_id),
+            )
+            for pet_id, name, resource_id in pet_rows
+            if str(name).strip() in skin_names
+        )
+
+    direct_keys = {
+        (kind, skin.resource_id)
+        for skin in skins
+        for kind in PET_IMAGE_ASSET_KINDS
+    }
+    checks = _verify_pet_image_assets(direct_keys)
+    source_keys = _source_asset_keys_for_classic_skin_fallbacks(
+        skins,
+        pets,
+        checks,
+    )
+    checks.update(_verify_pet_image_assets(source_keys - checks.keys()))
+
+    hash_asset_keys = _content_hash_keys_for_classic_skin_fallbacks(
+        skins,
+        pets,
+        checks,
+    )
+    asset_hashes = {
+        asset_key: asset_hash
+        for asset_key in hash_asset_keys
+        for check in (checks[asset_key],)
+        if check.available
+        and (asset_hash := _download_pet_image_asset_hash(check)) is not None
+    }
+    resolutions = _resolve_classic_skin_image_resources(
+        skins,
+        pets,
+        checks,
+        asset_hashes,
+    )
+    fallback_count = sum(
+        1
+        for resolution in resolutions
+        if resolution.head_resolution != "direct_skin"
+        or resolution.body_resolution != "direct_skin"
+    )
+    unresolved_count = sum(
+        1
+        for resolution in resolutions
+        if resolution.head_resolution == "unresolved"
+        or resolution.body_resolution == "unresolved"
+    )
+    logger.info(
+        "Resolved classic skin images: %s rows, %s with fallback, %s unresolved",
+        len(resolutions),
+        fallback_count,
+        unresolved_count,
+    )
+    return resolutions
 
 
 def _effect_icon_asset_url(icon_id: int) -> str:
@@ -2381,8 +2833,10 @@ def _merge_ironsbot_tables(
     special_effect_statuses: list[SpecialEffectStatus],
     pet_partner_data: PetPartnerData,
     weekly_preview_probe: dict[str, str],
+    skin_image_resolutions: list[SkinImageResolution] | None = None,
 ) -> None:
     now = time.time()
+    skin_image_resolutions = skin_image_resolutions or []
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             f"""
@@ -2537,6 +2991,56 @@ def _merge_ironsbot_tables(
                     config_data.skin_item_tips.items()
                 )
             ],
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {SKIN_IMAGE_RESOLUTION_TABLE} (
+                skin_id INTEGER PRIMARY KEY,
+                head_resource_id INTEGER NOT NULL,
+                body_resource_id INTEGER NOT NULL,
+                head_resolution TEXT NOT NULL,
+                body_resolution TEXT NOT NULL,
+                source_pet_id INTEGER,
+                source TEXT NOT NULL,
+                updated_at REAL NOT NULL
+            )
+            """
+        )
+        conn.execute(f"DELETE FROM {SKIN_IMAGE_RESOLUTION_TABLE}")
+        conn.executemany(
+            f"""
+            INSERT INTO {SKIN_IMAGE_RESOLUTION_TABLE}
+                (
+                    skin_id,
+                    head_resource_id,
+                    body_resource_id,
+                    head_resolution,
+                    body_resolution,
+                    source_pet_id,
+                    source,
+                    updated_at
+                )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    resolution.skin_id,
+                    resolution.head_resource_id,
+                    resolution.body_resource_id,
+                    resolution.head_resolution,
+                    resolution.body_resolution,
+                    resolution.source_pet_id,
+                    "official pet image assets",
+                    now,
+                )
+                for resolution in skin_image_resolutions
+            ],
+        )
+        conn.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS idx_{SKIN_IMAGE_RESOLUTION_TABLE}_source_pet_id
+            ON {SKIN_IMAGE_RESOLUTION_TABLE} (source_pet_id)
+            """
         )
         conn.execute(f"DROP TABLE IF EXISTS {ITEM_EXCHANGE_PRICE_TABLE}")
         conn.execute(
@@ -2835,6 +3339,23 @@ def _merge_ironsbot_tables(
             "skin_store_price_count": str(len(config_data.skin_store_prices)),
             "skin_shop_price_count": str(len(config_data.skin_shop_prices)),
             "skin_item_tip_count": str(len(config_data.skin_item_tips)),
+            "skin_image_resolution_count": str(len(skin_image_resolutions)),
+            "skin_image_resolution_fallback_count": str(
+                sum(
+                    1
+                    for resolution in skin_image_resolutions
+                    if resolution.head_resolution != "direct_skin"
+                    or resolution.body_resolution != "direct_skin"
+                )
+            ),
+            "skin_image_resolution_unresolved_count": str(
+                sum(
+                    1
+                    for resolution in skin_image_resolutions
+                    if resolution.head_resolution == "unresolved"
+                    or resolution.body_resolution == "unresolved"
+                )
+            ),
             "item_exchange_price_count": str(len(item_exchange_prices)),
             "item_exchange_price_source_urls": "\n".join(
                 (
@@ -2895,6 +3416,8 @@ def main() -> None:
     special_effect_statuses = _load_special_effect_statuses()
     logger.info("Loading official contract-partner data")
     pet_partner_data = _load_pet_partner_data()
+    logger.info("Resolving classic skin image resources")
+    skin_image_resolutions = _build_classic_skin_image_resolutions(OUTPUT_DB)
     logger.info("Probing weekly preview image: %s", WEEKLY_PREVIEW_IMAGE_URL)
     weekly_preview_probe = _probe_weekly_preview_image()
 
@@ -2907,6 +3430,7 @@ def main() -> None:
         special_effect_statuses=special_effect_statuses,
         pet_partner_data=pet_partner_data,
         weekly_preview_probe=weekly_preview_probe,
+        skin_image_resolutions=skin_image_resolutions,
     )
     _quick_check(OUTPUT_DB)
     size_mb = OUTPUT_DB.stat().st_size / 1024 / 1024
@@ -2915,7 +3439,8 @@ def main() -> None:
             "Built %s (%.2f MB), mintmark_quality rows: %s, "
             "skin shop rows: %s, exchange price rows: %s, effect descriptions: %s, "
             "special effect statuses: %s, "
-            "soulmark icons: %s, contract partners: %s, autocard cards: %s"
+            "soulmark icons: %s, classic skin image rows: %s, "
+            "contract partners: %s, autocard cards: %s"
         ),
         OUTPUT_DB,
         size_mb,
@@ -2925,6 +3450,7 @@ def main() -> None:
         len(effect_descriptions),
         len(special_effect_statuses),
         len(config_data.soulmark_icons),
+        len(skin_image_resolutions),
         len(pet_partner_data.groups),
         len(autocard_data.cards),
     )
