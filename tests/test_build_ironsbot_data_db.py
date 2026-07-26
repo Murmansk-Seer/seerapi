@@ -1,13 +1,13 @@
 import importlib.util
 import io
 import json
+from pathlib import Path
 import sqlite3
 import sys
-from pathlib import Path
 from typing import Any
 
-import pytest
 from PIL import Image
+import pytest
 
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1]
@@ -417,9 +417,7 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
         error="",
     )
     monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
-    cache_path = builder._effect_icon_png_cache_path(1644)
-    cache_path.parent.mkdir(parents=True)
-    cache_path.write_bytes(png_data)
+    builder._save_effect_icon_png_cache(1644, png_data, check)
     monkeypatch.setattr(
         builder,
         "_download_effect_icon_asset",
@@ -430,6 +428,173 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
 
     assert render.available is True
     assert render.data == png_data
+
+
+def test_effect_icon_cache_is_invalidated_when_source_size_changes(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 1644
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    changed_check = builder.replace(check, content_length=124)
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+
+    assert builder._load_effect_icon_png_cache(icon_id, check) is not None
+    assert builder._load_effect_icon_png_cache(icon_id, changed_check) is None
+
+
+def test_seed_effect_icon_cache_uses_matching_renderer_version(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 1644
+    database_path = tmp_path / "previous.sqlite"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("CREATE TABLE ironsbot_metadata (key TEXT, value TEXT)")
+        connection.execute(
+            "INSERT INTO ironsbot_metadata VALUES (?, ?)",
+            ("effect_icon_png_cache_version", builder.EFFECT_ICON_PNG_CACHE_VERSION),
+        )
+        connection.execute(
+            """
+            CREATE TABLE soulmark_icon (
+                icon_id INTEGER,
+                icon_png BLOB,
+                icon_png_available INTEGER,
+                icon_asset_content_length INTEGER,
+                icon_asset_content_type TEXT
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO soulmark_icon VALUES (?, ?, 1, 123, ?)",
+            (icon_id, _test_png(), "application/x-shockwave-flash"),
+        )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+
+    assert builder._seed_effect_icon_png_cache_from_database(database_path) == 1
+    assert builder._load_effect_icon_png_cache(icon_id, check) == _test_png()
+
+
+def test_seed_effect_icon_cache_rejects_previous_renderer_version(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    database_path = tmp_path / "previous.sqlite"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("CREATE TABLE ironsbot_metadata (key TEXT, value TEXT)")
+        connection.execute(
+            "INSERT INTO ironsbot_metadata VALUES (?, ?)",
+            ("effect_icon_png_cache_version", "effect-icon-png-legacy"),
+        )
+        connection.execute(
+            """
+            CREATE TABLE soulmark_icon (
+                icon_id INTEGER,
+                icon_png BLOB,
+                icon_png_available INTEGER,
+                icon_asset_content_length INTEGER,
+                icon_asset_content_type TEXT
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO soulmark_icon VALUES (1644, ?, 1, 123, ?)",
+            (_test_png(), "application/x-shockwave-flash"),
+        )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+
+    assert builder._seed_effect_icon_png_cache_from_database(database_path) == 0
+    assert not builder._effect_icon_png_cache_path(1644).exists()
+
+
+def test_render_effect_icon_cache_shard_uses_a_stable_partition(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    config_data = type(
+        "ConfigData",
+        (),
+        {
+            "soulmark_icons": [
+                builder.SoulmarkIcon(1, 1, 1, 100),
+                builder.SoulmarkIcon(2, 2, 2, 101),
+                builder.SoulmarkIcon(3, 3, 3, 102),
+                builder.SoulmarkIcon(4, 4, 4, 103),
+            ]
+        },
+    )()
+    captured: dict[str, list[int]] = {}
+    monkeypatch.setattr(builder, "_fetch_config_package_data", lambda: config_data)
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids: {icon_id: object() for icon_id in icon_ids},
+    )
+    monkeypatch.setattr(
+        builder,
+        "_render_effect_icon_png_assets",
+        lambda checks: {
+            icon_id: builder.EffectIconPngRender(
+                icon_id,
+                True,
+                "image/png",
+                1,
+                b"x",
+                "",
+            )
+            for icon_id in checks
+        },
+    )
+    monkeypatch.setattr(
+        builder,
+        "_export_effect_icon_png_cache_shard",
+        lambda icon_ids, _output_dir: captured.setdefault("icon_ids", icon_ids) and 2,
+    )
+
+    icon_count, available_count = builder._render_effect_icon_png_cache_shard(
+        shard_index=1,
+        shard_count=2,
+        output_dir=tmp_path,
+    )
+
+    assert captured["icon_ids"] == [101, 103]
+    assert (icon_count, available_count) == (2, 2)
+
+
+def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_ENABLED", False)
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_REQUIRE_CACHED", True)
+
+    with pytest.raises(ValueError, match="Missing pre-rendered effect icon PNGs: 1644"):
+        builder._render_effect_icon_png_assets({1644: check})
 
 
 def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> None:

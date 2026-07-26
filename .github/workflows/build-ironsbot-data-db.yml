@@ -24,12 +24,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  plan:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
-    permissions:
-      contents: write
+    outputs:
+      skip: ${{ steps.source_check.outputs.skip }}
+      remote_sha: ${{ steps.source_check.outputs.remote_sha }}
+      remote_partner_sha: ${{ steps.source_check.outputs.remote_partner_sha }}
+      remote_item_catalog_sha: ${{ steps.source_check.outputs.remote_item_catalog_sha }}
+      remote_special_effect_status_sha: ${{ steps.source_check.outputs.remote_special_effect_status_sha }}
+      build_sha: ${{ steps.build_ref.outputs.sha }}
 
     steps:
       - name: Checkout
@@ -37,6 +41,10 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Record build revision
+        id: build_ref
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Check data source changes
         id: source_check
@@ -78,13 +86,9 @@ jobs:
           fi
 
           echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
-          echo "previous_sha=${previous_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_partner_sha=${remote_partner_sha}" >> "$GITHUB_OUTPUT"
-          echo "previous_partner_sha=${previous_partner_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_item_catalog_sha=${remote_item_catalog_sha}" >> "$GITHUB_OUTPUT"
-          echo "previous_item_catalog_sha=${previous_item_catalog_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_special_effect_status_sha=${remote_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
-          echo "previous_special_effect_status_sha=${previous_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
 
           if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -94,29 +98,77 @@ jobs:
             echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, api-data=${remote_sha}/${previous_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
-      - name: Skip unchanged build
-        if: steps.source_check.outputs.skip == 'true'
-        run: echo "No api-data release changes; workflow succeeded without rebuilding."
+  seed-effect-icon-cache:
+    needs: plan
+    if: ${{ needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Python
-        if: steps.source_check.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install image dependency
+        run: python -m pip install Pillow
+
+      - name: Restore previously published icon PNGs
+        run: |
+          mkdir -p .cache/effect-icon-png .previous
+          touch .cache/effect-icon-png/.keep
+          if curl --fail --location --retry 3 \
+            --output .previous/ironsbot-data.sqlite \
+            https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite; then
+            IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
+              python scripts/build_ironsbot_data_db.py \
+                --seed-effect-icon-cache .previous/ironsbot-data.sqlite
+          else
+            echo "No previous IronsBot data release available; rendering all icon shards."
+          fi
+
+      - name: Upload seeded icon PNG cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: effect-icon-cache-seed
+          path: .cache/effect-icon-png
+          retention-days: 1
+
+  render-effect-icon-cache:
+    needs: [plan, seed-effect-icon-cache]
+    if: ${{ needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
       - name: Setup Java
-        if: steps.source_check.outputs.skip != 'true'
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
           java-version: "21"
 
       - name: Install parser dependency
-        if: steps.source_check.outputs.skip != 'true'
         run: python -m pip install UnityPy
 
       - name: Install FFDec SWF renderer
-        if: steps.source_check.outputs.skip != 'true'
         run: |
           curl -fsSL \
             -o /tmp/ffdec.zip \
@@ -126,41 +178,88 @@ jobs:
           sudo mkdir -p /opt/ffdec
           sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
           test -f /opt/ffdec/ffdec.jar
-          echo "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR=/opt/ffdec/ffdec.jar" \
-            >> "$GITHUB_ENV"
 
-      - name: Restore effect icon PNG cache
-        if: steps.source_check.outputs.skip != 'true'
-        uses: actions/cache@v4
+      - name: Download seeded icon PNG cache
+        uses: actions/download-artifact@v4
         with:
+          name: effect-icon-cache-seed
           path: .cache/effect-icon-png
-          key: ${{ runner.os }}-effect-icon-png-sprite-v1-${{ steps.source_check.outputs.remote_special_effect_status_sha }}
-          restore-keys: |
-            ${{ runner.os }}-effect-icon-png-sprite-v1-
 
-      - name: Build IronsBot database
-        if: steps.source_check.outputs.skip != 'true'
+      - name: Render missing effect icon PNGs
         env:
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "12"
           IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "20"
+        run: |
+          python scripts/build_ironsbot_data_db.py \
+            --render-effect-icon-shard ${{ matrix.shard }} \
+            --effect-icon-shard-count 4 \
+            --export-effect-icon-cache-shard .artifacts/effect-icon-cache
+
+      - name: Upload rendered icon PNG shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: effect-icon-cache-shard-${{ matrix.shard }}
+          path: .artifacts/effect-icon-cache
+          retention-days: 1
+
+  build:
+    needs: [plan, render-effect-icon-cache]
+    if: ${{ needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install parser dependency
+        run: python -m pip install UnityPy
+
+      - name: Download seeded icon PNG cache
+        uses: actions/download-artifact@v4
+        with:
+          name: effect-icon-cache-seed
+          path: .cache/effect-icon-png
+
+      - name: Download rendered icon PNG shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: effect-icon-cache-shard-*
+          path: .cache/effect-icon-png
+          merge-multiple: true
+
+      - name: Build IronsBot database
+        env:
+          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
         run: python scripts/build_ironsbot_data_db.py
 
       - name: Generate SHA256 checksum
-        if: steps.source_check.outputs.skip != 'true'
         run: sha256sum ironsbot-data.sqlite > ironsbot-data.sqlite.sha256
 
       - name: Record data source checksums
-        if: steps.source_check.outputs.skip != 'true'
         run: |
           set -e
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           mkdir -p .build-state
-          printf '%s\n' "${{ steps.source_check.outputs.remote_sha }}" > .build-state/api-data-sha256
-          printf '%s\n' "${{ steps.source_check.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
-          printf '%s\n' "${{ steps.source_check.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
-          printf '%s\n' "${{ steps.source_check.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_sha }}" > .build-state/api-data-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
           git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256
           if ! git diff --cached --quiet; then
             git commit -m "Record IronsBot data source checksums"
@@ -168,7 +267,6 @@ jobs:
           fi
 
       - name: Upload to Release
-        if: steps.source_check.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ironsbot-data-latest
@@ -182,11 +280,11 @@ jobs:
             ConfigPackage data, Murmansk-Seer/seer-unity-config-parser JSON,
             and weekly preview metadata.
 
-            Last build commit: ${{ github.sha }}
-            Source api-data sha256: ${{ steps.source_check.outputs.remote_sha }}
-            Source partner contracts sha256: ${{ steps.source_check.outputs.remote_partner_sha }}
-            Source Unity item catalog sha256: ${{ steps.source_check.outputs.remote_item_catalog_sha }}
-            Source special effect statuses sha256: ${{ steps.source_check.outputs.remote_special_effect_status_sha }}
+            Last build commit: ${{ needs.plan.outputs.build_sha }}
+            Source api-data sha256: ${{ needs.plan.outputs.remote_sha }}
+            Source partner contracts sha256: ${{ needs.plan.outputs.remote_partner_sha }}
+            Source Unity item catalog sha256: ${{ needs.plan.outputs.remote_item_catalog_sha }}
+            Source special effect statuses sha256: ${{ needs.plan.outputs.remote_special_effect_status_sha }}
           files: |
             ironsbot-data.sqlite
             ironsbot-data.sqlite.sha256

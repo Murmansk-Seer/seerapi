@@ -8,24 +8,25 @@ are merged into the final SQLite file before it is published.
 
 from __future__ import annotations
 
+import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, replace
 import hashlib
 import io
 import json
 import logging
 import os
+from pathlib import Path
 import shutil
 import sqlite3
 import struct
 import subprocess
 import tempfile
 import time
-import xml.etree.ElementTree as ET
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, replace
-from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
+import xml.etree.ElementTree as ET
 
 from PIL import Image, UnidentifiedImageError
 
@@ -65,6 +66,10 @@ EFFECT_ICON_PNG_RENDER_ENABLED = os.environ.get(
     "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED",
     "1",
 ).lower() not in {"0", "false", "no", "off"}
+EFFECT_ICON_PNG_REQUIRE_CACHED = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED",
+    "0",
+).lower() in {"1", "true", "yes", "on"}
 EFFECT_ICON_PNG_RENDER_JAVA_COMMAND = os.environ.get(
     "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_JAVA_COMMAND",
     "java",
@@ -1979,6 +1984,16 @@ def _render_effect_icon_png(
     icon_id: int,
     check: EffectIconAssetCheck,
 ) -> EffectIconPngRender:
+    cached_png = _load_effect_icon_png_cache(icon_id, check)
+    if cached_png is not None:
+        return EffectIconPngRender(
+            icon_id=icon_id,
+            available=True,
+            content_type="image/png",
+            content_length=len(cached_png),
+            data=cached_png,
+            error="",
+        )
     if not EFFECT_ICON_PNG_RENDER_ENABLED:
         return EffectIconPngRender(
             icon_id=icon_id,
@@ -1996,17 +2011,6 @@ def _render_effect_icon_png(
             content_length=None,
             data=None,
             error=check.error or "SWF asset unavailable",
-        )
-
-    cached_png = _load_effect_icon_png_cache(icon_id)
-    if cached_png is not None:
-        return EffectIconPngRender(
-            icon_id=icon_id,
-            available=True,
-            content_type="image/png",
-            content_length=len(cached_png),
-            data=cached_png,
-            error="",
         )
 
     try:
@@ -2034,7 +2038,7 @@ def _render_effect_icon_png(
                     _short_error(full_render_error),
                 )
                 png_data = _render_shape_effect_icon_png(swf_path, temp_path)
-        _save_effect_icon_png_cache(icon_id, png_data)
+        _save_effect_icon_png_cache(icon_id, png_data, check)
         return EffectIconPngRender(
             icon_id=icon_id,
             available=True,
@@ -2068,9 +2072,41 @@ def _effect_icon_png_cache_path(icon_id: int) -> Path:
     )
 
 
-def _load_effect_icon_png_cache(icon_id: int) -> bytes | None:
+def _effect_icon_png_cache_metadata_path(icon_id: int) -> Path:
+    return _effect_icon_png_cache_path(icon_id).with_suffix(".json")
+
+
+def _effect_icon_png_cache_matches_asset(
+    icon_id: int,
+    check: EffectIconAssetCheck,
+) -> bool:
+    metadata_path = _effect_icon_png_cache_metadata_path(icon_id)
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        logger.debug(
+            "Effect icon PNG cache metadata is unavailable for %s: %s",
+            icon_id,
+            _short_error(error),
+        )
+        return False
+
+    if not isinstance(metadata, dict):
+        return False
+    cached_length = metadata.get("asset_content_length")
+    if not isinstance(cached_length, int) or check.content_length is None:
+        return False
+    return cached_length == check.content_length
+
+
+def _load_effect_icon_png_cache(
+    icon_id: int,
+    check: EffectIconAssetCheck,
+) -> bytes | None:
     path = _effect_icon_png_cache_path(icon_id)
     if not path.is_file():
+        return None
+    if not _effect_icon_png_cache_matches_asset(icon_id, check):
         return None
     try:
         data = path.read_bytes()
@@ -2085,16 +2121,30 @@ def _load_effect_icon_png_cache(icon_id: int) -> bytes | None:
     return data
 
 
-def _save_effect_icon_png_cache(icon_id: int, data: bytes) -> None:
+def _save_effect_icon_png_cache(
+    icon_id: int,
+    data: bytes,
+    check: EffectIconAssetCheck,
+) -> None:
     try:
         _visible_png_pixel_count(data)
         path = _effect_icon_png_cache_path(icon_id)
+        metadata_path = _effect_icon_png_cache_metadata_path(icon_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
         temp_path = Path(temp_name)
         with os.fdopen(fd, "wb") as file:
             file.write(data)
         temp_path.replace(path)
+        metadata = json.dumps(
+            {
+                "asset_content_length": check.content_length,
+                "icon_id": icon_id,
+                "renderer_version": EFFECT_ICON_PNG_CACHE_VERSION,
+            },
+            sort_keys=True,
+        )
+        metadata_path.write_text(metadata, encoding="utf-8")
     except (OSError, ValueError) as e:
         logger.warning(
             "Failed to cache effect icon PNG %s: %s",
@@ -2157,6 +2207,20 @@ def _render_effect_icon_png_assets(
                 )
 
     available_count = sum(1 for render in renders.values() if render.available)
+    if EFFECT_ICON_PNG_REQUIRE_CACHED:
+        missing_icon_ids = [
+            icon_id
+            for icon_id, check in checks.items()
+            if (check.available or check.status == 0)
+            and not renders[icon_id].available
+        ]
+        if missing_icon_ids:
+            preview = ", ".join(str(icon_id) for icon_id in missing_icon_ids[:10])
+            raise ValueError(
+                "Missing pre-rendered effect icon PNGs: "
+                f"{preview}"
+                + (" ..." if len(missing_icon_ids) > 10 else "")
+            )
     if EFFECT_ICON_PNG_RENDER_ENABLED and available_count == 0:
         first_errors = "; ".join(
             render.error
@@ -2173,6 +2237,126 @@ def _render_effect_icon_png_assets(
         len(renders),
     )
     return renders
+
+
+def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
+    return sorted({item.icon_id for item in config_data.soulmark_icons})
+
+
+def _seed_effect_icon_png_cache_from_database(db_path: Path) -> int:
+    if not db_path.is_file():
+        logger.info("No previous IronsBot database to seed effect icon PNG cache")
+        return 0
+    try:
+        with sqlite3.connect(db_path) as conn:
+            metadata_row = conn.execute(
+                """
+                SELECT value
+                FROM ironsbot_metadata
+                WHERE key = 'effect_icon_png_cache_version'
+                """
+            ).fetchone()
+            if metadata_row is None or metadata_row[0] != EFFECT_ICON_PNG_CACHE_VERSION:
+                logger.info(
+                    "Previous effect icon PNG cache uses a different renderer version; "
+                    "not seeding it"
+                )
+                return 0
+            rows = conn.execute(
+                f"""
+                SELECT
+                    icon_id,
+                    icon_png,
+                    icon_asset_content_length,
+                    icon_asset_content_type
+                FROM {SOULMARK_ICON_TABLE}
+                WHERE icon_png_available = 1
+                  AND icon_png IS NOT NULL
+                  AND icon_asset_content_length IS NOT NULL
+                GROUP BY icon_id
+                """
+            ).fetchall()
+    except sqlite3.Error as error:
+        logger.warning(
+            "Unable to seed effect icon PNG cache from %s: %s",
+            db_path,
+            _short_error(error),
+        )
+        return 0
+
+    seeded_count = 0
+    for icon_id, png_data, content_length, content_type in rows:
+        if not isinstance(png_data, bytes):
+            continue
+        check = EffectIconAssetCheck(
+            icon_id=int(icon_id),
+            url=_effect_icon_asset_url(int(icon_id)),
+            available=True,
+            status=200,
+            content_type=str(content_type),
+            content_length=int(content_length),
+            error="",
+        )
+        _save_effect_icon_png_cache(int(icon_id), png_data, check)
+        seeded_count += 1
+    logger.info(
+        "Seeded %s effect icon PNGs from previous IronsBot database",
+        seeded_count,
+    )
+    return seeded_count
+
+
+def _export_effect_icon_png_cache_shard(
+    icon_ids: list[int],
+    output_dir: Path,
+) -> int:
+    exported_count = 0
+    target_dir = output_dir / EFFECT_ICON_PNG_CACHE_VERSION
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for icon_id in icon_ids:
+        source_path = _effect_icon_png_cache_path(icon_id)
+        metadata_path = _effect_icon_png_cache_metadata_path(icon_id)
+        if not source_path.is_file() or not metadata_path.is_file():
+            continue
+        shutil.copy2(source_path, target_dir / source_path.name)
+        shutil.copy2(metadata_path, target_dir / metadata_path.name)
+        exported_count += 1
+    logger.info(
+        "Exported %s effect icon PNG cache entries to %s",
+        exported_count,
+        output_dir,
+    )
+    return exported_count
+
+
+def _render_effect_icon_png_cache_shard(
+    *,
+    shard_index: int,
+    shard_count: int,
+    output_dir: Path,
+) -> tuple[int, int]:
+    if shard_count <= 0:
+        raise ValueError("Effect icon shard count must be positive")
+    if shard_index < 0 or shard_index >= shard_count:
+        raise ValueError(
+            f"Effect icon shard index must be in 0..{shard_count - 1}"
+        )
+
+    config_data = _fetch_config_package_data()
+    icon_ids = _effect_icon_ids(config_data)
+    shard_icon_ids = icon_ids[shard_index::shard_count]
+    logger.info(
+        "Rendering effect icon cache shard %s/%s: %s icons",
+        shard_index + 1,
+        shard_count,
+        len(shard_icon_ids),
+    )
+    checks = _verify_effect_icon_assets(set(shard_icon_ids))
+    renders = _render_effect_icon_png_assets(checks)
+    _export_effect_icon_png_cache_shard(shard_icon_ids, output_dir)
+    return len(shard_icon_ids), sum(
+        1 for render in renders.values() if render.available
+    )
 
 
 def _fetch_config_package_data() -> ConfigPackageData:
@@ -3317,6 +3501,7 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_ffdec_jar": str(
                 EFFECT_ICON_PNG_RENDER_FFDEC_JAR
             ),
+            "effect_icon_png_cache_version": EFFECT_ICON_PNG_CACHE_VERSION,
             "effect_icon_png_render_zoom": str(EFFECT_ICON_PNG_RENDER_ZOOM),
             "effect_icon_png_render_checked_count": str(
                 len(effect_icon_png_renders)
@@ -3392,8 +3577,68 @@ def _merge_ironsbot_tables(
         conn.commit()
 
 
+def _parse_cli_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--seed-effect-icon-cache",
+        type=Path,
+        metavar="DATABASE",
+        help="restore matching effect icon PNGs from a previous IronsBot SQLite database",
+    )
+    parser.add_argument(
+        "--render-effect-icon-shard",
+        type=int,
+        metavar="INDEX",
+        help="render one zero-based effect icon cache shard instead of building SQLite",
+    )
+    parser.add_argument(
+        "--effect-icon-shard-count",
+        type=int,
+        default=1,
+        metavar="COUNT",
+        help="total shard count used with --render-effect-icon-shard",
+    )
+    parser.add_argument(
+        "--export-effect-icon-cache-shard",
+        type=Path,
+        metavar="DIRECTORY",
+        help="output directory for the rendered shard cache",
+    )
+    arguments = parser.parse_args()
+    if arguments.render_effect_icon_shard is None:
+        if (
+            arguments.effect_icon_shard_count != 1
+            or arguments.export_effect_icon_cache_shard is not None
+        ):
+            parser.error(
+                "--effect-icon-shard-count and --export-effect-icon-cache-shard "
+                "require --render-effect-icon-shard"
+            )
+    elif arguments.export_effect_icon_cache_shard is None:
+        parser.error(
+            "--render-effect-icon-shard requires --export-effect-icon-cache-shard"
+        )
+    return arguments
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    arguments = _parse_cli_args()
+    if arguments.seed_effect_icon_cache is not None:
+        _seed_effect_icon_png_cache_from_database(arguments.seed_effect_icon_cache)
+        return
+    if arguments.render_effect_icon_shard is not None:
+        icon_count, available_count = _render_effect_icon_png_cache_shard(
+            shard_index=arguments.render_effect_icon_shard,
+            shard_count=arguments.effect_icon_shard_count,
+            output_dir=arguments.export_effect_icon_cache_shard,
+        )
+        logger.info(
+            "Rendered effect icon cache shard: %s icons, %s available",
+            icon_count,
+            available_count,
+        )
+        return
     OUTPUT_DB.parent.mkdir(parents=True, exist_ok=True)
     logger.info("Downloading upstream SeerAPI database: %s", UPSTREAM_SEERAPI_URL)
     _download_file(UPSTREAM_SEERAPI_URL, OUTPUT_DB)
