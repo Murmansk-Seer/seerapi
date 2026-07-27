@@ -240,17 +240,44 @@ jobs:
           name: effect-icon-cache-seed
           path: .cache/effect-icon-png
 
-      - name: Download rendered icon PNG shards
+      # Download each artifact separately. `merge-multiple` extracts matching
+      # artifacts concurrently; their shared cache-version directory can lose
+      # entries while extraction overlaps.
+      - name: Download rendered icon PNG shard 0
         uses: actions/download-artifact@v4
         with:
-          pattern: effect-icon-cache-shard-*
-          path: .cache/effect-icon-png
-          merge-multiple: true
+          name: effect-icon-cache-shard-0
+          path: .cache/effect-icon-shards/0
+
+      - name: Download rendered icon PNG shard 1
+        uses: actions/download-artifact@v4
+        with:
+          name: effect-icon-cache-shard-1
+          path: .cache/effect-icon-shards/1
+
+      - name: Download rendered icon PNG shard 2
+        uses: actions/download-artifact@v4
+        with:
+          name: effect-icon-cache-shard-2
+          path: .cache/effect-icon-shards/2
+
+      - name: Download rendered icon PNG shard 3
+        uses: actions/download-artifact@v4
+        with:
+          name: effect-icon-cache-shard-3
+          path: .cache/effect-icon-shards/3
+
+      - name: Merge rendered icon PNG shards
+        run: |
+          for shard in 0 1 2 3; do
+            cp -a ".cache/effect-icon-shards/${shard}/." .cache/effect-icon-png/
+          done
 
       - name: Build IronsBot database
         env:
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
         run: python scripts/build_ironsbot_data_db.py
 
       - name: Report unresolved soulmark icons
