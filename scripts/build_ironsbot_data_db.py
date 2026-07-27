@@ -220,7 +220,7 @@ PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS = float(
 )
 PET_IMAGE_ASSET_VERIFY_WORKERS = max(
     1,
-    int(os.environ.get("IRONSBOT_DATA_PET_IMAGE_ASSET_VERIFY_WORKERS", "16")),
+    int(os.environ.get("IRONSBOT_DATA_PET_IMAGE_ASSET_VERIFY_WORKERS", "8")),
 )
 CLASSIC_SKIN_CATEGORY_ID = 0
 PET_IMAGE_ASSET_KINDS = ("head", "body")
@@ -1113,7 +1113,33 @@ def _verify_pet_image_asset(
     # The official static host serves reliable ranged GET responses but may
     # silently stall HEAD requests. Probe one PNG header instead of turning a
     # build into hundreds of 15-second HEAD timeouts.
-    return _probe_pet_image_asset_range(kind, resource_id, url)
+    attempts = max(1, HTTP_RETRY_ATTEMPTS)
+    prior_error = ""
+    for attempt in range(1, attempts + 1):
+        check = _probe_pet_image_asset_range(
+            kind,
+            resource_id,
+            url,
+            prior_error=prior_error,
+        )
+        if not _is_transient_pet_image_asset_failure(check):
+            return check
+        if attempt >= attempts:
+            return check
+
+        prior_error = check.error
+        delay = HTTP_RETRY_BACKOFF_SECONDS * attempt
+        logger.warning(
+            "Classic skin image probe failed (%s/%s): %s/%s (%s); retrying in %.1fs",
+            attempt,
+            attempts,
+            kind,
+            resource_id,
+            check.error or f"HTTP {check.status}",
+            delay,
+        )
+        time.sleep(delay)
+    raise AssertionError("unreachable")
 
 
 def _verify_pet_image_assets(
@@ -1158,14 +1184,23 @@ def _verify_pet_image_assets(
     ]
     if transient_failures:
         sample = ", ".join(
-            f"{check.kind}/{check.resource_id} ({check.status})"
+            f"{check.kind}/{check.resource_id} ({check.status}: {check.error})"
             for check in transient_failures[:5]
         )
-        raise RuntimeError(
-            "official pet image asset verification had transient failures: "
-            f"{sample}"
+        logger.warning(
+            "Classic skin image asset verification still has transient failures; "
+            "affected image kinds will remain unverified: %s",
+            sample,
         )
     return checks
+
+
+def _is_transient_pet_image_asset_failure(check: PetImageAssetCheck) -> bool:
+    return check.status == 0 or check.status == 429 or check.status >= 500
+
+
+def _is_confirmed_missing_pet_image_asset(check: PetImageAssetCheck) -> bool:
+    return not check.available and not _is_transient_pet_image_asset_failure(check)
 
 
 def _download_pet_image_asset_hash(check: PetImageAssetCheck) -> str | None:
@@ -1201,7 +1236,9 @@ def _source_asset_keys_for_classic_skin_fallbacks(
         missing_kinds = tuple(
             kind
             for kind in PET_IMAGE_ASSET_KINDS
-            if not direct_checks[(kind, skin.resource_id)].available
+            if _is_confirmed_missing_pet_image_asset(
+                direct_checks[(kind, skin.resource_id)]
+            )
         )
         candidates = candidates_by_name.get(skin.name, [])
         for candidate in candidates:
@@ -1234,7 +1271,9 @@ def _content_hash_keys_for_classic_skin_fallbacks(
         missing_kinds = tuple(
             kind
             for kind in PET_IMAGE_ASSET_KINDS
-            if not checks[(kind, skin.resource_id)].available
+            if _is_confirmed_missing_pet_image_asset(
+                checks[(kind, skin.resource_id)]
+            )
         )
         if not missing_kinds:
             continue
@@ -1275,14 +1314,20 @@ def _resolve_classic_skin_image_resources(
             for kind, check in direct_by_kind.items()
         }
         resolution_names = {
-            kind: "direct_skin" if check.available else "unresolved"
+            kind: (
+                "direct_skin"
+                if check.available
+                else "unverified"
+                if _is_transient_pet_image_asset_failure(check)
+                else "unresolved"
+            )
             for kind, check in direct_by_kind.items()
         }
         candidates = candidates_by_name.get(skin.name, [])
         resolved_source_ids: set[int] = set()
 
         for kind in PET_IMAGE_ASSET_KINDS:
-            if resource_ids[kind] > 0:
+            if resource_ids[kind] > 0 or resolution_names[kind] != "unresolved":
                 continue
             source: PetImageSource | None = None
             resolution_name = "unresolved"
@@ -1424,8 +1469,8 @@ def _build_classic_skin_image_resolutions(
     unresolved_count = sum(
         1
         for resolution in resolutions
-        if resolution.head_resolution == "unresolved"
-        or resolution.body_resolution == "unresolved"
+        if resolution.head_resolution in {"unresolved", "unverified"}
+        or resolution.body_resolution in {"unresolved", "unverified"}
     )
     logger.info(
         "Resolved classic skin images: %s rows, %s with fallback, %s unresolved",
@@ -3658,8 +3703,8 @@ def _merge_ironsbot_tables(
                 sum(
                     1
                     for resolution in skin_image_resolutions
-                    if resolution.head_resolution == "unresolved"
-                    or resolution.body_resolution == "unresolved"
+                    if resolution.head_resolution in {"unresolved", "unverified"}
+                    or resolution.body_resolution in {"unresolved", "unverified"}
                 )
             ),
             "item_exchange_price_count": str(len(item_exchange_prices)),

@@ -81,16 +81,19 @@ def _skin_asset_check(
     resource_id: int,
     *,
     available: bool,
+    status: int | None = None,
+    error: str = "",
 ) -> Any:
+    resolved_status = status if status is not None else (200 if available else 404)
     return builder.PetImageAssetCheck(
         kind=kind,
         resource_id=resource_id,
         url=f"https://example.invalid/{kind}/{resource_id}.png",
         available=available,
-        status=200 if available else 404,
+        status=resolved_status,
         content_type="image/png" if available else "text/html",
         content_length=1 if available else None,
-        error="",
+        error=error,
     )
 
 
@@ -257,6 +260,68 @@ def test_resolve_classic_skin_images_keeps_unresolved_assets_explicit() -> None:
             source_pet_id=None,
         )
     ]
+
+
+def test_resolve_classic_skin_images_keeps_transient_failures_unverified() -> None:
+    skin = builder.ClassicSkinImageSource(538, "天道魂帝", 1400538)
+    source = builder.PetImageSource(3382, "天道魂帝", 3382)
+    checks = {
+        ("head", 1400538): _skin_asset_check(
+            "head",
+            1400538,
+            available=False,
+            status=0,
+            error="timed out",
+        ),
+        ("body", 1400538): _skin_asset_check("body", 1400538, available=True),
+        ("head", 3382): _skin_asset_check("head", 3382, available=True),
+        ("body", 3382): _skin_asset_check("body", 3382, available=True),
+    }
+
+    rows = builder._resolve_classic_skin_image_resources(
+        (skin,),
+        (source,),
+        checks,
+        {},
+    )
+
+    assert rows == [
+        builder.SkinImageResolution(
+            skin_id=538,
+            head_resource_id=0,
+            body_resource_id=1400538,
+            head_resolution="unverified",
+            body_resolution="direct_skin",
+            source_pet_id=None,
+        )
+    ]
+
+
+def test_verify_pet_image_asset_retries_transient_failures(monkeypatch) -> None:
+    attempts = iter(
+        [
+            _skin_asset_check(
+                "body",
+                1400538,
+                available=False,
+                status=0,
+                error="timed out",
+            ),
+            _skin_asset_check("body", 1400538, available=True),
+        ]
+    )
+    monkeypatch.setattr(
+        builder,
+        "_probe_pet_image_asset_range",
+        lambda *args, **kwargs: next(attempts),
+    )
+    monkeypatch.setattr(builder, "HTTP_RETRY_ATTEMPTS", 2)
+    monkeypatch.setattr(builder, "HTTP_RETRY_BACKOFF_SECONDS", 0)
+
+    check = builder._verify_pet_image_asset("body", 1400538)
+
+    assert check.available
+    assert check.status == 200
 
 
 def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
