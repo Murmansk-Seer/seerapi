@@ -263,7 +263,7 @@ jobs:
           database = Path("ironsbot-data.sqlite")
           report_path = Path("effect-icon-render-report.md")
           with sqlite3.connect(database) as connection:
-              rows = connection.execute(
+              soulmark_rows = connection.execute(
                   """
                   SELECT
                       icon_id,
@@ -278,17 +278,33 @@ jobs:
                   ORDER BY icon_id, pet_id, soulmark_id, effect_id
                   """
               ).fetchall()
+              skin_rows = connection.execute(
+                  """
+                  SELECT
+                      resolution.skin_id,
+                      skin.name,
+                      skin.resource_id,
+                      resolution.head_resolution,
+                      resolution.body_resolution,
+                      resolution.source_pet_id
+                  FROM skin_image_resolution AS resolution
+                  JOIN pet_skin AS skin ON skin.id = resolution.skin_id
+                  WHERE resolution.head_resolution IN ('unresolved', 'unverified')
+                     OR resolution.body_resolution IN ('unresolved', 'unverified')
+                  ORDER BY resolution.skin_id
+                  """
+              ).fetchall()
 
           def cell(value: object) -> str:
               return str(value).replace("\n", " ").replace("\r", " ").replace("|", "\\|")[:180]
 
-          lines = ["# 未解析魂印图标", ""]
-          if not rows:
+          lines = ["# 资源解析报告", "", "## 魂印图标", ""]
+          if not soulmark_rows:
               lines.append("本次所有已验证魂印图标均已生成可用 PNG。")
           else:
               lines.extend(
                   [
-                      f"本次有 {len(rows)} 条精灵/魂印映射未生成 PNG。",
+                      f"本次有 {len(soulmark_rows)} 条精灵/魂印映射未生成 PNG。",
                       "",
                       "| 图标 | 精灵 | 魂印 | 效果 | 原因 | 详情 |",
                       "| --- | --- | --- | --- | --- | --- |",
@@ -303,7 +319,7 @@ jobs:
                   asset_status,
                   asset_error,
                   png_error,
-              ) in rows:
+              ) in soulmark_rows:
                   cause = "官方资源不可用" if int(asset_status) != 200 else "FFDec 未生成有效 PNG"
                   detail = (
                       asset_error
@@ -323,6 +339,30 @@ jobs:
                           effect_id=cell(effect_id),
                           cause=cause,
                           detail=cell(detail),
+                      )
+                  )
+
+          lines.extend(["", "## 经典皮肤图片", ""])
+          if not skin_rows:
+              lines.append("本次所有经典皮肤头像与立绘均已确认或完成可信来源回溯。")
+          else:
+              lines.extend(
+                  [
+                      f"本次有 {len(skin_rows)} 个经典皮肤图片资源未能确认。",
+                      "",
+                      "| 皮肤 | 原始资源 | 头像 | 立绘 | 回溯来源精灵 |",
+                      "| --- | --- | --- | --- | --- |",
+                  ]
+              )
+              for skin_id, name, resource_id, head_resolution, body_resolution, source_pet_id in skin_rows:
+                  lines.append(
+                      "| {name} ({skin_id}) | {resource_id} | {head} | {body} | {source_pet_id} |".format(
+                          name=cell(name),
+                          skin_id=cell(skin_id),
+                          resource_id=cell(resource_id),
+                          head=cell(head_resolution),
+                          body=cell(body_resolution),
+                          source_pet_id=cell(source_pet_id) if source_pet_id is not None else "-",
                       )
                   )
 
