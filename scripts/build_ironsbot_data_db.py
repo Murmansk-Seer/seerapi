@@ -133,6 +133,7 @@ ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
 EFFECT_DESCRIPTION_TABLE = "effect_description"
 SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
 SOULMARK_ICON_TABLE = "soulmark_icon"
+SOULMARK_ICON_RENDER_ISSUE_TABLE = "soulmark_icon_render_issue"
 SKIN_IMAGE_RESOLUTION_TABLE = "skin_image_resolution"
 PET_PARTNER_GROUP_TABLE = "pet_partner_group"
 PET_PARTNER_MEMBER_TABLE = "pet_partner_member"
@@ -385,6 +386,18 @@ class EffectIconPngRender:
     content_length: int | None
     data: bytes | None
     error: str
+
+
+@dataclass(frozen=True, slots=True)
+class SoulmarkIconRenderIssue:
+    icon_id: int
+    soulmark_id: int
+    pet_id: int
+    pet_name: str
+    effect_id: int
+    icon_asset_status: int
+    icon_asset_error: str
+    icon_png_error: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -2239,6 +2252,34 @@ def _render_effect_icon_png_assets(
     return renders
 
 
+def _collect_soulmark_icon_render_issues(
+    soulmark_icons: list[tuple[int, int, int, int]],
+    asset_checks: dict[int, EffectIconAssetCheck],
+    png_renders: dict[int, EffectIconPngRender],
+    pet_names: dict[int, str],
+) -> list[SoulmarkIconRenderIssue]:
+    """Return every pet/soulmark whose verified icon did not yield a PNG."""
+    issues: list[SoulmarkIconRenderIssue] = []
+    for soulmark_id, pet_id, effect_id, icon_id in soulmark_icons:
+        png_render = png_renders[icon_id]
+        if png_render.available:
+            continue
+        asset_check = asset_checks[icon_id]
+        issues.append(
+            SoulmarkIconRenderIssue(
+                icon_id=icon_id,
+                soulmark_id=soulmark_id,
+                pet_id=pet_id,
+                pet_name=pet_names.get(pet_id, f"未知精灵#{pet_id}"),
+                effect_id=effect_id,
+                icon_asset_status=asset_check.status,
+                icon_asset_error=asset_check.error,
+                icon_png_error=png_render.error,
+            )
+        )
+    return issues
+
+
 def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
     return sorted({item.icon_id for item in config_data.soulmark_icons})
 
@@ -3378,6 +3419,29 @@ def _merge_ironsbot_tables(
         effect_icon_png_renders = _render_effect_icon_png_assets(
             effect_icon_asset_checks
         )
+        issue_pet_ids = sorted(
+            {
+                pet_id
+                for _, pet_id, _, icon_id in deduplicated_soulmark_icons
+                if not effect_icon_png_renders[icon_id].available
+            }
+        )
+        pet_names: dict[int, str] = {}
+        if issue_pet_ids:
+            placeholders = ", ".join("?" for _ in issue_pet_ids)
+            pet_names = {
+                int(pet_id): str(name)
+                for pet_id, name in conn.execute(
+                    f"SELECT id, name FROM pet WHERE id IN ({placeholders})",
+                    issue_pet_ids,
+                )
+            }
+        soulmark_icon_render_issues = _collect_soulmark_icon_render_issues(
+            deduplicated_soulmark_icons,
+            effect_icon_asset_checks,
+            effect_icon_png_renders,
+            pet_names,
+        )
         soulmark_icon_rows = []
         for soulmark_id, pet_id, effect_id, icon_id in deduplicated_soulmark_icons:
             asset_check = effect_icon_asset_checks[icon_id]
@@ -3460,6 +3524,60 @@ def _merge_ironsbot_tables(
             ON {SOULMARK_ICON_TABLE} (soulmark_id)
             """
         )
+        conn.execute(f"DROP TABLE IF EXISTS {SOULMARK_ICON_RENDER_ISSUE_TABLE}")
+        conn.execute(
+            f"""
+            CREATE TABLE {SOULMARK_ICON_RENDER_ISSUE_TABLE} (
+                icon_id INTEGER NOT NULL,
+                soulmark_id INTEGER NOT NULL,
+                pet_id INTEGER NOT NULL,
+                pet_name TEXT NOT NULL,
+                effect_id INTEGER NOT NULL,
+                icon_asset_status INTEGER NOT NULL,
+                icon_asset_error TEXT NOT NULL,
+                icon_png_error TEXT NOT NULL,
+                updated_at REAL NOT NULL,
+                PRIMARY KEY (icon_id, soulmark_id, pet_id, effect_id)
+            )
+            """
+        )
+        conn.executemany(
+            f"""
+            INSERT INTO {SOULMARK_ICON_RENDER_ISSUE_TABLE}
+                (
+                    icon_id,
+                    soulmark_id,
+                    pet_id,
+                    pet_name,
+                    effect_id,
+                    icon_asset_status,
+                    icon_asset_error,
+                    icon_png_error,
+                    updated_at
+                )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    issue.icon_id,
+                    issue.soulmark_id,
+                    issue.pet_id,
+                    issue.pet_name,
+                    issue.effect_id,
+                    issue.icon_asset_status,
+                    issue.icon_asset_error,
+                    issue.icon_png_error,
+                    now,
+                )
+                for issue in soulmark_icon_render_issues
+            ],
+        )
+        conn.execute(
+            f"""
+            CREATE INDEX idx_{SOULMARK_ICON_RENDER_ISSUE_TABLE}_pet_id
+            ON {SOULMARK_ICON_RENDER_ISSUE_TABLE} (pet_id)
+            """
+        )
         _replace_autocard_tables(conn, autocard_data, now)
         _replace_pet_partner_tables(conn, pet_partner_data, now)
         conn.execute(
@@ -3519,6 +3637,9 @@ def _merge_ironsbot_tables(
                     for render in effect_icon_png_renders.values()
                     if not render.available
                 )
+            ),
+            "effect_icon_png_render_issue_row_count": str(
+                len(soulmark_icon_render_issues)
             ),
             "mintmark_quality_count": str(len(config_data.mintmark_quality)),
             "skin_store_price_count": str(len(config_data.skin_store_prices)),

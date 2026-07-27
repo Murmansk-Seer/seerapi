@@ -249,6 +249,77 @@ jobs:
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
         run: python scripts/build_ironsbot_data_db.py
 
+      - name: Report unresolved soulmark icons
+        run: |
+          python - <<'PY'
+          import os
+          import sqlite3
+          from pathlib import Path
+
+          database = Path("ironsbot-data.sqlite")
+          report_path = Path("effect-icon-render-report.md")
+          with sqlite3.connect(database) as connection:
+              rows = connection.execute(
+                  """
+                  SELECT
+                      icon_id,
+                      pet_id,
+                      pet_name,
+                      soulmark_id,
+                      effect_id,
+                      icon_asset_status,
+                      icon_asset_error,
+                      icon_png_error
+                  FROM soulmark_icon_render_issue
+                  ORDER BY icon_id, pet_id, soulmark_id, effect_id
+                  """
+              ).fetchall()
+
+          def cell(value: object) -> str:
+              return str(value).replace("\n", " ").replace("\r", " ").replace("|", "\\|")[:180]
+
+          lines = ["# 未解析魂印图标", ""]
+          if not rows:
+              lines.append("本次所有已验证魂印图标均已生成可用 PNG。")
+          else:
+              lines.extend(
+                  [
+                      f"本次有 {len(rows)} 条精灵/魂印映射未生成 PNG。",
+                      "",
+                      "| 图标 | 精灵 | 魂印 | 效果 | 原因 | 详情 |",
+                      "| --- | --- | --- | --- | --- | --- |",
+                  ]
+              )
+              for (
+                  icon_id,
+                  pet_id,
+                  pet_name,
+                  soulmark_id,
+                  effect_id,
+                  asset_status,
+                  asset_error,
+                  png_error,
+              ) in rows:
+                  cause = "官方资源不可用" if int(asset_status) != 200 else "FFDec 未生成有效 PNG"
+                  detail = asset_error or png_error or "未提供错误详情"
+                  lines.append(
+                      "| {icon_id} | {pet_name} ({pet_id}) | {soulmark_id} | {effect_id} | {cause} | {detail} |".format(
+                          icon_id=cell(icon_id),
+                          pet_name=cell(pet_name),
+                          pet_id=cell(pet_id),
+                          soulmark_id=cell(soulmark_id),
+                          effect_id=cell(effect_id),
+                          cause=cause,
+                          detail=cell(detail),
+                      )
+                  )
+
+          report = "\n".join(lines) + "\n"
+          report_path.write_text(report, encoding="utf-8")
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+              summary.write(report)
+          PY
+
       - name: Generate SHA256 checksum
         run: sha256sum ironsbot-data.sqlite > ironsbot-data.sqlite.sha256
 
@@ -290,3 +361,4 @@ jobs:
           files: |
             ironsbot-data.sqlite
             ironsbot-data.sqlite.sha256
+            effect-icon-render-report.md

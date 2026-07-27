@@ -597,6 +597,69 @@ def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
         builder._render_effect_icon_png_assets({1644: check})
 
 
+def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
+    unavailable_asset = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://example.test/206.swf",
+        available=False,
+        status=404,
+        content_type="text/html",
+        content_length=123,
+        error="HTTP Error 404: Not Found",
+    )
+    render_failure_asset = builder.EffectIconAssetCheck(
+        icon_id=509,
+        url="https://example.test/509.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=456,
+        error="",
+    )
+    successful_asset = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=789,
+        error="",
+    )
+    issues = builder._collect_soulmark_icon_render_issues(
+        [(220, 461, 0, 206), (527, 3142, 791, 509), (1, 2, 3, 1644)],
+        {206: unavailable_asset, 509: render_failure_asset, 1644: successful_asset},
+        {
+            206: builder.EffectIconPngRender(206, False, "", None, None, "asset unavailable"),
+            509: builder.EffectIconPngRender(509, False, "", None, None, "FFDec timed out"),
+            1644: builder.EffectIconPngRender(1644, True, "image/png", 10, _test_png(), ""),
+        },
+        {461: "阿尔克", 3142: "王·雷伊"},
+    )
+
+    assert issues == [
+        builder.SoulmarkIconRenderIssue(
+            icon_id=206,
+            soulmark_id=220,
+            pet_id=461,
+            pet_name="阿尔克",
+            effect_id=0,
+            icon_asset_status=404,
+            icon_asset_error="HTTP Error 404: Not Found",
+            icon_png_error="asset unavailable",
+        ),
+        builder.SoulmarkIconRenderIssue(
+            icon_id=509,
+            soulmark_id=527,
+            pet_id=3142,
+            pet_name="王·雷伊",
+            effect_id=791,
+            icon_asset_status=200,
+            icon_asset_error="",
+            icon_png_error="FFDec timed out",
+        ),
+    ]
+
+
 def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> None:
     png_data = _test_png()
     check = builder.EffectIconAssetCheck(
@@ -1183,6 +1246,9 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             FROM skin_image_resolution
             """
         ).fetchone()
+        icon_issue_count = connection.execute(
+            "SELECT COUNT(*) FROM soulmark_icon_render_issue"
+        ).fetchone()
     assert row == (
         1728296,
         "双源魂蒂",
@@ -1204,3 +1270,4 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         "direct_skin",
         3382,
     )
+    assert icon_issue_count == (0,)
