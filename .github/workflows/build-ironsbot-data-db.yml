@@ -98,59 +98,13 @@ jobs:
             echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, api-data=${remote_sha}/${previous_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
-  seed-effect-icon-cache:
+  render-effect-icon-cache:
     needs: plan
     if: ${{ needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Install image dependency
-        run: python -m pip install Pillow
-
-      - name: Restore previously published icon PNGs
-        run: |
-          mkdir -p .cache/effect-icon-png .previous
-          # upload-artifact excludes hidden files by default. Keep a visible
-          # placeholder so a first canonical render can still fan out.
-          touch .cache/effect-icon-png/cache-ready
-          if curl --fail --location --retry 3 \
-            --output .previous/ironsbot-data.sqlite \
-            https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite; then
-            IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
-              python scripts/build_ironsbot_data_db.py \
-                --seed-effect-icon-cache .previous/ironsbot-data.sqlite
-          else
-            echo "No previous IronsBot data release available; rendering all icon shards."
-          fi
-
-      - name: Upload seeded icon PNG cache
-        uses: actions/upload-artifact@v4
-        with:
-          name: effect-icon-cache-seed
-          path: .cache/effect-icon-png
-          retention-days: 1
-          if-no-files-found: error
-
-  render-effect-icon-cache:
-    needs: [plan, seed-effect-icon-cache]
-    if: ${{ needs.plan.outputs.skip != 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix:
-        shard: [0, 1, 2, 3]
+    # Normal runs seed the last release and only repair missing or invalid
+    # icons. A cold first release may need to render the full icon set.
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -169,7 +123,7 @@ jobs:
           java-version: "21"
 
       - name: Install parser dependency
-        run: python -m pip install UnityPy
+        run: python -m pip install UnityPy Pillow
 
       - name: Install FFDec SWF renderer
         run: |
@@ -182,11 +136,18 @@ jobs:
           sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
           test -f /opt/ffdec/ffdec.jar
 
-      - name: Download seeded icon PNG cache
-        uses: actions/download-artifact@v4
-        with:
-          name: effect-icon-cache-seed
-          path: .cache/effect-icon-png
+      - name: Restore previously published icon PNGs
+        run: |
+          mkdir -p .cache/effect-icon-png .previous
+          if curl --fail --location --retry 3 \
+            --output .previous/ironsbot-data.sqlite \
+            https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite; then
+            IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
+              python scripts/build_ironsbot_data_db.py \
+                --seed-effect-icon-cache .previous/ironsbot-data.sqlite
+          else
+            echo "No previous IronsBot data release available; rendering the full icon cache."
+          fi
 
       - name: Render missing effect icon PNGs
         env:
@@ -200,16 +161,17 @@ jobs:
           IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: |
           python scripts/build_ironsbot_data_db.py \
-            --render-effect-icon-shard ${{ matrix.shard }} \
-            --effect-icon-shard-count 4 \
+            --render-effect-icon-shard 0 \
+            --effect-icon-shard-count 1 \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache
 
-      - name: Upload rendered icon PNG shard
+      - name: Upload rendered icon PNG cache
         uses: actions/upload-artifact@v4
         with:
-          name: effect-icon-cache-shard-${{ matrix.shard }}
+          name: effect-icon-cache
           path: .artifacts/effect-icon-cache
           retention-days: 1
+          if-no-files-found: error
 
   build:
     needs: [plan, render-effect-icon-cache]
@@ -234,44 +196,11 @@ jobs:
       - name: Install parser dependency
         run: python -m pip install UnityPy
 
-      - name: Download seeded icon PNG cache
+      - name: Download rendered icon PNG cache
         uses: actions/download-artifact@v4
         with:
-          name: effect-icon-cache-seed
+          name: effect-icon-cache
           path: .cache/effect-icon-png
-
-      # Download each artifact separately. `merge-multiple` extracts matching
-      # artifacts concurrently; their shared cache-version directory can lose
-      # entries while extraction overlaps.
-      - name: Download rendered icon PNG shard 0
-        uses: actions/download-artifact@v4
-        with:
-          name: effect-icon-cache-shard-0
-          path: .cache/effect-icon-shards/0
-
-      - name: Download rendered icon PNG shard 1
-        uses: actions/download-artifact@v4
-        with:
-          name: effect-icon-cache-shard-1
-          path: .cache/effect-icon-shards/1
-
-      - name: Download rendered icon PNG shard 2
-        uses: actions/download-artifact@v4
-        with:
-          name: effect-icon-cache-shard-2
-          path: .cache/effect-icon-shards/2
-
-      - name: Download rendered icon PNG shard 3
-        uses: actions/download-artifact@v4
-        with:
-          name: effect-icon-cache-shard-3
-          path: .cache/effect-icon-shards/3
-
-      - name: Merge rendered icon PNG shards
-        run: |
-          for shard in 0 1 2 3; do
-            cp -a ".cache/effect-icon-shards/${shard}/." .cache/effect-icon-png/
-          done
 
       - name: Build IronsBot database
         env:
