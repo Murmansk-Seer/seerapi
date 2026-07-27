@@ -120,7 +120,9 @@ jobs:
       - name: Restore previously published icon PNGs
         run: |
           mkdir -p .cache/effect-icon-png .previous
-          touch .cache/effect-icon-png/.keep
+          # upload-artifact excludes hidden files by default. Keep a visible
+          # placeholder so a first canonical render can still fan out.
+          touch .cache/effect-icon-png/cache-ready
           if curl --fail --location --retry 3 \
             --output .previous/ironsbot-data.sqlite \
             https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite; then
@@ -137,6 +139,7 @@ jobs:
           name: effect-icon-cache-seed
           path: .cache/effect-icon-png
           retention-days: 1
+          if-no-files-found: error
 
   render-effect-icon-cache:
     needs: [plan, seed-effect-icon-cache]
