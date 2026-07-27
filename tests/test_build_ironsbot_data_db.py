@@ -597,6 +597,12 @@ def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
         builder._render_effect_icon_png_assets({1644: check})
 
 
+def test_effect_icon_render_defaults_allow_complex_swf_exports() -> None:
+    assert builder.EFFECT_ICON_PNG_RENDER_WORKERS == 2
+    assert builder.EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS >= 45
+    assert builder.EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS >= 30
+
+
 def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
     unavailable_asset = builder.EffectIconAssetCheck(
         icon_id=206,

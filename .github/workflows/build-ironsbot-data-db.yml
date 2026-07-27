@@ -145,7 +145,7 @@ jobs:
     needs: [plan, seed-effect-icon-cache]
     if: ${{ needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -192,8 +192,12 @@ jobs:
         env:
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
-          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "12"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "20"
+          # Some older animated soulmark SWFs need about 36 seconds for a
+          # canonical sprite render. Keep two FFDec processes per runner so
+          # their fallback render is not starved by Java process contention.
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: |
           python scripts/build_ironsbot_data_db.py \
             --render-effect-icon-shard ${{ matrix.shard }} \
@@ -301,7 +305,15 @@ jobs:
                   png_error,
               ) in rows:
                   cause = "官方资源不可用" if int(asset_status) != 200 else "FFDec 未生成有效 PNG"
-                  detail = asset_error or png_error or "未提供错误详情"
+                  detail = (
+                      asset_error
+                      or (
+                          f"官方返回 HTTP {asset_status}"
+                          if int(asset_status) != 200
+                          else png_error
+                      )
+                      or "未提供错误详情"
+                  )
                   lines.append(
                       "| {icon_id} | {pet_name} ({pet_id}) | {soulmark_id} | {effect_id} | {cause} | {detail} |".format(
                           icon_id=cell(icon_id),
