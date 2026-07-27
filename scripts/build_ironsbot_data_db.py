@@ -113,9 +113,7 @@ EFFECT_ICON_PNG_CACHE_DIR = Path(
         str(ROOT / ".cache" / "effect-icon-png"),
     )
 )
-EFFECT_ICON_PRESENTATION_FILTERS = frozenset(
-    {"COLORMATRIXFILTER", "GLOWFILTER"}
-)
+EFFECT_ICON_PNG_MAX_DIMENSION = 1024
 EFFECT_ICON_DUPLICATE_ORIGIN_TOLERANCE = 40.0
 EFFECT_ICON_DUPLICATE_MATRIX_TOLERANCE = 0.02
 CONFIG_TEXT_ASSETS = {
@@ -1704,6 +1702,11 @@ def _visible_png_pixel_count(data: bytes) -> int:
     try:
         with Image.open(io.BytesIO(data)) as image:
             image.load()
+            if max(image.size) > EFFECT_ICON_PNG_MAX_DIMENSION:
+                raise ValueError(
+                    "renderer output dimensions exceed "
+                    f"{EFFECT_ICON_PNG_MAX_DIMENSION}px: {image.size}"
+                )
             alpha_histogram = image.convert("RGBA").getchannel("A").histogram()
     except (OSError, UnidentifiedImageError) as e:
         raise ValueError(f"renderer output is an invalid PNG: {e}") from e
@@ -1937,26 +1940,9 @@ def _collapse_effect_icon_presentation_duplicates(
                     sub_tags.remove(node)
 
 
-def _strip_effect_icon_presentation_filters_from_tree(
-    tree: ET.ElementTree[ET.Element[str]],
-) -> None:
-    for parent in tree.iter():
-        filter_list = parent.find("surfaceFilterList")
-        if filter_list is None:
-            continue
-        for filter_node in list(filter_list):
-            if filter_node.attrib.get("type") in EFFECT_ICON_PRESENTATION_FILTERS:
-                filter_list.remove(filter_node)
-        if len(filter_list) == 0:
-            parent.remove(filter_list)
-            if "placeFlagHasFilterList" in parent.attrib:
-                parent.set("placeFlagHasFilterList", "false")
-
-
 def _normalize_effect_icon_display_tree(xml_path: Path) -> None:
     tree = ET.parse(xml_path)
     _collapse_effect_icon_presentation_duplicates(tree)
-    _strip_effect_icon_presentation_filters_from_tree(tree)
     tree.write(xml_path, encoding="utf-8", xml_declaration=True)
 
 
@@ -2183,7 +2169,7 @@ def _save_effect_icon_png_cache(
     icon_id: int,
     data: bytes,
     check: EffectIconAssetCheck,
-) -> None:
+) -> bool:
     try:
         _visible_png_pixel_count(data)
         path = _effect_icon_png_cache_path(icon_id)
@@ -2203,12 +2189,14 @@ def _save_effect_icon_png_cache(
             sort_keys=True,
         )
         metadata_path.write_text(metadata, encoding="utf-8")
+        return True
     except (OSError, ValueError) as e:
         logger.warning(
             "Failed to cache effect icon PNG %s: %s",
             icon_id,
             _short_error(e),
         )
+        return False
 
 
 def _render_effect_icon_png_assets(
@@ -2383,8 +2371,8 @@ def _seed_effect_icon_png_cache_from_database(db_path: Path) -> int:
             content_length=int(content_length),
             error="",
         )
-        _save_effect_icon_png_cache(int(icon_id), png_data, check)
-        seeded_count += 1
+        if _save_effect_icon_png_cache(int(icon_id), png_data, check):
+            seeded_count += 1
     logger.info(
         "Seeded %s effect icon PNGs from previous IronsBot database",
         seeded_count,

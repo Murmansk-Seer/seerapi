@@ -464,9 +464,13 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
     ]
 
 
-def _test_png(*, alpha: int = 255) -> bytes:
+def _test_png(
+    *,
+    alpha: int = 255,
+    size: tuple[int, int] = (2, 2),
+) -> bytes:
     output = io.BytesIO()
-    Image.new("RGBA", (2, 2), (10, 20, 30, alpha)).save(output, format="PNG")
+    Image.new("RGBA", size, (10, 20, 30, alpha)).save(output, format="PNG")
     return output.getvalue()
 
 
@@ -515,6 +519,15 @@ def test_effect_icon_cache_is_invalidated_when_source_size_changes(
 
     assert builder._load_effect_icon_png_cache(icon_id, check) is not None
     assert builder._load_effect_icon_png_cache(icon_id, changed_check) is None
+
+
+def test_effect_icon_cache_rejects_oversized_png() -> None:
+    oversized_png = _test_png(
+        size=(builder.EFFECT_ICON_PNG_MAX_DIMENSION + 1, 1),
+    )
+
+    with pytest.raises(ValueError, match="dimensions exceed"):
+        builder._visible_png_pixel_count(oversized_png)
 
 
 def test_seed_effect_icon_cache_uses_matching_renderer_version(
@@ -933,7 +946,11 @@ def test_render_effect_icon_png_exports_clean_item_sprite(
                 node.attrib["type"]
                 for node in tree.findall(".//surfaceFilterList/item")
             ]
-            assert filter_types == ["BLURFILTER"]
+            assert filter_types == [
+                "COLORMATRIXFILTER",
+                "GLOWFILTER",
+                "BLURFILTER",
+            ]
             Path(args[-1]).write_bytes(b"FWS")
         else:
             assert args[-1].endswith("icon-clean.swf")
