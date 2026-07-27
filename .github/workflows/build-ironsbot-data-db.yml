@@ -177,7 +177,7 @@ jobs:
     needs: [plan, render-effect-icon-cache]
     if: ${{ needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     permissions:
       contents: write
 
@@ -193,8 +193,25 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
       - name: Install parser dependency
-        run: python -m pip install UnityPy
+        run: python -m pip install UnityPy Pillow
+
+      - name: Install FFDec SWF renderer
+        run: |
+          curl -fsSL \
+            -o /tmp/ffdec.zip \
+            https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.2.1/ffdec_26.2.1.zip
+          echo "0333b56998a55bd83f4e0deb678a811fcdc45607582b4f5dd438309c8c3ad5ce  /tmp/ffdec.zip" \
+            | sha256sum --check
+          sudo mkdir -p /opt/ffdec
+          sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
+          test -f /opt/ffdec/ffdec.jar
 
       - name: Download rendered icon PNG cache
         uses: actions/download-artifact@v4
@@ -205,8 +222,13 @@ jobs:
       - name: Build IronsBot database
         env:
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+          # Asset availability can change between the incremental render job and
+          # this build. Cached PNGs are reused; only newly available misses are
+          # rendered here as a bounded backstop.
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: python scripts/build_ironsbot_data_db.py
 
       - name: Report unresolved soulmark icons
