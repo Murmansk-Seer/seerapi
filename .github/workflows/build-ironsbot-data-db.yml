@@ -247,7 +247,6 @@ jobs:
         env:
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
         run: python scripts/build_ironsbot_data_db.py
 
       - name: Generate SHA256 checksum
