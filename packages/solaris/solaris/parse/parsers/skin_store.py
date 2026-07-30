@@ -24,11 +24,11 @@ class SkinStorePoolItem(TypedDict):
     ticket_num: int
 
 
-class _SkinStorePoolData(TypedDict):
+class SkinStorePoolConfig(TypedDict):
     item: list[SkinStorePoolItem]
 
 
-class SkinStorePoolParser(BaseParser[_SkinStorePoolData]):
+class SkinStorePoolParser(BaseParser[SkinStorePoolConfig]):
     @classmethod
     def source_config_filename(cls) -> str:
         return 'skinStorePool.bytes'
@@ -37,9 +37,9 @@ class SkinStorePoolParser(BaseParser[_SkinStorePoolData]):
     def parsed_config_filename(cls) -> str:
         return 'skinStorePool.json'
 
-    def parse(self, data: bytes) -> _SkinStorePoolData:
+    def parse(self, data: bytes) -> SkinStorePoolConfig:
         reader = BytesReader(data)
-        result: _SkinStorePoolData = {'item': []}
+        result: SkinStorePoolConfig = {'item': []}
 
         if not reader.ReadBoolean():
             return result
