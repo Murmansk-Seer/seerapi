@@ -115,3 +115,51 @@ class SkinStoreTicketParser(BaseParser[_SkinStoreTicketData]):
             result['item'].append(item)
 
         return result
+
+
+class SkinStoreGachaItem(TypedDict):
+    des: str
+    name: str
+    diamondprice: int
+    id: int
+    item_id: int
+    monid: int
+    productid: int
+    skinid: int
+
+
+class SkinStoreGachaConfig(TypedDict):
+    item: list[SkinStoreGachaItem]
+
+
+class SkinStoreGachaParser(BaseParser[SkinStoreGachaConfig]):
+    @classmethod
+    def source_config_filename(cls) -> str:
+        return 'skinStoregacha.bytes'
+
+    @classmethod
+    def parsed_config_filename(cls) -> str:
+        return 'skinStoregacha.json'
+
+    def parse(self, data: bytes) -> SkinStoreGachaConfig:
+        reader = BytesReader(data)
+        result: SkinStoreGachaConfig = {'item': []}
+
+        if not reader.ReadBoolean():
+            return result
+
+        count = reader.ReadSignedInt()
+        for _ in range(count):
+            item: SkinStoreGachaItem = {
+                'des': reader.ReadUTFBytesWithLength(),
+                'diamondprice': reader.ReadSignedInt(),
+                'monid': reader.ReadSignedInt(),
+                'name': reader.ReadUTFBytesWithLength(),
+                'productid': reader.ReadSignedInt(),
+                'skinid': reader.ReadSignedInt(),
+                'id': reader.ReadSignedInt(),
+                'item_id': reader.ReadSignedInt(),
+            }
+            result['item'].append(item)
+
+        return result
