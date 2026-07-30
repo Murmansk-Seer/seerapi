@@ -4798,9 +4798,33 @@ export type PetSkin = HashPartial & {
     /**
      * Card Price
      *
-     * 皮肤礼卡价格，当皮肤未上架礼卡商店时为null
+     * 该皮肤使用礼卡购买时的价格，当皮肤未上架礼卡商店时为null
      */
     card_price?: number | null;
+    /**
+     * Diamond Price
+     *
+     * 该皮肤使用钻石购买时的价格，当皮肤未上架钻石商店时为null
+     */
+    diamond_price?: number | null;
+    /**
+     * Skinhouse Price
+     *
+     * 该皮肤在神秘屋购买时的价格，当皮肤未上架神秘屋时为null
+     */
+    skinhouse_price?: number | null;
+    /**
+     * Discounted Skinhouse Price
+     *
+     * 该皮肤在神秘屋的折扣价格，当皮肤未上架神秘屋或没有折扣时为null
+     */
+    discounted_skinhouse_price?: number | null;
+    /**
+     * Ticket Num
+     *
+     * 该皮肤在神秘屋购买时可使用的优惠券数量，当皮肤未上架神秘屋时为null
+     */
+    ticket_num?: number | null;
     pet: CommonResourceRef;
     category: CommonResourceRef;
     /**

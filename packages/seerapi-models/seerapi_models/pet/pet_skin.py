@@ -90,7 +90,24 @@ class PetSkinBase(BaseResModel):
         description='该皮肤在对手侧时使用的资源的ID，仅少数皮肤存在这种资源',
     )
     card_price: int | None = Field(
-        default=None, description='皮肤礼卡价格，当皮肤未上架礼卡商店时为null'
+        default=None,
+        description='该皮肤使用礼卡购买时的价格，当皮肤未上架礼卡商店时为null',
+    )
+    diamond_price: int | None = Field(
+        default=None,
+        description='该皮肤使用钻石购买时的价格，当皮肤未上架钻石商店时为null',
+    )
+    skinhouse_price: int | None = Field(
+        default=None,
+        description='该皮肤在神秘屋购买时的价格，当皮肤未上架神秘屋时为null',
+    )
+    discounted_skinhouse_price: int | None = Field(
+        default=None,
+        description='该皮肤在神秘屋的折扣价格，当皮肤未上架神秘屋或没有折扣时为null',
+    )
+    ticket_num: int | None = Field(
+        default=None,
+        description='该皮肤在神秘屋购买时可使用的优惠券数量，当皮肤未上架神秘屋时为null',
     )
 
     @classmethod
@@ -126,6 +143,10 @@ class PetSkin(PetSkinBase, ConvertToORM['PetSkinORM']):
             category_id=self.category.id,
             series_id=self.series.id if self.series else None,
             sub_type_id=self.sub_type.id if self.sub_type else None,
+            diamond_price=self.diamond_price,
+            skinhouse_price=self.skinhouse_price,
+            discounted_skinhouse_price=self.discounted_skinhouse_price,
+            ticket_num=self.ticket_num,
         )
 
 
