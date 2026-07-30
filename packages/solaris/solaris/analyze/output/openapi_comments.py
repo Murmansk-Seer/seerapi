@@ -1385,6 +1385,7 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
                 'resource_id': 1400774,
                 'enemy_resource_id': None,
                 'card_price': None,
+                'diamond_price': None,
                 'pet': {'id': 5000, 'url': 'https://api.seerapi.com/v1/pet/5000'},
                 'category': {
                     'id': 19,
@@ -1394,6 +1395,9 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
                     'id': 13,
                     'url': 'https://api.seerapi.com/v1/pet_skin_series/13',
                 },
+                'skinhouse_price': None,
+                'discounted_skinhouse_price': None,
+                'ticket_num': None,
                 'sub_type': None,
                 'hash': '1dca20ae',
             }
