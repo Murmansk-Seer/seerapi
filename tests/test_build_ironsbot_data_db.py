@@ -3,6 +3,7 @@ import io
 import json
 from pathlib import Path
 import sqlite3
+import struct
 import sys
 from typing import Any
 
@@ -461,6 +462,44 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
             description="另一条说明",
             show_monster_id=0,
         ),
+    ]
+
+
+def test_parse_autocard_season_effects() -> None:
+    def text(value: str) -> bytes:
+        encoded = value.encode()
+        return struct.pack("<H", len(encoded)) + encoded
+
+    payload = b"".join(
+        (
+            b"\x01",
+            struct.pack("<i", 1),
+            text("50044"),
+            text("50044"),
+            text("3_1"),
+            struct.pack("<iii", 1, 3, 2),
+            text("霁天"),
+            text("每个商店阶段前3次购买价格减少1枚金币"),
+            struct.pack("<iiiii", 10, 5, 0, 1, 1),
+        )
+    )
+
+    assert builder._parse_autocard_season_effects(payload) == [
+        builder.AutocardSeasonEffect(
+            effect_id=10,
+            sanctuary_id=2,
+            name="霁天",
+            description="每个商店阶段前3次购买价格减少1枚金币",
+            buff_id="50044",
+            buff_param="3_1",
+            count_buff_id="50044",
+            count_type=1,
+            count_num=3,
+            unlock_round=5,
+            pic_id=0,
+            season_id=1,
+            stage=1,
+        )
     ]
 
 
@@ -1235,11 +1274,42 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         skin_shop_prices=[],
         skin_item_tips={},
         soulmark_icons=[],
+        autocard_season_effects=[
+            builder.AutocardSeasonEffect(
+                effect_id=10,
+                sanctuary_id=2,
+                name="霁天",
+                description="每个商店阶段前3次购买价格减少1枚金币",
+                buff_id="50044",
+                buff_param="3_1",
+                count_buff_id="50044",
+                count_type=1,
+                count_num=3,
+                unlock_round=5,
+                pic_id=0,
+                season_id=1,
+                stage=1,
+            )
+        ],
     )
     autocard_data = builder.AutocardData(
         cards=[],
         roles=[],
         natures=[],
+        buffs=[
+            {
+                "id": 50073,
+                "object": "赛季效果",
+                "param": "a",
+                "paramDes": (
+                    "游戏开始时，前排最左侧和最右侧位置变为【沃土】，"
+                    "初始养分计数为1"
+                ),
+                "IsDeathEffect": 0,
+                "IsPlaceEffect": 0,
+                "effectIcon": "",
+            }
+        ],
         source="test",
     )
     pet_partner_data = builder.PetPartnerData(
@@ -1334,6 +1404,33 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             FROM skin_image_resolution
             """
         ).fetchone()
+        autocard_buff_row = connection.execute(
+            """
+            SELECT
+                id,
+                object,
+                param,
+                param_description,
+                is_death_effect,
+                is_place_effect,
+                effect_icon
+            FROM autocard_buff
+            """
+        ).fetchone()
+        autocard_season_effect_row = connection.execute(
+            """
+            SELECT
+                id,
+                sanctuary_id,
+                name,
+                description,
+                buff_id,
+                buff_param,
+                unlock_round,
+                stage
+            FROM autocard_season_effect
+            """
+        ).fetchone()
         icon_issue_count = connection.execute(
             "SELECT COUNT(*) FROM soulmark_icon_render_issue"
         ).fetchone()
@@ -1357,5 +1454,24 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         "unique_name_source",
         "direct_skin",
         3382,
+    )
+    assert autocard_buff_row == (
+        50073,
+        "赛季效果",
+        "a",
+        "游戏开始时，前排最左侧和最右侧位置变为【沃土】，初始养分计数为1",
+        0,
+        0,
+        "",
+    )
+    assert autocard_season_effect_row == (
+        10,
+        2,
+        "霁天",
+        "每个商店阶段前3次购买价格减少1枚金币",
+        "50044",
+        "3_1",
+        5,
+        1,
     )
     assert icon_issue_count == (0,)
