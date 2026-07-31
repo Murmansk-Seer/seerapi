@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - "scripts/build_ironsbot_data_db.py"
+      - "scripts/build_new_content_index.py"
       - ".github/workflows/build-ironsbot-data-db.yml"
   schedule:
     - cron: "5 */6 * * *"
@@ -145,6 +146,67 @@ jobs:
           IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "12"
           IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "20"
         run: python scripts/build_ironsbot_data_db.py
+
+      - name: Download previous published database
+        if: steps.source_check.outputs.skip != 'true'
+        run: |
+          set -e
+          previous_db="${RUNNER_TEMP}/previous-ironsbot-data.sqlite"
+          if curl -fL --retry 3 --retry-delay 2 \
+            -o "${previous_db}" \
+            https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite; then
+            echo "PREVIOUS_IRONSBOT_DATA_DB=${previous_db}" >> "$GITHUB_ENV"
+            echo "Downloaded previous published database."
+          else
+            echo "No previous published database is available; establishing baseline."
+            rm -f "${previous_db}"
+          fi
+
+      - name: Build new content release index
+        id: new_content
+        if: steps.source_check.outputs.skip != 'true'
+        env:
+          PREVIOUS_IRONSBOT_DATA_DB: ${{ env.PREVIOUS_IRONSBOT_DATA_DB }}
+        run: |
+          set -e
+          args=(--current ironsbot-data.sqlite --current-git-sha "${GITHUB_SHA}")
+          if [ -n "${PREVIOUS_IRONSBOT_DATA_DB:-}" ] && [ -f "${PREVIOUS_IRONSBOT_DATA_DB}" ]; then
+            args+=(--previous "${PREVIOUS_IRONSBOT_DATA_DB}")
+          fi
+          python scripts/build_new_content_index.py "${args[@]}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Stage previous weekly data release
+        if: >-
+          steps.source_check.outputs.skip != 'true' &&
+          steps.new_content.outputs.promote_previous == 'true' &&
+          steps.new_content.outputs.previous_available == 'true'
+        run: |
+          set -e
+          mkdir -p previous-release
+          cp "${PREVIOUS_IRONSBOT_DATA_DB}" previous-release/ironsbot-data.sqlite
+          sha256sum previous-release/ironsbot-data.sqlite \
+            > previous-release/ironsbot-data.sqlite.sha256
+
+      - name: Upload previous weekly data release
+        if: >-
+          steps.source_check.outputs.skip != 'true' &&
+          steps.new_content.outputs.promote_previous == 'true' &&
+          steps.new_content.outputs.previous_available == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ironsbot-data-previous
+          name: IronsBot Previous Weekly Data DB
+          make_latest: false
+          body: |
+            Previous weekly IronsBot runtime data database.
+
+            This asset is the last successful latest database before the
+            current Friday-based official update cycle. It is retained as a
+            stable baseline while `ironsbot-data-latest` continues to update.
+          files: |
+            previous-release/ironsbot-data.sqlite
+            previous-release/ironsbot-data.sqlite.sha256
 
       - name: Generate SHA256 checksum
         if: steps.source_check.outputs.skip != 'true'
