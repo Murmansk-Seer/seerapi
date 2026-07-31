@@ -10,7 +10,7 @@ on:
       - "scripts/build_ironsbot_data_db.py"
       - ".github/workflows/build-ironsbot-data-db.yml"
   schedule:
-    - cron: "5 */6 * * *"
+    - cron: "5,35 * * * *"
   workflow_dispatch:
     inputs:
       force:
