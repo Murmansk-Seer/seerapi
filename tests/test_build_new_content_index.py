@@ -208,3 +208,59 @@ def test_autocard_effect_change_is_marked_modified(tmp_path: Path) -> None:
     assert ('autocard_card', 1, 'modified') in {
         (item.category, item.entity_id, item.change_kind) for item in state.items
     }
+
+
+def _add_autocard_sanctuary_effects(path: Path, *, effect: str) -> None:
+    with sqlite3.connect(path) as conn:
+        conn.executescript(
+            f'''
+            CREATE TABLE autocard_season_effect (
+                id INTEGER PRIMARY KEY, sanctuary_id INTEGER, name TEXT,
+                description TEXT, buff_id TEXT, buff_param TEXT,
+                count_buff_id TEXT, count_type INTEGER, count_num INTEGER,
+                unlock_round INTEGER, pic_id INTEGER, season_id INTEGER,
+                stage INTEGER
+            );
+            INSERT INTO autocard_season_effect VALUES
+                (8, 2, '沧岚', '基础圣域', '', '', '', 0, 0, 0, 3105, 1, 0),
+                (9, 2, '潮涌', '{effect}', '50041', '1', '', 0, 0, 5, 0, 1, 1);
+            '''
+        )
+        conn.execute("UPDATE pet SET name = '沧岚之王' WHERE id = 1")
+        conn.execute("UPDATE autocard_season_effect SET pic_id = 1 WHERE id = 8")
+
+
+def test_first_sanctuary_effect_table_establishes_its_own_baseline(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    _add_autocard_sanctuary_effects(current_path, effect='潮涌效果')
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert all(item.category != 'autocard_sanctuary_effect' for item in state.items)
+
+
+def test_sanctuary_effect_changes_are_indexed_with_sanctuary_context(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    _add_autocard_sanctuary_effects(previous_path, effect='旧效果')
+    _add_autocard_sanctuary_effects(current_path, effect='新效果')
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    item = next(
+        item
+        for item in state.items
+        if item.category == 'autocard_sanctuary_effect' and item.entity_id == 9
+    )
+    assert item.change_kind == 'modified'
+    assert item.payload['sanctuary_name'] == '沧岚'
+    assert item.payload['sanctuary_pet_name'] == '沧岚之王'

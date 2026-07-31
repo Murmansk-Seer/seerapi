@@ -20,6 +20,8 @@ from typing import Any
 
 RELEASE_TABLE = 'new_content_release'
 ITEM_TABLE = 'new_content_item'
+AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
+AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
 
 
 @dataclass(frozen=True)
@@ -404,6 +406,63 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 )
             )
 
+    if _has_table(conn, AUTOCARD_SANCTUARY_EFFECT_TABLE):
+        for row in _rows(
+            conn,
+            f'''
+            SELECT
+                effect.id,
+                effect.sanctuary_id,
+                effect.name,
+                effect.description,
+                effect.buff_id,
+                effect.buff_param,
+                effect.count_buff_id,
+                effect.count_type,
+                effect.count_num,
+                effect.unlock_round,
+                effect.pic_id,
+                effect.season_id,
+                effect.stage,
+                COALESCE(base.name, '') AS sanctuary_name,
+                COALESCE(base.pic_id, 0) AS sanctuary_pet_id,
+                COALESCE(pet.name, '') AS sanctuary_pet_name
+            FROM {AUTOCARD_SANCTUARY_EFFECT_TABLE} AS effect
+            LEFT JOIN {AUTOCARD_SANCTUARY_EFFECT_TABLE} AS base
+                ON base.sanctuary_id = effect.sanctuary_id
+               AND base.unlock_round = 0
+               AND base.pic_id > 0
+            LEFT JOIN pet
+                ON pet.id = base.pic_id
+            ORDER BY effect.sanctuary_id, effect.unlock_round, effect.stage, effect.id
+            ''',
+        ):
+            entity_id = int(row['id'])
+            items.append(
+                ContentItem(
+                    AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
+                    entity_id,
+                    str(row['name']),
+                    entity_id,
+                    {
+                        'sanctuary_id': int(row['sanctuary_id']),
+                        'sanctuary_name': str(row['sanctuary_name'] or ''),
+                        'sanctuary_pet_id': int(row['sanctuary_pet_id'] or 0),
+                        'sanctuary_pet_name': str(row['sanctuary_pet_name'] or ''),
+                        'description': str(row['description'] or ''),
+                        'buff_id': str(row['buff_id'] or ''),
+                        'buff_param': str(row['buff_param'] or ''),
+                        'count_buff_id': str(row['count_buff_id'] or ''),
+                        'count_type': int(row['count_type'] or 0),
+                        'count_num': int(row['count_num'] or 0),
+                        'unlock_round': int(row['unlock_round'] or 0),
+                        'pic_id': int(row['pic_id'] or 0),
+                        'season_id': int(row['season_id'] or 0),
+                        'stage': int(row['stage'] or 0),
+                    },
+                )
+            )
+
     return tuple(sorted(items, key=lambda item: (item.category, item.entity_id)))
 
 
@@ -497,6 +556,21 @@ def _current_subset(
     )
 
 
+def _new_category_baselines(previous_path: Path) -> set[str]:
+    """Return indexed categories whose source table did not exist previously."""
+
+    with sqlite3.connect(previous_path) as conn:
+        if _has_table(conn, AUTOCARD_SANCTUARY_EFFECT_TABLE):
+            return set()
+    return {AUTOCARD_SANCTUARY_EFFECT_CATEGORY}
+
+
+def _without_categories(
+    items: Iterable[ContentItem], categories: set[str]
+) -> tuple[ContentItem, ...]:
+    return tuple(item for item in items if item.category not in categories)
+
+
 def build_release_state(
     current_path: Path,
     previous_path: Path | None,
@@ -509,6 +583,7 @@ def build_release_state(
     cycle = _weekly_cycle(current_version)
     if previous is None:
         return ReleaseState(current_version, current_git_sha, cycle, False, ())
+    assert previous_path is not None
     if previous.config_version == current_version:
         # A parser-only rebuild must not turn old rows into a new weekly update.
         return ReleaseState(
@@ -521,9 +596,14 @@ def build_release_state(
 
     with sqlite3.connect(previous_path) as conn:
         previous_rows = load_current_items(conn)
+    new_category_baselines = _new_category_baselines(previous_path)
     increment = (
-        *_new_items(current_items, previous_rows),
-        *_modified_items(current_items, previous_rows),
+        *_without_categories(
+            _new_items(current_items, previous_rows), new_category_baselines
+        ),
+        *_without_categories(
+            _modified_items(current_items, previous_rows), new_category_baselines
+        ),
     )
     if previous.weekly_cycle == cycle and previous.baseline_established:
         items = _current_subset((*previous.items, *increment), current_items)

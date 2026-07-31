@@ -47,6 +47,7 @@ SKIN_STORE_POOL_BYTES_NAME = "skinStorePool.bytes"
 SKIN_SHOP_BYTES_NAME = "skin_shop.bytes"
 ITEMS_TIP_BYTES_NAME = "itemsTip.bytes"
 EFFECT_ICON_BYTES_NAME = "effectIcon.bytes"
+AUTOCARD_SEASON_EFFECT_BYTES_NAME = "autocardSeasonEffect.bytes"
 EFFECT_ICON_ASSET_BASE_URL = os.environ.get(
     "IRONSBOT_DATA_EFFECT_ICON_ASSET_BASE_URL",
     "https://seer.61.com/resource/effectIcon/",
@@ -122,6 +123,7 @@ CONFIG_TEXT_ASSETS = {
     SKIN_SHOP_BYTES_NAME,
     ITEMS_TIP_BYTES_NAME,
     EFFECT_ICON_BYTES_NAME,
+    AUTOCARD_SEASON_EFFECT_BYTES_NAME,
 }
 MINTMARK_QUALITY_TABLE = "mintmark_quality"
 SKIN_STORE_PRICE_TABLE = "skin_store_price"
@@ -139,6 +141,8 @@ PET_PARTNER_UPGRADE_TABLE = "pet_partner_upgrade"
 AUTOCARD_CARD_TABLE = "autocard_card"
 AUTOCARD_ROLE_TABLE = "autocard_role"
 AUTOCARD_NATURE_TABLE = "autocard_nature"
+AUTOCARD_BUFF_TABLE = "autocard_buff"
+AUTOCARD_SEASON_EFFECT_TABLE = "autocard_season_effect"
 AUTOCARD_JSON_DIR = os.environ.get("IRONSBOT_DATA_AUTOCARD_JSON_DIR", "")
 AUTOCARD_JSON_BASE_URL = os.environ.get(
     "IRONSBOT_DATA_AUTOCARD_JSON_BASE_URL",
@@ -147,6 +151,7 @@ AUTOCARD_JSON_BASE_URL = os.environ.get(
 AUTOCARD_CONTENT_FILE = "autocardContent.json"
 AUTOCARD_NATURE_FILE = "autocardNature.json"
 AUTOCARD_ROLE_FILE = "autocardRole.json"
+AUTOCARD_BUFF_FILE = "autocardBuff.json"
 WEEKLY_PREVIEW_IMAGE_URL = (
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "seer-unity-preview-img-dumper/main/img/preview.png"
@@ -241,6 +246,7 @@ class ConfigPackageData:
     skin_shop_prices: list["SkinShopPrice"]
     skin_item_tips: dict[int, str]
     soulmark_icons: list["SoulmarkIcon"]
+    autocard_season_effects: list["AutocardSeasonEffect"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,6 +261,23 @@ class SkinStorePrice:
     ticket_num: int
     start_time: int
     end_time: int
+
+
+@dataclass(frozen=True, slots=True)
+class AutocardSeasonEffect:
+    effect_id: int
+    sanctuary_id: int
+    name: str
+    description: str
+    buff_id: str
+    buff_param: str
+    count_buff_id: str
+    count_type: int
+    count_num: int
+    unlock_round: int
+    pic_id: int
+    season_id: int
+    stage: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,6 +426,7 @@ class AutocardData:
     cards: list[dict[str, object]]
     roles: list[dict[str, object]]
     natures: list[dict[str, object]]
+    buffs: list[dict[str, object]]
     source: str
 
 
@@ -1030,6 +1054,56 @@ def _parse_effect_icon(data: bytes) -> list[SoulmarkIcon]:
             for pet_id in pet_ids
         )
 
+    return result
+
+
+def _parse_autocard_season_effects(
+    data: bytes,
+) -> list[AutocardSeasonEffect]:
+    """Parse the authoritative current sanctuary/effect directory."""
+
+    if not data:
+        return []
+
+    reader = BytesReader(data)
+    if not reader.read_bool():
+        return []
+
+    result: list[AutocardSeasonEffect] = []
+    count = reader.read_i32()
+    for _ in range(count):
+        count_buff_id = reader.read_text()
+        buff_id = reader.read_text()
+        buff_param = reader.read_text()
+        count_type = reader.read_i32()
+        count_num = reader.read_i32()
+        sanctuary_id = reader.read_i32()
+        name = reader.read_text()
+        description = reader.read_text()
+        effect_id = reader.read_i32()
+        unlock_round = reader.read_i32()
+        pic_id = reader.read_i32()
+        season_id = reader.read_i32()
+        stage = reader.read_i32()
+        if effect_id <= 0 or sanctuary_id <= 0 or not name:
+            continue
+        result.append(
+            AutocardSeasonEffect(
+                effect_id=effect_id,
+                sanctuary_id=sanctuary_id,
+                name=name,
+                description=description,
+                buff_id=buff_id,
+                buff_param=buff_param,
+                count_buff_id=count_buff_id,
+                count_type=count_type,
+                count_num=count_num,
+                unlock_round=unlock_round,
+                pic_id=pic_id,
+                season_id=season_id,
+                stage=stage,
+            )
+        )
     return result
 
 
@@ -2452,6 +2526,9 @@ def _fetch_config_package_data() -> ConfigPackageData:
         skin_shop_prices=_parse_skin_shop(assets[SKIN_SHOP_BYTES_NAME]),
         skin_item_tips=_parse_items_tip(assets[ITEMS_TIP_BYTES_NAME]),
         soulmark_icons=_parse_effect_icon(assets[EFFECT_ICON_BYTES_NAME]),
+        autocard_season_effects=_parse_autocard_season_effects(
+            assets[AUTOCARD_SEASON_EFFECT_BYTES_NAME]
+        ),
     )
 
 
@@ -2459,13 +2536,15 @@ def _load_autocard_data() -> AutocardData:
     content_json, content_source = _load_autocard_json(AUTOCARD_CONTENT_FILE)
     nature_json, nature_source = _load_autocard_json(AUTOCARD_NATURE_FILE)
     role_json, role_source = _load_autocard_json(AUTOCARD_ROLE_FILE)
+    buff_json, buff_source = _load_autocard_json(AUTOCARD_BUFF_FILE)
     source = "\n".join(
-        sorted({content_source, nature_source, role_source})
+        sorted({buff_source, content_source, nature_source, role_source})
     )
     return AutocardData(
         cards=_json_data_rows(content_json),
         roles=_json_data_rows(role_json),
         natures=_json_data_rows(nature_json),
+        buffs=_json_data_rows(buff_json),
         source=source,
     )
 
@@ -2943,6 +3022,157 @@ def _replace_autocard_tables(
             for item in data.natures
             if _item_int(item, "id") > 0
         ],
+    )
+
+    conn.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {AUTOCARD_BUFF_TABLE} (
+            id INTEGER PRIMARY KEY,
+            object TEXT NOT NULL,
+            param TEXT NOT NULL,
+            param_description TEXT NOT NULL,
+            is_death_effect INTEGER NOT NULL,
+            is_place_effect INTEGER NOT NULL,
+            effect_icon TEXT NOT NULL,
+            raw_json TEXT NOT NULL,
+            source TEXT NOT NULL,
+            updated_at REAL NOT NULL
+        )
+        """
+    )
+    conn.execute(f"DELETE FROM {AUTOCARD_BUFF_TABLE}")
+    conn.executemany(
+        f"""
+        INSERT INTO {AUTOCARD_BUFF_TABLE}
+            (
+                id,
+                object,
+                param,
+                param_description,
+                is_death_effect,
+                is_place_effect,
+                effect_icon,
+                raw_json,
+                source,
+                updated_at
+            )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                _item_int(item, "id"),
+                _item_text(item, "object"),
+                _item_text(item, "param"),
+                _item_text(item, "paramDes", "param_des"),
+                _item_int(item, "IsDeathEffect", "is_death_effect"),
+                _item_int(item, "IsPlaceEffect", "is_place_effect"),
+                _item_text(item, "effectIcon", "effect_icon"),
+                _dump_json(item),
+                data.source,
+                updated_at,
+            )
+            for item in data.buffs
+            if _item_int(item, "id") > 0
+        ],
+    )
+
+
+def _replace_autocard_season_effect_table(
+    conn: sqlite3.Connection,
+    effects: list[AutocardSeasonEffect],
+    updated_at: float,
+) -> None:
+    conn.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {AUTOCARD_SEASON_EFFECT_TABLE} (
+            id INTEGER PRIMARY KEY,
+            sanctuary_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            buff_id TEXT NOT NULL,
+            buff_param TEXT NOT NULL,
+            count_buff_id TEXT NOT NULL,
+            count_type INTEGER NOT NULL,
+            count_num INTEGER NOT NULL,
+            unlock_round INTEGER NOT NULL,
+            pic_id INTEGER NOT NULL,
+            season_id INTEGER NOT NULL,
+            stage INTEGER NOT NULL,
+            raw_json TEXT NOT NULL,
+            source TEXT NOT NULL,
+            updated_at REAL NOT NULL
+        )
+        """
+    )
+    conn.execute(f"DELETE FROM {AUTOCARD_SEASON_EFFECT_TABLE}")
+    conn.executemany(
+        f"""
+        INSERT INTO {AUTOCARD_SEASON_EFFECT_TABLE}
+            (
+                id,
+                sanctuary_id,
+                name,
+                description,
+                buff_id,
+                buff_param,
+                count_buff_id,
+                count_type,
+                count_num,
+                unlock_round,
+                pic_id,
+                season_id,
+                stage,
+                raw_json,
+                source,
+                updated_at
+            )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                item.effect_id,
+                item.sanctuary_id,
+                item.name,
+                item.description,
+                item.buff_id,
+                item.buff_param,
+                item.count_buff_id,
+                item.count_type,
+                item.count_num,
+                item.unlock_round,
+                item.pic_id,
+                item.season_id,
+                item.stage,
+                _dump_json(
+                    {
+                        "id": item.effect_id,
+                        "sanctuary_id": item.sanctuary_id,
+                        "name": item.name,
+                        "description": item.description,
+                        "buff_id": item.buff_id,
+                        "buff_param": item.buff_param,
+                        "count_buff_id": item.count_buff_id,
+                        "count_type": item.count_type,
+                        "count_num": item.count_num,
+                        "unlock_round": item.unlock_round,
+                        "pic_id": item.pic_id,
+                        "season_id": item.season_id,
+                        "stage": item.stage,
+                    }
+                ),
+                "ConfigPackage/autocardSeasonEffect.bytes",
+                updated_at,
+            )
+            for item in effects
+        ],
+    )
+    conn.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS
+            idx_{AUTOCARD_SEASON_EFFECT_TABLE}_sanctuary
+        ON {AUTOCARD_SEASON_EFFECT_TABLE}
+            (sanctuary_id, unlock_round, id)
+        """
     )
 
 
@@ -3612,6 +3842,11 @@ def _merge_ironsbot_tables(
             """
         )
         _replace_autocard_tables(conn, autocard_data, now)
+        _replace_autocard_season_effect_table(
+            conn,
+            config_data.autocard_season_effects,
+            now,
+        )
         _replace_pet_partner_tables(conn, pet_partner_data, now)
         conn.execute(
             """
@@ -3715,6 +3950,10 @@ def _merge_ironsbot_tables(
             "autocard_card_count": str(len(autocard_data.cards)),
             "autocard_role_count": str(len(autocard_data.roles)),
             "autocard_nature_count": str(len(autocard_data.natures)),
+            "autocard_buff_count": str(len(autocard_data.buffs)),
+            "autocard_season_effect_count": str(
+                len(config_data.autocard_season_effects)
+            ),
             "autocard_source": autocard_data.source,
             "weekly_preview_image_url": WEEKLY_PREVIEW_IMAGE_URL,
             "weekly_preview_source_url": WEEKLY_PREVIEW_SOURCE_URL,
