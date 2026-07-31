@@ -42,6 +42,7 @@ extraPaths = [
     "packages/seerapi-models",
     "packages/seerapi-python",
 ]
+reportImplicitAbstractClass = "error"
 
 [tool.ruff]
 line-length = 88

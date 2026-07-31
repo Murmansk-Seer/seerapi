@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sqlite3
 import sys
+from typing import Any
 
 from PIL import Image
 import pytest
@@ -73,6 +74,254 @@ def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
             end_time=200,
         )
     ]
+
+
+def _skin_asset_check(
+    kind: str,
+    resource_id: int,
+    *,
+    available: bool,
+    status: int | None = None,
+    error: str = "",
+) -> Any:
+    resolved_status = status if status is not None else (200 if available else 404)
+    return builder.PetImageAssetCheck(
+        kind=kind,
+        resource_id=resource_id,
+        url=f"https://example.invalid/{kind}/{resource_id}.png",
+        available=available,
+        status=resolved_status,
+        content_type="image/png" if available else "text/html",
+        content_length=1 if available else None,
+        error=error,
+    )
+
+
+def test_resolve_classic_skin_images_keeps_direct_assets_and_falls_back_per_kind() -> None:
+    skins = (
+        builder.ClassicSkinImageSource(250, "异次元·黄金天马", 1400250),
+        builder.ClassicSkinImageSource(268, "波西亚", 1400268),
+        builder.ClassicSkinImageSource(538, "天道魂帝", 1400538),
+        builder.ClassicSkinImageSource(734, "记忆之核", 1400734),
+        builder.ClassicSkinImageSource(761, "永恒圣拳", 1400761),
+    )
+    pets = (
+        builder.PetImageSource(3382, "天道魂帝", 3382),
+        builder.PetImageSource(3197, "永恒圣拳", 3197),
+    )
+    checks = {
+        (kind, resource_id): _skin_asset_check(
+            kind,
+            resource_id,
+            available=available,
+        )
+        for kind, resource_id, available in (
+            ("head", 1400250, True),
+            ("body", 1400250, True),
+            ("head", 1400268, True),
+            ("body", 1400268, True),
+            ("head", 1400538, False),
+            ("body", 1400538, True),
+            ("head", 1400734, True),
+            ("body", 1400734, True),
+            ("head", 1400761, False),
+            ("body", 1400761, False),
+            ("head", 3382, True),
+            ("body", 3382, True),
+            ("head", 3197, True),
+            ("body", 3197, True),
+        )
+    }
+
+    rows = builder._resolve_classic_skin_image_resources(
+        skins,
+        pets,
+        checks,
+        {},
+    )
+
+    assert rows == [
+        builder.SkinImageResolution(
+            skin_id=250,
+            head_resource_id=1400250,
+            body_resource_id=1400250,
+            head_resolution="direct_skin",
+            body_resolution="direct_skin",
+            source_pet_id=None,
+        ),
+        builder.SkinImageResolution(
+            skin_id=268,
+            head_resource_id=1400268,
+            body_resource_id=1400268,
+            head_resolution="direct_skin",
+            body_resolution="direct_skin",
+            source_pet_id=None,
+        ),
+        builder.SkinImageResolution(
+            skin_id=538,
+            head_resource_id=3382,
+            body_resource_id=1400538,
+            head_resolution="unique_name_source",
+            body_resolution="direct_skin",
+            source_pet_id=3382,
+        ),
+        builder.SkinImageResolution(
+            skin_id=734,
+            head_resource_id=1400734,
+            body_resource_id=1400734,
+            head_resolution="direct_skin",
+            body_resolution="direct_skin",
+            source_pet_id=None,
+        ),
+        builder.SkinImageResolution(
+            skin_id=761,
+            head_resource_id=3197,
+            body_resource_id=3197,
+            head_resolution="unique_name_source",
+            body_resolution="unique_name_source",
+            source_pet_id=3197,
+        ),
+    ]
+
+
+def test_resolve_classic_skin_images_uses_content_hash_for_duplicate_names() -> None:
+    skins = (
+        builder.ClassicSkinImageSource(16, "皮皮", 1400016),
+        builder.ClassicSkinImageSource(700, "皮皮", 1400700),
+    )
+    pets = (
+        builder.PetImageSource(10, "皮皮", 10),
+        builder.PetImageSource(3295, "皮皮", 3295),
+    )
+    checks = {
+        (kind, resource_id): _skin_asset_check(
+            kind,
+            resource_id,
+            available=available,
+        )
+        for kind, resource_id, available in (
+            ("head", 1400016, False),
+            ("body", 1400016, True),
+            ("head", 1400700, False),
+            ("body", 1400700, True),
+            ("head", 10, True),
+            ("body", 10, True),
+            ("head", 3295, True),
+            ("body", 3295, True),
+        )
+    }
+    hashes = {
+        ("body", 1400016): "same-as-10",
+        ("body", 1400700): "same-as-10",
+        ("body", 10): "same-as-10",
+        ("body", 3295): "different",
+    }
+
+    rows = builder._resolve_classic_skin_image_resources(
+        skins,
+        pets,
+        checks,
+        hashes,
+    )
+
+    assert [(row.skin_id, row.head_resource_id, row.source_pet_id) for row in rows] == [
+        (16, 10, 10),
+        (700, 10, 10),
+    ]
+    assert all(row.head_resolution == "content_verified_source" for row in rows)
+    assert all(row.body_resolution == "direct_skin" for row in rows)
+
+
+def test_resolve_classic_skin_images_keeps_unresolved_assets_explicit() -> None:
+    skin = builder.ClassicSkinImageSource(999, "不存在的经典皮肤", 1400999)
+    checks = {
+        (kind, skin.resource_id): _skin_asset_check(
+            kind,
+            skin.resource_id,
+            available=False,
+        )
+        for kind in builder.PET_IMAGE_ASSET_KINDS
+    }
+
+    rows = builder._resolve_classic_skin_image_resources(
+        (skin,),
+        (),
+        checks,
+        {},
+    )
+
+    assert rows == [
+        builder.SkinImageResolution(
+            skin_id=999,
+            head_resource_id=0,
+            body_resource_id=0,
+            head_resolution="unresolved",
+            body_resolution="unresolved",
+            source_pet_id=None,
+        )
+    ]
+
+
+def test_resolve_classic_skin_images_keeps_transient_failures_unverified() -> None:
+    skin = builder.ClassicSkinImageSource(538, "天道魂帝", 1400538)
+    source = builder.PetImageSource(3382, "天道魂帝", 3382)
+    checks = {
+        ("head", 1400538): _skin_asset_check(
+            "head",
+            1400538,
+            available=False,
+            status=0,
+            error="timed out",
+        ),
+        ("body", 1400538): _skin_asset_check("body", 1400538, available=True),
+        ("head", 3382): _skin_asset_check("head", 3382, available=True),
+        ("body", 3382): _skin_asset_check("body", 3382, available=True),
+    }
+
+    rows = builder._resolve_classic_skin_image_resources(
+        (skin,),
+        (source,),
+        checks,
+        {},
+    )
+
+    assert rows == [
+        builder.SkinImageResolution(
+            skin_id=538,
+            head_resource_id=0,
+            body_resource_id=1400538,
+            head_resolution="unverified",
+            body_resolution="direct_skin",
+            source_pet_id=None,
+        )
+    ]
+
+
+def test_verify_pet_image_asset_retries_transient_failures(monkeypatch) -> None:
+    attempts = iter(
+        [
+            _skin_asset_check(
+                "body",
+                1400538,
+                available=False,
+                status=0,
+                error="timed out",
+            ),
+            _skin_asset_check("body", 1400538, available=True),
+        ]
+    )
+    monkeypatch.setattr(
+        builder,
+        "_probe_pet_image_asset_range",
+        lambda *args, **kwargs: next(attempts),
+    )
+    monkeypatch.setattr(builder, "HTTP_RETRY_ATTEMPTS", 2)
+    monkeypatch.setattr(builder, "HTTP_RETRY_BACKOFF_SECONDS", 0)
+
+    check = builder._verify_pet_image_asset("body", 1400538)
+
+    assert check.available
+    assert check.status == 200
 
 
 def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
@@ -215,9 +464,13 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
     ]
 
 
-def _test_png(*, alpha: int = 255) -> bytes:
+def _test_png(
+    *,
+    alpha: int = 255,
+    size: tuple[int, int] = (2, 2),
+) -> bytes:
     output = io.BytesIO()
-    Image.new("RGBA", (2, 2), (10, 20, 30, alpha)).save(output, format="PNG")
+    Image.new("RGBA", size, (10, 20, 30, alpha)).save(output, format="PNG")
     return output.getvalue()
 
 
@@ -233,9 +486,7 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
         error="",
     )
     monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
-    cache_path = builder._effect_icon_png_cache_path(1644)
-    cache_path.parent.mkdir(parents=True)
-    cache_path.write_bytes(png_data)
+    builder._save_effect_icon_png_cache(1644, png_data, check)
     monkeypatch.setattr(
         builder,
         "_download_effect_icon_asset",
@@ -246,6 +497,251 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
 
     assert render.available is True
     assert render.data == png_data
+
+
+def test_effect_icon_cache_is_invalidated_when_source_size_changes(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 1644
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    changed_check = builder.replace(check, content_length=124)
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+
+    assert builder._load_effect_icon_png_cache(icon_id, check) is not None
+    assert builder._load_effect_icon_png_cache(icon_id, changed_check) is None
+
+
+def test_effect_icon_cache_rejects_oversized_png() -> None:
+    oversized_png = _test_png(
+        size=(builder.EFFECT_ICON_PNG_MAX_DIMENSION + 1, 1),
+    )
+
+    with pytest.raises(ValueError, match="dimensions exceed"):
+        builder._visible_png_pixel_count(oversized_png)
+
+
+def test_seed_effect_icon_cache_uses_matching_renderer_version(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 1644
+    database_path = tmp_path / "previous.sqlite"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("CREATE TABLE ironsbot_metadata (key TEXT, value TEXT)")
+        connection.execute(
+            "INSERT INTO ironsbot_metadata VALUES (?, ?)",
+            ("effect_icon_png_cache_version", builder.EFFECT_ICON_PNG_CACHE_VERSION),
+        )
+        connection.execute(
+            """
+            CREATE TABLE soulmark_icon (
+                icon_id INTEGER,
+                icon_png BLOB,
+                icon_png_available INTEGER,
+                icon_asset_content_length INTEGER,
+                icon_asset_content_type TEXT
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO soulmark_icon VALUES (?, ?, 1, 123, ?)",
+            (icon_id, _test_png(), "application/x-shockwave-flash"),
+        )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+
+    assert builder._seed_effect_icon_png_cache_from_database(database_path) == 1
+    assert builder._load_effect_icon_png_cache(icon_id, check) == _test_png()
+
+
+def test_seed_effect_icon_cache_rejects_previous_renderer_version(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    database_path = tmp_path / "previous.sqlite"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("CREATE TABLE ironsbot_metadata (key TEXT, value TEXT)")
+        connection.execute(
+            "INSERT INTO ironsbot_metadata VALUES (?, ?)",
+            ("effect_icon_png_cache_version", "effect-icon-png-legacy"),
+        )
+        connection.execute(
+            """
+            CREATE TABLE soulmark_icon (
+                icon_id INTEGER,
+                icon_png BLOB,
+                icon_png_available INTEGER,
+                icon_asset_content_length INTEGER,
+                icon_asset_content_type TEXT
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO soulmark_icon VALUES (1644, ?, 1, 123, ?)",
+            (_test_png(), "application/x-shockwave-flash"),
+        )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+
+    assert builder._seed_effect_icon_png_cache_from_database(database_path) == 0
+    assert not builder._effect_icon_png_cache_path(1644).exists()
+
+
+def test_render_effect_icon_cache_shard_uses_a_stable_partition(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    config_data = type(
+        "ConfigData",
+        (),
+        {
+            "soulmark_icons": [
+                builder.SoulmarkIcon(1, 1, 1, 100),
+                builder.SoulmarkIcon(2, 2, 2, 101),
+                builder.SoulmarkIcon(3, 3, 3, 102),
+                builder.SoulmarkIcon(4, 4, 4, 103),
+            ]
+        },
+    )()
+    captured: dict[str, list[int]] = {}
+    monkeypatch.setattr(builder, "_fetch_config_package_data", lambda: config_data)
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids: {icon_id: object() for icon_id in icon_ids},
+    )
+    monkeypatch.setattr(
+        builder,
+        "_render_effect_icon_png_assets",
+        lambda checks: {
+            icon_id: builder.EffectIconPngRender(
+                icon_id,
+                True,
+                "image/png",
+                1,
+                b"x",
+                "",
+            )
+            for icon_id in checks
+        },
+    )
+    monkeypatch.setattr(
+        builder,
+        "_export_effect_icon_png_cache_shard",
+        lambda icon_ids, _output_dir: captured.setdefault("icon_ids", icon_ids) and 2,
+    )
+
+    icon_count, available_count = builder._render_effect_icon_png_cache_shard(
+        shard_index=1,
+        shard_count=2,
+        output_dir=tmp_path,
+    )
+
+    assert captured["icon_ids"] == [101, 103]
+    assert (icon_count, available_count) == (2, 2)
+
+
+def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_ENABLED", False)
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_REQUIRE_CACHED", True)
+
+    with pytest.raises(ValueError, match="Missing pre-rendered effect icon PNGs: 1644"):
+        builder._render_effect_icon_png_assets({1644: check})
+
+
+def test_effect_icon_render_defaults_allow_complex_swf_exports() -> None:
+    assert builder.EFFECT_ICON_PNG_RENDER_WORKERS == 2
+    assert builder.EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS >= 45
+    assert builder.EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS >= 30
+
+
+def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
+    unavailable_asset = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://example.test/206.swf",
+        available=False,
+        status=404,
+        content_type="text/html",
+        content_length=123,
+        error="HTTP Error 404: Not Found",
+    )
+    render_failure_asset = builder.EffectIconAssetCheck(
+        icon_id=509,
+        url="https://example.test/509.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=456,
+        error="",
+    )
+    successful_asset = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=789,
+        error="",
+    )
+    issues = builder._collect_soulmark_icon_render_issues(
+        [(220, 461, 0, 206), (527, 3142, 791, 509), (1, 2, 3, 1644)],
+        {206: unavailable_asset, 509: render_failure_asset, 1644: successful_asset},
+        {
+            206: builder.EffectIconPngRender(206, False, "", None, None, "asset unavailable"),
+            509: builder.EffectIconPngRender(509, False, "", None, None, "FFDec timed out"),
+            1644: builder.EffectIconPngRender(1644, True, "image/png", 10, _test_png(), ""),
+        },
+        {461: "阿尔克", 3142: "王·雷伊"},
+    )
+
+    assert issues == [
+        builder.SoulmarkIconRenderIssue(
+            icon_id=206,
+            soulmark_id=220,
+            pet_id=461,
+            pet_name="阿尔克",
+            effect_id=0,
+            icon_asset_status=404,
+            icon_asset_error="HTTP Error 404: Not Found",
+            icon_png_error="asset unavailable",
+        ),
+        builder.SoulmarkIconRenderIssue(
+            icon_id=509,
+            soulmark_id=527,
+            pet_id=3142,
+            pet_name="王·雷伊",
+            effect_id=791,
+            icon_asset_status=200,
+            icon_asset_error="",
+            icon_png_error="FFDec timed out",
+        ),
+    ]
 
 
 def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> None:
@@ -351,7 +847,7 @@ def test_render_effect_icon_png_retries_transient_verification_failure(
         content_length=None,
         error="TLS handshake timed out",
     )
-    download_calls: list[builder.EffectIconAssetCheck] = []
+    download_calls: list[object] = []
 
     def fake_download(asset_check):
         download_calls.append(asset_check)
@@ -411,12 +907,12 @@ def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) ->
     assert "fully transparent" in render.error
 
 
-def test_render_composite_effect_icon_png_exports_clean_item_sprite(
+def test_render_effect_icon_png_exports_clean_item_sprite(
     monkeypatch,
 ) -> None:
     check = builder.EffectIconAssetCheck(
-        icon_id=613,
-        url="https://example.test/613.swf",
+        icon_id=1644,
+        url="https://example.test/1644.swf",
         available=True,
         status=200,
         content_type="application/x-shockwave-flash",
@@ -450,7 +946,11 @@ def test_render_composite_effect_icon_png_exports_clean_item_sprite(
                 node.attrib["type"]
                 for node in tree.findall(".//surfaceFilterList/item")
             ]
-            assert filter_types == ["BLURFILTER"]
+            assert filter_types == [
+                "COLORMATRIXFILTER",
+                "GLOWFILTER",
+                "BLURFILTER",
+            ]
             Path(args[-1]).write_bytes(b"FWS")
         else:
             assert args[-1].endswith("icon-clean.swf")
@@ -472,30 +972,119 @@ def test_render_composite_effect_icon_png_exports_clean_item_sprite(
     assert "sprite" in calls[2]
 
 
-def test_strip_effect_icon_presentation_filters_removes_empty_list(
+def test_normalize_effect_icon_display_tree_collapses_presentation_duplicates(
     tmp_path,
 ) -> None:
     xml_path = tmp_path / "icon.xml"
     xml_path.write_text(
         """
         <swf>
-          <item type="PlaceObject3Tag" placeFlagHasFilterList="true">
-            <surfaceFilterList>
-              <item type="COLORMATRIXFILTER" />
-              <item type="GLOWFILTER" />
-            </surfaceFilterList>
+          <item type="DefineSpriteTag" spriteId="5">
+            <subTags>
+              <item type="PlaceObject2Tag"
+                    characterId="1"
+                    depth="2">
+                <matrix scaleX="1" scaleY="1"
+                        translateX="0" translateY="0" />
+              </item>
+              <item type="PlaceObject3Tag"
+                    characterId="3"
+                    depth="3"
+                    blendMode="8"
+                    placeFlagHasBlendMode="true"
+                    placeFlagHasColorTransform="false"
+                    placeFlagHasFilterList="true">
+                <matrix scaleX="0.6" scaleY="0.6"
+                        translateX="-480" translateY="-600" />
+                <surfaceFilterList>
+                  <item type="BLURFILTER" />
+                </surfaceFilterList>
+              </item>
+              <item type="PlaceObject2Tag"
+                    characterId="4"
+                    depth="7">
+                <matrix scaleX="1" scaleY="1"
+                        translateX="0" translateY="0" />
+              </item>
+              <item type="PlaceObject3Tag"
+                    characterId="3"
+                    depth="8"
+                    blendMode="8"
+                    placeFlagHasBlendMode="true"
+                    placeFlagHasColorTransform="true"
+                    placeFlagHasFilterList="true">
+                <matrix scaleX="0.4" scaleY="0.4"
+                        translateX="-320" translateY="-400" />
+                <colorTransform alphaMultTerm="154" />
+                <surfaceFilterList>
+                  <item type="BLURFILTER" />
+                </surfaceFilterList>
+              </item>
+            </subTags>
           </item>
         </swf>
         """,
         encoding="utf-8",
     )
 
-    builder._strip_effect_icon_presentation_filters(xml_path)
+    builder._normalize_effect_icon_display_tree(xml_path)
 
-    item = builder.ET.parse(xml_path).find(".//item")
-    assert item is not None
-    assert item.attrib["placeFlagHasFilterList"] == "false"
-    assert item.find("surfaceFilterList") is None
+    tree = builder.ET.parse(xml_path)
+    placements = tree.findall(".//subTags/item")
+    character_ids = [node.attrib["characterId"] for node in placements]
+    assert character_ids == ["1", "3", "4"]
+    foreground = next(
+        node for node in placements if node.attrib["characterId"] == "3"
+    )
+    assert foreground.attrib["depth"] == "8"
+    assert foreground.attrib["placeFlagHasBlendMode"] == "false"
+    assert foreground.attrib["placeFlagHasColorTransform"] == "false"
+    assert foreground.attrib["placeFlagHasFilterList"] == "false"
+    assert foreground.find("colorTransform") is None
+    assert foreground.find("surfaceFilterList") is None
+    matrix = foreground.find("matrix")
+    assert matrix is not None
+    assert matrix.attrib["scaleX"] == "0.6"
+
+
+def test_normalize_effect_icon_display_tree_keeps_distinct_placements(
+    tmp_path,
+) -> None:
+    xml_path = tmp_path / "icon.xml"
+    xml_path.write_text(
+        """
+        <swf>
+          <item type="DefineSpriteTag" spriteId="5">
+            <subTags>
+              <item type="PlaceObject3Tag"
+                    characterId="3"
+                    depth="1"
+                    placeFlagHasBlendMode="true"
+                    placeFlagHasColorTransform="false"
+                    placeFlagHasFilterList="false">
+                <matrix scaleX="1" scaleY="1"
+                        translateX="0" translateY="0" />
+              </item>
+              <item type="PlaceObject3Tag"
+                    characterId="3"
+                    depth="2"
+                    placeFlagHasBlendMode="true"
+                    placeFlagHasColorTransform="false"
+                    placeFlagHasFilterList="false">
+                <matrix scaleX="1" scaleY="1"
+                        translateX="1000" translateY="0" />
+              </item>
+            </subTags>
+          </item>
+        </swf>
+        """,
+        encoding="utf-8",
+    )
+
+    builder._normalize_effect_icon_display_tree(xml_path)
+
+    placements = builder.ET.parse(xml_path).findall(".//subTags/item")
+    assert len(placements) == 2
 
 
 def test_parse_unity_item_names_reads_exchange_currency_names() -> None:
@@ -683,6 +1272,16 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         special_effect_statuses=[special_effect_status],
         pet_partner_data=pet_partner_data,
         weekly_preview_probe={},
+        skin_image_resolutions=[
+            builder.SkinImageResolution(
+                skin_id=538,
+                head_resource_id=3382,
+                body_resource_id=1400538,
+                head_resolution="unique_name_source",
+                body_resolution="direct_skin",
+                source_pet_id=3382,
+            )
+        ],
     )
 
     with sqlite3.connect(database) as connection:
@@ -723,6 +1322,21 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             FROM pet_partner_upgrade
             """
         ).fetchone()
+        skin_image_row = connection.execute(
+            """
+            SELECT
+                skin_id,
+                head_resource_id,
+                body_resource_id,
+                head_resolution,
+                body_resolution,
+                source_pet_id
+            FROM skin_image_resolution
+            """
+        ).fetchone()
+        icon_issue_count = connection.execute(
+            "SELECT COUNT(*) FROM soulmark_icon_render_issue"
+        ).fetchone()
     assert row == (
         1728296,
         "双源魂蒂",
@@ -736,3 +1350,12 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     assert special_effect_status_row == (147, "旧日之晷", "状态说明", 4125)
     assert partner_row == (15, "源初之夜", 1722827, 8)
     assert partner_upgrade_row == (4329, 15, 36696)
+    assert skin_image_row == (
+        538,
+        3382,
+        1400538,
+        "unique_name_source",
+        "direct_skin",
+        3382,
+    )
+    assert icon_issue_count == (0,)

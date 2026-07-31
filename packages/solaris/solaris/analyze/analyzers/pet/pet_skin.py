@@ -58,6 +58,15 @@ class PetSkinAnalyzer(BasePetAnalyzer):
             if resource_id in real_id_data:
                 resource_id = real_id_data[resource_id]
 
+            shop_price = (
+                self.skin_shop_data.get(skin_id, {}).get('diamond_price') or None
+            )
+            gacha_price = self.skin_store_gacha_data.get(skin_id, {}).get(
+                'diamondprice'
+            )
+            prices = [p for p in (shop_price, gacha_price) if p is not None]
+            diamond_price = min(prices, default=None)
+
             pet_skin_model = PetSkin(
                 id=skin_id,
                 name=pet_skin['name'],
@@ -70,7 +79,17 @@ class PetSkinAnalyzer(BasePetAnalyzer):
                 else None,
                 card_price=self.skin_shop_data.get(skin_id, {}).get('card_price')
                 or None,
+                diamond_price=diamond_price,
             )
+            store_pool_data = self.skin_store_pool_data.get(skin_id)
+            if store_pool_data:
+                pet_skin_model.skinhouse_price = store_pool_data['dis_num']
+                if store_pool_data['cos_num'] < store_pool_data['dis_num']:
+                    pet_skin_model.discounted_skinhouse_price = store_pool_data[
+                        'cos_num'
+                    ]
+                pet_skin_model.ticket_num = store_pool_data['ticket_num']
+
             pet_skin_map[skin_id] = pet_skin_model
 
             skin_ref = ResourceRef.from_model(pet_skin_model)
