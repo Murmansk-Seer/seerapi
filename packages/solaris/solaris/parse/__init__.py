@@ -142,7 +142,7 @@ def run_all_parser(
 
     if exceptions:
         raise ParserExecutionError(
-            '解析器执行异常，共发生 {len(exceptions)} 个异常:\n'
+            f'解析器执行异常，共发生 {len(exceptions)} 个异常:\n'
             + '\n'.join(
                 _format_parser_error(parser_cls, e) for parser_cls, e in exceptions
             )
