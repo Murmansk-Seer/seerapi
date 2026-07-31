@@ -1,3 +1,4 @@
+from abc import ABC
 from collections import defaultdict
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, cast
@@ -21,6 +22,12 @@ if TYPE_CHECKING:
     )
     from solaris.parse.parsers.petbook import ArchivesStoryConfig, ArchivesStoryInfo
     from solaris.parse.parsers.skin_shop import SkinShopItem
+    from solaris.parse.parsers.skin_store import (
+        SkinStoreGachaConfig,
+        SkinStoreGachaItem,
+        SkinStorePoolConfig,
+        SkinStorePoolItem,
+    )
     from solaris.parse.parsers.sp_hide_moves import SpHideMovesConfig, SpMovesItem
 
 
@@ -39,6 +46,8 @@ general_import_config = DataImportConfig(
         'awakenDetail.json',
         'petSkinRewardtype.json',
         'skinShop.json',
+        'skinStorePool.json',
+        'skinStoregacha.json',
     ),
     flash_paths=(
         'config.xml.PetXMLInfo.xml',
@@ -54,7 +63,7 @@ general_import_config = DataImportConfig(
 )
 
 
-class BasePetAnalyzer(BaseDataSourcePostAnalyzer):
+class BasePetAnalyzer(BaseDataSourcePostAnalyzer, ABC):
     @classmethod
     def get_data_import_config(cls) -> DataImportConfig:
         return general_import_config
@@ -118,6 +127,16 @@ class BasePetAnalyzer(BaseDataSourcePostAnalyzer):
             'skin'
         ]
         return {skin['id']: skin for skin in data}
+
+    @cached_property
+    def skin_store_pool_data(self) -> dict[int, 'SkinStorePoolItem']:
+        data: 'SkinStorePoolConfig' = self._get_data('unity', 'skinStorePool.json')
+        return {pool['skinid']: pool for pool in data['item']}
+
+    @cached_property
+    def skin_store_gacha_data(self) -> dict[int, 'SkinStoreGachaItem']:
+        data: 'SkinStoreGachaConfig' = self._get_data('unity', 'skinStoregacha.json')
+        return {gacha['skinid']: gacha for gacha in data['item']}
 
     @cached_property
     def skill_activation_data(self) -> dict[int, 'SpMovesItem']:

@@ -11,7 +11,7 @@ on:
       - "scripts/build_new_content_index.py"
       - ".github/workflows/build-ironsbot-data-db.yml"
   schedule:
-    - cron: "5 */6 * * *"
+    - cron: "5,35 * * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -25,12 +25,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  plan:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
-    permissions:
-      contents: write
+    outputs:
+      skip: ${{ steps.source_check.outputs.skip }}
+      remote_sha: ${{ steps.source_check.outputs.remote_sha }}
+      remote_partner_sha: ${{ steps.source_check.outputs.remote_partner_sha }}
+      remote_item_catalog_sha: ${{ steps.source_check.outputs.remote_item_catalog_sha }}
+      remote_special_effect_status_sha: ${{ steps.source_check.outputs.remote_special_effect_status_sha }}
+      build_sha: ${{ steps.build_ref.outputs.sha }}
 
     steps:
       - name: Checkout
@@ -38,6 +42,10 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Record build revision
+        id: build_ref
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Check data source changes
         id: source_check
@@ -79,13 +87,9 @@ jobs:
           fi
 
           echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
-          echo "previous_sha=${previous_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_partner_sha=${remote_partner_sha}" >> "$GITHUB_OUTPUT"
-          echo "previous_partner_sha=${previous_partner_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_item_catalog_sha=${remote_item_catalog_sha}" >> "$GITHUB_OUTPUT"
-          echo "previous_item_catalog_sha=${previous_item_catalog_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_special_effect_status_sha=${remote_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
-          echo "previous_special_effect_status_sha=${previous_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
 
           if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -95,29 +99,34 @@ jobs:
             echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, api-data=${remote_sha}/${previous_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
-      - name: Skip unchanged build
-        if: steps.source_check.outputs.skip == 'true'
-        run: echo "No api-data release changes; workflow succeeded without rebuilding."
+  render-effect-icon-cache:
+    needs: plan
+    if: ${{ needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    # Normal runs seed the last release and only repair missing or invalid
+    # icons. A cold first release may need to render the full icon set.
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Python
-        if: steps.source_check.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
       - name: Setup Java
-        if: steps.source_check.outputs.skip != 'true'
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
           java-version: "21"
 
       - name: Install parser dependency
-        if: steps.source_check.outputs.skip != 'true'
-        run: python -m pip install UnityPy
+        run: python -m pip install UnityPy Pillow
 
       - name: Install FFDec SWF renderer
-        if: steps.source_check.outputs.skip != 'true'
         run: |
           curl -fsSL \
             -o /tmp/ffdec.zip \
@@ -127,28 +136,103 @@ jobs:
           sudo mkdir -p /opt/ffdec
           sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
           test -f /opt/ffdec/ffdec.jar
-          echo "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR=/opt/ffdec/ffdec.jar" \
-            >> "$GITHUB_ENV"
 
-      - name: Restore effect icon PNG cache
-        if: steps.source_check.outputs.skip != 'true'
-        uses: actions/cache@v4
-        with:
-          path: .cache/effect-icon-png
-          key: ${{ runner.os }}-effect-icon-png-sprite-v1-${{ steps.source_check.outputs.remote_special_effect_status_sha }}
-          restore-keys: |
-            ${{ runner.os }}-effect-icon-png-sprite-v1-
+      - name: Restore previously published icon PNGs
+        run: |
+          mkdir -p .cache/effect-icon-png .previous
+          if curl --fail --location --retry 3 \
+            --output .previous/ironsbot-data.sqlite \
+            https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite; then
+            IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
+              python scripts/build_ironsbot_data_db.py \
+                --seed-effect-icon-cache .previous/ironsbot-data.sqlite
+          else
+            echo "No previous IronsBot data release available; rendering the full icon cache."
+          fi
 
-      - name: Build IronsBot database
-        if: steps.source_check.outputs.skip != 'true'
+      - name: Render missing effect icon PNGs
         env:
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
-          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "12"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "20"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+          # Some older animated soulmark SWFs need about 36 seconds for a
+          # canonical sprite render. Keep two FFDec processes per runner so
+          # their fallback render is not starved by Java process contention.
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
+        run: |
+          python scripts/build_ironsbot_data_db.py \
+            --render-effect-icon-shard 0 \
+            --effect-icon-shard-count 1 \
+            --export-effect-icon-cache-shard .artifacts/effect-icon-cache
+
+      - name: Upload rendered icon PNG cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: effect-icon-cache
+          path: .artifacts/effect-icon-cache
+          retention-days: 1
+          if-no-files-found: error
+
+  build:
+    needs: [plan, render-effect-icon-cache]
+    if: ${{ needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install parser dependency
+        run: python -m pip install UnityPy Pillow
+
+      - name: Install FFDec SWF renderer
+        run: |
+          curl -fsSL \
+            -o /tmp/ffdec.zip \
+            https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.2.1/ffdec_26.2.1.zip
+          echo "0333b56998a55bd83f4e0deb678a811fcdc45607582b4f5dd438309c8c3ad5ce  /tmp/ffdec.zip" \
+            | sha256sum --check
+          sudo mkdir -p /opt/ffdec
+          sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
+          test -f /opt/ffdec/ffdec.jar
+
+      - name: Download rendered icon PNG cache
+        uses: actions/download-artifact@v4
+        with:
+          name: effect-icon-cache
+          path: .cache/effect-icon-png
+
+      - name: Build IronsBot database
+        env:
+          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+          # Asset availability can change between the incremental render job and
+          # this build. Cached PNGs are reused; only newly available misses are
+          # rendered here as a bounded backstop.
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: python scripts/build_ironsbot_data_db.py
 
       - name: Download previous published database
-        if: steps.source_check.outputs.skip != 'true'
         run: |
           set -e
           previous_db="${RUNNER_TEMP}/previous-ironsbot-data.sqlite"
@@ -164,7 +248,6 @@ jobs:
 
       - name: Build new content release index
         id: new_content
-        if: steps.source_check.outputs.skip != 'true'
         env:
           PREVIOUS_IRONSBOT_DATA_DB: ${{ env.PREVIOUS_IRONSBOT_DATA_DB }}
         run: |
@@ -178,7 +261,6 @@ jobs:
 
       - name: Stage previous weekly data release
         if: >-
-          steps.source_check.outputs.skip != 'true' &&
           steps.new_content.outputs.promote_previous == 'true' &&
           steps.new_content.outputs.previous_available == 'true'
         run: |
@@ -190,7 +272,6 @@ jobs:
 
       - name: Upload previous weekly data release
         if: >-
-          steps.source_check.outputs.skip != 'true' &&
           steps.new_content.outputs.promote_previous == 'true' &&
           steps.new_content.outputs.previous_available == 'true'
         uses: softprops/action-gh-release@v2
@@ -207,22 +288,138 @@ jobs:
           files: |
             previous-release/ironsbot-data.sqlite
             previous-release/ironsbot-data.sqlite.sha256
+      - name: Report unresolved soulmark icons
+        run: |
+          python - <<'PY'
+          import os
+          import sqlite3
+          from pathlib import Path
+
+          database = Path("ironsbot-data.sqlite")
+          report_path = Path("effect-icon-render-report.md")
+          with sqlite3.connect(database) as connection:
+              soulmark_rows = connection.execute(
+                  """
+                  SELECT
+                      icon_id,
+                      pet_id,
+                      pet_name,
+                      soulmark_id,
+                      effect_id,
+                      icon_asset_status,
+                      icon_asset_error,
+                      icon_png_error
+                  FROM soulmark_icon_render_issue
+                  ORDER BY icon_id, pet_id, soulmark_id, effect_id
+                  """
+              ).fetchall()
+              skin_rows = connection.execute(
+                  """
+                  SELECT
+                      resolution.skin_id,
+                      skin.name,
+                      skin.resource_id,
+                      resolution.head_resolution,
+                      resolution.body_resolution,
+                      resolution.source_pet_id
+                  FROM skin_image_resolution AS resolution
+                  JOIN pet_skin AS skin ON skin.id = resolution.skin_id
+                  WHERE resolution.head_resolution IN ('unresolved', 'unverified')
+                     OR resolution.body_resolution IN ('unresolved', 'unverified')
+                  ORDER BY resolution.skin_id
+                  """
+              ).fetchall()
+
+          def cell(value: object) -> str:
+              return str(value).replace("\n", " ").replace("\r", " ").replace("|", "\\|")[:180]
+
+          lines = ["# 资源解析报告", "", "## 魂印图标", ""]
+          if not soulmark_rows:
+              lines.append("本次所有已验证魂印图标均已生成可用 PNG。")
+          else:
+              lines.extend(
+                  [
+                      f"本次有 {len(soulmark_rows)} 条精灵/魂印映射未生成 PNG。",
+                      "",
+                      "| 图标 | 精灵 | 魂印 | 效果 | 原因 | 详情 |",
+                      "| --- | --- | --- | --- | --- | --- |",
+                  ]
+              )
+              for (
+                  icon_id,
+                  pet_id,
+                  pet_name,
+                  soulmark_id,
+                  effect_id,
+                  asset_status,
+                  asset_error,
+                  png_error,
+              ) in soulmark_rows:
+                  cause = "官方资源不可用" if int(asset_status) != 200 else "FFDec 未生成有效 PNG"
+                  detail = (
+                      asset_error
+                      or (
+                          f"官方返回 HTTP {asset_status}"
+                          if int(asset_status) != 200
+                          else png_error
+                      )
+                      or "未提供错误详情"
+                  )
+                  lines.append(
+                      "| {icon_id} | {pet_name} ({pet_id}) | {soulmark_id} | {effect_id} | {cause} | {detail} |".format(
+                          icon_id=cell(icon_id),
+                          pet_name=cell(pet_name),
+                          pet_id=cell(pet_id),
+                          soulmark_id=cell(soulmark_id),
+                          effect_id=cell(effect_id),
+                          cause=cause,
+                          detail=cell(detail),
+                      )
+                  )
+
+          lines.extend(["", "## 经典皮肤图片", ""])
+          if not skin_rows:
+              lines.append("本次所有经典皮肤头像与立绘均已确认或完成可信来源回溯。")
+          else:
+              lines.extend(
+                  [
+                      f"本次有 {len(skin_rows)} 个经典皮肤图片资源未能确认。",
+                      "",
+                      "| 皮肤 | 原始资源 | 头像 | 立绘 | 回溯来源精灵 |",
+                      "| --- | --- | --- | --- | --- |",
+                  ]
+              )
+              for skin_id, name, resource_id, head_resolution, body_resolution, source_pet_id in skin_rows:
+                  lines.append(
+                      "| {name} ({skin_id}) | {resource_id} | {head} | {body} | {source_pet_id} |".format(
+                          name=cell(name),
+                          skin_id=cell(skin_id),
+                          resource_id=cell(resource_id),
+                          head=cell(head_resolution),
+                          body=cell(body_resolution),
+                          source_pet_id=cell(source_pet_id) if source_pet_id is not None else "-",
+                      )
+                  )
+
+          report = "\n".join(lines) + "\n"
+          report_path.write_text(report, encoding="utf-8")
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+              summary.write(report)
+          PY
 
       - name: Generate SHA256 checksum
-        if: steps.source_check.outputs.skip != 'true'
         run: sha256sum ironsbot-data.sqlite > ironsbot-data.sqlite.sha256
 
       - name: Record data source checksums
-        if: steps.source_check.outputs.skip != 'true'
         run: |
           set -e
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           mkdir -p .build-state
-          printf '%s\n' "${{ steps.source_check.outputs.remote_sha }}" > .build-state/api-data-sha256
-          printf '%s\n' "${{ steps.source_check.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
-          printf '%s\n' "${{ steps.source_check.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
-          printf '%s\n' "${{ steps.source_check.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_sha }}" > .build-state/api-data-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
           git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256
           if ! git diff --cached --quiet; then
             git commit -m "Record IronsBot data source checksums"
@@ -230,7 +427,6 @@ jobs:
           fi
 
       - name: Upload to Release
-        if: steps.source_check.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ironsbot-data-latest
@@ -244,11 +440,12 @@ jobs:
             ConfigPackage data, Murmansk-Seer/seer-unity-config-parser JSON,
             and weekly preview metadata.
 
-            Last build commit: ${{ github.sha }}
-            Source api-data sha256: ${{ steps.source_check.outputs.remote_sha }}
-            Source partner contracts sha256: ${{ steps.source_check.outputs.remote_partner_sha }}
-            Source Unity item catalog sha256: ${{ steps.source_check.outputs.remote_item_catalog_sha }}
-            Source special effect statuses sha256: ${{ steps.source_check.outputs.remote_special_effect_status_sha }}
+            Last build commit: ${{ needs.plan.outputs.build_sha }}
+            Source api-data sha256: ${{ needs.plan.outputs.remote_sha }}
+            Source partner contracts sha256: ${{ needs.plan.outputs.remote_partner_sha }}
+            Source Unity item catalog sha256: ${{ needs.plan.outputs.remote_item_catalog_sha }}
+            Source special effect statuses sha256: ${{ needs.plan.outputs.remote_special_effect_status_sha }}
           files: |
             ironsbot-data.sqlite
             ironsbot-data.sqlite.sha256
+            effect-icon-render-report.md

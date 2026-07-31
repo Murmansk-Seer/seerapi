@@ -24,11 +24,11 @@ class SkinStorePoolItem(TypedDict):
     ticket_num: int
 
 
-class _SkinStorePoolData(TypedDict):
+class SkinStorePoolConfig(TypedDict):
     item: list[SkinStorePoolItem]
 
 
-class SkinStorePoolParser(BaseParser[_SkinStorePoolData]):
+class SkinStorePoolParser(BaseParser[SkinStorePoolConfig]):
     @classmethod
     def source_config_filename(cls) -> str:
         return 'skinStorePool.bytes'
@@ -37,9 +37,9 @@ class SkinStorePoolParser(BaseParser[_SkinStorePoolData]):
     def parsed_config_filename(cls) -> str:
         return 'skinStorePool.json'
 
-    def parse(self, data: bytes) -> _SkinStorePoolData:
+    def parse(self, data: bytes) -> SkinStorePoolConfig:
         reader = BytesReader(data)
-        result: _SkinStorePoolData = {'item': []}
+        result: SkinStorePoolConfig = {'item': []}
 
         if not reader.ReadBoolean():
             return result
@@ -112,6 +112,54 @@ class SkinStoreTicketParser(BaseParser[_SkinStoreTicketData]):
                 item['para'] = [reader.ReadSignedInt() for _ in range(p_count)]
             item['product_id'] = reader.ReadSignedInt()
             item['tickettype'] = reader.ReadSignedInt()
+            result['item'].append(item)
+
+        return result
+
+
+class SkinStoreGachaItem(TypedDict):
+    des: str
+    name: str
+    diamondprice: int
+    id: int
+    item_id: int
+    monid: int
+    productid: int
+    skinid: int
+
+
+class SkinStoreGachaConfig(TypedDict):
+    item: list[SkinStoreGachaItem]
+
+
+class SkinStoreGachaParser(BaseParser[SkinStoreGachaConfig]):
+    @classmethod
+    def source_config_filename(cls) -> str:
+        return 'skinStoregacha.bytes'
+
+    @classmethod
+    def parsed_config_filename(cls) -> str:
+        return 'skinStoregacha.json'
+
+    def parse(self, data: bytes) -> SkinStoreGachaConfig:
+        reader = BytesReader(data)
+        result: SkinStoreGachaConfig = {'item': []}
+
+        if not reader.ReadBoolean():
+            return result
+
+        count = reader.ReadSignedInt()
+        for _ in range(count):
+            item: SkinStoreGachaItem = {
+                'des': reader.ReadUTFBytesWithLength(),
+                'diamondprice': reader.ReadSignedInt(),
+                'monid': reader.ReadSignedInt(),
+                'name': reader.ReadUTFBytesWithLength(),
+                'productid': reader.ReadSignedInt(),
+                'skinid': reader.ReadSignedInt(),
+                'id': reader.ReadSignedInt(),
+                'item_id': reader.ReadSignedInt(),
+            }
             result['item'].append(item)
 
         return result
