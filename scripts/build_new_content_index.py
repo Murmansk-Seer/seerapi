@@ -1027,17 +1027,6 @@ def write_release_state(
         conn.commit()
 
 
-def should_promote_previous(
-    state: ReleaseState,
-    previous: ReleaseState | None,
-) -> bool:
-    return bool(
-        previous is not None
-        and previous.config_version != state.config_version
-        and previous.weekly_cycle != state.weekly_cycle
-    )
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--current', type=Path, required=True)
@@ -1064,15 +1053,12 @@ def main() -> None:
         history_additions,
     )
     write_release_state(args.current, state, previous)
-    promote_previous = should_promote_previous(state, previous)
     if args.github_output is not None:
         with args.github_output.open('a', encoding='utf-8') as output:
             output.write(f'weekly_cycle={state.weekly_cycle}\n')
             output.write(
                 f'baseline_established={str(state.baseline_established).lower()}\n'
             )
-            output.write(f'promote_previous={str(promote_previous).lower()}\n')
-            output.write(f'previous_available={str(previous is not None).lower()}\n')
     ready_categories = sum(
         1 for category in state.category_states if category.comparison_ready
     )

@@ -320,35 +320,74 @@ jobs:
           python scripts/build_new_content_index.py "${args[@]}" \
             --github-output "$GITHUB_OUTPUT"
 
-      - name: Stage previous weekly data release
-        if: >-
-          steps.new_content.outputs.promote_previous == 'true' &&
-          steps.new_content.outputs.previous_available == 'true'
+      - name: Stage versioned historical data snapshot
+        id: history_snapshot
         run: |
-          set -e
-          mkdir -p previous-release
-          cp "${PREVIOUS_IRONSBOT_DATA_DB}" previous-release/ironsbot-data.sqlite
-          sha256sum previous-release/ironsbot-data.sqlite \
-            > previous-release/ironsbot-data.sqlite.sha256
+          set -euo pipefail
+          config_version="$(
+            python - <<'PY'
+          import sqlite3
 
-      - name: Upload previous weekly data release
-        if: >-
-          steps.new_content.outputs.promote_previous == 'true' &&
-          steps.new_content.outputs.previous_available == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ironsbot-data-previous
-          name: IronsBot Previous Weekly Data DB
-          make_latest: false
-          body: |
-            Previous weekly IronsBot runtime data database.
+          with sqlite3.connect("ironsbot-data.sqlite") as connection:
+              row = connection.execute(
+                  "SELECT current_config_version FROM new_content_release WHERE id = 1"
+              ).fetchone()
+          if row is None or not row[0]:
+              raise SystemExit("new-content release has no official ConfigPackage version")
+          print(row[0])
+          PY
+          )"
+          case "${config_version}" in
+            *[!0-9]* | "")
+              echo "Invalid ConfigPackage version for historical snapshot: ${config_version}" >&2
+              exit 1
+              ;;
+          esac
+          mkdir -p history-release
+          asset="ironsbot-data-${config_version}.sqlite"
+          cp ironsbot-data.sqlite "history-release/${asset}"
+          sha256sum "history-release/${asset}" > "history-release/${asset}.sha256"
+          echo "config_version=${config_version}" >> "$GITHUB_OUTPUT"
+          echo "asset=${asset}" >> "$GITHUB_OUTPUT"
 
-            This asset is the last successful latest database before the
-            current Friday-based official update cycle. It is retained as a
-            stable baseline while `ironsbot-data-latest` continues to update.
-          files: |
-            previous-release/ironsbot-data.sqlite
-            previous-release/ironsbot-data.sqlite.sha256
+      - name: Publish versioned historical data snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HISTORY_ASSET: ${{ steps.history_snapshot.outputs.asset }}
+        run: |
+          set -euo pipefail
+          tag="ironsbot-data-history"
+          if ! gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release create "${tag}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "IronsBot Historical Data DBs" \
+              --notes "Rolling archive of full IronsBot runtime SQLite snapshots. The five newest official ConfigPackage versions are retained for direct comparison. `ironsbot-data-latest` remains the current database used by the bot." \
+              --latest=false
+          fi
+          gh release upload "${tag}" \
+            "history-release/${HISTORY_ASSET}" \
+            "history-release/${HISTORY_ASSET}.sha256" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber
+
+      - name: Retain five historical data snapshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="ironsbot-data-history"
+          mapfile -t versions < <(
+            gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" --json assets \
+              --jq '.assets[].name' \
+              | sed -nE 's/^ironsbot-data-([0-9]+)\.sqlite$/\1/p' \
+              | sort -r
+          )
+          for version in "${versions[@]:5}"; do
+            gh release delete-asset "${tag}" "ironsbot-data-${version}.sqlite" \
+              --repo "${GITHUB_REPOSITORY}" --yes
+            gh release delete-asset "${tag}" "ironsbot-data-${version}.sqlite.sha256" \
+              --repo "${GITHUB_REPOSITORY}" --yes
+          done
       - name: Report unresolved soulmark icons
         run: |
           python - <<'PY'

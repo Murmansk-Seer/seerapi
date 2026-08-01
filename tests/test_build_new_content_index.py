@@ -161,21 +161,6 @@ def test_same_week_accumulates_incremental_rows(tmp_path: Path) -> None:
     ]
 
 
-def test_new_week_promotes_the_previous_latest_as_weekly_baseline(
-    tmp_path: Path,
-) -> None:
-    previous_path = tmp_path / 'previous.sqlite'
-    current_path = tmp_path / 'current.sqlite'
-    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
-    _create_database(current_path, version='20260731090000', pet_ids=(1, 2))
-
-    state = indexer.build_release_state(current_path, previous_path, 'new')
-    previous = indexer._load_previous_state(previous_path)
-
-    assert previous is not None
-    assert indexer.should_promote_previous(state, previous) is True
-
-
 def test_existing_entity_content_changes_are_marked_modified(tmp_path: Path) -> None:
     previous_path = tmp_path / 'previous.sqlite'
     current_path = tmp_path / 'current.sqlite'
