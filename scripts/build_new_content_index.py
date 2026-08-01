@@ -127,6 +127,14 @@ class CategoryState:
     reason: str
 
 
+@dataclass(frozen=True)
+class SourceHistoryAddition:
+    """An entity added by the source repository between two published revisions."""
+
+    category: str
+    entity_id: int
+
+
 def _has_table(conn: sqlite3.Connection, name: str) -> bool:
     return bool(
         conn.execute(
@@ -706,6 +714,42 @@ def _load_category_states(conn: sqlite3.Connection) -> tuple[CategoryState, ...]
     )
 
 
+def load_source_history_additions(path: Path | None) -> tuple[SourceHistoryAddition, ...]:
+    """Load Git-confirmed additions without treating source-file edits as changes.
+
+    The API data repository records both real content additions and broad schema
+    rewrites. The workflow only writes numeric entities created by Git, so this
+    input may safely repair a rolling SQLite baseline that was overwritten after
+    an official update became available.
+    """
+    if path is None or not path.is_file():
+        return ()
+    try:
+        document = json.loads(path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as error:
+        raise ValueError(f'invalid source-history additions: {path}') from error
+    raw_additions = document.get('additions', []) if isinstance(document, dict) else []
+    if not isinstance(raw_additions, list):
+        raise ValueError(f'invalid source-history additions: {path}')
+    additions: set[SourceHistoryAddition] = set()
+    valid_categories = set(CONTENT_CATEGORIES)
+    for raw in raw_additions:
+        if not isinstance(raw, dict):
+            raise ValueError(f'invalid source-history addition: {raw!r}')
+        category = raw.get('category')
+        entity_id = raw.get('entity_id')
+        if (
+            not isinstance(category, str)
+            or category not in valid_categories
+            or isinstance(entity_id, bool)
+            or not isinstance(entity_id, int)
+            or entity_id <= 0
+        ):
+            raise ValueError(f'invalid source-history addition: {raw!r}')
+        additions.add(SourceHistoryAddition(category, entity_id))
+    return tuple(sorted(additions, key=lambda item: (item.category, item.entity_id)))
+
+
 def _new_items(
     current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
     comparable_categories: set[str],
@@ -736,6 +780,26 @@ def _modified_items(
         and item.category in comparable_categories
         and item.semantic_digest != previous_item
     )
+
+
+def _source_history_items(
+    current: tuple[ContentItem, ...],
+    additions: Iterable[SourceHistoryAddition],
+) -> tuple[ContentItem, ...]:
+    """Resolve Git additions through the current SQLite presentation payload."""
+    current_by_id = {(item.category, item.entity_id): item for item in current}
+    resolved: list[ContentItem] = []
+    for addition in additions:
+        categories = (addition.category,)
+        if addition.category == 'equip':
+            # The source API keeps mounts in the equip collection while the
+            # runtime index deliberately presents them as their own category.
+            categories = ('equip', 'mount')
+        for category in categories:
+            if item := current_by_id.get((category, addition.entity_id)):
+                resolved.append(item.with_change_kind('added'))
+                break
+    return tuple(resolved)
 
 
 def _current_subset(
@@ -779,6 +843,7 @@ def build_release_state(
     current_path: Path,
     previous_path: Path | None,
     current_git_sha: str,
+    source_history_additions: Iterable[SourceHistoryAddition] = (),
 ) -> ReleaseState:
     with sqlite3.connect(current_path) as conn:
         current_version = _config_version(conn)
@@ -810,6 +875,7 @@ def build_release_state(
     increment = (
         *_new_items(current_items, previous.source_items, comparable_categories),
         *_modified_items(current_items, previous.source_items, comparable_categories),
+        *_source_history_items(current_items, source_history_additions),
     )
     if previous.weekly_cycle == cycle:
         items = _current_subset((*previous.items, *increment), current_items)
@@ -976,6 +1042,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--current', type=Path, required=True)
     parser.add_argument('--previous', type=Path)
+    parser.add_argument(
+        '--source-history-additions',
+        type=Path,
+        help='Git-confirmed entity additions from the published API source history.',
+    )
     parser.add_argument('--current-git-sha', required=True)
     parser.add_argument(
         '--github-output',
@@ -985,7 +1056,13 @@ def main() -> None:
     args = parser.parse_args()
 
     previous = _load_previous_state(args.previous)
-    state = build_release_state(args.current, args.previous, args.current_git_sha)
+    history_additions = load_source_history_additions(args.source_history_additions)
+    state = build_release_state(
+        args.current,
+        args.previous,
+        args.current_git_sha,
+        history_additions,
+    )
     write_release_state(args.current, state, previous)
     promote_previous = should_promote_previous(state, previous)
     if args.github_output is not None:
