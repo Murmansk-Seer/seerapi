@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -20,8 +21,37 @@ from typing import Any
 
 RELEASE_TABLE = 'new_content_release'
 ITEM_TABLE = 'new_content_item'
+SOURCE_SNAPSHOT_TABLE = 'new_content_source_snapshot'
+CATEGORY_SNAPSHOT_TABLE = 'new_content_source_category'
+CATEGORY_STATE_TABLE = 'new_content_category_state'
 AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
 AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
+
+CONTENT_CATEGORIES = (
+    'achievement',
+    'pet',
+    'pet_skin',
+    'mintmark',
+    'suit',
+    'equip',
+    'mount',
+    'autocard_card',
+    'autocard_role',
+    AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
+)
+
+CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
+    'achievement': ('achievement',),
+    'pet': ('pet',),
+    'pet_skin': ('pet_skin',),
+    'mintmark': ('mintmark',),
+    'suit': ('suit',),
+    'equip': ('equip',),
+    'mount': ('equip',),
+    'autocard_card': ('autocard_card',),
+    'autocard_role': ('autocard_role',),
+    AUTOCARD_SANCTUARY_EFFECT_CATEGORY: (AUTOCARD_SANCTUARY_EFFECT_TABLE,),
+}
 
 
 @dataclass(frozen=True)
@@ -57,6 +87,10 @@ class ContentItem:
             sort_keys=True,
         )
 
+    @property
+    def semantic_digest(self) -> str:
+        return hashlib.sha256(self.semantic_key.encode('utf-8')).hexdigest()
+
     def with_change_kind(self, change_kind: str) -> 'ContentItem':
         return replace(self, change_kind=change_kind)
 
@@ -68,6 +102,27 @@ class ReleaseState:
     weekly_cycle: str
     baseline_established: bool
     items: tuple[ContentItem, ...]
+    source_items: tuple['SourceSnapshotItem', ...] = field(default_factory=tuple)
+    source_categories: frozenset[str] = field(default_factory=frozenset)
+    category_states: tuple['CategoryState', ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class SourceSnapshotItem:
+    category: str
+    entity_id: int
+    semantic_digest: str
+
+    @classmethod
+    def from_content(cls, item: ContentItem) -> 'SourceSnapshotItem':
+        return cls(item.category, item.entity_id, item.semantic_digest)
+
+
+@dataclass(frozen=True)
+class CategoryState:
+    category: str
+    comparison_ready: bool
+    reason: str
 
 
 def _has_table(conn: sqlite3.Connection, name: str) -> bool:
@@ -471,13 +526,36 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
         return None
     with sqlite3.connect(path) as conn:
         version = _config_version(conn)
+        source_items = _load_source_snapshot(conn)
+        if not source_items:
+            source_items = tuple(
+                SourceSnapshotItem.from_content(item)
+                for item in load_current_items(conn)
+            )
+        source_categories = _load_source_categories(conn) or _source_categories(conn)
         if not _has_table(conn, RELEASE_TABLE):
-            return ReleaseState(version, None, _weekly_cycle(version), False, ())
+            return ReleaseState(
+                version,
+                None,
+                _weekly_cycle(version),
+                False,
+                (),
+                source_items,
+                source_categories,
+            )
         row = conn.execute(
             f'SELECT current_git_sha, weekly_cycle, baseline_established FROM {RELEASE_TABLE} WHERE id = 1'
         ).fetchone()
         if row is None:
-            return ReleaseState(version, None, _weekly_cycle(version), False, ())
+            return ReleaseState(
+                version,
+                None,
+                _weekly_cycle(version),
+                False,
+                (),
+                source_items,
+                source_categories,
+            )
         item_columns = {
             str(row[1])
             for row in conn.execute(f'PRAGMA table_info({ITEM_TABLE})').fetchall()
@@ -508,32 +586,90 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
             str(row[1] or _weekly_cycle(version)),
             bool(row[2]),
             items,
+            source_items,
+            source_categories,
+            _load_category_states(conn),
         )
 
 
+def _load_source_snapshot(conn: sqlite3.Connection) -> tuple[SourceSnapshotItem, ...]:
+    if not _has_table(conn, SOURCE_SNAPSHOT_TABLE):
+        return ()
+    return tuple(
+        SourceSnapshotItem(str(row[0]), int(row[1]), str(row[2]))
+        for row in conn.execute(
+            f'''
+            SELECT category, entity_id, semantic_digest
+            FROM {SOURCE_SNAPSHOT_TABLE}
+            ORDER BY category, entity_id
+            '''
+        )
+    )
+
+
+def _load_source_categories(conn: sqlite3.Connection) -> frozenset[str]:
+    if not _has_table(conn, CATEGORY_SNAPSHOT_TABLE):
+        return frozenset()
+    return frozenset(
+        str(row[0])
+        for row in conn.execute(
+            f'SELECT category FROM {CATEGORY_SNAPSHOT_TABLE}'
+        )
+    )
+
+
+def _source_categories(conn: sqlite3.Connection) -> frozenset[str]:
+    return frozenset(
+        category
+        for category, tables in CATEGORY_SOURCE_TABLES.items()
+        if all(_has_table(conn, table) for table in tables)
+    )
+
+
+def _load_category_states(conn: sqlite3.Connection) -> tuple[CategoryState, ...]:
+    if not _has_table(conn, CATEGORY_STATE_TABLE):
+        return ()
+    return tuple(
+        CategoryState(str(row[0]), bool(row[1]), str(row[2]))
+        for row in conn.execute(
+            f'''
+            SELECT category, comparison_ready, reason
+            FROM {CATEGORY_STATE_TABLE}
+            ORDER BY category
+            '''
+        )
+    )
+
+
 def _new_items(
-    current: tuple[ContentItem, ...], previous: tuple[ContentItem, ...]
+    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
+    comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {(item.category, item.entity_id) for item in previous}
-    previous_semantic = {item.semantic_key for item in previous}
+    previous_semantic = {item.semantic_digest for item in previous}
     return tuple(
         item.with_change_kind('added')
         for item in current
-        if (item.category, item.entity_id) not in previous_by_id
-        and item.semantic_key not in previous_semantic
+        if item.category in comparable_categories
+        and (item.category, item.entity_id) not in previous_by_id
+        and item.semantic_digest not in previous_semantic
     )
 
 
 def _modified_items(
-    current: tuple[ContentItem, ...], previous: tuple[ContentItem, ...]
+    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
+    comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
-    previous_by_id = {(item.category, item.entity_id): item for item in previous}
+    previous_by_id = {
+        (item.category, item.entity_id): item.semantic_digest for item in previous
+    }
     return tuple(
         item.with_change_kind('modified')
         for item in current
         if (previous_item := previous_by_id.get((item.category, item.entity_id)))
         is not None
-        and item.semantic_key != previous_item.semantic_key
+        and item.category in comparable_categories
+        and item.semantic_digest != previous_item
     )
 
 
@@ -541,34 +677,37 @@ def _current_subset(
     candidates: Iterable[ContentItem], current: tuple[ContentItem, ...]
 ) -> tuple[ContentItem, ...]:
     current_by_id = {(item.category, item.entity_id): item for item in current}
+    change_kinds = {
+        (item.category, item.entity_id): item.change_kind for item in candidates
+    }
     return tuple(
         sorted(
             (
                 replace(
-                    current_by_id[(item.category, item.entity_id)],
-                    change_kind=item.change_kind,
+                    current_by_id[key],
+                    change_kind=change_kind,
                 )
-                for item in candidates
-                if (item.category, item.entity_id) in current_by_id
+                for key, change_kind in change_kinds.items()
+                if key in current_by_id
             ),
             key=lambda item: (item.category, item.entity_id),
         )
     )
 
 
-def _new_category_baselines(previous_path: Path) -> set[str]:
-    """Return indexed categories whose source table did not exist previously."""
-
-    with sqlite3.connect(previous_path) as conn:
-        if _has_table(conn, AUTOCARD_SANCTUARY_EFFECT_TABLE):
-            return set()
-    return {AUTOCARD_SANCTUARY_EFFECT_CATEGORY}
-
-
-def _without_categories(
-    items: Iterable[ContentItem], categories: set[str]
-) -> tuple[ContentItem, ...]:
-    return tuple(item for item in items if item.category not in categories)
+def _category_states(
+    current_categories: frozenset[str],
+    previous_categories: frozenset[str],
+) -> tuple[CategoryState, ...]:
+    states: list[CategoryState] = []
+    for category in CONTENT_CATEGORIES:
+        if category not in current_categories:
+            states.append(CategoryState(category, False, 'source_unavailable'))
+        elif category not in previous_categories:
+            states.append(CategoryState(category, False, 'first_observation'))
+        else:
+            states.append(CategoryState(category, True, 'ready'))
+    return tuple(states)
 
 
 def build_release_state(
@@ -579,37 +718,48 @@ def build_release_state(
     with sqlite3.connect(current_path) as conn:
         current_version = _config_version(conn)
         current_items = load_current_items(conn)
+        current_categories = _source_categories(conn)
+    current_sources = tuple(
+        SourceSnapshotItem.from_content(item) for item in current_items
+    )
     previous = _load_previous_state(previous_path)
     cycle = _weekly_cycle(current_version)
     if previous is None:
-        return ReleaseState(current_version, current_git_sha, cycle, False, ())
-    assert previous_path is not None
-    if previous.config_version == current_version:
-        # A parser-only rebuild must not turn old rows into a new weekly update.
         return ReleaseState(
             current_version,
             current_git_sha,
-            previous.weekly_cycle,
-            previous.baseline_established,
-            _current_subset(previous.items, current_items),
+            cycle,
+            False,
+            (),
+            current_sources,
+            current_categories,
+            _category_states(current_categories, frozenset()),
         )
-
-    with sqlite3.connect(previous_path) as conn:
-        previous_rows = load_current_items(conn)
-    new_category_baselines = _new_category_baselines(previous_path)
-    increment = (
-        *_without_categories(
-            _new_items(current_items, previous_rows), new_category_baselines
-        ),
-        *_without_categories(
-            _modified_items(current_items, previous_rows), new_category_baselines
-        ),
+    category_states = _category_states(
+        current_categories,
+        previous.source_categories,
     )
-    if previous.weekly_cycle == cycle and previous.baseline_established:
+    comparable_categories = {
+        state.category for state in category_states if state.comparison_ready
+    }
+    increment = (
+        *_new_items(current_items, previous.source_items, comparable_categories),
+        *_modified_items(current_items, previous.source_items, comparable_categories),
+    )
+    if previous.weekly_cycle == cycle:
         items = _current_subset((*previous.items, *increment), current_items)
     else:
         items = increment
-    return ReleaseState(current_version, current_git_sha, cycle, True, items)
+    return ReleaseState(
+        current_version,
+        current_git_sha,
+        cycle,
+        True,
+        items,
+        current_sources,
+        current_categories,
+        category_states,
+    )
 
 
 def write_release_state(
@@ -621,6 +771,9 @@ def write_release_state(
     with sqlite3.connect(path) as conn:
         conn.execute(f'DROP TABLE IF EXISTS {RELEASE_TABLE}')
         conn.execute(f'DROP TABLE IF EXISTS {ITEM_TABLE}')
+        conn.execute(f'DROP TABLE IF EXISTS {SOURCE_SNAPSHOT_TABLE}')
+        conn.execute(f'DROP TABLE IF EXISTS {CATEGORY_SNAPSHOT_TABLE}')
+        conn.execute(f'DROP TABLE IF EXISTS {CATEGORY_STATE_TABLE}')
         conn.execute(
             f"""
             CREATE TABLE {RELEASE_TABLE} (
@@ -633,6 +786,32 @@ def write_release_state(
                 generated_at TEXT NOT NULL,
                 baseline_established INTEGER NOT NULL,
                 schema_version INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE {SOURCE_SNAPSHOT_TABLE} (
+                category TEXT NOT NULL,
+                entity_id INTEGER NOT NULL,
+                semantic_digest TEXT NOT NULL,
+                PRIMARY KEY (category, entity_id)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE {CATEGORY_SNAPSHOT_TABLE} (
+                category TEXT PRIMARY KEY
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE {CATEGORY_STATE_TABLE} (
+                category TEXT PRIMARY KEY,
+                comparison_ready INTEGER NOT NULL,
+                reason TEXT NOT NULL
             )
             """
         )
@@ -685,6 +864,32 @@ def write_release_state(
                 for item in state.items
             ],
         )
+        conn.executemany(
+            f"""
+            INSERT INTO {SOURCE_SNAPSHOT_TABLE}
+                (category, entity_id, semantic_digest)
+            VALUES (?, ?, ?)
+            """,
+            [
+                (item.category, item.entity_id, item.semantic_digest)
+                for item in state.source_items
+            ],
+        )
+        conn.executemany(
+            f'INSERT INTO {CATEGORY_SNAPSHOT_TABLE} (category) VALUES (?)',
+            [(category,) for category in sorted(state.source_categories)],
+        )
+        conn.executemany(
+            f"""
+            INSERT INTO {CATEGORY_STATE_TABLE}
+                (category, comparison_ready, reason)
+            VALUES (?, ?, ?)
+            """,
+            [
+                (state.category, int(state.comparison_ready), state.reason)
+                for state in state.category_states
+            ],
+        )
         conn.execute(
             f'CREATE INDEX idx_{ITEM_TABLE}_category_sort ON {ITEM_TABLE} (category, sort_value)'
         )
@@ -726,10 +931,14 @@ def main() -> None:
             )
             output.write(f'promote_previous={str(promote_previous).lower()}\n')
             output.write(f'previous_available={str(previous is not None).lower()}\n')
-    status = 'ready' if state.baseline_established else 'baseline-not-established'
+    ready_categories = sum(
+        1 for category in state.category_states if category.comparison_ready
+    )
+    status = 'ready' if state.baseline_established else 'history-unavailable'
     print(  # noqa: T201 - CLI status is required by the GitHub Actions log.
         'new-content index: '
-        f'status={status} cycle={state.weekly_cycle} items={len(state.items)}'
+        f'status={status} cycle={state.weekly_cycle} '
+        f'items={len(state.items)} comparable_categories={ready_categories}'
     )
 
 
