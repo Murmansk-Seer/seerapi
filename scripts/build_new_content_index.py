@@ -31,6 +31,7 @@ CONTENT_CATEGORIES = (
     'achievement',
     'pet',
     'pet_skin',
+    'skill',
     'mintmark',
     'suit',
     'equip',
@@ -44,6 +45,7 @@ CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
     'achievement': ('achievement',),
     'pet': ('pet',),
     'pet_skin': ('pet_skin',),
+    'skill': ('skill',),
     'mintmark': ('mintmark',),
     'suit': ('suit',),
     'equip': ('equip',),
@@ -224,6 +226,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         )
 
     skills_by_pet: dict[int, list[dict[str, Any]]] = {}
+    pets_by_skill: dict[int, list[dict[str, Any]]] = {}
     if _has_table(conn, 'skillinpetorm') and _has_table(conn, 'skill'):
         for row in _rows(
             conn,
@@ -232,32 +235,43 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                link.is_fifth, skill.id, skill.name, skill.power, skill.max_pp,
                skill.accuracy, skill.crit_rate, skill.priority, skill.must_hit,
                skill.atk_num, skill.info, skill.category_id, skill.type_id,
-               skill.hide_effect_id, skill.advance_id
+               skill.hide_effect_id, skill.advance_id,
+               COALESCE(pet.name, '') AS pet_name
         FROM skillinpetorm AS link
         JOIN skill ON skill.id = link.skill_id
+        LEFT JOIN pet ON pet.id = link.pet_id
         ORDER BY link.pet_id, link.learning_level, skill.id
             """,
         ):
-            skills_by_pet.setdefault(int(row['pet_id']), []).append(
+            skill = {
+                'id': int(row['id']),
+                'name': str(row['name']),
+                'power': int(row['power'] or 0),
+                'max_pp': int(row['max_pp'] or 0),
+                'accuracy': int(row['accuracy'] or 0),
+                'crit_rate': int(row['crit_rate'] or 0),
+                'priority': int(row['priority'] or 0),
+                'must_hit': bool(row['must_hit']),
+                'atk_num': int(row['atk_num'] or 0),
+                'info': str(row['info'] or ''),
+                'category_id': int(row['category_id'] or 0),
+                'type_id': int(row['type_id'] or 0),
+                'hide_effect_id': int(row['hide_effect_id'] or 0),
+                'advance_id': int(row['advance_id'] or 0),
+                'learning_level': int(row['learning_level'] or 0),
+                'is_special': bool(row['is_special']),
+                'is_advanced': bool(row['is_advanced']),
+                'is_fifth': bool(row['is_fifth']),
+            }
+            skills_by_pet.setdefault(int(row['pet_id']), []).append(skill)
+            pets_by_skill.setdefault(int(row['id']), []).append(
                 {
-                    'id': int(row['id']),
-                    'name': str(row['name']),
-                    'power': int(row['power'] or 0),
-                    'max_pp': int(row['max_pp'] or 0),
-                    'accuracy': int(row['accuracy'] or 0),
-                    'crit_rate': int(row['crit_rate'] or 0),
-                    'priority': int(row['priority'] or 0),
-                    'must_hit': bool(row['must_hit']),
-                    'atk_num': int(row['atk_num'] or 0),
-                    'info': str(row['info'] or ''),
-                    'category_id': int(row['category_id'] or 0),
-                    'type_id': int(row['type_id'] or 0),
-                    'hide_effect_id': int(row['hide_effect_id'] or 0),
-                    'advance_id': int(row['advance_id'] or 0),
-                    'learning_level': int(row['learning_level'] or 0),
-                    'is_special': bool(row['is_special']),
-                    'is_advanced': bool(row['is_advanced']),
-                    'is_fifth': bool(row['is_fifth']),
+                    'id': int(row['pet_id']),
+                    'name': str(row['pet_name'] or ''),
+                    'learning_level': skill['learning_level'],
+                    'is_special': skill['is_special'],
+                    'is_advanced': skill['is_advanced'],
+                    'is_fifth': skill['is_fifth'],
                 }
             )
 
@@ -352,6 +366,48 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 },
             )
         )
+
+    if _has_table(conn, 'skill'):
+        skill_fields = tuple(
+            field
+            for field in (
+                'power',
+                'max_pp',
+                'accuracy',
+                'crit_rate',
+                'priority',
+                'must_hit',
+                'atk_num',
+                'info',
+                'category_id',
+                'type_id',
+                'hide_effect_id',
+                'advance_id',
+            )
+            if field in _table_columns(conn, 'skill')
+        )
+        skill_select = ', '.join(('id', 'name', *skill_fields))
+        for row in _rows(conn, f'SELECT {skill_select} FROM skill'):
+            entity_id = int(row['id'])
+            payload: dict[str, Any] = {
+                'pets': pets_by_skill.get(entity_id, []),
+            }
+            for field in skill_fields:
+                if field == 'info':
+                    payload[field] = str(row[field] or '')
+                elif field == 'must_hit':
+                    payload[field] = bool(row[field])
+                else:
+                    payload[field] = int(row[field] or 0)
+            items.append(
+                ContentItem(
+                    'skill',
+                    entity_id,
+                    str(row['name']),
+                    entity_id,
+                    payload,
+                )
+            )
 
     skin_fields = tuple(
         field
@@ -527,12 +583,21 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
     with sqlite3.connect(path) as conn:
         version = _config_version(conn)
         source_items = _load_source_snapshot(conn)
+        source_categories = _load_source_categories(conn)
+        current_items = load_current_items(conn)
+        current_categories = _source_categories(conn)
         if not source_items:
             source_items = tuple(
-                SourceSnapshotItem.from_content(item)
-                for item in load_current_items(conn)
+                SourceSnapshotItem.from_content(item) for item in current_items
             )
-        source_categories = _load_source_categories(conn) or _source_categories(conn)
+        else:
+            missing_categories = current_categories - source_categories
+            source_items = (*source_items, *(
+                SourceSnapshotItem.from_content(item)
+                for item in current_items
+                if item.category in missing_categories
+            ))
+        source_categories = source_categories | current_categories
         if not _has_table(conn, RELEASE_TABLE):
             return ReleaseState(
                 version,

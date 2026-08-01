@@ -27,6 +27,7 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
                 ability_desc TEXT, achievement_id INTEGER
             );
             CREATE TABLE pet (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE skill (id INTEGER PRIMARY KEY, name TEXT, info TEXT);
             CREATE TABLE pet_skin (
                 id INTEGER PRIMARY KEY, name TEXT, resource_id INTEGER, pet_id INTEGER
             );
@@ -51,6 +52,7 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
             'INSERT INTO pet VALUES (?, ?)',
             [(item, f'精灵{item}') for item in pet_ids],
         )
+        conn.execute("INSERT INTO skill VALUES (9000, '基础技能', '基础效果')")
         conn.execute("INSERT INTO pet_skin VALUES (100, '皮肤', 100, ?)", (pet_ids[0],))
         conn.execute("INSERT INTO mintmark VALUES (200, '刻印', '刻印描述')")
         conn.execute("INSERT INTO suit VALUES (300, '套装', '套装描述')")
@@ -188,6 +190,46 @@ def test_existing_entity_content_changes_are_marked_modified(tmp_path: Path) -> 
         (item.category, item.entity_id, item.change_kind) for item in state.items
     }
     assert all(item.category != 'pet_skin' for item in state.items)
+
+
+def test_new_skills_include_their_available_payload(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute(
+            "INSERT INTO skill VALUES (9001, '新增技能', '新增技能效果')"
+        )
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    skill = next(item for item in state.items if item.category == 'skill')
+    assert skill.entity_id == 9001
+    assert skill.name == '新增技能'
+    assert skill.payload['info'] == '新增技能效果'
+
+
+def test_new_category_uses_previous_raw_table_as_its_source_snapshot(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    baseline = indexer.build_release_state(previous_path, None, 'old')
+    indexer.write_release_state(previous_path, baseline, None)
+    with sqlite3.connect(previous_path) as conn:
+        conn.execute("DELETE FROM new_content_source_snapshot WHERE category = 'skill'")
+        conn.execute("DELETE FROM new_content_source_category WHERE category = 'skill'")
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute("INSERT INTO skill VALUES (9001, '新增技能', '新增技能效果')")
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    categories = {item.category: item for item in state.category_states}
+    assert categories['skill'].comparison_ready is True
+    assert ('skill', 9001) in {(item.category, item.entity_id) for item in state.items}
 
 
 def test_first_autocard_tables_are_not_reported_as_new(tmp_path: Path) -> None:
