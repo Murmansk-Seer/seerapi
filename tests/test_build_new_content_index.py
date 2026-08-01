@@ -116,6 +116,31 @@ def test_same_version_rebuild_preserves_existing_index_and_removed_rows_drop(
     assert state.items == ()
 
 
+def test_same_version_source_change_is_still_indexed(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260731090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1, 2))
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert [(item.category, item.entity_id) for item in state.items] == [('pet', 2)]
+    assert all(category.comparison_ready for category in state.category_states if category.category == 'pet')
+
+
+def test_renumbered_item_with_same_semantic_content_is_not_new(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260731090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(2,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute("UPDATE pet SET name = '精灵1' WHERE id = 2")
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert all(item.category != 'pet' for item in state.items)
+
+
 def test_same_week_accumulates_incremental_rows(tmp_path: Path) -> None:
     prior_raw = tmp_path / 'prior-raw.sqlite'
     previous_path = tmp_path / 'previous.sqlite'
@@ -165,7 +190,7 @@ def test_existing_entity_content_changes_are_marked_modified(tmp_path: Path) -> 
     assert all(item.category != 'pet_skin' for item in state.items)
 
 
-def test_autocard_cards_and_roles_keep_separate_id_spaces(tmp_path: Path) -> None:
+def test_first_autocard_tables_are_not_reported_as_new(tmp_path: Path) -> None:
     previous_path = tmp_path / 'previous.sqlite'
     current_path = tmp_path / 'current.sqlite'
     _create_database(previous_path, version='20260724090000', pet_ids=(1,))
@@ -179,6 +204,43 @@ def test_autocard_cards_and_roles_keep_separate_id_spaces(tmp_path: Path) -> Non
             INSERT INTO autocard_role VALUES (1, '角色一号', '{"id": 1, "skillTxt": "原技能"}');
             """
         )
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert not {
+        (item.category, item.entity_id)
+        for item in state.items
+        if item.category in {'autocard_card', 'autocard_role'}
+    }
+    states = {item.category: item for item in state.category_states}
+    assert states['autocard_card'].reason == 'first_observation'
+    assert states['autocard_role'].reason == 'first_observation'
+
+
+def test_autocard_cards_and_roles_keep_separate_id_spaces(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    for path, card_name, role_name in (
+        (previous_path, '旧卡牌', '旧角色'),
+        (current_path, '新卡牌', '新角色'),
+    ):
+        with sqlite3.connect(path) as conn:
+            conn.executescript(
+                """
+                CREATE TABLE autocard_card (id INTEGER PRIMARY KEY, name TEXT, raw_json TEXT);
+                CREATE TABLE autocard_role (id INTEGER PRIMARY KEY, name TEXT, raw_json TEXT);
+                """
+            )
+            conn.execute(
+                "INSERT INTO autocard_card VALUES (1, ?, ?)",
+                (card_name, f'{{"id": 1, "cardTxt": "{card_name}"}}'),
+            )
+            conn.execute(
+                "INSERT INTO autocard_role VALUES (1, ?, ?)",
+                (role_name, f'{{"id": 1, "skillTxt": "{role_name}"}}'),
+            )
 
     state = indexer.build_release_state(current_path, previous_path, 'current-sha')
 
@@ -242,6 +304,27 @@ def test_first_sanctuary_effect_table_establishes_its_own_baseline(
     state = indexer.build_release_state(current_path, previous_path, 'current-sha')
 
     assert all(item.category != 'autocard_sanctuary_effect' for item in state.items)
+    sanctuary = next(
+        category
+        for category in state.category_states
+        if category.category == 'autocard_sanctuary_effect'
+    )
+    assert sanctuary.comparison_ready is False
+    assert sanctuary.reason == 'first_observation'
+
+
+def test_source_snapshot_is_reused_when_previous_index_is_rebuilt(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    first = indexer.build_release_state(previous_path, None, 'old-sha')
+    indexer.write_release_state(previous_path, first, None)
+    _create_database(current_path, version='20260731090000', pet_ids=(1, 2))
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert [(item.category, item.entity_id) for item in state.items] == [('pet', 2)]
+    assert len(state.source_items) == len(indexer.load_current_items(sqlite3.connect(current_path)))
 
 
 def test_sanctuary_effect_changes_are_indexed_with_sanctuary_context(
