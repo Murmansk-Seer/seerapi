@@ -1198,8 +1198,10 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
                 "upgrades": [
                     {
                         "pet_id": upgrade["monID"],
-                        "before_description": upgrade["descBefore"],
-                        "after_description": upgrade["descAfter"],
+                        # partner_contracts.json v1 has these source keys
+                        # reversed; the builder normalizes them on ingest.
+                        "before_description": upgrade["descAfter"],
+                        "after_description": upgrade["descBefore"],
                         "skill_ids": [upgrade["skill"]],
                     }
                     for upgrade in upgrades["data"]
@@ -1207,8 +1209,8 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
                 + [
                     {
                         "pet_id": 3142,
-                        "before_description": "强化前魂印",
-                        "after_description": "强化后魂印",
+                        "before_description": "强化后魂印",
+                        "after_description": "强化前魂印",
                         "skill_ids": ["123"],
                     }
                 ],

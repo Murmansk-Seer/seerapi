@@ -195,6 +195,15 @@ PARTNER_CONTRACTS_URL = os.environ.get(
     "config-sources/main/unity/partner_contracts.json",
 )
 PARTNER_CONTRACTS_SCHEMA_VERSION = 1
+# ``partner_contracts.json`` v1 was generated with its two upgrade description
+# keys reversed: ``before_description`` contains the strengthened text and
+# ``after_description`` contains the original text. Normalize the source at the
+# publishing boundary so every consumer of ``ironsbot-data.sqlite`` sees the
+# documented before/after meaning.
+PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED = True
+PET_PARTNER_UPGRADE_NORMALIZED_SOURCE = (
+    "ConfigPackage/partnerEffectUpgrade.bytes#normalized-v1"
+)
 # ``partner.bytes`` uses two unrelated group types. Only type 2 is the
 # contract/bond system paid with Contract Badges; type 1 is the elemental king
 # inheritance system and has a different, currently unmodelled, currency.
@@ -2813,10 +2822,18 @@ def _parse_pet_partner_data(partner_contracts_data: bytes) -> PetPartnerData:
             for skill_index, skill_id in enumerate(raw_skill_ids)
         ]
         skill_id = next((value for value in skill_ids if value > 0), None)
+        source_before_description = _item_text(row, "before_description").strip()
+        source_after_description = _item_text(row, "after_description").strip()
+        if PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED:
+            source_before_description, source_after_description = (
+                source_after_description,
+                source_before_description,
+            )
+
         upgrades[pet_id] = PetPartnerUpgrade(
             pet_id=pet_id,
-            before_description=_item_text(row, "before_description").strip(),
-            after_description=_item_text(row, "after_description").strip(),
+            before_description=source_before_description,
+            after_description=source_after_description,
             skill_id=skill_id,
         )
 
@@ -3290,7 +3307,7 @@ def _replace_pet_partner_tables(
                 upgrade.before_description,
                 upgrade.after_description,
                 upgrade.skill_id,
-                "ConfigPackage/partnerEffectUpgrade.bytes",
+                PET_PARTNER_UPGRADE_NORMALIZED_SOURCE,
                 updated_at,
             )
             for upgrade in data.upgrades
