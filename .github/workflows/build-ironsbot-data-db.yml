@@ -266,6 +266,43 @@ jobs:
             rm -f "${previous_db}"
           fi
 
+      - name: Collect API data source-history additions
+        run: |
+          set -euo pipefail
+          history_dir="${RUNNER_TEMP}/api-data-history"
+          additions_path="${RUNNER_TEMP}/api-data-history-additions.json"
+          asset_updated_at="$(
+            curl -fsSL https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest \
+              | python -c 'import json, sys; print(next(asset["updated_at"] for asset in json.load(sys.stdin)["assets"] if asset["name"] == "seerapi-data.sqlite"))'
+          )"
+          git clone --quiet --filter=blob:none --no-checkout --depth=128 \
+            https://github.com/Murmansk-Seer/api-data.git "${history_dir}"
+          source_paths=(
+            data/v1/data/achievement
+            data/v1/data/pet
+            data/v1/data/pet_skin
+            data/v1/data/skill
+            data/v1/data/mintmark
+            data/v1/data/suit
+            data/v1/data/equip
+          )
+          source_head="$(
+            git -C "${history_dir}" log -1 --before="${asset_updated_at}" \
+              --format=%H origin/main -- "${source_paths[@]}"
+          )"
+          if [ -z "${source_head}" ]; then
+            echo "No API data entity revision was found before ${asset_updated_at}."
+            exit 0
+          fi
+          source_base="$(git -C "${history_dir}" rev-parse "${source_head}^")"
+          python scripts/build_source_history_additions.py \
+            --repository "${history_dir}" \
+            --base "${source_base}" \
+            --head "${source_head}" \
+            --output "${additions_path}"
+          echo "API data history baseline: ${source_base}"
+          echo "API data history revision: ${source_head}"
+
       - name: Build new content release index
         id: new_content
         env:
@@ -275,6 +312,10 @@ jobs:
           args=(--current ironsbot-data.sqlite --current-git-sha "${GITHUB_SHA}")
           if [ -n "${PREVIOUS_IRONSBOT_DATA_DB:-}" ] && [ -f "${PREVIOUS_IRONSBOT_DATA_DB}" ]; then
             args+=(--previous "${PREVIOUS_IRONSBOT_DATA_DB}")
+          fi
+          history_additions="${RUNNER_TEMP}/api-data-history-additions.json"
+          if [ -f "${history_additions}" ]; then
+            args+=(--source-history-additions "${history_additions}")
           fi
           python scripts/build_new_content_index.py "${args[@]}" \
             --github-output "$GITHUB_OUTPUT"

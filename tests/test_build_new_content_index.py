@@ -232,6 +232,51 @@ def test_new_category_uses_previous_raw_table_as_its_source_snapshot(
     assert ('skill', 9001) in {(item.category, item.entity_id) for item in state.items}
 
 
+def test_source_history_additions_repair_an_overwritten_same_version_baseline(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    additions_path = tmp_path / 'additions.json'
+    _create_database(previous_path, version='20260730210447', pet_ids=(1, 2))
+    baseline = indexer.build_release_state(previous_path, None, 'old')
+    indexer.write_release_state(previous_path, baseline, None)
+    _create_database(current_path, version='20260730210447', pet_ids=(1, 2))
+    additions_path.write_text(
+        '{"additions": [{"category": "pet", "entity_id": 2}]}',
+        encoding='utf-8',
+    )
+
+    state = indexer.build_release_state(
+        current_path,
+        previous_path,
+        'current-sha',
+        indexer.load_source_history_additions(additions_path),
+    )
+
+    assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
+        ('pet', 2, 'added')
+    ]
+
+
+def test_source_history_additions_route_equip_mounts_to_the_runtime_category(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / 'current.sqlite'
+    _create_database(database, version='20260730210447', pet_ids=(1,))
+    with sqlite3.connect(database) as conn:
+        current = indexer.load_current_items(conn)
+
+    items = indexer._source_history_items(
+        current,
+        (indexer.SourceHistoryAddition('equip', 401),),
+    )
+
+    assert [(item.category, item.entity_id, item.change_kind) for item in items] == [
+        ('mount', 401, 'added')
+    ]
+
+
 def test_first_autocard_tables_are_not_reported_as_new(tmp_path: Path) -> None:
     previous_path = tmp_path / 'previous.sqlite'
     current_path = tmp_path / 'current.sqlite'
