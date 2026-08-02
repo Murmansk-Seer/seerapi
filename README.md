@@ -41,6 +41,7 @@ uv sync
 
 # 使用 CLI 工具
 uv run solaris --help
+uv run seerapi resolve-skill 105025
 
 # 运行单个包的测试
 uv run --package seerapi-models pytest

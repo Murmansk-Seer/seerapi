@@ -44,7 +44,16 @@ seerapi get-by-name skill "虚妄幻境"
 
 返回 `{ "<id>": { ... }, ... }` 字典。同名技能可能有多条，需结合 `id`、`power`、`category` 等字段甄别。
 
-## 4. 资源名纠错
+## 4. 解析阵容中的技能石运行时 ID
+
+```bash
+seerapi resolve-skill 105025 --fields kind,skill_stone_runtime,skill_stone,selected_effect
+```
+
+`105025` 会解析为物理攻击类别、技能石 25 和第 5 种附加特效。该命令会先查询普通
+技能，未命中后才解码技能石，因此不会把真实普通技能误判为技能石。
+
+## 5. 资源名纠错
 
 ```bash
 seerapi get pets 1
@@ -58,7 +67,7 @@ stderr（exit code 2）：
 
 修正为 `seerapi get pet 1`。
 
-## 5. 查看分页结构 vs 实例字段
+## 6. 查看分页结构 vs 实例字段
 
 ```bash
 # 实例字段（默认，LLM 查数据时用）
@@ -71,7 +80,7 @@ seerapi describe pet --scope list
 seerapi describe skill --scope name
 ```
 
-## 6. 人类可读输出
+## 7. 人类可读输出
 
 仅在需要人工查看时使用：
 

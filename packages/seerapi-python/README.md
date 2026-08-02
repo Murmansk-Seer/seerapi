@@ -51,6 +51,49 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
+### 解析阵容中的运行时技能 ID
+
+阵容封包中的技能石不是普通技能 ID，而是由攻击类别、特效序号和技能石 ID 组成的
+运行时复合值。不要直接用 `get('skill', 105025)` 查询，也不要把这些组合复制进普通
+技能表；使用 `resolve_skill` 即可同时兼容普通技能和技能石：
+
+```python
+import asyncio
+from seerapi import SeerAPI
+
+
+async def main():
+    async with SeerAPI() as client:
+        resolved = await client.resolve_skill(105025)
+        assert resolved.kind == 'skill_stone'
+        print(resolved.skill_stone.name)  # S级电系技能石
+        print(resolved.skill_stone.move_name)  # 电石之力-S（新数据发布后提供）
+        print(resolved.skill_stone_runtime.attack_category_name)  # 物理
+        print(resolved.selected_effect.effect[0].info)
+
+
+asyncio.run(main())
+```
+
+只需要拆分 ID、不访问 API 时，可以使用：
+
+```python
+from seerapi import decode_skill_stone_runtime_id
+
+decoded = decode_skill_stone_runtime_id(105025)
+# SkillStoneRuntimeId(category=1, effect=5, stone=25)
+```
+
+命令行等价入口：
+
+```bash
+seerapi resolve-skill 105025
+seerapi resolve-skill 105025 --fields kind,skill_stone_runtime,selected_effect
+```
+
+解码公式为 `category * 100000 + effect_inner_id * 1000 + stone_id`。客户端会先按
+完整 ID 查询普通技能，仅在 404 时尝试技能石解码，并确认解码出的技能石和特效真实存在。
+
 ### 同步使用方式
 
 如果你需要在同步代码中使用，可以使用 `async_to_sync` 装饰器：

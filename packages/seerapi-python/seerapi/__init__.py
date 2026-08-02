@@ -5,6 +5,11 @@ from typing import Any, ParamSpec, TypeVar
 
 from ._client import SeerAPI
 from ._models import PagedResponse, PageInfo
+from .runtime_skill import (
+    ResolvedRuntimeSkill,
+    SkillStoneRuntimeId,
+    decode_skill_stone_runtime_id,
+)
 
 P = ParamSpec('P')
 T = TypeVar('T')
@@ -55,4 +60,12 @@ def async_to_sync(async_func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P
     return wrapper
 
 
-__all__ = ['PageInfo', 'PagedResponse', 'SeerAPI', 'async_to_sync']
+__all__ = [
+    'PageInfo',
+    'PagedResponse',
+    'ResolvedRuntimeSkill',
+    'SeerAPI',
+    'SkillStoneRuntimeId',
+    'async_to_sync',
+    'decode_skill_stone_runtime_id',
+]

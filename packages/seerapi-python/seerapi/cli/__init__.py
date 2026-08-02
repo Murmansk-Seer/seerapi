@@ -4,6 +4,7 @@ from seerapi.cli.commands.describe import describe_cmd
 from seerapi.cli.commands.get import get_cmd
 from seerapi.cli.commands.get_by_name import get_by_name_cmd
 from seerapi.cli.commands.list_cmd import list_cmd
+from seerapi.cli.commands.resolve_skill import resolve_skill_cmd
 from seerapi.cli.commands.resources import resources_cmd
 from seerapi.cli.commands.skill import skill_group
 from seerapi.cli.context import CliContext
@@ -71,4 +72,5 @@ cli_main.add_command(describe_cmd)
 cli_main.add_command(get_cmd)
 cli_main.add_command(list_cmd)
 cli_main.add_command(get_by_name_cmd)
+cli_main.add_command(resolve_skill_cmd)
 cli_main.add_command(skill_group)

@@ -31,7 +31,10 @@ class SkillStoneEffectBase(BaseResModelWithOptionalId):
     inner_id: int = Field(
         description='技能石效果的内部ID，当技能石为完美技能石时，会使用此ID表示效果'
     )
-    prob: float = Field(description='技能石效果激活概率，0到1之间')
+    prob: float | None = Field(
+        default=None,
+        description='技能石效果激活概率，0到1之间；官方旧版配置缺失时为null',
+    )
 
     @classmethod
     def resource_name(cls) -> str:
@@ -54,6 +57,10 @@ class SkillStoneEffectORM(SkillStoneEffectBase, table=True):
 class SkillStoneBase(BaseResModel):
     id: int = Field(primary_key=True, description='技能石ID')
     name: str = Field(description='技能石名称')
+    move_name: str | None = Field(
+        default=None,
+        description='当前Unity技能配置中的招式名称，例如“电石之力-S”',
+    )
     rank: int = Field(description='技能石等级，1到5分别对应D, C, B, A, S')
     power: int = Field(description='技能石威力')
     max_pp: int = Field(description='技能石最大PP')
@@ -88,6 +95,7 @@ class SkillStone(SkillStoneBase, ConvertToORM['SkillStoneORM']):
             id=self.id,
             item_id=self.item.id,
             name=self.name,
+            move_name=self.move_name,
             rank=self.rank,
             power=self.power,
             max_pp=self.max_pp,
