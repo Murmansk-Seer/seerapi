@@ -46,9 +46,7 @@ def _flash_effect_probability_map(
     for effect in _as_list(flash_stone.get('MoveEffect')):
         inner_id = effect.get('ID')
         probability = effect.get('EffectProb')
-        if isinstance(inner_id, (int, float)) and isinstance(
-            probability, (int, float)
-        ):
+        if isinstance(inner_id, (int, float)) and isinstance(probability, (int, float)):
             result[int(inner_id)] = float(probability) / 100
     return result
 
