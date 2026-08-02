@@ -3,7 +3,7 @@ from typing import cast
 from typing_extensions import Self
 
 from hishel.httpx import AsyncCacheClient
-from httpx import URL
+from httpx import URL, HTTPStatusError
 from httpx._urls import QueryParams
 
 from seerapi._model_map import (
@@ -17,7 +17,13 @@ from seerapi._typing import (
     T_ModelInstance,
     T_NamedModelInstance,
 )
+from seerapi.runtime_skill import (
+    ResolvedRuntimeSkill,
+    decode_skill_stone_runtime_id,
+)
 from seerapi_models.common import NamedData, ResourceRef
+from seerapi_models.items import SkillStone
+from seerapi_models.skill import Skill
 
 
 def _parse_url_params(url: str) -> QueryParams:
@@ -75,6 +81,50 @@ class SeerAPI:
     async def aclose(self) -> None:
         """关闭客户端连接并释放资源"""
         await self._client.aclose()
+
+    async def resolve_skill(self, skill_id: int) -> ResolvedRuntimeSkill:
+        """Resolve a normal skill or a composite runtime skill-stone ID."""
+
+        normal_not_found: HTTPStatusError | None = None
+        try:
+            skill = cast(Skill, await self.get('skill', skill_id))
+        except HTTPStatusError as error:
+            if error.response.status_code != 404:
+                raise
+            normal_not_found = error
+        else:
+            return ResolvedRuntimeSkill(
+                runtime_id=skill_id,
+                kind='skill',
+                skill=skill,
+            )
+
+        runtime_id = decode_skill_stone_runtime_id(skill_id)
+        if runtime_id is None:
+            if normal_not_found is None:
+                raise RuntimeError('normal skill lookup did not return a result')
+            raise normal_not_found
+        stone = cast(SkillStone, await self.get('skill_stone', runtime_id.stone_id))
+        selected_effect = next(
+            (
+                effect
+                for effect in stone.effect
+                if effect.inner_id == runtime_id.effect_inner_id
+            ),
+            None,
+        )
+        if runtime_id.effect_inner_id > 0 and selected_effect is None:
+            raise ValueError(
+                f'skill stone {runtime_id.stone_id} has no effect '
+                f'{runtime_id.effect_inner_id}'
+            )
+        return ResolvedRuntimeSkill(
+            runtime_id=skill_id,
+            kind='skill_stone',
+            skill_stone=stone,
+            skill_stone_runtime=runtime_id,
+            selected_effect=selected_effect,
+        )
 
     def _get_resource_name_from_ref(self, ref: ResourceRef[T_ModelInstance]) -> str:
         ref_url = URL(ref.url)

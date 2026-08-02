@@ -1,33 +1,111 @@
+from collections.abc import Callable
 from functools import cached_property
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from seerapi_models.common import ResourceRef
+from seerapi_models.common import ResourceRef, SkillEffectInUse
 from seerapi_models.element_type import TypeCombination
 from seerapi_models.items import Item, SkillStone, SkillStoneCategory, SkillStoneEffect
 from solaris.analyze.base import AnalyzeResult, DataImportConfig
 from solaris.analyze.utils import CategoryMap
-from solaris.utils import split_string_arg
 
 from ..skill import BaseSkillEffectAnalyzer
 from ._general import BaseItemAnalyzer
 
 if TYPE_CHECKING:
     from solaris.parse.parsers.items_optimize import Item11
+    from solaris.parse.parsers.move_stones import MoveStoneItem
 
 
 if TYPE_CHECKING:
 
     class SkillStoneDict(Item11):
+        move_name: str
         power: int
         max_pp: int
         accuracy: int
         effect: list['SkillStoneEffect']
 
 
+CreateSkillEffects = Callable[[list[int], list[int]], list[SkillEffectInUse]]
+
+
+def _as_list(value: object) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    if isinstance(value, dict):
+        return [value]
+    return []
+
+
+def _flash_effect_probability_map(
+    flash_stone: dict[str, Any] | None,
+) -> dict[int, float]:
+    if flash_stone is None:
+        return {}
+    result: dict[int, float] = {}
+    for effect in _as_list(flash_stone.get('MoveEffect')):
+        inner_id = effect.get('ID')
+        probability = effect.get('EffectProb')
+        if isinstance(inner_id, (int, float)) and isinstance(
+            probability, (int, float)
+        ):
+            result[int(inner_id)] = float(probability) / 100
+    return result
+
+
+def _build_skill_stone_data(
+    item_stones: list['Item11'],
+    move_stones: list['MoveStoneItem'],
+    flash_stones: list[dict[str, Any]],
+    create_effects: CreateSkillEffects,
+) -> dict[int, 'SkillStoneDict']:
+    """Merge current Unity moves with item metadata and legacy probabilities."""
+
+    item_map = {stone['id'] - 1100000: stone for stone in item_stones}
+    flash_map = {
+        int(stone['ID']): stone
+        for stone in flash_stones
+        if isinstance(stone.get('ID'), (int, float))
+    }
+    result: dict[int, SkillStoneDict] = {}
+    for move_stone in move_stones:
+        stone_id = move_stone['id']
+        try:
+            item_stone = item_map[stone_id]
+        except KeyError as error:
+            raise ValueError(
+                f'Unity skill stone {stone_id} has no matching item resource'
+            ) from error
+
+        probability_map = _flash_effect_probability_map(flash_map.get(stone_id))
+        effects = [
+            SkillStoneEffect(
+                inner_id=effect['id'],
+                prob=probability_map.get(effect['id']),
+                effect=create_effects(
+                    effect['side_effect'] or [],
+                    effect['side_effect_arg'] or [],
+                ),
+            )
+            for effect in move_stone['move_effect']
+        ]
+        result[stone_id] = {
+            **item_stone,
+            'move_name': move_stone['name'],
+            'power': move_stone['power'],
+            'max_pp': move_stone['max_pp'],
+            'accuracy': move_stone['accuracy'],
+            'type': move_stone['type'],
+            'effect': effects,
+        }
+    return result
+
+
 class SkillStoneAnalyzer(BaseSkillEffectAnalyzer, BaseItemAnalyzer):
     @classmethod
     def get_data_import_config(cls) -> DataImportConfig:
         config = DataImportConfig(
+            unity_paths=('moveStones.json',),
             flash_paths=('config.xml.SkillXMLInfo_skillStoneClass.xml',),
         )
         return (
@@ -42,34 +120,21 @@ class SkillStoneAnalyzer(BaseSkillEffectAnalyzer, BaseItemAnalyzer):
 
     @cached_property
     def skill_stone_data(self) -> dict[int, 'SkillStoneDict']:
-        unity_data = cast(list['Item11'], self.get_category_items(11)['root']['items'])
-        flash_data = self._get_data(
+        item_stones = cast(list['Item11'], self.get_category_items(11)['root']['items'])
+        move_stones = cast(
+            list['MoveStoneItem'],
+            self._get_data('unity', 'moveStones.json')['root']['move_stone'],
+        )
+        raw_flash_stones = self._get_data(
             'flash', 'config.xml.SkillXMLInfo_skillStoneClass.xml'
         )['MoveStones']['MoveStone']
-        flash_data_map = {stone['ID']: stone for stone in flash_data}
-        result = {}
-        for stone in unity_data:
-            id_ = stone['id'] - 1100000
-            flash_stone = flash_data_map[id_]
-            move_effects = [
-                SkillStoneEffect(
-                    inner_id=effect['ID'],
-                    prob=effect['EffectProb'] / 100,
-                    effect=self.create_skill_effect(
-                        type_ids=split_string_arg(effect['SideEffect']),
-                        args=split_string_arg(effect['SideEffectArg']),
-                    ),
-                )
-                for effect in flash_stone['MoveEffect']
-            ]
-            result[id_] = {
-                **stone,
-                'power': flash_stone['Power'],
-                'max_pp': flash_stone['MaxPP'],
-                'accuracy': flash_stone['Accuracy'],
-                'effect': move_effects,
-            }
-        return result
+        flash_stones = cast(list[dict[str, Any]], _as_list(raw_flash_stones))
+        return _build_skill_stone_data(
+            item_stones,
+            move_stones,
+            flash_stones,
+            lambda type_ids, args: self.create_skill_effect(type_ids, args),
+        )
 
     def analyze(self) -> tuple[AnalyzeResult, ...]:
         skill_stone_data = self.skill_stone_data
@@ -98,6 +163,7 @@ class SkillStoneAnalyzer(BaseSkillEffectAnalyzer, BaseItemAnalyzer):
             skill_stone_obj = SkillStone(
                 id=id_,
                 name=skill_stone['name'],
+                move_name=skill_stone['move_name'],
                 rank=skill_stone['rank'],
                 power=skill_stone['power'],
                 max_pp=skill_stone['max_pp'],

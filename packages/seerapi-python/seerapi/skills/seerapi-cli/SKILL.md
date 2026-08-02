@@ -24,6 +24,7 @@ seerapi skill install --target <your-agent-skills-dir>
 |------|------|
 | 查资源、列表、按名称查 | `seerapi` CLI |
 | 写 Python 集成 | `from seerapi import SeerAPI` |
+| 查阵容封包中的复合技能石 ID | `seerapi resolve-skill <runtime_id>` |
 | 完整 OpenAPI 契约 | https://api.seerapi.com |
 
 ## 标准工作流
@@ -42,6 +43,7 @@ seerapi skill install --target <your-agent-skills-dir>
 3. `list` 默认单页 `limit=20`；禁止无上限翻页；用输出中的 `next` 翻页
 4. 大对象必须加 `--fields`；仅人类阅读时用 `--pretty`
 5. 中文名称加引号：`seerapi get-by-name skill "虚妄幻境"`
+6. 阵容技能 ID 大于普通技能范围且直接查询 404 时，用 `resolve-skill`，不要自行按固定前缀相减
 
 ## 命令速查
 
@@ -52,6 +54,7 @@ seerapi skill install --target <your-agent-skills-dir>
 | `get <r> <id> [--fields]` | 单条 by ID |
 | `list <r> [--offset] [--limit] [--expand] [--fields]` | 单页列表 |
 | `get-by-name <r> <name>` | 按名称（返回 id→对象 字典） |
+| `resolve-skill <runtime_id> [--fields]` | 解析普通技能或运行时技能石 ID |
 | `skill [install\|path]` | 查看或安装 agent skill |
 
 全局选项：`--hostname` `--scheme` `--version-path` `--pretty`；环境变量 `SEERAPI_HOSTNAME` / `SEERAPI_SCHEME`。
