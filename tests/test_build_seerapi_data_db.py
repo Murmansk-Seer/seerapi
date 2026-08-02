@@ -13,9 +13,9 @@ import pytest
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1]
     / "scripts"
-    / "build_ironsbot_data_db.py"
+    / "build_seerapi_data_db.py"
 )
-SPEC = importlib.util.spec_from_file_location("build_ironsbot_data_db", SCRIPT_PATH)
+SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError
 builder = importlib.util.module_from_spec(SPEC)
@@ -1242,7 +1242,7 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
 
 
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
-    database = tmp_path / "ironsbot-data.sqlite"
+    database = tmp_path / "seerapi-data.sqlite"
     price = builder.ItemExchangePrice(
         source_key="battlepass_shop",
         source_name="战令商店",

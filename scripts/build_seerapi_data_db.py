@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
-"""Build the IronsBot full Seer SQLite database.
+"""Build the published SeerAPI runtime SQLite database.
 
-The runtime bot downloads this database as its main data source. The upstream
-SeerAPI database is used only as build input here; custom IronsBot-only fields
-are merged into the final SQLite file before it is published.
+IronsBot downloads this database as its main data source. The upstream SeerAPI
+database is used as build input here; runtime extension fields are merged into
+the final SQLite file before it is published.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ import xml.etree.ElementTree as ET
 from PIL import Image, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parent.parent
-OUTPUT_DB = ROOT / os.environ.get("IRONSBOT_DATA_OUTPUT", "ironsbot-data.sqlite")
+OUTPUT_DB = ROOT / os.environ.get("SEERAPI_DATA_OUTPUT", "seerapi-data.sqlite")
 UPSTREAM_SEERAPI_URL = os.environ.get(
     "IRONSBOT_DATA_UPSTREAM_SEERAPI_URL",
     "https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite",
@@ -198,7 +198,7 @@ PARTNER_CONTRACTS_SCHEMA_VERSION = 1
 # ``partner_contracts.json`` v1 was generated with its two upgrade description
 # keys reversed: ``before_description`` contains the strengthened text and
 # ``after_description`` contains the original text. Normalize the source at the
-# publishing boundary so every consumer of ``ironsbot-data.sqlite`` sees the
+# publishing boundary so every consumer of ``seerapi-data.sqlite`` sees the
 # documented before/after meaning.
 PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED = True
 PET_PARTNER_UPGRADE_NORMALIZED_SOURCE = (

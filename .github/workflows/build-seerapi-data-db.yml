@@ -7,9 +7,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "scripts/build_ironsbot_data_db.py"
+      - "scripts/build_seerapi_data_db.py"
       - "scripts/build_new_content_index.py"
-      - ".github/workflows/build-ironsbot-data-db.yml"
+      - ".github/workflows/build-seerapi-data-db.yml"
   schedule:
     - cron: "5,35 * * * *"
   workflow_dispatch:
@@ -21,7 +21,7 @@ on:
         default: false
 
 concurrency:
-  group: ironsbot-data-build
+  group: seerapi-data-build
   cancel-in-progress: false
 
 jobs:
@@ -160,14 +160,22 @@ jobs:
       - name: Restore previously published icon PNGs
         run: |
           mkdir -p .cache/effect-icon-png .previous
-          if curl --fail --location --retry 3 \
-            --output .previous/ironsbot-data.sqlite \
-            https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite; then
+          previous_db=.previous/seerapi-data.sqlite
+          if ! curl --fail --location --retry 3 \
+            --output "${previous_db}" \
+            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite; then
+            # One release-cycle migration fallback. The old asset is only a
+            # seed; subsequent runs read seerapi-data-latest above.
+            curl --fail --location --retry 3 \
+              --output "${previous_db}" \
+              https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite || true
+          fi
+          if [ -s "${previous_db}" ]; then
             IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
-              python scripts/build_ironsbot_data_db.py \
-                --seed-effect-icon-cache .previous/ironsbot-data.sqlite
+              python scripts/build_seerapi_data_db.py \
+                --seed-effect-icon-cache "${previous_db}"
           else
-            echo "No previous IronsBot data release available; rendering the full icon cache."
+            echo "No previous SeerAPI data release available; rendering the full icon cache."
           fi
 
       - name: Render missing effect icon PNGs
@@ -181,7 +189,7 @@ jobs:
           IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
           IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: |
-          python scripts/build_ironsbot_data_db.py \
+          python scripts/build_seerapi_data_db.py \
             --render-effect-icon-shard 0 \
             --effect-icon-shard-count 1 \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache
@@ -240,7 +248,7 @@ jobs:
           name: effect-icon-cache
           path: .cache/effect-icon-png
 
-      - name: Build IronsBot database
+      - name: Build SeerAPI database
         env:
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
@@ -250,16 +258,23 @@ jobs:
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
           IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
           IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
-        run: python scripts/build_ironsbot_data_db.py
+        run: python scripts/build_seerapi_data_db.py
 
       - name: Download previous published database
         run: |
           set -e
-          previous_db="${RUNNER_TEMP}/previous-ironsbot-data.sqlite"
-          if curl -fL --retry 3 --retry-delay 2 \
+          previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
+          if ! curl -fL --retry 3 --retry-delay 2 \
             -o "${previous_db}" \
-            https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite; then
-            echo "PREVIOUS_IRONSBOT_DATA_DB=${previous_db}" >> "$GITHUB_ENV"
+            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite; then
+            # Preserve the embedded new-content history while publishing the
+            # first release under the corrected SeerAPI name.
+            curl -fL --retry 3 --retry-delay 2 \
+              -o "${previous_db}" \
+              https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite || true
+          fi
+          if [ -s "${previous_db}" ]; then
+            echo "PREVIOUS_SEERAPI_DATA_DB=${previous_db}" >> "$GITHUB_ENV"
             echo "Downloaded previous published database."
           else
             echo "No previous published database is available; establishing baseline."
@@ -306,12 +321,12 @@ jobs:
       - name: Build new content release index
         id: new_content
         env:
-          PREVIOUS_IRONSBOT_DATA_DB: ${{ env.PREVIOUS_IRONSBOT_DATA_DB }}
+          PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
         run: |
           set -e
-          args=(--current ironsbot-data.sqlite --current-git-sha "${GITHUB_SHA}")
-          if [ -n "${PREVIOUS_IRONSBOT_DATA_DB:-}" ] && [ -f "${PREVIOUS_IRONSBOT_DATA_DB}" ]; then
-            args+=(--previous "${PREVIOUS_IRONSBOT_DATA_DB}")
+          args=(--current seerapi-data.sqlite --current-git-sha "${GITHUB_SHA}")
+          if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
+            args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
           fi
           history_additions="${RUNNER_TEMP}/api-data-history-additions.json"
           if [ -f "${history_additions}" ]; then
@@ -328,7 +343,7 @@ jobs:
             python - <<'PY'
           import sqlite3
 
-          with sqlite3.connect("ironsbot-data.sqlite") as connection:
+          with sqlite3.connect("seerapi-data.sqlite") as connection:
               row = connection.execute(
                   "SELECT current_config_version FROM new_content_release WHERE id = 1"
               ).fetchone()
@@ -344,8 +359,8 @@ jobs:
               ;;
           esac
           mkdir -p history-release
-          asset="ironsbot-data-${config_version}.sqlite"
-          cp ironsbot-data.sqlite "history-release/${asset}"
+          asset="seerapi-data-${config_version}.sqlite"
+          cp seerapi-data.sqlite "history-release/${asset}"
           sha256sum "history-release/${asset}" > "history-release/${asset}.sha256"
           echo "config_version=${config_version}" >> "$GITHUB_OUTPUT"
           echo "asset=${asset}" >> "$GITHUB_OUTPUT"
@@ -356,12 +371,12 @@ jobs:
           HISTORY_ASSET: ${{ steps.history_snapshot.outputs.asset }}
         run: |
           set -euo pipefail
-          tag="ironsbot-data-history"
+          tag="seerapi-data-history"
           if ! gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             gh release create "${tag}" \
               --repo "${GITHUB_REPOSITORY}" \
-              --title "IronsBot Historical Data DBs" \
-              --notes "Rolling archive of full IronsBot runtime SQLite snapshots. The five newest official ConfigPackage versions are retained for direct comparison. `ironsbot-data-latest` remains the current database used by the bot." \
+              --title "SeerAPI Historical Data DBs" \
+              --notes "Rolling archive of full SeerAPI runtime SQLite snapshots. The five newest official ConfigPackage versions are retained for direct comparison. `seerapi-data-latest` remains the current database used by the bot." \
               --latest=false
           fi
           gh release upload "${tag}" \
@@ -375,17 +390,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="ironsbot-data-history"
+          tag="seerapi-data-history"
           mapfile -t versions < <(
             gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" --json assets \
               --jq '.assets[].name' \
-              | sed -nE 's/^ironsbot-data-([0-9]+)\.sqlite$/\1/p' \
+              | sed -nE 's/^seerapi-data-([0-9]+)\.sqlite$/\1/p' \
               | sort -r
           )
           for version in "${versions[@]:5}"; do
-            gh release delete-asset "${tag}" "ironsbot-data-${version}.sqlite" \
+            gh release delete-asset "${tag}" "seerapi-data-${version}.sqlite" \
               --repo "${GITHUB_REPOSITORY}" --yes
-            gh release delete-asset "${tag}" "ironsbot-data-${version}.sqlite.sha256" \
+            gh release delete-asset "${tag}" "seerapi-data-${version}.sqlite.sha256" \
               --repo "${GITHUB_REPOSITORY}" --yes
           done
       - name: Report unresolved soulmark icons
@@ -395,7 +410,7 @@ jobs:
           import sqlite3
           from pathlib import Path
 
-          database = Path("ironsbot-data.sqlite")
+          database = Path("seerapi-data.sqlite")
           report_path = Path("effect-icon-render-report.md")
           with sqlite3.connect(database) as connection:
               soulmark_rows = connection.execute(
@@ -508,7 +523,7 @@ jobs:
           PY
 
       - name: Generate SHA256 checksum
-        run: sha256sum ironsbot-data.sqlite > ironsbot-data.sqlite.sha256
+        run: sha256sum seerapi-data.sqlite > seerapi-data.sqlite.sha256
 
       - name: Record data source checksums
         run: |
@@ -524,21 +539,21 @@ jobs:
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_manifest_sha }}" > .build-state/config-package-manifest-sha256
           git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256
           if ! git diff --cached --quiet; then
-            git commit -m "Record IronsBot data source checksums"
+            git commit -m "Record SeerAPI data source checksums"
             git push origin main
           fi
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ironsbot-data-latest
-          name: IronsBot Data DB
+          tag_name: seerapi-data-latest
+          name: SeerAPI Data DB
           make_latest: false
           body: |
-            IronsBot full runtime data database.
+            SeerAPI runtime data database.
 
             This database is built from the Murmansk-Seer/api-data SQLite plus
-            IronsBot custom tables parsed from official Seer Unity
+            runtime extension tables parsed from official Seer Unity
             ConfigPackage data, Murmansk-Seer/seer-unity-config-parser JSON,
             and weekly preview metadata.
 
@@ -550,6 +565,6 @@ jobs:
             Source ConfigPackage version: ${{ needs.plan.outputs.remote_config_package_version }}
             Source ConfigPackage manifest sha256: ${{ needs.plan.outputs.remote_config_package_manifest_sha }}
           files: |
-            ironsbot-data.sqlite
-            ironsbot-data.sqlite.sha256
+            seerapi-data.sqlite
+            seerapi-data.sqlite.sha256
             effect-icon-render-report.md
