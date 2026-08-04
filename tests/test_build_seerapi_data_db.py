@@ -32,6 +32,69 @@ def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
     )
 
 
+def _create_special_effect_source_tables(database: Path) -> None:
+    """Create the upstream tables required by the derived-fact builder."""
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE pet (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+            CREATE TABLE glossary_entry (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                desc TEXT NOT NULL
+            );
+            CREATE TABLE petglossaryentrylink (
+                pet_id INTEGER NOT NULL,
+                glossary_entry_id INTEGER NOT NULL
+            );
+            CREATE TABLE glossaryentrylink (
+                source_id INTEGER NOT NULL,
+                target_id INTEGER NOT NULL
+            );
+            CREATE TABLE skill (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                info TEXT,
+                hide_effect_id INTEGER
+            );
+            CREATE TABLE skillinpetorm (
+                pet_id INTEGER NOT NULL,
+                skill_id INTEGER NOT NULL
+            );
+            CREATE TABLE skill_effect_in_use (
+                id INTEGER PRIMARY KEY,
+                info TEXT,
+                analyze_info TEXT
+            );
+            CREATE TABLE skilleffectlink (
+                skill_id INTEGER NOT NULL,
+                effect_in_use_id INTEGER NOT NULL
+            );
+            CREATE TABLE skillfriendskilleffectlink (
+                skill_id INTEGER NOT NULL,
+                effect_in_use_id INTEGER NOT NULL
+            );
+            CREATE TABLE skill_hide_effect (
+                id INTEGER PRIMARY KEY,
+                description TEXT
+            );
+            CREATE TABLE soulmark (
+                id INTEGER PRIMARY KEY,
+                desc TEXT,
+                analyze_desc TEXT,
+                desc_formatting_adjustment TEXT,
+                intensified INTEGER NOT NULL,
+                is_adv INTEGER NOT NULL,
+                intensified_to_id INTEGER
+            );
+            CREATE TABLE petsoulmarklink (
+                pet_id INTEGER NOT NULL,
+                soulmark_id INTEGER NOT NULL
+            );
+            """
+        )
+
+
 def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
     payload = {
         "item": [
@@ -1243,6 +1306,7 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
 
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     database = tmp_path / "seerapi-data.sqlite"
+    _create_special_effect_source_tables(database)
     price = builder.ItemExchangePrice(
         source_key="battlepass_shop",
         source_name="战令商店",

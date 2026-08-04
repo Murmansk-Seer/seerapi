@@ -123,6 +123,8 @@ jobs:
     needs: plan
     if: ${{ needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: packages/solaris
     # Normal runs seed the last release and only repair missing or invalid
     # icons. A cold first release may need to render the full icon set.
     timeout-minutes: 180
@@ -206,6 +208,8 @@ jobs:
     needs: [plan, render-effect-icon-cache]
     if: ${{ needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: packages/solaris
     timeout-minutes: 60
     permissions:
       contents: write

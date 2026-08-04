@@ -30,6 +30,10 @@ import xml.etree.ElementTree as ET
 
 from PIL import Image, UnidentifiedImageError
 
+from solaris.analyze.output.pet_special_effect_facts import (
+    replace_pet_special_effect_facts,
+)
+
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DB = ROOT / os.environ.get("SEERAPI_DATA_OUTPUT", "seerapi-data.sqlite")
 UPSTREAM_SEERAPI_URL = os.environ.get(
@@ -3682,6 +3686,7 @@ def _merge_ironsbot_tables(
             ON {SPECIAL_EFFECT_STATUS_TABLE} (name)
             """
         )
+        special_effect_facts = replace_pet_special_effect_facts(conn, now=now)
         deduplicated_soulmark_icons = sorted(
             {
                 (
@@ -3960,6 +3965,12 @@ def _merge_ironsbot_tables(
             "effect_description_source_url": EFFECT_DESCRIPTION_URL,
             "special_effect_status_count": str(len(special_effect_statuses)),
             "special_effect_status_source_url": SPECIAL_EFFECT_STATUS_URL,
+            "pet_special_effect_count": str(special_effect_facts.facts),
+            "pet_special_effect_source_count": str(special_effect_facts.sources),
+            "pet_special_effect_issue_count": str(special_effect_facts.issues),
+            "pet_soulmark_display_count": str(
+                special_effect_facts.soulmark_display_rows
+            ),
             "pet_partner_group_count": str(len(pet_partner_data.groups)),
             "pet_partner_upgrade_count": str(len(pet_partner_data.upgrades)),
             "pet_partner_source_url": PARTNER_CONTRACTS_URL,
