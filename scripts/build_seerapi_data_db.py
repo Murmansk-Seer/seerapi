@@ -3686,7 +3686,6 @@ def _merge_ironsbot_tables(
             ON {SPECIAL_EFFECT_STATUS_TABLE} (name)
             """
         )
-        special_effect_facts = replace_pet_special_effect_facts(conn, now=now)
         deduplicated_soulmark_icons = sorted(
             {
                 (
@@ -3870,6 +3869,7 @@ def _merge_ironsbot_tables(
             now,
         )
         _replace_pet_partner_tables(conn, pet_partner_data, now)
+        special_effect_facts = replace_pet_special_effect_facts(conn, now=now)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS ironsbot_metadata (

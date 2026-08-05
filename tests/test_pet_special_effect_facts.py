@@ -76,6 +76,11 @@ def _connection() -> sqlite3.Connection:
             pet_id INTEGER NOT NULL,
             soulmark_id INTEGER NOT NULL
         );
+        CREATE TABLE pet_partner_upgrade (
+            pet_id INTEGER PRIMARY KEY,
+            before_description TEXT NOT NULL,
+            after_description TEXT NOT NULL
+        );
         """
     )
     return connection
@@ -207,3 +212,43 @@ def test_publishes_declared_soulmark_display_additions() -> None:
             "seerapi/soulmark-display-corrections#pet-2500-v1",
         )
     ]
+
+
+def test_publishes_partner_upgrade_soulmark_display_kind() -> None:
+    connection = _connection()
+    connection.execute("INSERT INTO pet (id, name) VALUES (7000, '测试精灵')")
+    connection.executemany(
+        """
+        INSERT INTO soulmark
+            (
+                id, desc, analyze_desc, desc_formatting_adjustment, intensified,
+                is_adv, intensified_to_id
+            )
+        VALUES (?, ?, NULL, NULL, 0, 0, NULL)
+        """,
+        [(10, "基础魂印"), (20, "强化魂印")],
+    )
+    connection.executemany(
+        "INSERT INTO petsoulmarklink (pet_id, soulmark_id) VALUES (7000, ?)",
+        [(10,), (20,)],
+    )
+    connection.execute(
+        """
+        INSERT INTO pet_partner_upgrade
+            (pet_id, before_description, after_description)
+        VALUES (7000, '基础魂印', '强化魂印')
+        """
+    )
+
+    replace_pet_special_effect_facts(connection, now=1.0)
+
+    rows = connection.execute(
+        """
+        SELECT soulmark_id, display_kind
+        FROM pet_soulmark_display
+        WHERE pet_id = 7000
+        ORDER BY display_order
+        """
+    ).fetchall()
+
+    assert rows == [(10, "base"), (20, "partner_upgrade")]
