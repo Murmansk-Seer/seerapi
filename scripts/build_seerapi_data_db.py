@@ -138,6 +138,7 @@ EFFECT_DESCRIPTION_TABLE = "effect_description"
 SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
 SOULMARK_ICON_TABLE = "soulmark_icon"
 SOULMARK_ICON_RENDER_ISSUE_TABLE = "soulmark_icon_render_issue"
+RENDER_ASSET_MANIFEST_TABLE = "render_asset_manifest"
 SKIN_IMAGE_RESOLUTION_TABLE = "skin_image_resolution"
 PET_PARTNER_GROUP_TABLE = "pet_partner_group"
 PET_PARTNER_MEMBER_TABLE = "pet_partner_member"
@@ -420,6 +421,18 @@ class EffectIconPngRender:
     content_length: int | None
     data: bytes | None
     error: str
+
+
+@dataclass(frozen=True, slots=True)
+class RenderAssetManifestEntry:
+    """One build-time material fact used to invalidate final render caches."""
+
+    asset_kind: str
+    asset_key: str
+    sha256: str
+    release_revision: str
+    available: bool
+    source: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -2404,6 +2417,112 @@ def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
     return sorted({item.icon_id for item in config_data.soulmark_icons})
 
 
+def _build_effect_icon_render_asset_manifest(
+    checks: dict[int, EffectIconAssetCheck],
+    renders: dict[int, EffectIconPngRender],
+    *,
+    release_revision: str,
+) -> tuple[RenderAssetManifestEntry, ...]:
+    """Publish deterministic facts for every built soulmark icon PNG.
+
+    The PNG bytes are embedded in ``soulmark_icon``. Their hashes therefore
+    give consumers a stable release-owned material revision without fetching
+    or re-rendering the original SWF at runtime.
+    """
+
+    return tuple(
+        RenderAssetManifestEntry(
+            asset_kind="soulmark_icon_png",
+            asset_key=str(icon_id),
+            sha256=(
+                hashlib.sha256(render.data).hexdigest()
+                if render.available and render.data is not None
+                else ""
+            ),
+            release_revision=release_revision,
+            available=render.available and render.data is not None,
+            source=(
+                "ConfigPackage/effectIcon.bytes"
+                f"#{EFFECT_ICON_PNG_CACHE_VERSION}"
+            ),
+        )
+        for icon_id, render in sorted(renders.items())
+        if icon_id in checks
+    )
+
+
+def _render_asset_manifest_revision(
+    entries: tuple[RenderAssetManifestEntry, ...],
+) -> str:
+    """Return the order-independent revision for one published asset manifest."""
+
+    digest = hashlib.sha256()
+    for entry in sorted(entries, key=lambda item: (item.asset_kind, item.asset_key)):
+        digest.update(entry.asset_kind.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(entry.asset_key.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(entry.sha256.encode("ascii"))
+        digest.update(b"\0")
+        digest.update(entry.release_revision.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(b"1" if entry.available else b"0")
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _replace_render_asset_manifest(
+    conn: sqlite3.Connection,
+    entries: tuple[RenderAssetManifestEntry, ...],
+    *,
+    now: float,
+) -> None:
+    """Replace release-owned render material facts atomically with the build."""
+
+    conn.execute(f"DROP TABLE IF EXISTS {RENDER_ASSET_MANIFEST_TABLE}")
+    conn.execute(
+        f"""
+        CREATE TABLE {RENDER_ASSET_MANIFEST_TABLE} (
+            asset_kind TEXT NOT NULL,
+            asset_key TEXT NOT NULL,
+            sha256 TEXT NOT NULL,
+            release_revision TEXT NOT NULL,
+            available INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            updated_at REAL NOT NULL,
+            PRIMARY KEY (asset_kind, asset_key)
+        )
+        """
+    )
+    conn.executemany(
+        f"""
+        INSERT INTO {RENDER_ASSET_MANIFEST_TABLE}
+            (
+                asset_kind,
+                asset_key,
+                sha256,
+                release_revision,
+                available,
+                source,
+                updated_at
+            )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                entry.asset_kind,
+                entry.asset_key,
+                entry.sha256,
+                entry.release_revision,
+                int(entry.available),
+                entry.source,
+                now,
+            )
+            for entry in entries
+        ],
+    )
+
+
 def _seed_effect_icon_png_cache_from_database(db_path: Path) -> int:
     if not db_path.is_file():
         logger.info("No previous IronsBot database to seed effect icon PNG cache")
@@ -3703,6 +3822,11 @@ def _merge_ironsbot_tables(
         effect_icon_png_renders = _render_effect_icon_png_assets(
             effect_icon_asset_checks
         )
+        render_asset_manifest = _build_effect_icon_render_asset_manifest(
+            effect_icon_asset_checks,
+            effect_icon_png_renders,
+            release_revision=config_data.version,
+        )
         issue_pet_ids = sorted(
             {
                 pet_id
@@ -3862,6 +3986,11 @@ def _merge_ironsbot_tables(
             ON {SOULMARK_ICON_RENDER_ISSUE_TABLE} (pet_id)
             """
         )
+        _replace_render_asset_manifest(
+            conn,
+            render_asset_manifest,
+            now=now,
+        )
         _replace_autocard_tables(conn, autocard_data, now)
         _replace_autocard_season_effect_table(
             conn,
@@ -3930,6 +4059,13 @@ def _merge_ironsbot_tables(
             ),
             "effect_icon_png_render_issue_row_count": str(
                 len(soulmark_icon_render_issues)
+            ),
+            "render_asset_manifest_revision": _render_asset_manifest_revision(
+                render_asset_manifest
+            ),
+            "render_asset_manifest_count": str(len(render_asset_manifest)),
+            "render_asset_manifest_available_count": str(
+                sum(1 for entry in render_asset_manifest if entry.available)
             ),
             "mintmark_quality_count": str(len(config_data.mintmark_quality)),
             "skin_store_price_count": str(len(config_data.skin_store_prices)),
