@@ -165,6 +165,7 @@ from .pet import (
     SoulmarkTagORM,
     YieldingEvORM,
 )
+from .render_asset import RenderAssetManifest, RenderAssetManifestORM
 from .skill import (
     Skill,
     SkillCategory,
@@ -312,6 +313,8 @@ __all__ = [
     'PetSpecialEffectSourceORM',
     'PetVipBuffCategory',
     'PetVipBuffORM',
+    'RenderAssetManifest',
+    'RenderAssetManifestORM',
     'ResistanceCategory',
     'ResistanceCategoryORM',
     'Skill',

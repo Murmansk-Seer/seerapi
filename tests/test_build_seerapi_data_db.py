@@ -846,6 +846,90 @@ def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
     ]
 
 
+def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
+    tmp_path: Path,
+) -> None:
+    checks = {
+        18: builder.EffectIconAssetCheck(
+            icon_id=18,
+            url="https://example.test/18.swf",
+            available=True,
+            status=200,
+            content_type="application/x-shockwave-flash",
+            content_length=100,
+            error="",
+        ),
+        19: builder.EffectIconAssetCheck(
+            icon_id=19,
+            url="https://example.test/19.swf",
+            available=False,
+            status=404,
+            content_type="text/html",
+            content_length=None,
+            error="missing",
+        ),
+    }
+    renders = {
+        18: builder.EffectIconPngRender(
+            icon_id=18,
+            available=True,
+            content_type="image/png",
+            content_length=3,
+            data=b"png",
+            error="",
+        ),
+        19: builder.EffectIconPngRender(
+            icon_id=19,
+            available=False,
+            content_type="",
+            content_length=None,
+            data=None,
+            error="missing",
+        ),
+    }
+
+    entries = builder._build_effect_icon_render_asset_manifest(
+        checks,
+        renders,
+        release_revision="config-20260806",
+    )
+
+    assert [(entry.asset_kind, entry.asset_key) for entry in entries] == [
+        ("soulmark_icon_png", "18"),
+        ("soulmark_icon_png", "19"),
+    ]
+    assert entries[0].sha256 == "8f8cbb7dcf46e0bc7d53265749a6c17d116093a6ba95e442764060c76fd4a86c"
+    assert entries[0].release_revision == "config-20260806"
+    assert entries[0].available is True
+    assert entries[1].sha256 == ""
+    assert entries[1].available is False
+    assert builder._render_asset_manifest_revision(entries) == (
+        builder._render_asset_manifest_revision(tuple(reversed(entries)))
+    )
+
+    database = tmp_path / "manifest.sqlite"
+    with sqlite3.connect(database) as connection:
+        builder._replace_render_asset_manifest(connection, entries, now=123.0)
+        rows = connection.execute(
+            """
+            SELECT asset_kind, asset_key, sha256, release_revision, available
+            FROM render_asset_manifest
+            ORDER BY asset_key
+            """
+        ).fetchall()
+
+    assert rows == [
+        (
+            "soulmark_icon_png",
+            "18",
+            "8f8cbb7dcf46e0bc7d53265749a6c17d116093a6ba95e442764060c76fd4a86c",
+            "config-20260806",
+            1,
+        ),
+        ("soulmark_icon_png", "19", "", "config-20260806", 0),
+    ]
+
+
 def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> None:
     png_data = _test_png()
     check = builder.EffectIconAssetCheck(
