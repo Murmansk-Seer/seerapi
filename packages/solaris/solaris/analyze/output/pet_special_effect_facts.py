@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass
 import sqlite3
 
+from .pet_soulmark_display_facts import replace_pet_soulmark_display_facts
 from .pet_special_effect_resolution import collect_pet_special_effect_facts
 from .pet_special_effect_types import (
     EffectResolutionIssue,
@@ -21,6 +21,7 @@ class PetSpecialEffectBuildSummary:
     sources: int
     issues: int
     soulmark_display_rows: int
+    soulmark_display_addition_rows: int
 
 
 def _replace_special_effect_tables(
@@ -168,92 +169,6 @@ def _replace_special_effect_tables(
     return len(ordered_facts), len(source_rows), len(issue_rows)
 
 
-def _replace_soulmark_display_table(
-    connection: sqlite3.Connection,
-    now: float,
-) -> int:
-    rows_by_pet: dict[int, list[tuple[int, bool, bool, int | None]]] = defaultdict(list)
-    for pet_id, soulmark_id, intensified, is_adv, intensified_to_id in connection.execute(
-        """
-        SELECT link.pet_id, soulmark.id, soulmark.intensified, soulmark.is_adv,
-               soulmark.intensified_to_id
-        FROM petsoulmarklink AS link
-        JOIN soulmark ON soulmark.id = link.soulmark_id
-        ORDER BY link.pet_id, soulmark.id
-        """
-    ):
-        rows_by_pet[int(pet_id)].append(
-            (int(soulmark_id), bool(intensified), bool(is_adv), intensified_to_id)
-        )
-    display_rows: list[tuple[int, int, int, int, str, float]] = []
-    for pet_id, soulmarks in sorted(rows_by_pet.items()):
-        parent_by_child = {
-            int(child): soulmark_id
-            for soulmark_id, _intensified, _is_adv, child in soulmarks
-            if child is not None
-        }
-        for soulmark_id, intensified, is_adv, _child in sorted(soulmarks):
-            root_id = soulmark_id
-            seen: set[int] = set()
-            while root_id in parent_by_child and root_id not in seen:
-                seen.add(root_id)
-                root_id = parent_by_child[root_id]
-            display_kind = "advance" if is_adv else "intensified" if intensified else "base"
-            display_rows.append(
-                (pet_id, soulmark_id, root_id, 0, display_kind, now)
-            )
-    ordered_rows: list[tuple[int, int, int, int, str, float]] = []
-    kind_order = {"base": 0, "intensified": 1, "advance": 2}
-    for pet_id in sorted(rows_by_pet):
-        pet_rows = sorted(
-            (row for row in display_rows if row[0] == pet_id),
-            key=lambda row: (row[2], kind_order[row[4]], row[1]),
-        )
-        ordered_rows.extend(
-            (
-                pet_id,
-                soulmark_id,
-                root_soulmark_id,
-                index,
-                display_kind,
-                updated_at,
-            )
-            for index, (
-                _pet_id,
-                soulmark_id,
-                root_soulmark_id,
-                _display_order,
-                display_kind,
-                updated_at,
-            ) in enumerate(pet_rows)
-        )
-    connection.executescript(
-        """
-        DROP TABLE IF EXISTS pet_soulmark_display;
-        CREATE TABLE pet_soulmark_display (
-            pet_id INTEGER NOT NULL,
-            soulmark_id INTEGER NOT NULL,
-            root_soulmark_id INTEGER NOT NULL,
-            display_order INTEGER NOT NULL,
-            display_kind TEXT NOT NULL,
-            updated_at REAL NOT NULL,
-            PRIMARY KEY (pet_id, soulmark_id)
-        );
-        CREATE INDEX idx_pet_soulmark_display_order
-        ON pet_soulmark_display (pet_id, display_order);
-        """
-    )
-    connection.executemany(
-        """
-        INSERT INTO pet_soulmark_display
-            (pet_id, soulmark_id, root_soulmark_id, display_order, display_kind, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        ordered_rows,
-    )
-    return len(ordered_rows)
-
-
 def replace_pet_special_effect_facts(
     connection: sqlite3.Connection,
     *,
@@ -267,12 +182,13 @@ def replace_pet_special_effect_facts(
         issues,
         now,
     )
-    soulmark_display_rows = _replace_soulmark_display_table(connection, now)
+    soulmark_display = replace_pet_soulmark_display_facts(connection, now=now)
     return PetSpecialEffectBuildSummary(
         facts=fact_count,
         sources=source_count,
         issues=issue_count,
-        soulmark_display_rows=soulmark_display_rows,
+        soulmark_display_rows=soulmark_display.display_rows,
+        soulmark_display_addition_rows=soulmark_display.addition_rows,
     )
 
 

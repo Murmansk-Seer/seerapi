@@ -66,7 +66,28 @@ class PetSoulmarkDisplayORM(SQLModel, table=True):
     updated_at: float
 
 
+class PetSoulmarkDisplayAdditionORM(SQLModel, table=True):
+    """A declared display-only soulmark fact missing from raw package data."""
+
+    __tablename__ = "pet_soulmark_display_addition"
+
+    pet_id: int = Field(primary_key=True, foreign_key="pet.id")
+    display_id: int = Field(primary_key=True)
+    description: str
+    analyze_description: str | None = Field(default=None)
+    formatting_adjustment: str | None = Field(default=None)
+    intensified: bool
+    intensified_to_id: int | None = Field(default=None)
+    is_adv: bool
+    pve_effective: bool | None = Field(default=None)
+    tags_json: str
+    display_order: int
+    source: str
+    updated_at: float
+
+
 __all__ = [
+    "PetSoulmarkDisplayAdditionORM",
     "PetSoulmarkDisplayORM",
     "PetSpecialEffectIssueORM",
     "PetSpecialEffectORM",

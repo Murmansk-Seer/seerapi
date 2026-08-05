@@ -3971,6 +3971,9 @@ def _merge_ironsbot_tables(
             "pet_soulmark_display_count": str(
                 special_effect_facts.soulmark_display_rows
             ),
+            "pet_soulmark_display_addition_count": str(
+                special_effect_facts.soulmark_display_addition_rows
+            ),
             "pet_partner_group_count": str(len(pet_partner_data.groups)),
             "pet_partner_upgrade_count": str(len(pet_partner_data.upgrades)),
             "pet_partner_source_url": PARTNER_CONTRACTS_URL,

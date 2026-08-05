@@ -36,6 +36,7 @@ from .petbook import (
 )
 from .soulmark import Soulmark, SoulmarkORM, SoulmarkTagCategory, SoulmarkTagORM
 from .special_effect import (
+    PetSoulmarkDisplayAdditionORM,
     PetSoulmarkDisplayORM,
     PetSpecialEffectIssueORM,
     PetSpecialEffectORM,
@@ -69,6 +70,7 @@ __all__ = [
     'PetSkinSeriesORM',
     'PetSkinSeriesSubType',
     'PetSkinSeriesSubTypeORM',
+    'PetSoulmarkDisplayAdditionORM',
     'PetSoulmarkDisplayORM',
     'PetSpecialEffectIssueORM',
     'PetSpecialEffectORM',

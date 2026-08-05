@@ -169,6 +169,8 @@ def test_builds_linked_effect_facts_with_source_provenance() -> None:
     ).fetchall()
 
     assert summary.facts == 4
+    assert summary.soulmark_display_rows == 2
+    assert summary.soulmark_display_addition_rows == 1
     assert salmon_effects == [
         (533, "四象门", 188),
         (534, "六芒阵", None),
@@ -177,3 +179,31 @@ def test_builds_linked_effect_facts_with_source_provenance() -> None:
     assert ("skill", 100, "skill_highlight_exact") in salmon_sources
     assert knight == (600, 183)
     assert soulmark_order == [(1, 1, 0, "base"), (2, 1, 1, "intensified")]
+
+
+def test_publishes_declared_soulmark_display_additions() -> None:
+    connection = _connection()
+
+    replace_pet_special_effect_facts(connection, now=1.0)
+
+    rows = connection.execute(
+        """
+        SELECT pet_id, display_id, description, intensified, is_adv,
+               pve_effective, tags_json, display_order, source
+        FROM pet_soulmark_display_addition
+        """
+    ).fetchall()
+
+    assert rows == [
+        (
+            2500,
+            0,
+            "登场首回合所有攻击先制+1同时增加20%暴击率",
+            1,
+            0,
+            None,
+            "[]",
+            0,
+            "seerapi/soulmark-display-corrections#pet-2500-v1",
+        )
+    ]
