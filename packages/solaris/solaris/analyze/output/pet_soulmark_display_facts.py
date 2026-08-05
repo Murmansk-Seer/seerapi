@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 import json
+import re
 import sqlite3
 
 
@@ -34,6 +37,20 @@ class SoulmarkDisplayBuildSummary:
     addition_rows: int
 
 
+@dataclass(frozen=True, slots=True)
+class SoulmarkDisplaySource:
+    """Raw soulmark values needed to publish a deterministic display kind."""
+
+    id: int
+    intensified: bool
+    is_adv: bool
+    intensified_to_id: int | None
+    description: str
+
+
+_PARTNER_UPGRADE_MIN_SIMILARITY = 0.8
+
+
 # The legacy runtime branch for pet 2500 represented an official visible
 # soulmark effect which is absent from the raw package.  Publishing it here
 # makes the correction auditable and lets every renderer consume one snapshot.
@@ -58,21 +75,41 @@ def replace_pet_soulmark_display_facts(
     now: float,
 ) -> SoulmarkDisplayBuildSummary:
     """Replace raw display order and declared additions for one data release."""
-    rows_by_pet: dict[int, list[tuple[int, bool, bool, int | None]]] = defaultdict(list)
-    for pet_id, soulmark_id, intensified, is_adv, intensified_to_id in connection.execute(
+    rows_by_pet: dict[int, list[SoulmarkDisplaySource]] = defaultdict(list)
+    for row in connection.execute(
         """
         SELECT link.pet_id, soulmark.id, soulmark.intensified, soulmark.is_adv,
-               soulmark.intensified_to_id
+               soulmark.intensified_to_id, soulmark.desc, soulmark.analyze_desc,
+               soulmark.desc_formatting_adjustment
         FROM petsoulmarklink AS link
         JOIN soulmark ON soulmark.id = link.soulmark_id
         ORDER BY link.pet_id, soulmark.id
         """
     ):
+        pet_id, soulmark_id, intensified, is_adv, intensified_to_id, *descriptions = row
+        description = next(
+            (str(value) for value in descriptions if value is not None and str(value)),
+            "",
+        )
         rows_by_pet[int(pet_id)].append(
-            (int(soulmark_id), bool(intensified), bool(is_adv), intensified_to_id)
+            SoulmarkDisplaySource(
+                id=int(soulmark_id),
+                intensified=bool(intensified),
+                is_adv=bool(is_adv),
+                intensified_to_id=(
+                    int(intensified_to_id)
+                    if intensified_to_id is not None
+                    else None
+                ),
+                description=description,
+            )
         )
 
-    display_rows = _display_rows(rows_by_pet, now)
+    display_rows = _display_rows(
+        rows_by_pet,
+        _partner_upgraded_ids(connection, rows_by_pet),
+        now,
+    )
     connection.executescript(
         """
         DROP TABLE IF EXISTS pet_soulmark_display;
@@ -157,26 +194,33 @@ def replace_pet_soulmark_display_facts(
 
 
 def _display_rows(
-    rows_by_pet: dict[int, list[tuple[int, bool, bool, int | None]]],
+    rows_by_pet: dict[int, list[SoulmarkDisplaySource]],
+    partner_upgraded_ids_by_pet: dict[int, frozenset[int]],
     now: float,
 ) -> list[tuple[int, int, int, int, str, float]]:
     candidate_rows: list[tuple[int, int, int, str]] = []
     for pet_id, soulmarks in sorted(rows_by_pet.items()):
         parent_by_child = {
-            int(child): soulmark_id
-            for soulmark_id, _intensified, _is_adv, child in soulmarks
-            if child is not None
+            child: soulmark.id
+            for soulmark in soulmarks
+            if (child := soulmark.intensified_to_id) is not None
         }
-        for soulmark_id, intensified, is_adv, _child in sorted(soulmarks):
-            root_id = soulmark_id
+        partner_upgraded_ids = partner_upgraded_ids_by_pet.get(pet_id, frozenset())
+        for soulmark in sorted(soulmarks, key=lambda value: value.id):
+            root_id = soulmark.id
             seen: set[int] = set()
             while root_id in parent_by_child and root_id not in seen:
                 seen.add(root_id)
                 root_id = parent_by_child[root_id]
-            display_kind = "advance" if is_adv else "intensified" if intensified else "base"
-            candidate_rows.append((pet_id, soulmark_id, root_id, display_kind))
+            display_kind = _display_kind(soulmark, partner_upgraded_ids)
+            candidate_rows.append((pet_id, soulmark.id, root_id, display_kind))
 
-    kind_order = {"base": 0, "intensified": 1, "advance": 2}
+    kind_order = {
+        "base": 0,
+        "intensified": 1,
+        "partner_upgrade": 1,
+        "advance": 2,
+    }
     result: list[tuple[int, int, int, int, str, float]] = []
     for pet_id in sorted(rows_by_pet):
         pet_rows = sorted(
@@ -190,6 +234,102 @@ def _display_rows(
             )
         )
     return result
+
+
+def _partner_upgraded_ids(
+    connection: sqlite3.Connection,
+    rows_by_pet: dict[int, list[SoulmarkDisplaySource]],
+) -> dict[int, frozenset[int]]:
+    if not _table_exists(connection, "pet_partner_upgrade"):
+        return {}
+    descriptions = connection.execute(
+        """
+        SELECT pet_id, before_description, after_description
+        FROM pet_partner_upgrade
+        ORDER BY pet_id
+        """
+    )
+    result: dict[int, frozenset[int]] = {}
+    for pet_id, before, after in descriptions:
+        if resolved := _resolve_partner_upgrade(
+            rows_by_pet.get(int(pet_id), ()),
+            str(before or ""),
+            str(after or ""),
+        ):
+            result[int(pet_id)] = frozenset((resolved,))
+    return result
+
+
+def _resolve_partner_upgrade(
+    soulmarks: Sequence[SoulmarkDisplaySource],
+    before_description: str,
+    after_description: str,
+) -> int | None:
+    if not soulmarks:
+        return None
+    linked_ids = {
+        soulmark.intensified_to_id
+        for soulmark in soulmarks
+        if soulmark.intensified_to_id is not None
+    }
+    if linked_ids:
+        return min(linked_ids)
+    after = _normalize_description(after_description)
+    before = _normalize_description(before_description)
+    if not after:
+        return None
+    candidates = [
+        (
+            SequenceMatcher(None, _normalize_description(soulmark.description), after).ratio(),
+            SequenceMatcher(None, _normalize_description(soulmark.description), before).ratio(),
+            soulmark.id,
+        )
+        for soulmark in soulmarks
+    ]
+    after_score, _before_score, after_id = max(
+        candidates,
+        key=lambda value: (value[0] - value[1], value[0]),
+    )
+    if after_score < _PARTNER_UPGRADE_MIN_SIMILARITY:
+        return None
+    _after_score, before_score, before_id = max(
+        candidates,
+        key=lambda value: (value[1] - value[0], value[1]),
+    )
+    if (
+        before_score >= _PARTNER_UPGRADE_MIN_SIMILARITY
+        and before_id != after_id
+        and before_id > after_id
+    ):
+        return before_id
+    return after_id
+
+
+def _display_kind(
+    soulmark: SoulmarkDisplaySource,
+    partner_upgraded_ids: frozenset[int],
+) -> str:
+    if soulmark.is_adv:
+        return "advance"
+    if soulmark.intensified:
+        return "intensified"
+    if soulmark.id in partner_upgraded_ids:
+        return "partner_upgrade"
+    return "base"
+
+
+def _normalize_description(value: str) -> str:
+    return re.sub(r"[\W_]+", "", re.sub(r"<[^>]+>", "", value)).casefold()
+
+
+def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
+    return (
+        connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (table_name,),
+        ).fetchone()
+        is not None
+    )
 
 
 __all__ = [
