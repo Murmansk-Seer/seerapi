@@ -261,8 +261,10 @@ jobs:
         run: python scripts/build_seerapi_data_db.py
 
       - name: Download previous published database
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
+          set -euo pipefail
           previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
           if ! curl -fL --retry 3 --retry-delay 2 \
             -o "${previous_db}" \
@@ -274,8 +276,77 @@ jobs:
               https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite || true
           fi
           if [ -s "${previous_db}" ]; then
-            echo "PREVIOUS_SEERAPI_DATA_DB=${previous_db}" >> "$GITHUB_ENV"
-            echo "Downloaded previous published database."
+            comparison_db="${previous_db}"
+            read -r expected_schema previous_schema current_cycle <<< "$(
+              python - "${previous_db}" <<'PY'
+          import importlib.util
+          from pathlib import Path
+          import sqlite3
+          import sys
+
+          script = Path("scripts/build_new_content_index.py")
+          spec = importlib.util.spec_from_file_location("new_content_index", script)
+          if spec is None or spec.loader is None:
+              raise SystemExit("cannot load new-content index module")
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          with sqlite3.connect(sys.argv[1]) as connection:
+              columns = module._table_columns(connection, module.RELEASE_TABLE)
+              previous_schema = 1
+              if "schema_version" in columns:
+                  row = connection.execute(
+                      f"SELECT schema_version FROM {module.RELEASE_TABLE} WHERE id = 1"
+                  ).fetchone()
+                  if row is not None:
+                      previous_schema = int(row[0])
+          with sqlite3.connect("seerapi-data.sqlite") as connection:
+              current_cycle = module._weekly_cycle(module._config_version(connection))
+          print(module.SEMANTIC_SCHEMA_VERSION, previous_schema, current_cycle)
+          PY
+            )"
+            if (( previous_schema < expected_schema )); then
+              history_json="${RUNNER_TEMP}/seerapi-data-history.json"
+              gh release view seerapi-data-history \
+                --repo "${GITHUB_REPOSITORY}" --json assets > "${history_json}"
+              history_asset="$(
+                python - "${history_json}" "${current_cycle}" <<'PY'
+          from datetime import datetime, timedelta
+          import json
+          from pathlib import Path
+          import re
+          import sys
+
+          def weekly_cycle(version: str) -> str:
+              value = datetime.strptime(version[:8], "%Y%m%d").date()
+              friday = value - timedelta(days=(value.weekday() - 4) % 7)
+              return friday.isoformat()
+
+          document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          current_cycle = sys.argv[2]
+          candidates = []
+          for asset in document["assets"]:
+              match = re.fullmatch(r"seerapi-data-(\d+)\.sqlite", asset["name"])
+              if match and weekly_cycle(match.group(1)) < current_cycle:
+                  candidates.append((match.group(1), asset["name"]))
+          if candidates:
+              print(max(candidates)[1])
+          PY
+              )"
+              if [ -n "${history_asset}" ]; then
+                gh release download seerapi-data-history \
+                  --repo "${GITHUB_REPOSITORY}" \
+                  --pattern "${history_asset}" \
+                  --dir "${RUNNER_TEMP}" --clobber
+                comparison_db="${RUNNER_TEMP}/${history_asset}"
+                echo "Using ${history_asset} as the semantic-schema migration baseline."
+              else
+                echo "No prior-cycle history asset found for semantic-schema migration."
+              fi
+            fi
+            echo "PREVIOUS_SEERAPI_DATA_DB=${comparison_db}" >> "$GITHUB_ENV"
+            echo "Downloaded previous comparison database."
           else
             echo "No previous published database is available; establishing baseline."
             rm -f "${previous_db}"
