@@ -40,9 +40,19 @@ PET_SKILL_RELATION_FIELDS = (
     'is_advanced',
     'is_fifth',
 )
-SEMANTIC_SCHEMA_VERSION = 2
-SEMANTIC_MIGRATION_CATEGORIES = frozenset({'pet', 'skill', 'equip', 'mount'})
-SEMANTIC_MIGRATION_PRUNE_CATEGORIES = frozenset({'pet', 'equip', 'mount'})
+SEMANTIC_SCHEMA_VERSION = 3
+SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
+    # v2 normalized the semantic snapshots for these categories.  Keep this
+    # migration scoped to databases that genuinely predate it: rerunning it
+    # for an already-v2 release would hide legitimate skill changes.
+    2: frozenset({'pet', 'skill', 'equip', 'mount'}),
+    # v3 removes catalogue-rarity-only mintmark updates from the weekly view.
+    3: frozenset({'mintmark'}),
+}
+SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
+    2: frozenset({'pet', 'equip', 'mount'}),
+    3: frozenset({'mintmark'}),
+}
 
 CONTENT_CATEGORIES = (
     'achievement',
@@ -121,6 +131,13 @@ class ContentItem:
             # A new pet learning an existing skill changes the pet relation,
             # not the skill definition.
             payload.pop('pets', None)
+        elif self.category == 'mintmark':
+            # The API primary-table rarity is a catalogue classification.  It
+            # is distinct from the Unity mintmark quality shown to players,
+            # and upstream corrections to the former must not create a false
+            # weekly content update.  Keep rarity in the published payload
+            # for consumers; compare the description, type, and quality.
+            payload.pop('rarity_id', None)
         return json.dumps(
             {
                 'category': self.category,
@@ -176,6 +193,26 @@ class SourceHistoryAddition:
 
     category: str
     entity_id: int
+
+
+def _semantic_migration_categories(previous_version: int) -> frozenset[str]:
+    return frozenset().union(
+        *(
+            categories
+            for version, categories in SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION.items()
+            if previous_version < version <= SEMANTIC_SCHEMA_VERSION
+        )
+    )
+
+
+def _semantic_migration_prune_categories(previous_version: int) -> frozenset[str]:
+    return frozenset().union(
+        *(
+            categories
+            for version, categories in SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION.items()
+            if previous_version < version <= SEMANTIC_SCHEMA_VERSION
+        )
+    )
 
 
 def _has_table(conn: sqlite3.Connection, name: str) -> bool:
@@ -536,6 +573,16 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
             )
         )
 
+    mintmark_quality_by_id: dict[int, int] = {}
+    if _has_table(conn, 'mintmark_quality'):
+        mintmark_quality_by_id = {
+            int(row['mintmark_id']): int(row['quality'] or 0)
+            for row in _rows(
+                conn,
+                'SELECT mintmark_id, quality FROM mintmark_quality',
+            )
+        }
+
     for category, table, fields in (
         ('mintmark', 'mintmark', ('desc', 'type_id', 'rarity_id')),
         ('suit', 'suit', ('transform', 'tran_speed', 'suit_desc')),
@@ -546,13 +593,19 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         select = ', '.join(('id', 'name', *fields))
         for row in _rows(conn, f'SELECT {select} FROM {table}'):
             entity_id = int(row['id'])
+            payload = {field: row[field] for field in fields}
+            if category == 'mintmark':
+                # Quality is extracted from the official Unity
+                # ConfigPackage.  It intentionally remains separate from the
+                # legacy primary-table rarity classification.
+                payload['quality'] = mintmark_quality_by_id.get(entity_id, 0)
             items.append(
                 ContentItem(
                     category,
                     entity_id,
                     str(row['name']),
                     entity_id,
-                    {field: row[field] for field in fields},
+                    payload,
                 )
             )
 
@@ -731,16 +784,19 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 if item.category in missing_categories
             ))
             if semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
+                migration_categories = _semantic_migration_categories(
+                    semantic_schema_version
+                )
                 source_items = (
                     *(
                         item
                         for item in source_items
-                        if item.category not in SEMANTIC_MIGRATION_CATEGORIES
+                        if item.category not in migration_categories
                     ),
                     *(
                         SourceSnapshotItem.from_content(item)
                         for item in current_items
-                        if item.category in SEMANTIC_MIGRATION_CATEGORIES
+                        if item.category in migration_categories
                     ),
                 )
         source_categories = source_categories | current_categories
@@ -1028,12 +1084,15 @@ def build_release_state(
     if previous.weekly_cycle == cycle:
         carried_items = previous.items
         if previous.semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
+            migration_prune_categories = _semantic_migration_prune_categories(
+                previous.semantic_schema_version
+            )
             carried_items = tuple(
                 item
                 for item in carried_items
                 if not (
                     item.change_kind == 'modified'
-                    and item.category in SEMANTIC_MIGRATION_PRUNE_CATEGORIES
+                    and item.category in migration_prune_categories
                 )
             )
         items = _current_subset((*carried_items, *increment), current_items)
