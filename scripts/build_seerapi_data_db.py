@@ -36,6 +36,7 @@ UPSTREAM_SEERAPI_URL = os.environ.get(
     "IRONSBOT_DATA_UPSTREAM_SEERAPI_URL",
     "https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite",
 )
+UPSTREAM_SEERAPI_PATH = os.environ.get("IRONSBOT_DATA_UPSTREAM_SEERAPI_PATH", "")
 CONFIG_PACKAGE_BASE_URL = os.environ.get(
     "IRONSBOT_DATA_CONFIG_PACKAGE_BASE_URL",
     "https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/",
@@ -545,6 +546,21 @@ def _download_file(url: str, path: Path) -> None:
     ):
         shutil.copyfileobj(response, output)
     tmp_path.replace(path)
+
+
+def _copy_or_download_upstream_database(path: Path) -> None:
+    """Populate *path* from a locally verified DB when supplied, else download."""
+    if UPSTREAM_SEERAPI_PATH:
+        source = Path(UPSTREAM_SEERAPI_PATH).expanduser()
+        if not source.is_file():
+            raise FileNotFoundError(
+                "Verified upstream SeerAPI database does not exist: "
+                f"{source}"
+            )
+        if source.resolve() != path.resolve():
+            shutil.copy2(source, path)
+        return
+    _download_file(UPSTREAM_SEERAPI_URL, path)
 
 
 def _probe_weekly_preview_image() -> dict[str, str]:
@@ -4196,8 +4212,14 @@ def main() -> None:
         )
         return
     OUTPUT_DB.parent.mkdir(parents=True, exist_ok=True)
-    logger.info("Downloading upstream SeerAPI database: %s", UPSTREAM_SEERAPI_URL)
-    _download_file(UPSTREAM_SEERAPI_URL, OUTPUT_DB)
+    if UPSTREAM_SEERAPI_PATH:
+        logger.info(
+            "Using verified upstream SeerAPI database: %s",
+            UPSTREAM_SEERAPI_PATH,
+        )
+    else:
+        logger.info("Downloading upstream SeerAPI database: %s", UPSTREAM_SEERAPI_URL)
+    _copy_or_download_upstream_database(OUTPUT_DB)
     _quick_check(OUTPUT_DB)
 
     logger.info("Loading official ConfigPackage: %s", CONFIG_PACKAGE_BASE_URL)
