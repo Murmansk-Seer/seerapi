@@ -4,6 +4,8 @@ on:
   workflow_run:
     workflows: ["Sync Upstream"]
     types: [completed]
+  repository_dispatch:
+    types: [api-data-published]
   push:
     branches: [main]
     paths:
@@ -30,7 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.source_check.outputs.skip }}
+      defer: ${{ steps.publication_gate.outputs.defer }}
       remote_sha: ${{ steps.source_check.outputs.remote_sha }}
+      expected_api_data_sha: ${{ steps.source_check.outputs.expected_api_data_sha }}
       remote_partner_sha: ${{ steps.source_check.outputs.remote_partner_sha }}
       remote_item_catalog_sha: ${{ steps.source_check.outputs.remote_item_catalog_sha }}
       remote_special_effect_status_sha: ${{ steps.source_check.outputs.remote_special_effect_status_sha }}
@@ -53,16 +57,41 @@ jobs:
         id: source_check
         env:
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
+          DISPATCHED_API_DATA_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha256 || '' }}
+          DISPATCHED_SOURCE_COMMIT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_commit || '' }}
           PARTNER_CONTRACTS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/partner_contracts.json
           UNITY_ITEM_CATALOG_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/itemsOptimizeCatItems17.json
           SPECIAL_EFFECT_STATUS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/signIconFight.json
           CONFIG_PACKAGE_BASE_URL: https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/
         run: |
-          set -e
+          set -euo pipefail
           remote_sha="$(
             curl -fsSL https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite.sha256 \
               | awk '{print $1}'
           )"
+          remote_sha="${remote_sha,,}"
+          if ! [[ "${remote_sha}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "api-data latest checksum is not a SHA256 value: ${remote_sha}" >&2
+            exit 1
+          fi
+          expected_api_data_sha="${remote_sha}"
+          if [ "${GITHUB_EVENT_NAME}" = "repository_dispatch" ]; then
+            dispatched_sha="${DISPATCHED_API_DATA_SHA,,}"
+            if ! [[ "${dispatched_sha}" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "repository_dispatch payload sha256 must be a 64-character hexadecimal SHA256" >&2
+              exit 1
+            fi
+            if ! [[ "${DISPATCHED_SOURCE_COMMIT}" =~ ^[0-9a-fA-F]{40}([0-9a-fA-F]{24})?$ ]]; then
+              echo "repository_dispatch payload source_commit must be a Git commit SHA" >&2
+              exit 1
+            fi
+            if [ "${remote_sha}" != "${dispatched_sha}" ]; then
+              echo "api-data latest checksum does not match repository_dispatch payload; waiting for the matching release asset" >&2
+              exit 1
+            fi
+            expected_api_data_sha="${dispatched_sha}"
+            echo "Accepted api-data-published event for ${DISPATCHED_SOURCE_COMMIT} (${expected_api_data_sha})"
+          fi
           remote_partner_sha="$(
             curl -fsSL "${PARTNER_CONTRACTS_URL}" | sha256sum | awk '{print $1}'
           )"
@@ -105,11 +134,14 @@ jobs:
           fi
 
           echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
+          echo "expected_api_data_sha=${expected_api_data_sha}" >> "$GITHUB_OUTPUT"
+          echo "previous_sha=${previous_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_partner_sha=${remote_partner_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_item_catalog_sha=${remote_item_catalog_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_special_effect_status_sha=${remote_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_config_package_version=${config_package_version}" >> "$GITHUB_OUTPUT"
           echo "remote_config_package_manifest_sha=${remote_config_package_manifest_sha}" >> "$GITHUB_OUTPUT"
+          echo "previous_config_package_version=${previous_config_package_version}" >> "$GITHUB_OUTPUT"
 
           if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -119,9 +151,24 @@ jobs:
             echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
+      - name: Apply weekly publication consistency gate
+        id: publication_gate
+        run: |
+          python scripts/weekly_publication_gate.py \
+            --current-config-version "${{ steps.source_check.outputs.remote_config_package_version }}" \
+            --previous-config-version "${{ steps.source_check.outputs.previous_config_package_version }}" \
+            --current-api-data-sha256 "${{ steps.source_check.outputs.remote_sha }}" \
+            --previous-api-data-sha256 "${{ steps.source_check.outputs.previous_sha }}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Defer until api-data catches up
+        if: steps.publication_gate.outputs.defer == 'true'
+        run: |
+          echo "Deferred: waiting for api-data to catch up with the new weekly cycle"
+
   render-effect-icon-cache:
     needs: plan
-    if: ${{ needs.plan.outputs.skip != 'true' }}
+    if: ${{ needs.plan.outputs.skip != 'true' && needs.plan.outputs.defer != 'true' }}
     runs-on: ubuntu-latest
     # Normal runs seed the last release and only repair missing or invalid
     # icons. A cold first release may need to render the full icon set.
@@ -204,7 +251,7 @@ jobs:
 
   build:
     needs: [plan, render-effect-icon-cache]
-    if: ${{ needs.plan.outputs.skip != 'true' }}
+    if: ${{ needs.plan.outputs.skip != 'true' && needs.plan.outputs.defer != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -248,8 +295,28 @@ jobs:
           name: effect-icon-cache
           path: .cache/effect-icon-png
 
+      - name: Download and verify api-data database
+        env:
+          EXPECTED_API_DATA_SHA: ${{ needs.plan.outputs.expected_api_data_sha }}
+        run: |
+          set -euo pipefail
+          database_path="${RUNNER_TEMP}/api-data.sqlite"
+          for attempt in 1 2 3; do
+            curl --fail --location --retry 3 --retry-delay 2 \
+              --output "${database_path}" \
+              https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite
+            if printf '%s  %s\n' "${EXPECTED_API_DATA_SHA}" "${database_path}" | sha256sum --check; then
+              exit 0
+            fi
+            echo "api-data checksum mismatch on download attempt ${attempt}; retrying" >&2
+            rm -f "${database_path}"
+          done
+          echo "api-data release asset changed during build; checksum verification failed after 3 attempts" >&2
+          exit 1
+
       - name: Build SeerAPI database
         env:
+          IRONSBOT_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Asset availability can change between the incremental render job and

@@ -32,6 +32,37 @@ def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
     )
 
 
+def test_copy_or_download_upstream_database_uses_verified_local_input(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "verified.sqlite"
+    with sqlite3.connect(source) as conn:
+        conn.execute("CREATE TABLE verified_source (value TEXT)")
+        conn.execute("INSERT INTO verified_source VALUES ('api-data')")
+    output = tmp_path / "output.sqlite"
+    monkeypatch.setattr(builder, "UPSTREAM_SEERAPI_PATH", str(source))
+
+    builder._copy_or_download_upstream_database(output)
+
+    with sqlite3.connect(output) as conn:
+        assert conn.execute("SELECT value FROM verified_source").fetchone() == (
+            "api-data",
+        )
+
+
+def test_copy_or_download_upstream_database_rejects_missing_verified_input(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        builder,
+        "UPSTREAM_SEERAPI_PATH",
+        str(tmp_path / "missing.sqlite"),
+    )
+
+    with pytest.raises(FileNotFoundError, match="Verified upstream"):
+        builder._copy_or_download_upstream_database(tmp_path / "output.sqlite")
+
+
 def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
     payload = {
         "item": [
