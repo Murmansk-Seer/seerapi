@@ -2874,6 +2874,214 @@ def _quick_check(path: Path) -> None:
         )
 
 
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {
+        str(row[1])
+        for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+    }
+
+
+def _replace_autocard_role_table(
+    conn: sqlite3.Connection,
+    data: AutocardData,
+    updated_at: float,
+) -> None:
+    conn.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {AUTOCARD_ROLE_TABLE} (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            nature INTEGER NOT NULL,
+            health INTEGER NOT NULL,
+            skill_name TEXT NOT NULL,
+            skill_text TEXT NOT NULL,
+            skill_upgrade TEXT NOT NULL,
+            description TEXT NOT NULL,
+            raw_json TEXT NOT NULL,
+            source TEXT NOT NULL,
+            updated_at REAL NOT NULL
+        )
+        """
+    )
+    columns = _table_columns(conn, AUTOCARD_ROLE_TABLE)
+    official_columns = {
+        "element_type_id",
+        "skill_desc",
+        "is_passive_skill",
+    }
+    legacy_columns = {
+        "id",
+        "name",
+        "nature",
+        "health",
+        "skill_name",
+        "skill_text",
+        "skill_upgrade",
+        "description",
+        "raw_json",
+        "source",
+        "updated_at",
+    }
+    role_rows = [
+        (
+            _item_int(item, "id"),
+            _item_text(item, "name"),
+            _item_int(item, "nature"),
+            _item_int(item, "health"),
+            _item_text(item, "skillName", "skill_name"),
+            _item_text(item, "skillTxt", "skill_txt"),
+            _item_text(item, "skillUpgrade", "skill_upgrade"),
+            _item_text(item, "desc"),
+            _dump_json(item),
+            data.source,
+            updated_at,
+        )
+        for item in data.roles
+        if _item_int(item, "id") > 0
+    ]
+
+    if official_columns <= columns:
+        compatibility_columns = {
+            "nature": "INTEGER",
+            "skill_name": "TEXT",
+            "skill_text": "TEXT",
+            "skill_upgrade": "TEXT",
+            "raw_json": "TEXT",
+            "source": "TEXT",
+            "updated_at": "REAL",
+        }
+        for name, sql_type in compatibility_columns.items():
+            if name not in columns:
+                conn.execute(
+                    f"ALTER TABLE {AUTOCARD_ROLE_TABLE} "
+                    f"ADD COLUMN {name} {sql_type}"
+                )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS autocard_element_type (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO autocard_element_type (id, name)
+            VALUES (?, ?)
+            ON CONFLICT(id) DO UPDATE SET name = excluded.name
+            """,
+            [
+                (_item_int(item, "id"), _item_text(item, "name"))
+                for item in data.natures
+                if _item_int(item, "id") > 0
+            ],
+        )
+
+        official_role_rows: list[tuple[object, ...]] = []
+        for item in data.roles:
+            id_ = _item_int(item, "id")
+            if id_ <= 0 or id_ >= 10000:
+                continue
+            nature = _item_int(item, "nature")
+            element_type_id = nature or 999
+            is_passive_skill = not bool(
+                _item_int(item, "skillType", "skill_type")
+            )
+            skill_cost = None
+            skill_game_limit = None
+            skill_round_limit = None
+            if not is_passive_skill:
+                skill_cost = _item_int(item, "skillCostNum", "skill_cost_num")
+                skill_game_limit = _item_int(
+                    item, "skillGameLimit", "skill_game_limit"
+                )
+                skill_round_limit = _item_int(
+                    item, "skillRoundLimit", "skill_round_limit"
+                )
+            official_role_rows.append(
+                (
+                    id_,
+                    _item_text(item, "name"),
+                    _item_text(item, "desc"),
+                    _item_int(item, "health"),
+                    _item_text(item, "skillTxt", "skill_txt"),
+                    int(is_passive_skill),
+                    skill_cost,
+                    skill_game_limit,
+                    skill_round_limit,
+                    element_type_id,
+                    nature,
+                    _item_text(item, "skillName", "skill_name"),
+                    _item_text(item, "skillTxt", "skill_txt"),
+                    _item_text(item, "skillUpgrade", "skill_upgrade"),
+                    _dump_json(item),
+                    data.source,
+                    updated_at,
+                )
+            )
+
+        conn.execute(f"DELETE FROM {AUTOCARD_ROLE_TABLE}")
+        conn.executemany(
+            f"""
+            INSERT INTO {AUTOCARD_ROLE_TABLE} (
+                id,
+                name,
+                description,
+                health,
+                skill_desc,
+                is_passive_skill,
+                skill_cost,
+                skill_game_limit,
+                skill_round_limit,
+                element_type_id,
+                nature,
+                skill_name,
+                skill_text,
+                skill_upgrade,
+                raw_json,
+                source,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            official_role_rows,
+        )
+    elif legacy_columns <= columns:
+        conn.execute(f"DELETE FROM {AUTOCARD_ROLE_TABLE}")
+        conn.executemany(
+            f"""
+            INSERT INTO {AUTOCARD_ROLE_TABLE}
+                (
+                    id,
+                    name,
+                    nature,
+                    health,
+                    skill_name,
+                    skill_text,
+                    skill_upgrade,
+                    description,
+                    raw_json,
+                    source,
+                    updated_at
+                )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            role_rows,
+        )
+    else:
+        raise RuntimeError(
+            "Unsupported autocard_role schema: " + ", ".join(sorted(columns))
+        )
+
+    conn.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_{AUTOCARD_ROLE_TABLE}_name
+        ON {AUTOCARD_ROLE_TABLE} (name)
+        """
+    )
+
+
 def _replace_autocard_tables(
     conn: sqlite3.Connection,
     data: AutocardData,
@@ -2949,66 +3157,7 @@ def _replace_autocard_tables(
         """
     )
 
-    conn.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS {AUTOCARD_ROLE_TABLE} (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            nature INTEGER NOT NULL,
-            health INTEGER NOT NULL,
-            skill_name TEXT NOT NULL,
-            skill_text TEXT NOT NULL,
-            skill_upgrade TEXT NOT NULL,
-            description TEXT NOT NULL,
-            raw_json TEXT NOT NULL,
-            source TEXT NOT NULL,
-            updated_at REAL NOT NULL
-        )
-        """
-    )
-    conn.execute(f"DELETE FROM {AUTOCARD_ROLE_TABLE}")
-    conn.executemany(
-        f"""
-        INSERT INTO {AUTOCARD_ROLE_TABLE}
-            (
-                id,
-                name,
-                nature,
-                health,
-                skill_name,
-                skill_text,
-                skill_upgrade,
-                description,
-                raw_json,
-                source,
-                updated_at
-            )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        [
-            (
-                _item_int(item, "id"),
-                _item_text(item, "name"),
-                _item_int(item, "nature"),
-                _item_int(item, "health"),
-                _item_text(item, "skillName", "skill_name"),
-                _item_text(item, "skillTxt", "skill_txt"),
-                _item_text(item, "skillUpgrade", "skill_upgrade"),
-                _item_text(item, "desc"),
-                _dump_json(item),
-                data.source,
-                updated_at,
-            )
-            for item in data.roles
-            if _item_int(item, "id") > 0
-        ],
-    )
-    conn.execute(
-        f"""
-        CREATE INDEX IF NOT EXISTS idx_{AUTOCARD_ROLE_TABLE}_name
-        ON {AUTOCARD_ROLE_TABLE} (name)
-        """
-    )
+    _replace_autocard_role_table(conn, data, updated_at)
 
     conn.execute(
         f"""
