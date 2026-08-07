@@ -1,7 +1,10 @@
 import importlib.util
+import json
 from pathlib import Path
 import sqlite3
 import sys
+
+import pytest
 
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1] / 'scripts' / 'build_new_content_index.py'
@@ -319,6 +322,67 @@ def test_autocard_cards_and_roles_keep_separate_id_spaces(tmp_path: Path) -> Non
     assert {(item.category, item.entity_id) for item in state.items} >= {
         ('autocard_card', 1),
         ('autocard_role', 1),
+    }
+
+
+@pytest.mark.parametrize(
+    ('field', 'before', 'after'),
+    [
+        ('skillTxt', '原技能', '新技能'),
+        ('skillName', '原技能名', '新技能名'),
+        ('skillUpgrade', '原祝印', '新祝印'),
+        ('picID', 7, 8),
+        ('desc', '原描述', '新描述'),
+    ],
+)
+def test_official_autocard_role_sidecar_changes_are_marked_modified(
+    tmp_path: Path,
+    field: str,
+    before: object,
+    after: object,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    base_role = {
+        'id': 1,
+        'name': '测试角色',
+        'skillTxt': '原技能',
+        'skillName': '原技能名',
+        'skillUpgrade': '原祝印',
+        'picID': 7,
+        'desc': '原描述',
+    }
+    for path, value in ((previous_path, before), (current_path, after)):
+        role = {**base_role, field: value}
+        with sqlite3.connect(path) as conn:
+            conn.executescript(
+                '''
+                CREATE TABLE autocard_role (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL
+                );
+                CREATE TABLE autocard_role_raw (
+                    role_id INTEGER PRIMARY KEY,
+                    raw_json TEXT NOT NULL
+                );
+                '''
+            )
+            conn.execute(
+                'INSERT INTO autocard_role VALUES (?, ?, ?)',
+                (1, '测试角色', str(role['desc'])),
+            )
+            conn.execute(
+                'INSERT INTO autocard_role_raw VALUES (?, ?)',
+                (1, json.dumps(role, ensure_ascii=False)),
+            )
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert ('autocard_role', 1, 'modified') in {
+        (item.category, item.entity_id, item.change_kind) for item in state.items
     }
 
 

@@ -503,13 +503,8 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
             )
         )
 
-    for category, table in (
-        ('autocard_card', 'autocard_card'),
-        ('autocard_role', 'autocard_role'),
-    ):
-        if not _has_table(conn, table):
-            continue
-        for row in _rows(conn, f'SELECT id, name, raw_json FROM {table}'):
+    if _has_table(conn, 'autocard_card'):
+        for row in _rows(conn, 'SELECT id, name, raw_json FROM autocard_card'):
             entity_id = int(row['id'])
             try:
                 payload = json.loads(str(row['raw_json']))
@@ -517,7 +512,35 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 payload = {'raw_json': str(row['raw_json'])}
             items.append(
                 ContentItem(
-                    category,
+                    'autocard_card',
+                    entity_id,
+                    str(row['name']),
+                    entity_id,
+                    payload if isinstance(payload, dict) else {'raw_json': payload},
+                )
+            )
+
+    if _has_table(conn, 'autocard_role'):
+        if _has_table(conn, 'autocard_role_raw'):
+            role_query = '''
+                SELECT role.id, role.name, raw.raw_json
+                FROM autocard_role AS role
+                JOIN autocard_role_raw AS raw ON raw.role_id = role.id
+                ORDER BY role.id
+            '''
+        elif 'raw_json' in _table_columns(conn, 'autocard_role'):
+            role_query = 'SELECT id, name, raw_json FROM autocard_role ORDER BY id'
+        else:
+            role_query = None
+        for row in _rows(conn, role_query) if role_query is not None else ():
+            entity_id = int(row['id'])
+            try:
+                payload = json.loads(str(row['raw_json']))
+            except json.JSONDecodeError:
+                payload = {'raw_json': str(row['raw_json'])}
+            items.append(
+                ContentItem(
+                    'autocard_role',
                     entity_id,
                     str(row['name']),
                     entity_id,
