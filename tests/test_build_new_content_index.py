@@ -63,6 +63,49 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
         conn.execute("INSERT INTO equip VALUES (401, '座驾', 6, 300)")
 
 
+def _add_equip_bonus(
+    path: Path,
+    *,
+    equip_id: int,
+    bonus_id: int,
+    atk: int,
+) -> None:
+    with sqlite3.connect(path) as conn:
+        conn.executescript(
+            """
+            ALTER TABLE equip ADD COLUMN bonus_id INTEGER;
+            CREATE TABLE equip_bonus_attr (
+                id INTEGER PRIMARY KEY,
+                atk INTEGER NOT NULL,
+                hp INTEGER NOT NULL,
+                percent INTEGER NOT NULL
+            );
+            CREATE TABLE equip_bonus (
+                id INTEGER PRIMARY KEY,
+                desc TEXT NOT NULL,
+                effect_in_use_id INTEGER,
+                newse_id INTEGER,
+                attribute_id INTEGER,
+                hit_rate INTEGER,
+                dodge_rate INTEGER,
+                crit_rate INTEGER
+            );
+            """
+        )
+        conn.execute(
+            'INSERT INTO equip_bonus_attr VALUES (?, ?, 0, 0)',
+            (bonus_id, atk),
+        )
+        conn.execute(
+            "INSERT INTO equip_bonus VALUES (?, '攻击加成', NULL, NULL, ?, NULL, NULL, NULL)",
+            (bonus_id, bonus_id),
+        )
+        conn.execute(
+            'UPDATE equip SET bonus_id = ? WHERE id = ?',
+            (bonus_id, equip_id),
+        )
+
+
 def test_new_week_records_only_new_rows_and_zero_point_achievement(
     tmp_path: Path,
 ) -> None:
@@ -144,6 +187,147 @@ def test_renumbered_item_with_same_semantic_content_is_not_new(tmp_path: Path) -
     state = indexer.build_release_state(current_path, previous_path, 'current-sha')
 
     assert all(item.category != 'pet' for item in state.items)
+
+
+def test_pet_semantic_digest_ignores_weekly_pool_and_skill_definition_noise() -> None:
+    before = indexer.ContentItem(
+        'pet',
+        1,
+        '测试精灵',
+        1,
+        {
+            'stats': {
+                'type_id': 1,
+                'peak_pool_id': 1,
+                'peak_expert_pool_id': 2,
+                'peak_pool_vote_id': 3,
+            },
+            'skills': [
+                {
+                    'id': 100,
+                    'learning_level': 1,
+                    'is_special': False,
+                    'is_advanced': False,
+                    'is_fifth': False,
+                    'info': '待添加',
+                }
+            ],
+        },
+    )
+    after = indexer.ContentItem(
+        'pet',
+        1,
+        '测试精灵',
+        1,
+        {
+            'stats': {
+                'type_id': 1,
+                'peak_pool_id': 0,
+                'peak_expert_pool_id': 0,
+                'peak_pool_vote_id': 0,
+            },
+            'skills': [
+                {
+                    'id': 100,
+                    'learning_level': 1,
+                    'is_special': False,
+                    'is_advanced': False,
+                    'is_fifth': False,
+                    'info': '正式技能说明',
+                }
+            ],
+        },
+    )
+
+    assert before.semantic_digest == after.semantic_digest
+
+    changed_relation = indexer.replace(
+        after,
+        payload={
+            **after.payload,
+            'skills': [{**after.payload['skills'][0], 'learning_level': 5}],
+        },
+    )
+    assert before.semantic_digest != changed_relation.semantic_digest
+
+
+def test_skill_semantic_digest_ignores_linked_pet_list() -> None:
+    before = indexer.ContentItem(
+        'skill',
+        100,
+        '测试技能',
+        100,
+        {'power': 100, 'info': '技能说明', 'pets': [{'id': 1}]},
+    )
+    after = indexer.ContentItem(
+        'skill',
+        100,
+        '测试技能',
+        100,
+        {'power': 100, 'info': '技能说明', 'pets': [{'id': 2}]},
+    )
+
+    assert before.semantic_digest == after.semantic_digest
+    assert before.semantic_digest != indexer.replace(
+        after,
+        payload={**after.payload, 'info': '修正后的技能说明'},
+    ).semantic_digest
+
+
+def test_equip_bonus_row_renumbering_is_not_a_content_change(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    _add_equip_bonus(previous_path, equip_id=400, bonus_id=4, atk=10)
+    _add_equip_bonus(current_path, equip_id=400, bonus_id=7, atk=10)
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert not {
+        (item.category, item.entity_id)
+        for item in state.items
+        if item.category == 'equip'
+    }
+
+    with sqlite3.connect(current_path) as conn:
+        conn.execute('UPDATE equip_bonus_attr SET atk = 11 WHERE id = 7')
+    changed = indexer.build_release_state(
+        current_path,
+        previous_path,
+        'current-sha',
+    )
+    assert ('equip', 400, 'modified') in {
+        (item.category, item.entity_id, item.change_kind) for item in changed.items
+    }
+
+
+def test_semantic_schema_upgrade_prunes_legacy_noise_in_same_week(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260731090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    _add_equip_bonus(previous_path, equip_id=400, bonus_id=4, atk=10)
+    _add_equip_bonus(current_path, equip_id=400, bonus_id=7, atk=10)
+    baseline = indexer.build_release_state(previous_path, None, 'old-sha')
+    equip = next(
+        item
+        for item in indexer.load_current_items(sqlite3.connect(previous_path))
+        if item.category == 'equip' and item.entity_id == 400
+    )
+    legacy = indexer.replace(
+        baseline,
+        baseline_established=True,
+        items=(equip.with_change_kind('modified'),),
+        semantic_schema_version=1,
+    )
+    indexer.write_release_state(previous_path, legacy, None)
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert all(item.category != 'equip' for item in state.items)
 
 
 def test_same_week_accumulates_incremental_rows(tmp_path: Path) -> None:
