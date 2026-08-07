@@ -1250,6 +1250,8 @@ def test_replace_autocard_roles_populates_official_schema_and_skips_npcs() -> No
                 "name": "Raw role name",
                 "nature": 7,
                 "health": 99,
+                "picID": 17,
+                "skillID": 42,
                 "skillName": "Raw skill name",
                 "skillTxt": "Raw skill text",
                 "skillUpgrade": "Raw upgrade",
@@ -1317,6 +1319,10 @@ def test_replace_autocard_roles_populates_official_schema_and_skips_npcs() -> No
         builder._replace_autocard_role_table(connection, data, 123.0)
         builder._replace_autocard_role_table(connection, data, 456.0)
 
+        role_columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(autocard_role)")
+        }
         rows = connection.execute(
             """
             SELECT
@@ -1329,42 +1335,89 @@ def test_replace_autocard_roles_populates_official_schema_and_skips_npcs() -> No
                 skill_cost,
                 skill_game_limit,
                 skill_round_limit,
-                element_type_id,
-                nature,
+                element_type_id
+            FROM autocard_role
+            ORDER BY id
+            """
+        ).fetchall()
+        raw_rows = connection.execute(
+            """
+            SELECT
+                role_id,
+                pic_id,
+                skill_id,
                 skill_name,
-                skill_text,
                 skill_upgrade,
                 raw_json,
                 source,
                 updated_at
-            FROM autocard_role
-            ORDER BY id
+            FROM autocard_role_raw
+            ORDER BY role_id
             """
         ).fetchall()
         element_types = connection.execute(
             "SELECT id, name FROM autocard_element_type ORDER BY id"
         ).fetchall()
 
-    assert len(rows) == 1
-    assert rows[0][:14] == (
+    assert role_columns == {
+        "id",
+        "name",
+        "description",
+        "health",
+        "skill_desc",
+        "is_passive_skill",
+        "skill_cost",
+        "skill_game_limit",
+        "skill_round_limit",
+        "element_type_id",
+    }
+    assert rows == [
+        (
+            1,
+            "Raw role name",
+            "Raw description",
+            99,
+            "Raw skill text",
+            1,
+            None,
+            None,
+            None,
+            7,
+        )
+    ]
+    assert raw_rows[0][:5] == (
         1,
-        "Raw role name",
-        "Raw description",
-        99,
-        "Raw skill text",
-        1,
-        None,
-        None,
-        None,
-        7,
-        7,
+        17,
+        42,
         "Raw skill name",
-        "Raw skill text",
         "Raw upgrade",
     )
-    assert json.loads(rows[0][14]) == data.roles[0]
-    assert rows[0][15:] == ("test-source", 456.0)
+    assert json.loads(raw_rows[0][5]) == data.roles[0]
+    assert raw_rows[0][6:] == ("test-source", 456.0)
     assert element_types == [(7, "Ground"), (999, "None")]
+
+
+def test_replace_autocard_roles_rejects_legacy_schema() -> None:
+    data = builder.AutocardData(
+        cards=[],
+        roles=[],
+        natures=[],
+        buffs=[],
+        source="test-source",
+    )
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute(
+            """
+            CREATE TABLE autocard_role (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                raw_json TEXT NOT NULL
+            )
+            """
+        )
+
+        with pytest.raises(RuntimeError, match="expected official columns"):
+            builder._replace_autocard_role_table(connection, data, 123.0)
 
 
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
