@@ -1013,10 +1013,17 @@ def build_release_state(
     comparable_categories = {
         state.category for state in category_states if state.comparison_ready
     }
-    increment = (
-        *_new_items(current_items, previous.source_items, comparable_categories),
-        *_modified_items(current_items, previous.source_items, comparable_categories),
-        *_source_history_items(current_items, source_history_additions),
+    increment = _current_subset(
+        (
+            *_new_items(current_items, previous.source_items, comparable_categories),
+            *_modified_items(
+                current_items,
+                previous.source_items,
+                comparable_categories,
+            ),
+            *_source_history_items(current_items, source_history_additions),
+        ),
+        current_items,
     )
     if previous.weekly_cycle == cycle:
         carried_items = previous.items

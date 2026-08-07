@@ -431,6 +431,26 @@ def test_source_history_additions_repair_an_overwritten_same_version_baseline(
     ]
 
 
+def test_source_history_addition_is_deduplicated_from_new_cycle_diff(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1, 2))
+
+    state = indexer.build_release_state(
+        current_path,
+        previous_path,
+        'current-sha',
+        (indexer.SourceHistoryAddition('pet', 2),),
+    )
+
+    assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
+        ('pet', 2, 'added')
+    ]
+
+
 def test_source_history_additions_route_equip_mounts_to_the_runtime_category(
     tmp_path: Path,
 ) -> None:
