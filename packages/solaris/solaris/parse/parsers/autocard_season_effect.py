@@ -1,4 +1,4 @@
-"""群星牌赛季圣域效果配置解析器。"""
+"""Autocard Season Effect 配置解析器"""
 
 from typing import TypedDict
 
@@ -7,31 +7,31 @@ from ..bytes_reader import BytesReader
 
 
 class AutocardSeasonEffectInfo(TypedDict):
-    """一条基础圣域或第 5/10 回合可选效果。"""
+    """Autocard Season Effect 信息条目"""
 
-    count_buff_id: str
-    buff_id: str
-    buff_param: str
-    count_type: int
-    count_num: int
-    sanctuary_id: int
-    name: str
-    description: str
+    BuffDisplay: str
+    BuffId: str
+    BuffParam: str
+    CountNum: int
+    DefaultNum: int
+    effectGroup: int
+    effectName: str
+    effectTxt: str
     id: int
-    unlock_round: int
-    pic_id: int
-    season_id: int
-    stage: int
+    opTurn: int
+    picID: int
+    season: int
+    stageLevel: int
 
 
 class AutocardSeasonEffectConfig(TypedDict):
-    """群星牌赛季圣域效果配置。"""
+    """Autocard Season Effect 配置数据"""
 
     data: list[AutocardSeasonEffectInfo]
 
 
 class AutocardSeasonEffectParser(BaseParser[AutocardSeasonEffectConfig]):
-    """解析 ``autocardSeasonEffect.bytes`` 配置文件。"""
+    """解析 autocardSeasonEffect.bytes 配置文件"""
 
     @classmethod
     def source_config_filename(cls) -> str:
@@ -50,35 +50,21 @@ class AutocardSeasonEffectParser(BaseParser[AutocardSeasonEffectConfig]):
 
         count = reader.ReadSignedInt()
         for _ in range(count):
-            count_buff_id = reader.ReadUTFBytesWithLength()
-            buff_id = reader.ReadUTFBytesWithLength()
-            buff_param = reader.ReadUTFBytesWithLength()
-            count_type = reader.ReadSignedInt()
-            count_num = reader.ReadSignedInt()
-            sanctuary_id = reader.ReadSignedInt()
-            name = reader.ReadUTFBytesWithLength()
-            description = reader.ReadUTFBytesWithLength()
-            id_val = reader.ReadSignedInt()
-            unlock_round = reader.ReadSignedInt()
-            pic_id = reader.ReadSignedInt()
-            season_id = reader.ReadSignedInt()
-            stage = reader.ReadSignedInt()
-
             result['data'].append(
                 AutocardSeasonEffectInfo(
-                    count_buff_id=count_buff_id,
-                    buff_id=buff_id,
-                    buff_param=buff_param,
-                    count_type=count_type,
-                    count_num=count_num,
-                    sanctuary_id=sanctuary_id,
-                    name=name,
-                    description=description,
-                    id=id_val,
-                    unlock_round=unlock_round,
-                    pic_id=pic_id,
-                    season_id=season_id,
-                    stage=stage,
+                    BuffDisplay=reader.ReadUTFBytesWithLength(),
+                    BuffId=reader.ReadUTFBytesWithLength(),
+                    BuffParam=reader.ReadUTFBytesWithLength(),
+                    CountNum=reader.ReadSignedInt(),
+                    DefaultNum=reader.ReadSignedInt(),
+                    effectGroup=reader.ReadSignedInt(),
+                    effectName=reader.ReadUTFBytesWithLength(),
+                    effectTxt=reader.ReadUTFBytesWithLength(),
+                    id=reader.ReadSignedInt(),
+                    opTurn=reader.ReadSignedInt(),
+                    picID=reader.ReadSignedInt(),
+                    season=reader.ReadSignedInt(),
+                    stageLevel=reader.ReadSignedInt(),
                 )
             )
 
