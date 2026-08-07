@@ -1241,6 +1241,132 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
     assert all(upgrade.pet_id != 3142 for upgrade in data.upgrades)
 
 
+def test_replace_autocard_roles_populates_official_schema_and_skips_npcs() -> None:
+    data = builder.AutocardData(
+        cards=[],
+        roles=[
+            {
+                "id": 1,
+                "name": "Raw role name",
+                "nature": 7,
+                "health": 99,
+                "skillName": "Raw skill name",
+                "skillTxt": "Raw skill text",
+                "skillUpgrade": "Raw upgrade",
+                "desc": "Raw description",
+            },
+            {
+                "id": 10001,
+                "name": "NPC role excluded by the official analyzer",
+                "nature": 8,
+                "health": 88,
+            },
+        ],
+        natures=[
+            {"id": 7, "name": "Ground"},
+            {"id": 999, "name": "None"},
+        ],
+        buffs=[],
+        source="test-source",
+    )
+
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute(
+            """
+            CREATE TABLE autocard_element_type (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE autocard_role (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                health INTEGER NOT NULL,
+                skill_desc TEXT NOT NULL,
+                is_passive_skill BOOLEAN NOT NULL,
+                skill_cost INTEGER,
+                skill_game_limit INTEGER,
+                skill_round_limit INTEGER,
+                element_type_id INTEGER NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO autocard_role (
+                id,
+                name,
+                description,
+                health,
+                skill_desc,
+                is_passive_skill,
+                skill_cost,
+                skill_game_limit,
+                skill_round_limit,
+                element_type_id
+            )
+            VALUES (1, 'Official role', 'Official description', 42,
+                    'Official skill description', 0, 3, 4, 5, 6)
+            """
+        )
+
+        builder._replace_autocard_role_table(connection, data, 123.0)
+        builder._replace_autocard_role_table(connection, data, 456.0)
+
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                name,
+                description,
+                health,
+                skill_desc,
+                is_passive_skill,
+                skill_cost,
+                skill_game_limit,
+                skill_round_limit,
+                element_type_id,
+                nature,
+                skill_name,
+                skill_text,
+                skill_upgrade,
+                raw_json,
+                source,
+                updated_at
+            FROM autocard_role
+            ORDER BY id
+            """
+        ).fetchall()
+        element_types = connection.execute(
+            "SELECT id, name FROM autocard_element_type ORDER BY id"
+        ).fetchall()
+
+    assert len(rows) == 1
+    assert rows[0][:14] == (
+        1,
+        "Raw role name",
+        "Raw description",
+        99,
+        "Raw skill text",
+        1,
+        None,
+        None,
+        None,
+        7,
+        7,
+        "Raw skill name",
+        "Raw skill text",
+        "Raw upgrade",
+    )
+    assert json.loads(rows[0][14]) == data.roles[0]
+    assert rows[0][15:] == ("test-source", 456.0)
+    assert element_types == [(7, "Ground"), (999, "None")]
+
+
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     database = tmp_path / "seerapi-data.sqlite"
     price = builder.ItemExchangePrice(
