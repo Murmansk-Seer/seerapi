@@ -64,6 +64,7 @@ jobs:
           UNITY_ITEM_CATALOG_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/itemsOptimizeCatItems17.json
           SPECIAL_EFFECT_STATUS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/signIconFight.json
           CONFIG_PACKAGE_BASE_URL: https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/
+          FLASH_MOUNT_ASSET_BASE_URL: https://seer.61.com/resource/item/cloth/swf
         run: |
           set -euo pipefail
           remote_sha="$(
@@ -134,6 +135,24 @@ jobs:
             previous_config_package_version="$(cat .build-state/config-package-version)"
           fi
 
+          flash_mount_retry=false
+          if [ -s .build-state/flash-mount-image-pending-ids ]; then
+            while IFS= read -r mount_id; do
+              if ! [[ "${mount_id}" =~ ^[0-9]+$ ]]; then
+                continue
+              fi
+              status_code="$(
+                curl -L -sS --max-time 15 -o /dev/null -w '%{http_code}' \
+                  "${FLASH_MOUNT_ASSET_BASE_URL}/${mount_id}.swf" || true
+              )"
+              if [ "${status_code}" = "200" ]; then
+                flash_mount_retry=true
+                echo "Flash mount ${mount_id} is now available; rebuilding fallback PNGs."
+                break
+              fi
+            done < .build-state/flash-mount-image-pending-ids
+          fi
+
           echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
           echo "expected_api_data_sha=${expected_api_data_sha}" >> "$GITHUB_OUTPUT"
           echo "previous_sha=${previous_sha}" >> "$GITHUB_OUTPUT"
@@ -143,13 +162,14 @@ jobs:
           echo "remote_config_package_version=${config_package_version}" >> "$GITHUB_OUTPUT"
           echo "remote_config_package_manifest_sha=${remote_config_package_manifest_sha}" >> "$GITHUB_OUTPUT"
           echo "previous_config_package_version=${previous_config_package_version}" >> "$GITHUB_OUTPUT"
+          echo "flash_mount_retry=${flash_mount_retry}" >> "$GITHUB_OUTPUT"
 
-          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
+          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, and special effect statuses are unchanged; skipping IronsBot DB build."
+            echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, special effect statuses, and pending Flash mount availability are unchanged; skipping IronsBot DB build."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
+            echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, flash-mount-retry=${flash_mount_retry}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
       - name: Apply weekly publication consistency gate
@@ -689,7 +709,28 @@ jobs:
           printf '%s\n' "${{ needs.plan.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_version }}" > .build-state/config-package-version
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_manifest_sha }}" > .build-state/config-package-manifest-sha256
-          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          output_path = Path('.build-state/flash-mount-image-pending-ids')
+          with sqlite3.connect('seerapi-data.sqlite') as connection:
+              has_pending_table = connection.execute(
+                  "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'flash_mount_image_pending'"
+              ).fetchone()
+              rows = (
+                  connection.execute(
+                      'SELECT mount_id FROM flash_mount_image_pending ORDER BY mount_id'
+                  ).fetchall()
+                  if has_pending_table
+                  else ()
+              )
+          output_path.write_text(
+              ''.join(f'{int(mount_id)}\n' for mount_id, in rows),
+              encoding='utf-8',
+          )
+          PY
+          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/flash-mount-image-pending-ids
           if ! git diff --cached --quiet; then
             git commit -m "Record SeerAPI data source checksums"
             git push origin main
