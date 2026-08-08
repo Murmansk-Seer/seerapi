@@ -194,6 +194,10 @@ jobs:
     # Normal runs seed the last release and only repair missing or invalid
     # icons. A cold first release may need to render the full icon set.
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -259,15 +263,15 @@ jobs:
           IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: |
           python scripts/build_seerapi_data_db.py \
-            --render-effect-icon-shard 0 \
-            --effect-icon-shard-count 1 \
+            --render-effect-icon-shard ${{ matrix.shard }} \
+            --effect-icon-shard-count 4 \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache
           printf 'empty effect icon cache\n' > .artifacts/effect-icon-cache/EMPTY
 
       - name: Upload rendered icon PNG cache
         uses: actions/upload-artifact@v4
         with:
-          name: effect-icon-cache
+          name: effect-icon-cache-${{ matrix.shard }}
           path: .artifacts/effect-icon-cache
           retention-days: 1
           if-no-files-found: error
@@ -315,8 +319,9 @@ jobs:
       - name: Download rendered icon PNG cache
         uses: actions/download-artifact@v4
         with:
-          name: effect-icon-cache
+          pattern: effect-icon-cache-*
           path: .cache/effect-icon-png
+          merge-multiple: true
 
       - name: Download and verify api-data database
         env:
