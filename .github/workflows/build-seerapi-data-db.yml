@@ -67,8 +67,9 @@ jobs:
           FLASH_MOUNT_ASSET_BASE_URL: https://seer.61.com/resource/item/cloth/swf
         run: |
           set -euo pipefail
+          curl_retry=(curl -fsSL --retry 5 --retry-all-errors --retry-delay 3)
           remote_sha="$(
-            curl -fsSL https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite.sha256 \
+            "${curl_retry[@]}" https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite.sha256 \
               | awk '{print $1}'
           )"
           remote_sha="${remote_sha,,}"
@@ -95,19 +96,19 @@ jobs:
             echo "Accepted api-data-published event for ${DISPATCHED_SOURCE_COMMIT} (${expected_api_data_sha})"
           fi
           remote_partner_sha="$(
-            curl -fsSL "${PARTNER_CONTRACTS_URL}" | sha256sum | awk '{print $1}'
+            "${curl_retry[@]}" "${PARTNER_CONTRACTS_URL}" | sha256sum | awk '{print $1}'
           )"
           remote_item_catalog_sha="$(
-            curl -fsSL "${UNITY_ITEM_CATALOG_URL}" | sha256sum | awk '{print $1}'
+            "${curl_retry[@]}" "${UNITY_ITEM_CATALOG_URL}" | sha256sum | awk '{print $1}'
           )"
           remote_special_effect_status_sha="$(
-            curl -fsSL "${SPECIAL_EFFECT_STATUS_URL}" | sha256sum | awk '{print $1}'
+            "${curl_retry[@]}" "${SPECIAL_EFFECT_STATUS_URL}" | sha256sum | awk '{print $1}'
           )"
           config_package_version="$(
-            curl -fsSL "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage.version?t=$(date +%s)"
+            "${curl_retry[@]}" "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage.version?t=$(date +%s)"
           )"
           remote_config_package_manifest_sha="$(
-            curl -fsSL "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage_${config_package_version}.bytes" \
+            "${curl_retry[@]}" "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage_${config_package_version}.bytes" \
               | sha256sum | awk '{print $1}'
           )"
           previous_sha=""
