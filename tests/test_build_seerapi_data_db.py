@@ -544,6 +544,208 @@ def _test_png(
     return output.getvalue()
 
 
+def _manifest_text(value: str) -> bytes:
+    encoded = value.encode("utf-8")
+    return struct.pack("<H", len(encoded)) + encoded
+
+
+def _package_manifest_bytes(
+    *,
+    assets: list[tuple[str, int]],
+    bundles: list[tuple[str, str, int]],
+) -> bytes:
+    parts = [
+        struct.pack("<I", 1),
+        _manifest_text("test-package"),
+        b"\x00\x00\x00",
+        struct.pack("<i", 0),
+        _manifest_text(""),
+        _manifest_text(""),
+        struct.pack("<i", len(assets)),
+    ]
+    for asset_path, bundle_index in assets:
+        parts.extend(
+            [
+                _manifest_text(asset_path),
+                struct.pack("<i", bundle_index),
+                struct.pack("<H", 0),
+            ]
+        )
+    parts.append(struct.pack("<i", len(bundles)))
+    for name, file_hash, file_size in bundles:
+        parts.extend(
+            [
+                _manifest_text(name),
+                struct.pack("<I", 0),
+                _manifest_text(file_hash),
+                _manifest_text(""),
+                struct.pack("<q", file_size),
+                b"\x00",
+                struct.pack("<b", 0),
+                struct.pack("<H", 0),
+            ]
+        )
+    return b"".join(parts)
+
+
+def test_parse_package_manifest_maps_assets_to_bundles() -> None:
+    manifest = builder._parse_package_manifest(
+        _package_manifest_bytes(
+            assets=[
+                ("Assets/Art/Ui/assets/effectIcon/307.png", 1),
+                ("Assets/Other/example.txt", 0),
+            ],
+            bundles=[
+                ("misc", "misc-hash", 12),
+                ("art_ui_effecticon", "effect-hash", 34),
+            ],
+        )
+    )
+
+    assert manifest.assets["Assets/Art/Ui/assets/effectIcon/307.png"] == (
+        builder.BundleInfo("art_ui_effecticon", "effect-hash", 34)
+    )
+
+
+def test_load_unity_effect_icon_png_assets_uses_default_package_manifest(
+    monkeypatch,
+) -> None:
+    png_data = _test_png()
+    manifest_data = _package_manifest_bytes(
+        assets=[("Assets/Art/Ui/assets/effectIcon/307.png", 0)],
+        bundles=[("art_ui_effecticon", "effect-hash", 456)],
+    )
+    downloaded_urls: list[str] = []
+
+    def fake_download(url: str) -> bytes:
+        downloaded_urls.append(url)
+        if "PackageManifest_DefaultPackage.version" in url:
+            return b"20260807162107"
+        if "PackageManifest_DefaultPackage_20260807162107.bytes" in url:
+            return manifest_data
+        if url == "https://game.test/DefaultPackage/effect-hash":
+            return b"bundle-data"
+        raise AssertionError(url)
+
+    monkeypatch.setattr(
+        builder,
+        "DEFAULT_PACKAGE_BASE_URL",
+        "https://game.test/DefaultPackage/",
+    )
+    monkeypatch.setattr(builder, "_download_bytes", fake_download)
+    monkeypatch.setattr(
+        builder,
+        "_extract_unity_effect_icon_pngs",
+        lambda data, icon_ids: ({307: png_data}, {}),
+    )
+
+    load = builder._load_unity_effect_icon_png_assets({206, 307})
+
+    assert load.package_version == "20260807162107"
+    assert load.total_manifest_icon_count == 1
+    assert load.png_renders[307].data == png_data
+    assert load.asset_checks[307].url == (
+        "https://game.test/DefaultPackage/effect-hash"
+        "#Assets/Art/Ui/assets/effectIcon/307.png"
+    )
+    assert load.png_renders[206].available is False
+    assert load.asset_checks[206].status == 404
+    assert downloaded_urls[-1] == "https://game.test/DefaultPackage/effect-hash"
+
+
+def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
+    monkeypatch,
+) -> None:
+    unity_png = _test_png()
+    fallback_png = _test_png(size=(3, 3))
+    unity_check = builder.EffectIconAssetCheck(
+        icon_id=307,
+        url="https://game.test/effect-hash#Assets/Art/Ui/assets/effectIcon/307.png",
+        available=True,
+        status=200,
+        content_type="image/png",
+        content_length=len(unity_png),
+        error="",
+    )
+    missing_check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://game.test/DefaultPackage/#Assets/Art/Ui/assets/effectIcon/206.png",
+        available=False,
+        status=404,
+        content_type="",
+        content_length=None,
+        error="Unity DefaultPackage effectIcon PNG missing",
+    )
+    fallback_check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://seer.61.com/resource/effectIcon/206.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    fallback_inputs: list[set[int]] = []
+
+    monkeypatch.setattr(
+        builder,
+        "_load_unity_effect_icon_png_assets",
+        lambda icon_ids: builder.UnityEffectIconPngLoad(
+            package_version="20260807162107",
+            total_manifest_icon_count=2109,
+            sources={},
+            asset_checks={206: missing_check, 307: unity_check},
+            png_renders={
+                206: builder.EffectIconPngRender(
+                    206,
+                    False,
+                    "",
+                    None,
+                    None,
+                    "Unity DefaultPackage effectIcon PNG missing",
+                ),
+                307: builder.EffectIconPngRender(
+                    307,
+                    True,
+                    "image/png",
+                    len(unity_png),
+                    unity_png,
+                    "",
+                ),
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids, **_kwargs: fallback_inputs.append(set(icon_ids))
+        or {206: fallback_check},
+    )
+    monkeypatch.setattr(
+        builder,
+        "_render_effect_icon_png_assets",
+        lambda checks, **_kwargs: {
+            206: builder.EffectIconPngRender(
+                206,
+                True,
+                "image/png",
+                len(fallback_png),
+                fallback_png,
+                "",
+            )
+        },
+    )
+
+    resolution = builder._resolve_effect_icon_png_assets({206, 307})
+
+    assert fallback_inputs == [{206}]
+    assert resolution.png_renders[307].data == unity_png
+    assert resolution.png_renders[206].data == fallback_png
+    assert resolution.asset_checks[307] == unity_check
+    assert resolution.asset_checks[206] == fallback_check
+    assert resolution.unity_missing_icon_ids == (206,)
+
+
 def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
     png_data = _test_png()
     check = builder.EffectIconAssetCheck(
@@ -674,7 +876,7 @@ def test_seed_effect_icon_cache_rejects_previous_renderer_version(
     assert not builder._effect_icon_png_cache_path(1644).exists()
 
 
-def test_render_effect_icon_cache_shard_uses_a_stable_partition(
+def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -694,13 +896,19 @@ def test_render_effect_icon_cache_shard_uses_a_stable_partition(
     monkeypatch.setattr(builder, "_fetch_config_package_data", lambda: config_data)
     monkeypatch.setattr(
         builder,
+        "_unity_effect_icon_swf_fallback_icon_ids",
+        lambda icon_ids: captured.setdefault("fallback_input", sorted(icon_ids))
+        and [100, 102, 103],
+    )
+    monkeypatch.setattr(
+        builder,
         "_verify_effect_icon_assets",
-        lambda icon_ids: {icon_id: object() for icon_id in icon_ids},
+        lambda icon_ids, **_kwargs: {icon_id: object() for icon_id in icon_ids},
     )
     monkeypatch.setattr(
         builder,
         "_render_effect_icon_png_assets",
-        lambda checks: {
+        lambda checks, **_kwargs: {
             icon_id: builder.EffectIconPngRender(
                 icon_id,
                 True,
@@ -724,8 +932,39 @@ def test_render_effect_icon_cache_shard_uses_a_stable_partition(
         output_dir=tmp_path,
     )
 
-    assert captured["icon_ids"] == [101, 103]
-    assert (icon_count, available_count) == (2, 2)
+    assert captured["fallback_input"] == [100, 101, 102, 103]
+    assert captured["icon_ids"] == [102]
+    assert (icon_count, available_count) == (1, 1)
+
+
+def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
+    monkeypatch,
+) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://seer.61.com/resource/effectIcon/206.swf",
+        available=False,
+        status=404,
+        content_type="text/html",
+        content_length=None,
+        error="",
+    )
+    monkeypatch.setattr(
+        builder.shutil,
+        "which",
+        lambda _command: (_ for _ in ()).throw(AssertionError),
+    )
+
+    renders = builder._render_effect_icon_png_assets({206: check}, require_any=False)
+
+    assert renders[206] == builder.EffectIconPngRender(
+        icon_id=206,
+        available=False,
+        content_type="",
+        content_length=None,
+        data=None,
+        error="SWF asset unavailable",
+    )
 
 
 def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
