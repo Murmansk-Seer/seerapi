@@ -656,6 +656,7 @@ def test_load_unity_effect_icon_png_assets_uses_default_package_manifest(
 def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     monkeypatch,
 ) -> None:
+    monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", False)
     unity_png = _test_png()
     fallback_png = _test_png(size=(3, 3))
     unity_check = builder.EffectIconAssetCheck(
@@ -744,6 +745,120 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     assert resolution.asset_checks[307] == unity_check
     assert resolution.asset_checks[206] == fallback_check
     assert resolution.unity_missing_icon_ids == (206,)
+    assert resolution.preferred_source == "unity"
+
+
+def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
+    flash_png = _test_png(size=(3, 3))
+    unity_png = _test_png()
+    flash_check = builder.EffectIconAssetCheck(
+        icon_id=307,
+        url="https://seer.61.com/resource/effectIcon/307.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    missing_flash_check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://seer.61.com/resource/effectIcon/206.swf",
+        available=False,
+        status=404,
+        content_type="text/html",
+        content_length=None,
+        error="",
+    )
+    unity_check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://game.test/effect-hash#Assets/Art/Ui/assets/effectIcon/206.png",
+        available=True,
+        status=200,
+        content_type="image/png",
+        content_length=len(unity_png),
+        error="",
+    )
+    unused_unity_check = builder.EffectIconAssetCheck(
+        icon_id=307,
+        url="https://game.test/effect-hash#Assets/Art/Ui/assets/effectIcon/307.png",
+        available=True,
+        status=200,
+        content_type="image/png",
+        content_length=len(unity_png),
+        error="",
+    )
+    swf_inputs: list[set[int]] = []
+
+    monkeypatch.setattr(
+        builder,
+        "_load_unity_effect_icon_png_assets",
+        lambda icon_ids: builder.UnityEffectIconPngLoad(
+            package_version="20260807162107",
+            total_manifest_icon_count=2109,
+            sources={},
+            asset_checks={206: unity_check, 307: unused_unity_check},
+            png_renders={
+                206: builder.EffectIconPngRender(
+                    206,
+                    True,
+                    "image/png",
+                    len(unity_png),
+                    unity_png,
+                    "",
+                ),
+                307: builder.EffectIconPngRender(
+                    307,
+                    True,
+                    "image/png",
+                    len(unity_png),
+                    unity_png,
+                    "",
+                ),
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids, **_kwargs: swf_inputs.append(set(icon_ids))
+        or {206: missing_flash_check, 307: flash_check},
+    )
+    monkeypatch.setattr(
+        builder,
+        "_render_effect_icon_png_assets",
+        lambda checks, **_kwargs: {
+            206: builder.EffectIconPngRender(
+                206,
+                False,
+                "",
+                None,
+                None,
+                "SWF asset unavailable",
+            ),
+            307: builder.EffectIconPngRender(
+                307,
+                True,
+                "image/png",
+                len(flash_png),
+                flash_png,
+                "",
+            ),
+        },
+    )
+
+    resolution = builder._resolve_effect_icon_png_assets({206, 307})
+
+    assert swf_inputs == [{206, 307}]
+    assert resolution.png_renders[307].data == flash_png
+    assert resolution.png_renders[206].data == unity_png
+    assert resolution.asset_checks[307] == flash_check
+    assert resolution.asset_checks[206] == unity_check
+    assert resolution.preferred_source == "flash"
+    assert resolution.flash_missing_icon_ids == (206,)
+    assert resolution.unity_fallback_icon_count == 1
 
 
 def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
@@ -935,6 +1050,17 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     assert captured["fallback_input"] == [100, 101, 102, 103]
     assert captured["icon_ids"] == [102]
     assert (icon_count, available_count) == (1, 1)
+
+
+def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
+    monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
+    monkeypatch.setattr(
+        builder,
+        "_fetch_unity_effect_icon_png_sources",
+        lambda _icon_ids: (_ for _ in ()).throw(AssertionError),
+    )
+
+    assert builder._unity_effect_icon_swf_fallback_icon_ids({100, 101}) == [100, 101]
 
 
 def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(

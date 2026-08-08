@@ -248,6 +248,7 @@ jobs:
 
       - name: Render missing effect icon PNGs
         env:
+          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Some older animated soulmark SWFs need about 36 seconds for a
@@ -339,6 +340,7 @@ jobs:
       - name: Build SeerAPI database
         env:
           IRONSBOT_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
+          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Asset availability can change between the incremental render job and
