@@ -197,7 +197,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -264,7 +264,7 @@ jobs:
         run: |
           python scripts/build_seerapi_data_db.py \
             --render-effect-icon-shard ${{ matrix.shard }} \
-            --effect-icon-shard-count 4 \
+            --effect-icon-shard-count 16 \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache
           printf 'empty effect icon cache\n' > .artifacts/effect-icon-cache/EMPTY
 
