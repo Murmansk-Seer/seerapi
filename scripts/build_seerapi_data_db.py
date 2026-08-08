@@ -1956,6 +1956,37 @@ def _load_swf_effect_icon_png_assets(
     return checks, renders
 
 
+def _missing_swf_effect_icon_png_assets(
+    icon_ids: set[int],
+    error: str,
+) -> tuple[dict[int, EffectIconAssetCheck], dict[int, EffectIconPngRender]]:
+    return (
+        {
+            icon_id: EffectIconAssetCheck(
+                icon_id=icon_id,
+                url=_effect_icon_asset_url(icon_id),
+                available=False,
+                status=0,
+                content_type="",
+                content_length=None,
+                error=error,
+            )
+            for icon_id in icon_ids
+        },
+        {
+            icon_id: EffectIconPngRender(
+                icon_id=icon_id,
+                available=False,
+                content_type="",
+                content_length=None,
+                data=None,
+                error=error,
+            )
+            for icon_id in icon_ids
+        },
+    )
+
+
 def _resolve_effect_icon_png_assets(
     icon_ids: set[int],
 ) -> EffectIconPngResolution:
@@ -1973,6 +2004,91 @@ def _resolve_effect_icon_png_assets(
             unity_fallback_icon_count=0,
             swf_fallback_icon_count=0,
         )
+
+    if EFFECT_ICON_PREFER_FLASH:
+        try:
+            swf_checks, swf_renders = _load_swf_effect_icon_png_assets(
+                set(icon_ids),
+                require_any=False,
+            )
+        except (
+            FileNotFoundError,
+            OSError,
+            RuntimeError,
+            ValueError,
+        ) as e:
+            logger.warning(
+                "Flash effect icon PNG loading skipped; falling back to Unity PNGs: %s",
+                _short_error(e),
+            )
+            swf_checks, swf_renders = _missing_swf_effect_icon_png_assets(
+                set(icon_ids),
+                f"Flash effect icon PNG loading failed: {_short_error(e)}",
+            )
+        flash_available_count = sum(
+            1 for render in swf_renders.values() if render.available
+        )
+        flash_missing_icon_ids = {
+            icon_id
+            for icon_id in icon_ids
+            if not swf_renders[icon_id].available
+        }
+        try:
+            unity_load = _load_unity_effect_icon_png_assets(flash_missing_icon_ids)
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError) as e:
+            logger.warning(
+                "Unity effect icon PNG fallback skipped: %s",
+                _short_error(e),
+            )
+            unity_load = _missing_unity_effect_icon_png_load(
+                flash_missing_icon_ids,
+                error=f"Unity effect icon PNG loading failed: {_short_error(e)}",
+            )
+
+        unity_available_count = sum(
+            1 for render in unity_load.png_renders.values() if render.available
+        )
+        unity_missing_icon_ids = {
+            icon_id
+            for icon_id in flash_missing_icon_ids
+            if not unity_load.png_renders[icon_id].available
+        }
+        unity_fallback_icon_ids = {
+            icon_id
+            for icon_id in flash_missing_icon_ids
+            if unity_load.png_renders[icon_id].available
+        }
+
+        asset_checks: dict[int, EffectIconAssetCheck] = {}
+        png_renders: dict[int, EffectIconPngRender] = {}
+        for icon_id in icon_ids:
+            swf_render = swf_renders[icon_id]
+            if swf_render.available:
+                asset_checks[icon_id] = swf_checks[icon_id]
+                png_renders[icon_id] = swf_render
+                continue
+            unity_render = unity_load.png_renders.get(icon_id)
+            if unity_render is not None and unity_render.available:
+                asset_checks[icon_id] = unity_load.asset_checks[icon_id]
+                png_renders[icon_id] = unity_render
+                continue
+            asset_checks[icon_id] = swf_checks[icon_id]
+            png_renders[icon_id] = swf_render
+
+        return EffectIconPngResolution(
+            asset_checks=asset_checks,
+            png_renders=png_renders,
+            preferred_source="flash",
+            unity_package_version=unity_load.package_version,
+            unity_manifest_icon_count=unity_load.total_manifest_icon_count,
+            unity_png_available_count=unity_available_count,
+            unity_missing_icon_ids=tuple(sorted(unity_missing_icon_ids)),
+            flash_png_available_count=flash_available_count,
+            flash_missing_icon_ids=tuple(sorted(flash_missing_icon_ids)),
+            unity_fallback_icon_count=len(unity_fallback_icon_ids),
+            swf_fallback_icon_count=0,
+        )
+
     try:
         unity_load = _load_unity_effect_icon_png_assets(icon_ids)
     except (HTTPError, URLError, TimeoutError, OSError, ValueError) as e:
@@ -1984,7 +2100,6 @@ def _resolve_effect_icon_png_assets(
             icon_ids,
             error=f"Unity effect icon PNG loading failed: {_short_error(e)}",
         )
-
     unity_available_count = sum(
         1 for render in unity_load.png_renders.values() if render.available
     )
@@ -1993,17 +2108,16 @@ def _resolve_effect_icon_png_assets(
         for icon_id in icon_ids
         if not unity_load.png_renders[icon_id].available
     }
-
-    if EFFECT_ICON_PREFER_FLASH:
-        swf_icon_ids = set(icon_ids)
-        swf_require_any = unity_available_count == 0
-    else:
+    if unity_missing_icon_ids:
         swf_icon_ids = set(unity_missing_icon_ids)
-        swf_require_any = unity_available_count == 0
-    swf_checks, swf_renders = _load_swf_effect_icon_png_assets(
-        swf_icon_ids,
-        require_any=swf_require_any,
-    )
+        swf_checks, swf_renders = _load_swf_effect_icon_png_assets(
+            swf_icon_ids,
+            require_any=unity_available_count == 0,
+        )
+    else:
+        swf_icon_ids = set()
+        swf_checks = {}
+        swf_renders = {}
 
     flash_available_count = sum(
         1 for render in swf_renders.values() if render.available
@@ -2013,33 +2127,12 @@ def _resolve_effect_icon_png_assets(
         for icon_id in swf_icon_ids
         if not swf_renders[icon_id].available
     }
-    unity_fallback_icon_ids = {
-        icon_id
-        for icon_id in flash_missing_icon_ids
-        if unity_load.png_renders[icon_id].available
-    }
 
     asset_checks: dict[int, EffectIconAssetCheck] = {}
     png_renders: dict[int, EffectIconPngRender] = {}
     for icon_id in icon_ids:
         unity_render = unity_load.png_renders[icon_id]
         swf_render = swf_renders.get(icon_id)
-        if EFFECT_ICON_PREFER_FLASH and swf_render is not None:
-            if swf_render.available:
-                asset_checks[icon_id] = swf_checks[icon_id]
-                png_renders[icon_id] = swf_render
-                continue
-            if unity_render.available:
-                asset_checks[icon_id] = unity_load.asset_checks[icon_id]
-                png_renders[icon_id] = unity_render
-                continue
-            asset_checks[icon_id] = swf_checks.get(
-                icon_id,
-                unity_load.asset_checks[icon_id],
-            )
-            png_renders[icon_id] = swf_render
-            continue
-
         if unity_render.available:
             asset_checks[icon_id] = unity_load.asset_checks[icon_id]
             png_renders[icon_id] = unity_render
@@ -2057,7 +2150,7 @@ def _resolve_effect_icon_png_assets(
         unity_missing_icon_ids=tuple(sorted(unity_missing_icon_ids)),
         flash_png_available_count=flash_available_count,
         flash_missing_icon_ids=tuple(sorted(flash_missing_icon_ids)),
-        unity_fallback_icon_count=len(unity_fallback_icon_ids),
+        unity_fallback_icon_count=0,
         swf_fallback_icon_count=(
             0 if EFFECT_ICON_PREFER_FLASH else len(unity_missing_icon_ids)
         ),

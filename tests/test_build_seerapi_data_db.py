@@ -781,36 +781,21 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
         content_length=len(unity_png),
         error="",
     )
-    unused_unity_check = builder.EffectIconAssetCheck(
-        icon_id=307,
-        url="https://game.test/effect-hash#Assets/Art/Ui/assets/effectIcon/307.png",
-        available=True,
-        status=200,
-        content_type="image/png",
-        content_length=len(unity_png),
-        error="",
-    )
     swf_inputs: list[set[int]] = []
+    unity_inputs: list[set[int]] = []
 
     monkeypatch.setattr(
         builder,
         "_load_unity_effect_icon_png_assets",
-        lambda icon_ids: builder.UnityEffectIconPngLoad(
+        lambda icon_ids: unity_inputs.append(set(icon_ids))
+        or builder.UnityEffectIconPngLoad(
             package_version="20260807162107",
             total_manifest_icon_count=2109,
             sources={},
-            asset_checks={206: unity_check, 307: unused_unity_check},
+            asset_checks={206: unity_check},
             png_renders={
                 206: builder.EffectIconPngRender(
                     206,
-                    True,
-                    "image/png",
-                    len(unity_png),
-                    unity_png,
-                    "",
-                ),
-                307: builder.EffectIconPngRender(
-                    307,
                     True,
                     "image/png",
                     len(unity_png),
@@ -852,6 +837,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
     resolution = builder._resolve_effect_icon_png_assets({206, 307})
 
     assert swf_inputs == [{206, 307}]
+    assert unity_inputs == [{206}]
     assert resolution.png_renders[307].data == flash_png
     assert resolution.png_renders[206].data == unity_png
     assert resolution.asset_checks[307] == flash_check
