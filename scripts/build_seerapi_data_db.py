@@ -54,6 +54,10 @@ UNITY_EFFECT_ICON_PNG_ENABLED = os.environ.get(
     "IRONSBOT_DATA_EFFECT_ICON_UNITY_PNG_ENABLED",
     "1",
 ).lower() not in {"0", "false", "no", "off"}
+EFFECT_ICON_PREFER_FLASH = os.environ.get(
+    "IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH",
+    "1",
+).lower() in {"1", "true", "yes", "on"}
 MINTMARK_BYTES_NAME = "mintmark.bytes"
 SKIN_STORE_POOL_BYTES_NAME = "skinStorePool.bytes"
 SKIN_SHOP_BYTES_NAME = "skin_shop.bytes"
@@ -458,10 +462,14 @@ class UnityEffectIconPngLoad:
 class EffectIconPngResolution:
     asset_checks: dict[int, EffectIconAssetCheck]
     png_renders: dict[int, EffectIconPngRender]
+    preferred_source: str
     unity_package_version: str
     unity_manifest_icon_count: int
     unity_png_available_count: int
     unity_missing_icon_ids: tuple[int, ...]
+    flash_png_available_count: int
+    flash_missing_icon_ids: tuple[int, ...]
+    unity_fallback_icon_count: int
     swf_fallback_icon_count: int
 
 
@@ -1923,7 +1931,7 @@ def _load_unity_effect_icon_png_assets(
 
 
 def _unity_effect_icon_swf_fallback_icon_ids(icon_ids: set[int]) -> list[int]:
-    if not icon_ids or not UNITY_EFFECT_ICON_PNG_ENABLED:
+    if not icon_ids or EFFECT_ICON_PREFER_FLASH or not UNITY_EFFECT_ICON_PNG_ENABLED:
         return sorted(icon_ids)
     try:
         _, _, sources = _fetch_unity_effect_icon_png_sources(icon_ids)
@@ -1936,6 +1944,18 @@ def _unity_effect_icon_swf_fallback_icon_ids(icon_ids: set[int]) -> list[int]:
     return sorted(icon_ids - sources.keys())
 
 
+def _load_swf_effect_icon_png_assets(
+    icon_ids: set[int],
+    *,
+    require_any: bool,
+) -> tuple[dict[int, EffectIconAssetCheck], dict[int, EffectIconPngRender]]:
+    if not icon_ids:
+        return {}, {}
+    checks = _verify_effect_icon_assets(icon_ids, require_any=require_any)
+    renders = _render_effect_icon_png_assets(checks, require_any=require_any)
+    return checks, renders
+
+
 def _resolve_effect_icon_png_assets(
     icon_ids: set[int],
 ) -> EffectIconPngResolution:
@@ -1943,10 +1963,14 @@ def _resolve_effect_icon_png_assets(
         return EffectIconPngResolution(
             asset_checks={},
             png_renders={},
+            preferred_source="flash" if EFFECT_ICON_PREFER_FLASH else "unity",
             unity_package_version="",
             unity_manifest_icon_count=0,
             unity_png_available_count=0,
             unity_missing_icon_ids=(),
+            flash_png_available_count=0,
+            flash_missing_icon_ids=(),
+            unity_fallback_icon_count=0,
             swf_fallback_icon_count=0,
         )
     try:
@@ -1964,46 +1988,79 @@ def _resolve_effect_icon_png_assets(
     unity_available_count = sum(
         1 for render in unity_load.png_renders.values() if render.available
     )
-    fallback_icon_ids = {
+    unity_missing_icon_ids = {
         icon_id
         for icon_id in icon_ids
         if not unity_load.png_renders[icon_id].available
     }
-    fallback_checks: dict[int, EffectIconAssetCheck] = {}
-    fallback_renders: dict[int, EffectIconPngRender] = {}
-    if fallback_icon_ids:
-        fallback_require_any = unity_available_count == 0
-        fallback_checks = _verify_effect_icon_assets(
-            fallback_icon_ids,
-            require_any=fallback_require_any,
-        )
-        fallback_renders = _render_effect_icon_png_assets(
-            fallback_checks,
-            require_any=fallback_require_any,
-        )
+
+    if EFFECT_ICON_PREFER_FLASH:
+        swf_icon_ids = set(icon_ids)
+        swf_require_any = unity_available_count == 0
+    else:
+        swf_icon_ids = set(unity_missing_icon_ids)
+        swf_require_any = unity_available_count == 0
+    swf_checks, swf_renders = _load_swf_effect_icon_png_assets(
+        swf_icon_ids,
+        require_any=swf_require_any,
+    )
+
+    flash_available_count = sum(
+        1 for render in swf_renders.values() if render.available
+    )
+    flash_missing_icon_ids = {
+        icon_id
+        for icon_id in swf_icon_ids
+        if not swf_renders[icon_id].available
+    }
+    unity_fallback_icon_ids = {
+        icon_id
+        for icon_id in flash_missing_icon_ids
+        if unity_load.png_renders[icon_id].available
+    }
 
     asset_checks: dict[int, EffectIconAssetCheck] = {}
     png_renders: dict[int, EffectIconPngRender] = {}
     for icon_id in icon_ids:
         unity_render = unity_load.png_renders[icon_id]
+        swf_render = swf_renders.get(icon_id)
+        if EFFECT_ICON_PREFER_FLASH and swf_render is not None:
+            if swf_render.available:
+                asset_checks[icon_id] = swf_checks[icon_id]
+                png_renders[icon_id] = swf_render
+                continue
+            if unity_render.available:
+                asset_checks[icon_id] = unity_load.asset_checks[icon_id]
+                png_renders[icon_id] = unity_render
+                continue
+            asset_checks[icon_id] = swf_checks.get(
+                icon_id,
+                unity_load.asset_checks[icon_id],
+            )
+            png_renders[icon_id] = swf_render
+            continue
+
         if unity_render.available:
             asset_checks[icon_id] = unity_load.asset_checks[icon_id]
             png_renders[icon_id] = unity_render
             continue
-        asset_checks[icon_id] = fallback_checks.get(
-            icon_id,
-            unity_load.asset_checks[icon_id],
-        )
-        png_renders[icon_id] = fallback_renders.get(icon_id, unity_render)
+        asset_checks[icon_id] = swf_checks.get(icon_id, unity_load.asset_checks[icon_id])
+        png_renders[icon_id] = swf_renders.get(icon_id, unity_render)
 
     return EffectIconPngResolution(
         asset_checks=asset_checks,
         png_renders=png_renders,
+        preferred_source="flash" if EFFECT_ICON_PREFER_FLASH else "unity",
         unity_package_version=unity_load.package_version,
         unity_manifest_icon_count=unity_load.total_manifest_icon_count,
         unity_png_available_count=unity_available_count,
-        unity_missing_icon_ids=tuple(sorted(fallback_icon_ids)),
-        swf_fallback_icon_count=len(fallback_icon_ids),
+        unity_missing_icon_ids=tuple(sorted(unity_missing_icon_ids)),
+        flash_png_available_count=flash_available_count,
+        flash_missing_icon_ids=tuple(sorted(flash_missing_icon_ids)),
+        unity_fallback_icon_count=len(unity_fallback_icon_ids),
+        swf_fallback_icon_count=(
+            0 if EFFECT_ICON_PREFER_FLASH else len(unity_missing_icon_ids)
+        ),
     )
 
 
@@ -4462,6 +4519,8 @@ def _merge_ironsbot_tables(
             "config_bundle_url": config_data.bundle_url,
             "effect_icon_asset_base_url": EFFECT_ICON_ASSET_BASE_URL,
             "effect_icon_asset_suffix": EFFECT_ICON_ASSET_SUFFIX,
+            "effect_icon_prefer_flash": str(int(EFFECT_ICON_PREFER_FLASH)),
+            "effect_icon_primary_source": effect_icon_resolution.preferred_source,
             "effect_icon_unity_png_enabled": str(int(UNITY_EFFECT_ICON_PNG_ENABLED)),
             "effect_icon_unity_package_base_url": DEFAULT_PACKAGE_BASE_URL,
             "effect_icon_unity_package_version": (
@@ -4475,6 +4534,21 @@ def _merge_ironsbot_tables(
             ),
             "effect_icon_unity_png_missing_count": str(
                 len(effect_icon_resolution.unity_missing_icon_ids)
+            ),
+            "effect_icon_unity_png_missing_ids": ",".join(
+                str(icon_id) for icon_id in effect_icon_resolution.unity_missing_icon_ids
+            ),
+            "effect_icon_flash_png_available_count": str(
+                effect_icon_resolution.flash_png_available_count
+            ),
+            "effect_icon_flash_png_missing_count": str(
+                len(effect_icon_resolution.flash_missing_icon_ids)
+            ),
+            "effect_icon_flash_png_missing_ids": ",".join(
+                str(icon_id) for icon_id in effect_icon_resolution.flash_missing_icon_ids
+            ),
+            "effect_icon_unity_fallback_icon_count": str(
+                effect_icon_resolution.unity_fallback_icon_count
             ),
             "effect_icon_swf_fallback_icon_count": str(
                 effect_icon_resolution.swf_fallback_icon_count
@@ -4496,8 +4570,11 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_enabled": str(
                 int(EFFECT_ICON_PNG_RENDER_ENABLED)
             ),
-            "effect_icon_png_renderer": (
-                "unity-defaultpackage-png+ffdec-swf-fallback"
+            "effect_icon_png_renderer": "ffdec-swf+unity-defaultpackage-png",
+            "effect_icon_png_resolution_order": (
+                "ffdec-swf,unity-defaultpackage-png"
+                if EFFECT_ICON_PREFER_FLASH
+                else "unity-defaultpackage-png,ffdec-swf"
             ),
             "effect_icon_png_render_java_command": (
                 EFFECT_ICON_PNG_RENDER_JAVA_COMMAND
