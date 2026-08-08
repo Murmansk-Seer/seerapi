@@ -442,12 +442,16 @@ jobs:
           fi
 
       - name: Collect API data source-history additions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           history_dir="${RUNNER_TEMP}/api-data-history"
           additions_path="${RUNNER_TEMP}/api-data-history-additions.json"
           asset_updated_at="$(
-            curl -fsSL https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest \
+            curl -fsSL \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest \
               | python -c 'import json, sys; print(next(asset["updated_at"] for asset in json.load(sys.stdin)["assets"] if asset["name"] == "seerapi-data.sqlite"))'
           )"
           git clone --quiet --filter=blob:none --no-checkout --depth=128 \
