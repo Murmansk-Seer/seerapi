@@ -11,6 +11,7 @@ on:
     paths:
       - "scripts/build_seerapi_data_db.py"
       - "scripts/build_new_content_index.py"
+      - "scripts/render_flash_mount_images.py"
       - ".github/workflows/build-seerapi-data-db.yml"
   schedule:
     - cron: "5,35 * * * *"
@@ -473,6 +474,18 @@ jobs:
           fi
           python scripts/build_new_content_index.py "${args[@]}" \
             --github-output "$GITHUB_OUTPUT"
+
+      - name: Render Flash mount fallback images
+        env:
+          PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
+          IRONSBOT_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+        run: |
+          set -e
+          args=(--database seerapi-data.sqlite)
+          if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
+            args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
+          fi
+          python scripts/render_flash_mount_images.py "${args[@]}"
 
       - name: Stage versioned historical data snapshot
         id: history_snapshot
