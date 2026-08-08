@@ -240,7 +240,7 @@ jobs:
             --render-effect-icon-shard 0 \
             --effect-icon-shard-count 1 \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache
-          touch .artifacts/effect-icon-cache/.empty
+          printf 'empty effect icon cache\n' > .artifacts/effect-icon-cache/EMPTY
 
       - name: Upload rendered icon PNG cache
         uses: actions/upload-artifact@v4
