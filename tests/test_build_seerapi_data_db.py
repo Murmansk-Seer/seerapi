@@ -906,6 +906,20 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
     assert builder._render_asset_manifest_revision(entries) == (
         builder._render_asset_manifest_revision(tuple(reversed(entries)))
     )
+    changed_source = (
+        builder.RenderAssetManifestEntry(
+            asset_kind=entries[0].asset_kind,
+            asset_key=entries[0].asset_key,
+            sha256=entries[0].sha256,
+            release_revision=entries[0].release_revision,
+            available=entries[0].available,
+            source="different-build-source",
+        ),
+        entries[1],
+    )
+    assert builder._render_asset_manifest_revision(entries) != (
+        builder._render_asset_manifest_revision(changed_source)
+    )
 
     database = tmp_path / "manifest.sqlite"
     with sqlite3.connect(database) as connection:
@@ -928,6 +942,94 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
         ),
         ("soulmark_icon_png", "19", "", "config-20260806", 0),
     ]
+
+
+def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "pet-info-assets.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE pet (resource_id INTEGER NOT NULL);
+            CREATE TABLE element_type (id INTEGER NOT NULL);
+            CREATE TABLE mintmark (id INTEGER NOT NULL);
+            CREATE TABLE item (id INTEGER NOT NULL);
+            CREATE TABLE special_effect_status (status_id INTEGER NOT NULL);
+            INSERT INTO pet VALUES (100), (101);
+            INSERT INTO element_type VALUES (1);
+            INSERT INTO mintmark VALUES (8);
+            INSERT INTO item VALUES (9);
+            INSERT INTO special_effect_status VALUES (10);
+            """
+        )
+        snapshot = builder.AssetRepositorySnapshot(
+            revision="a" * 40,
+            blobs_by_path={
+                "newseer/assets/art/ui/assets/pet/head/100.png": "head-100",
+                "newseer/assets/art/ui/assets/pet/body/100.png": "body-100",
+                "newseer/assets/art/ui/assets/pet/head/101.png": "head-101",
+                "newseer/assets/art/ui/assets/pet/body/101.png": "body-101",
+                "newseer/assets/art/ui/assets/pettype/1.png": "type-1",
+                "newseer/assets/art/ui/assets/pettype/prop.png": "prop",
+                "newseer/assets/art/ui/assets/countermark/icon/8.png": "mintmark",
+                "newseer/assets/art/ui/assets/item/petitem/icon/9.png": "item",
+            },
+        )
+        entries, complete = builder._build_pet_info_remote_asset_manifest(
+            connection,
+            snapshot,
+            release_revision="release-1",
+        )
+
+    assert complete is True
+    by_identity = {(entry.asset_kind, entry.asset_key): entry for entry in entries}
+    assert by_identity[("pet_head", "100")].available is True
+    assert by_identity[("item", "9")].available is True
+    assert by_identity[("sign_buff", "10")].available is False
+    assert "#blob:item" in by_identity[("item", "9")].source
+
+
+def test_pet_info_remote_asset_manifest_disables_scope_for_missing_mandatory_asset(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "missing-pet-info-assets.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE pet (resource_id INTEGER NOT NULL);
+            CREATE TABLE element_type (id INTEGER NOT NULL);
+            CREATE TABLE mintmark (id INTEGER NOT NULL);
+            CREATE TABLE item (id INTEGER NOT NULL);
+            CREATE TABLE special_effect_status (status_id INTEGER NOT NULL);
+            INSERT INTO pet VALUES (100);
+            INSERT INTO element_type VALUES (1);
+            INSERT INTO mintmark VALUES (8);
+            """
+        )
+        snapshot = builder.AssetRepositorySnapshot(
+            revision="b" * 40,
+            blobs_by_path={
+                "newseer/assets/art/ui/assets/pet/head/100.png": "head-100",
+                "newseer/assets/art/ui/assets/pet/body/100.png": "body-100",
+                "newseer/assets/art/ui/assets/pettype/1.png": "type-1",
+                "newseer/assets/art/ui/assets/pettype/prop.png": "prop",
+            },
+        )
+        entries, complete = builder._build_pet_info_remote_asset_manifest(
+            connection,
+            snapshot,
+            release_revision="release-1",
+        )
+
+    assert complete is False
+    missing = next(
+        entry
+        for entry in entries
+        if (entry.asset_kind, entry.asset_key) == ("mintmark", "8")
+    )
+    assert missing.available is False
+    assert "missing:" in missing.source
 
 
 def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> None:

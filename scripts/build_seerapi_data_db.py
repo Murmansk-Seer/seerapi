@@ -139,6 +139,29 @@ SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
 SOULMARK_ICON_TABLE = "soulmark_icon"
 SOULMARK_ICON_RENDER_ISSUE_TABLE = "soulmark_icon_render_issue"
 RENDER_ASSET_MANIFEST_TABLE = "render_asset_manifest"
+RENDER_ASSET_MANIFEST_CONTRACT_VERSION = "1"
+RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY = "render_asset_manifest_contract_version"
+RENDER_ASSET_MANIFEST_REVISION_KEY = "render_asset_manifest_revision"
+RENDER_ASSET_MANIFEST_SCOPES_KEY = "render_asset_manifest_complete_scopes"
+RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY = (
+    "render_asset_manifest_asset_repository_revision"
+)
+PET_INFO_RENDER_ASSET_SCOPE = "pet_info"
+RENDER_ASSET_REPOSITORY = "Murmansk-Seer/seer-unity-assets"
+RENDER_ASSET_REPOSITORY_REF = os.environ.get(
+    "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_REF",
+    "main",
+)
+RENDER_ASSET_REPOSITORY_COMMIT_URL = os.environ.get(
+    "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_COMMIT_URL",
+    "https://api.github.com/repos/"
+    f"{RENDER_ASSET_REPOSITORY}/commits/{RENDER_ASSET_REPOSITORY_REF}",
+)
+RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE = os.environ.get(
+    "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE",
+    "https://api.github.com/repos/"
+    f"{RENDER_ASSET_REPOSITORY}/git/trees/{{revision}}?recursive=1",
+)
 SKIN_IMAGE_RESOLUTION_TABLE = "skin_image_resolution"
 PET_PARTNER_GROUP_TABLE = "pet_partner_group"
 PET_PARTNER_MEMBER_TABLE = "pet_partner_member"
@@ -433,6 +456,24 @@ class RenderAssetManifestEntry:
     release_revision: str
     available: bool
     source: str
+
+
+@dataclass(frozen=True, slots=True)
+class AssetRepositorySnapshot:
+    """An immutable Git snapshot used for remote rendering material facts."""
+
+    revision: str
+    blobs_by_path: dict[str, str]
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteRenderAssetRequest:
+    """One renderer input whose path is resolved from a published repository tree."""
+
+    asset_kind: str
+    asset_key: str
+    candidate_paths: tuple[str, ...]
+    required: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -2417,6 +2458,245 @@ def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
     return sorted({item.icon_id for item in config_data.soulmark_icons})
 
 
+def _load_asset_repository_snapshot() -> AssetRepositorySnapshot | None:
+    """Load one complete, immutable asset-tree snapshot from GitHub.
+
+    The build does not hash tens of thousands of PNGs one by one. Git blob IDs
+    are immutable content identifiers, so the complete tree gives the release a
+    deterministic material inventory with one commit and one tree request.
+    A truncated or malformed tree is deliberately not usable for final-cache
+    scope publication.
+    """
+
+    try:
+        commit_payload = json.loads(
+            _download_bytes(RENDER_ASSET_REPOSITORY_COMMIT_URL).decode("utf-8")
+        )
+        revision = str(commit_payload.get("sha", "")).strip()
+        if not revision:
+            raise ValueError("repository commit response has no sha")
+        tree_url = RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE.format(
+            revision=revision
+        )
+        tree_payload = json.loads(_download_bytes(tree_url).decode("utf-8"))
+        if tree_payload.get("truncated") is True:
+            raise ValueError("repository tree response is truncated")
+        raw_tree = tree_payload.get("tree")
+        if not isinstance(raw_tree, list):
+            raise ValueError("repository tree response has no tree list")
+        blobs_by_path = {
+            str(entry["path"]): str(entry["sha"])
+            for entry in raw_tree
+            if isinstance(entry, dict)
+            and entry.get("type") == "blob"
+            and isinstance(entry.get("path"), str)
+            and isinstance(entry.get("sha"), str)
+        }
+        if not blobs_by_path:
+            raise ValueError("repository tree has no blob entries")
+    except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError, ValueError,
+            json.JSONDecodeError) as error:
+        logger.warning(
+            "Render asset repository snapshot is unavailable; pet-info L3 stays disabled: %s",
+            error,
+        )
+        return None
+    return AssetRepositorySnapshot(revision=revision, blobs_by_path=blobs_by_path)
+
+
+def _pet_info_remote_asset_requests(
+    conn: sqlite3.Connection,
+) -> tuple[RemoteRenderAssetRequest, ...] | None:
+    """Enumerate every remote material the pet-info renderer can request.
+
+    Optional assets stay in the manifest too. A missing optional icon is a
+    stable, intentional absence; a missing mandatory material makes the whole
+    ``pet_info`` scope ineligible for early L3 caching.
+    """
+
+    pet_resource_ids = _select_positive_ids(conn, "pet", "resource_id")
+    type_ids = _select_positive_ids(conn, "element_type", "id")
+    mintmark_ids = _select_positive_ids(conn, "mintmark", "id")
+    item_ids = _select_positive_ids(conn, "item", "id")
+    status_ids = _select_positive_ids(conn, SPECIAL_EFFECT_STATUS_TABLE, "status_id")
+    if any(
+        values is None
+        for values in (
+            pet_resource_ids,
+            type_ids,
+            mintmark_ids,
+            item_ids,
+            status_ids,
+        )
+    ):
+        return None
+    assert pet_resource_ids is not None
+    assert type_ids is not None
+    assert mintmark_ids is not None
+    assert item_ids is not None
+    assert status_ids is not None
+    requests: list[RemoteRenderAssetRequest] = []
+    for resource_id in pet_resource_ids:
+        requests.extend(
+            (
+                _remote_asset_request(
+                    "pet_head",
+                    str(resource_id),
+                    (f"newseer/assets/art/ui/assets/pet/head/{resource_id}.png",),
+                    required=True,
+                ),
+                _remote_asset_request(
+                    "pet_body",
+                    str(resource_id),
+                    (f"newseer/assets/art/ui/assets/pet/body/{resource_id}.png",),
+                    required=True,
+                ),
+            )
+        )
+    for type_key in (*map(str, type_ids), "prop"):
+        requests.append(
+            _remote_asset_request(
+                "element_type",
+                type_key,
+                (f"newseer/assets/art/ui/assets/pettype/{type_key}.png",),
+                required=True,
+            )
+        )
+    for mintmark_id in mintmark_ids:
+        requests.append(
+            _remote_asset_request(
+                "mintmark",
+                str(mintmark_id),
+                (
+                    "newseer/assets/art/ui/assets/countermark/icon/"
+                    f"{mintmark_id}.png",
+                ),
+                required=True,
+            )
+        )
+    for item_id in item_ids:
+        requests.append(
+            _remote_asset_request(
+                "item",
+                str(item_id),
+                tuple(
+                    f"newseer/assets/art/ui/assets/item/{category}/icon/{item_id}.png"
+                    for category in (
+                        "doodle",
+                        "petitem",
+                        "skillstone",
+                        "throw",
+                        "userinfo",
+                    )
+                ),
+                required=False,
+            )
+        )
+    for status_id in status_ids:
+        requests.append(
+            _remote_asset_request(
+                "sign_buff",
+                str(status_id),
+                (
+                    "newseer/assets/art/ui/assets/battleeffect/signbuff/"
+                    f"{status_id}.png",
+                ),
+                required=False,
+            )
+        )
+    return tuple(sorted(requests, key=lambda item: (item.asset_kind, item.asset_key)))
+
+
+def _select_positive_ids(
+    conn: sqlite3.Connection,
+    table: str,
+    column: str,
+) -> tuple[int, ...] | None:
+    """Read one database-owned positive ID domain for material inventory."""
+
+    try:
+        rows = conn.execute(
+            f"SELECT DISTINCT {column} FROM {table} "
+            f"WHERE {column} > 0 ORDER BY {column}"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        logger.warning(
+            "Render asset inventory cannot read %s.%s; scope stays incomplete",
+            table,
+            column,
+        )
+        return None
+    return tuple(int(row[0]) for row in rows)
+
+
+def _remote_asset_request(
+    asset_kind: str,
+    asset_key: str,
+    candidate_paths: tuple[str, ...],
+    *,
+    required: bool,
+) -> RemoteRenderAssetRequest:
+    return RemoteRenderAssetRequest(
+        asset_kind=asset_kind,
+        asset_key=asset_key,
+        candidate_paths=candidate_paths,
+        required=required,
+    )
+
+
+def _build_pet_info_remote_asset_manifest(
+    conn: sqlite3.Connection,
+    snapshot: AssetRepositorySnapshot | None,
+    *,
+    release_revision: str,
+) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
+    """Publish the complete material inventory and whether it can enable L3."""
+
+    if snapshot is None:
+        return (), False
+    entries: list[RenderAssetManifestEntry] = []
+    complete = True
+    requests = _pet_info_remote_asset_requests(conn)
+    if requests is None:
+        return (), False
+    for request in requests:
+        matched_path = next(
+            (
+                path
+                for path in request.candidate_paths
+                if path in snapshot.blobs_by_path
+            ),
+            None,
+        )
+        available = matched_path is not None
+        if request.required and not available:
+            complete = False
+        source = (
+            f"{RENDER_ASSET_REPOSITORY}@{snapshot.revision}:"
+            f"{matched_path}#blob:{snapshot.blobs_by_path[matched_path]}"
+            if matched_path is not None
+            else f"{RENDER_ASSET_REPOSITORY}@{snapshot.revision}:missing:"
+            + "|".join(request.candidate_paths)
+        )
+        entries.append(
+            RenderAssetManifestEntry(
+                asset_kind=request.asset_kind,
+                asset_key=request.asset_key,
+                sha256="",
+                release_revision=release_revision,
+                available=available,
+                source=source,
+            )
+        )
+    required_entries = [
+        entry
+        for entry in entries
+        if entry.asset_kind
+        in {"element_type", "mintmark", "pet_body", "pet_head"}
+    ]
+    return tuple(entries), complete and bool(required_entries)
+
+
 def _build_effect_icon_render_asset_manifest(
     checks: dict[int, EffectIconAssetCheck],
     renders: dict[int, EffectIconPngRender],
@@ -2465,6 +2745,8 @@ def _render_asset_manifest_revision(
         digest.update(entry.sha256.encode("ascii"))
         digest.update(b"\0")
         digest.update(entry.release_revision.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(entry.source.encode("utf-8"))
         digest.update(b"\0")
         digest.update(b"1" if entry.available else b"0")
         digest.update(b"\n")
@@ -3465,6 +3747,7 @@ def _merge_ironsbot_tables(
 ) -> None:
     now = time.time()
     skin_image_resolutions = skin_image_resolutions or []
+    asset_repository_snapshot = _load_asset_repository_snapshot()
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             f"""
@@ -3805,6 +4088,14 @@ def _merge_ironsbot_tables(
             ON {SPECIAL_EFFECT_STATUS_TABLE} (name)
             """
         )
+        (
+            pet_info_remote_asset_manifest,
+            pet_info_render_scope_complete,
+        ) = _build_pet_info_remote_asset_manifest(
+            conn,
+            asset_repository_snapshot,
+            release_revision=config_data.version,
+        )
         deduplicated_soulmark_icons = sorted(
             {
                 (
@@ -3826,6 +4117,10 @@ def _merge_ironsbot_tables(
             effect_icon_asset_checks,
             effect_icon_png_renders,
             release_revision=config_data.version,
+        )
+        render_asset_manifest = (
+            *render_asset_manifest,
+            *pet_info_remote_asset_manifest,
         )
         issue_pet_ids = sorted(
             {
@@ -4062,6 +4357,20 @@ def _merge_ironsbot_tables(
             ),
             "render_asset_manifest_revision": _render_asset_manifest_revision(
                 render_asset_manifest
+            ),
+            RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: (
+                RENDER_ASSET_MANIFEST_CONTRACT_VERSION
+            ),
+            RENDER_ASSET_MANIFEST_SCOPES_KEY: json.dumps(
+                [PET_INFO_RENDER_ASSET_SCOPE]
+                if pet_info_render_scope_complete
+                else [],
+                separators=(",", ":"),
+            ),
+            RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY: (
+                asset_repository_snapshot.revision
+                if asset_repository_snapshot is not None
+                else ""
             ),
             "render_asset_manifest_count": str(len(render_asset_manifest)),
             "render_asset_manifest_available_count": str(

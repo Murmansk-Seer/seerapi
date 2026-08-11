@@ -7,10 +7,12 @@ class RenderAssetManifest(BaseModel):
 
     asset_kind: str = Field(description="渲染素材种类")
     asset_key: str = Field(description="素材在种类中的稳定键")
-    sha256: str = Field(description="素材 PNG 的 SHA-256；不可用素材为空字符串")
+    sha256: str = Field(
+        description="构建期嵌入 PNG 的 SHA-256；远程 Git 素材使用 source 中的 blob ID"
+    )
     release_revision: str = Field(description="产生该素材事实的数据发布版本")
     available: bool = Field(description="该发布物是否含有可用素材")
-    source: str = Field(description="构建期素材来源说明")
+    source: str = Field(description="构建期素材来源及不可变内容标识")
 
 
 class RenderAssetManifestORM(RenderAssetManifest, SQLModel, table=True):
