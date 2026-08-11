@@ -147,6 +147,7 @@ RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY = (
     "render_asset_manifest_asset_repository_revision"
 )
 PET_INFO_RENDER_ASSET_SCOPE = "pet_info"
+TYPE_MATCHUP_RENDER_ASSET_SCOPE = "type_matchup"
 RENDER_ASSET_REPOSITORY = "Murmansk-Seer/seer-unity-assets"
 RENDER_ASSET_REPOSITORY_REF = os.environ.get(
     "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_REF",
@@ -2697,6 +2698,20 @@ def _build_pet_info_remote_asset_manifest(
     return tuple(entries), complete and bool(required_entries)
 
 
+def _complete_render_asset_scopes(
+    pet_info_render_scope_complete: bool,
+) -> tuple[str, ...]:
+    """Return scopes proven by the complete pet-info material inventory.
+
+    Type-matchup rendering requires only the complete `element_type` subset that
+    pet-info already verifies. Keeping the proof here avoids a second partial
+    manifest with a subtly different interpretation of the same asset set.
+    """
+    if not pet_info_render_scope_complete:
+        return ()
+    return (PET_INFO_RENDER_ASSET_SCOPE, TYPE_MATCHUP_RENDER_ASSET_SCOPE)
+
+
 def _build_effect_icon_render_asset_manifest(
     checks: dict[int, EffectIconAssetCheck],
     renders: dict[int, EffectIconPngRender],
@@ -4362,9 +4377,7 @@ def _merge_ironsbot_tables(
                 RENDER_ASSET_MANIFEST_CONTRACT_VERSION
             ),
             RENDER_ASSET_MANIFEST_SCOPES_KEY: json.dumps(
-                [PET_INFO_RENDER_ASSET_SCOPE]
-                if pet_info_render_scope_complete
-                else [],
+                _complete_render_asset_scopes(pet_info_render_scope_complete),
                 separators=(",", ":"),
             ),
             RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY: (
