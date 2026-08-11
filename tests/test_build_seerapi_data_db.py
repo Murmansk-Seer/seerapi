@@ -95,6 +95,14 @@ def _create_special_effect_source_tables(database: Path) -> None:
         )
 
 
+def test_pet_info_scope_proves_type_matchup_asset_subset() -> None:
+    assert builder._complete_render_asset_scopes(True) == (
+        builder.PET_INFO_RENDER_ASSET_SCOPE,
+        builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
+    )
+    assert builder._complete_render_asset_scopes(False) == ()
+
+
 def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
     payload = {
         "item": [
