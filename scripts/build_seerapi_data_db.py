@@ -148,6 +148,7 @@ RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY = (
 )
 PET_INFO_RENDER_ASSET_SCOPE = "pet_info"
 TYPE_MATCHUP_RENDER_ASSET_SCOPE = "type_matchup"
+PEAK_POOL_RENDER_ASSET_SCOPE = "peak_pool"
 RENDER_ASSET_REPOSITORY = "Murmansk-Seer/seer-unity-assets"
 RENDER_ASSET_REPOSITORY_REF = os.environ.get(
     "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_REF",
@@ -2703,13 +2704,17 @@ def _complete_render_asset_scopes(
 ) -> tuple[str, ...]:
     """Return scopes proven by the complete pet-info material inventory.
 
-    Type-matchup rendering requires only the complete `element_type` subset that
-    pet-info already verifies. Keeping the proof here avoids a second partial
-    manifest with a subtly different interpretation of the same asset set.
+    Type-matchup and peak-pool rendering require only material subsets that
+    pet-info already verifies. Keeping the proof here avoids partial manifests
+    with subtly different interpretations of the same asset set.
     """
     if not pet_info_render_scope_complete:
         return ()
-    return (PET_INFO_RENDER_ASSET_SCOPE, TYPE_MATCHUP_RENDER_ASSET_SCOPE)
+    return (
+        PET_INFO_RENDER_ASSET_SCOPE,
+        TYPE_MATCHUP_RENDER_ASSET_SCOPE,
+        PEAK_POOL_RENDER_ASSET_SCOPE,
+    )
 
 
 def _build_effect_icon_render_asset_manifest(
