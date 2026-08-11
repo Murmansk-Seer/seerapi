@@ -104,6 +104,16 @@ def test_pet_info_scope_proves_type_matchup_asset_subset() -> None:
     assert builder._complete_render_asset_scopes(False) == ()
 
 
+def test_new_content_standard_scope_requires_pet_info_and_its_own_assets() -> None:
+    assert builder._complete_render_asset_scopes(True, True) == (
+        builder.PET_INFO_RENDER_ASSET_SCOPE,
+        builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
+        builder.PEAK_POOL_RENDER_ASSET_SCOPE,
+        builder.NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE,
+    )
+    assert builder._complete_render_asset_scopes(False, True) == ()
+
+
 def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
     payload = {
         "item": [
@@ -1039,6 +1049,76 @@ def test_pet_info_remote_asset_manifest_disables_scope_for_missing_mandatory_ass
     )
     assert missing.available is False
     assert "missing:" in missing.source
+
+
+def test_new_content_standard_remote_asset_manifest_requires_all_assets(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "new-content-standard-assets.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE suit (id INTEGER NOT NULL);
+            CREATE TABLE equip (id INTEGER NOT NULL);
+            CREATE TABLE title_part (id INTEGER NOT NULL);
+            INSERT INTO suit VALUES (11);
+            INSERT INTO equip VALUES (12);
+            INSERT INTO title_part VALUES (13);
+            """
+        )
+        snapshot = builder.AssetRepositorySnapshot(
+            revision="c" * 40,
+            blobs_by_path={
+                "newseer/assets/art/ui/assets/item/cloth/suiticon/11.png": "suit",
+                "newseer/assets/art/ui/assets/item/cloth/prev/12.png": "equip",
+                "newseer/assets/art/ui/assets/achieve/title/13.png": "title",
+            },
+        )
+        entries, complete = builder._build_new_content_standard_remote_asset_manifest(
+            connection,
+            snapshot,
+            release_revision="release-1",
+        )
+
+    assert complete is True
+    assert [(entry.asset_kind, entry.asset_key) for entry in entries] == [
+        ("equip", "12"),
+        ("suit", "11"),
+        ("title", "13"),
+    ]
+
+
+def test_new_content_standard_remote_asset_manifest_stays_incomplete_when_missing(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "missing-new-content-standard-assets.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE suit (id INTEGER NOT NULL);
+            CREATE TABLE equip (id INTEGER NOT NULL);
+            CREATE TABLE title_part (id INTEGER NOT NULL);
+            INSERT INTO suit VALUES (11);
+            INSERT INTO equip VALUES (12);
+            INSERT INTO title_part VALUES (13);
+            """
+        )
+        snapshot = builder.AssetRepositorySnapshot(
+            revision="d" * 40,
+            blobs_by_path={
+                "newseer/assets/art/ui/assets/item/cloth/suiticon/11.png": "suit",
+                "newseer/assets/art/ui/assets/item/cloth/prev/12.png": "equip",
+            },
+        )
+        entries, complete = builder._build_new_content_standard_remote_asset_manifest(
+            connection,
+            snapshot,
+            release_revision="release-1",
+        )
+
+    assert complete is False
+    missing = next(entry for entry in entries if entry.asset_kind == "title")
+    assert missing.available is False
 
 
 def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> None:

@@ -149,6 +149,7 @@ RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY = (
 PET_INFO_RENDER_ASSET_SCOPE = "pet_info"
 TYPE_MATCHUP_RENDER_ASSET_SCOPE = "type_matchup"
 PEAK_POOL_RENDER_ASSET_SCOPE = "peak_pool"
+NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE = "new_content_standard"
 RENDER_ASSET_REPOSITORY = "Murmansk-Seer/seer-unity-assets"
 RENDER_ASSET_REPOSITORY_REF = os.environ.get(
     "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_REF",
@@ -2609,6 +2610,56 @@ def _pet_info_remote_asset_requests(
     return tuple(sorted(requests, key=lambda item: (item.asset_kind, item.asset_key)))
 
 
+def _new_content_standard_remote_asset_requests(
+    conn: sqlite3.Connection,
+) -> tuple[RemoteRenderAssetRequest, ...] | None:
+    """Enumerate release-owned materials unique to standard new-content cards.
+
+    Pet heads, types and mintmarks are already proven by the pet-info inventory.
+    This scope adds only the remaining immutable material families used by the
+    standard new-content renderer.  Autocard artwork deliberately stays out:
+    it is provided by arbitrary upstream URLs rather than this repository.
+    """
+
+    suit_ids = _select_positive_ids(conn, "suit", "id")
+    equip_ids = _select_positive_ids(conn, "equip", "id")
+    title_ids = _select_positive_ids(conn, "title_part", "id")
+    if any(values is None for values in (suit_ids, equip_ids, title_ids)):
+        return None
+    assert suit_ids is not None
+    assert equip_ids is not None
+    assert title_ids is not None
+    requests: list[RemoteRenderAssetRequest] = []
+    for suit_id in suit_ids:
+        requests.append(
+            _remote_asset_request(
+                "suit",
+                str(suit_id),
+                (f"newseer/assets/art/ui/assets/item/cloth/suiticon/{suit_id}.png",),
+                required=True,
+            )
+        )
+    for equip_id in equip_ids:
+        requests.append(
+            _remote_asset_request(
+                "equip",
+                str(equip_id),
+                (f"newseer/assets/art/ui/assets/item/cloth/prev/{equip_id}.png",),
+                required=True,
+            )
+        )
+    for title_id in title_ids:
+        requests.append(
+            _remote_asset_request(
+                "title",
+                str(title_id),
+                (f"newseer/assets/art/ui/assets/achieve/title/{title_id}.png",),
+                required=True,
+            )
+        )
+    return tuple(sorted(requests, key=lambda item: (item.asset_kind, item.asset_key)))
+
+
 def _select_positive_ids(
     conn: sqlite3.Connection,
     table: str,
@@ -2656,11 +2707,54 @@ def _build_pet_info_remote_asset_manifest(
 
     if snapshot is None:
         return (), False
-    entries: list[RenderAssetManifestEntry] = []
-    complete = True
     requests = _pet_info_remote_asset_requests(conn)
     if requests is None:
         return (), False
+    entries, complete = _build_remote_asset_manifest_entries(
+        requests,
+        snapshot,
+        release_revision=release_revision,
+    )
+    required_entries = [
+        entry
+        for entry in entries
+        if entry.asset_kind
+        in {"element_type", "mintmark", "pet_body", "pet_head"}
+    ]
+    return entries, complete and bool(required_entries)
+
+
+def _build_new_content_standard_remote_asset_manifest(
+    conn: sqlite3.Connection,
+    snapshot: AssetRepositorySnapshot | None,
+    *,
+    release_revision: str,
+) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
+    """Publish the immutable non-pet materials for standard new-content cards."""
+
+    if snapshot is None:
+        return (), False
+    requests = _new_content_standard_remote_asset_requests(conn)
+    if requests is None:
+        return (), False
+    entries, complete = _build_remote_asset_manifest_entries(
+        requests,
+        snapshot,
+        release_revision=release_revision,
+    )
+    return entries, complete
+
+
+def _build_remote_asset_manifest_entries(
+    requests: tuple[RemoteRenderAssetRequest, ...],
+    snapshot: AssetRepositorySnapshot,
+    *,
+    release_revision: str,
+) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
+    """Resolve one inventory against an immutable repository snapshot."""
+
+    entries: list[RenderAssetManifestEntry] = []
+    complete = True
     for request in requests:
         matched_path = next(
             (
@@ -2690,17 +2784,12 @@ def _build_pet_info_remote_asset_manifest(
                 source=source,
             )
         )
-    required_entries = [
-        entry
-        for entry in entries
-        if entry.asset_kind
-        in {"element_type", "mintmark", "pet_body", "pet_head"}
-    ]
-    return tuple(entries), complete and bool(required_entries)
+    return tuple(entries), complete
 
 
 def _complete_render_asset_scopes(
     pet_info_render_scope_complete: bool,
+    new_content_standard_render_scope_complete: bool = False,
 ) -> tuple[str, ...]:
     """Return scopes proven by the complete pet-info material inventory.
 
@@ -2708,13 +2797,18 @@ def _complete_render_asset_scopes(
     pet-info already verifies. Keeping the proof here avoids partial manifests
     with subtly different interpretations of the same asset set.
     """
-    if not pet_info_render_scope_complete:
-        return ()
-    return (
-        PET_INFO_RENDER_ASSET_SCOPE,
-        TYPE_MATCHUP_RENDER_ASSET_SCOPE,
-        PEAK_POOL_RENDER_ASSET_SCOPE,
-    )
+    scopes: list[str] = []
+    if pet_info_render_scope_complete:
+        scopes.extend(
+            (
+                PET_INFO_RENDER_ASSET_SCOPE,
+                TYPE_MATCHUP_RENDER_ASSET_SCOPE,
+                PEAK_POOL_RENDER_ASSET_SCOPE,
+            )
+        )
+    if pet_info_render_scope_complete and new_content_standard_render_scope_complete:
+        scopes.append(NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE)
+    return tuple(scopes)
 
 
 def _build_effect_icon_render_asset_manifest(
@@ -4116,6 +4210,14 @@ def _merge_ironsbot_tables(
             asset_repository_snapshot,
             release_revision=config_data.version,
         )
+        (
+            new_content_standard_remote_asset_manifest,
+            new_content_standard_render_scope_complete,
+        ) = _build_new_content_standard_remote_asset_manifest(
+            conn,
+            asset_repository_snapshot,
+            release_revision=config_data.version,
+        )
         deduplicated_soulmark_icons = sorted(
             {
                 (
@@ -4141,6 +4243,7 @@ def _merge_ironsbot_tables(
         render_asset_manifest = (
             *render_asset_manifest,
             *pet_info_remote_asset_manifest,
+            *new_content_standard_remote_asset_manifest,
         )
         issue_pet_ids = sorted(
             {
@@ -4382,7 +4485,10 @@ def _merge_ironsbot_tables(
                 RENDER_ASSET_MANIFEST_CONTRACT_VERSION
             ),
             RENDER_ASSET_MANIFEST_SCOPES_KEY: json.dumps(
-                _complete_render_asset_scopes(pet_info_render_scope_complete),
+                _complete_render_asset_scopes(
+                    pet_info_render_scope_complete,
+                    new_content_standard_render_scope_complete,
+                ),
                 separators=(",", ":"),
             ),
             RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY: (
