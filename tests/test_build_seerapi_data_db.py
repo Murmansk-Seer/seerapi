@@ -23,6 +23,13 @@ sys.modules[SPEC.name] = builder
 SPEC.loader.exec_module(builder)
 
 
+def test_published_schema_contract_metadata_is_explicit() -> None:
+    assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION == "1"
+    assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION_KEY == (
+        "ironsbot_schema_contract_version"
+    )
+
+
 @pytest.fixture(autouse=True)
 def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(

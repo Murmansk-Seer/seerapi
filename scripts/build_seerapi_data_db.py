@@ -139,6 +139,8 @@ SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
 SOULMARK_ICON_TABLE = "soulmark_icon"
 SOULMARK_ICON_RENDER_ISSUE_TABLE = "soulmark_icon_render_issue"
 RENDER_ASSET_MANIFEST_TABLE = "render_asset_manifest"
+SEERAPI_SCHEMA_CONTRACT_VERSION = "1"
+SEERAPI_SCHEMA_CONTRACT_VERSION_KEY = "ironsbot_schema_contract_version"
 RENDER_ASSET_MANIFEST_CONTRACT_VERSION = "1"
 RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY = "render_asset_manifest_contract_version"
 RENDER_ASSET_MANIFEST_REVISION_KEY = "render_asset_manifest_revision"
@@ -4426,6 +4428,7 @@ def _merge_ironsbot_tables(
             """
         )
         metadata = {
+            SEERAPI_SCHEMA_CONTRACT_VERSION_KEY: SEERAPI_SCHEMA_CONTRACT_VERSION,
             "built_at": str(int(now)),
             "upstream_seerapi_url": UPSTREAM_SEERAPI_URL,
             "config_package_base_url": CONFIG_PACKAGE_BASE_URL,
