@@ -5,8 +5,8 @@
 然后调用 SQLModel.metadata.create_all 创建空表。
 """
 
-import sys
 from pathlib import Path
+import sys
 
 from sqlmodel import SQLModel, create_engine
 
@@ -21,7 +21,7 @@ def main() -> None:
 
     engine = create_engine(f'sqlite:///{output_path.resolve()}')
     SQLModel.metadata.create_all(engine)
-    print(f'已创建 schema-only DB: {output}')
+    print(f'已创建 schema-only DB: {output}')  # noqa: T201
 
 
 if __name__ == '__main__':

@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import re
 
-
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -70,9 +69,9 @@ def main() -> None:
             output.write(f"current_weekly_cycle={weekly_cycle(args.current_config_version) or ''}\n")
             output.write(f"previous_weekly_cycle={weekly_cycle(args.previous_config_version) or ''}\n")
     if defer:
-        print("Deferred: waiting for api-data to catch up with the new weekly cycle")
+        print("Deferred: waiting for api-data to catch up with the new weekly cycle")  # noqa: T201
     else:
-        print("Weekly publication consistency gate passed")
+        print("Weekly publication consistency gate passed")  # noqa: T201
 
 
 if __name__ == "__main__":
