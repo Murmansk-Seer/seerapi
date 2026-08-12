@@ -26,6 +26,33 @@ CATEGORY_SNAPSHOT_TABLE = 'new_content_source_category'
 CATEGORY_STATE_TABLE = 'new_content_category_state'
 AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
 AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
+PET_VOLATILE_STATS = frozenset(
+    {
+        'peak_pool_id',
+        'peak_expert_pool_id',
+        'peak_pool_vote_id',
+    }
+)
+PET_SKILL_RELATION_FIELDS = (
+    'id',
+    'learning_level',
+    'is_special',
+    'is_advanced',
+    'is_fifth',
+)
+SEMANTIC_SCHEMA_VERSION = 3
+SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
+    # v2 normalized the semantic snapshots for these categories.  Keep this
+    # migration scoped to databases that genuinely predate it: rerunning it
+    # for an already-v2 release would hide legitimate skill changes.
+    2: frozenset({'pet', 'skill', 'equip', 'mount'}),
+    # v3 removes catalogue-rarity-only mintmark updates from the weekly view.
+    3: frozenset({'mintmark'}),
+}
+SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
+    2: frozenset({'pet', 'equip', 'mount'}),
+    3: frozenset({'mintmark'}),
+}
 
 CONTENT_CATEGORIES = (
     'achievement',
@@ -72,13 +99,45 @@ class ContentItem:
     @property
     def semantic_key(self) -> str:
         """A stable fallback for an upstream item whose numeric id changed."""
-        payload = self.payload
+        payload = dict(self.payload)
         if self.category == 'pet_skin':
             # The linked pet name is presentation-only. A pet change must not
             # make every one of its skins look modified.
             payload = {
                 key: value for key, value in payload.items() if key != 'pet_name'
             }
+        elif self.category == 'pet':
+            # Weekly peak-pool membership is operational rotation state, not a
+            # change to the pet itself. Skill definitions are indexed in the
+            # skill category; retain only the pet-to-skill relationship here so
+            # a corrected skill description does not modify every linked pet.
+            if isinstance(stats := payload.get('stats'), dict):
+                payload['stats'] = {
+                    key: value
+                    for key, value in stats.items()
+                    if key not in PET_VOLATILE_STATS
+                }
+            if isinstance(skills := payload.get('skills'), list):
+                payload['skills'] = [
+                    {
+                        field: skill[field]
+                        for field in PET_SKILL_RELATION_FIELDS
+                        if field in skill
+                    }
+                    for skill in skills
+                    if isinstance(skill, dict)
+                ]
+        elif self.category == 'skill':
+            # A new pet learning an existing skill changes the pet relation,
+            # not the skill definition.
+            payload.pop('pets', None)
+        elif self.category == 'mintmark':
+            # The API primary-table rarity is a catalogue classification.  It
+            # is distinct from the Unity mintmark quality shown to players,
+            # and upstream corrections to the former must not create a false
+            # weekly content update.  Keep rarity in the published payload
+            # for consumers; compare the description, type, and quality.
+            payload.pop('rarity_id', None)
         return json.dumps(
             {
                 'category': self.category,
@@ -107,6 +166,7 @@ class ReleaseState:
     source_items: tuple['SourceSnapshotItem', ...] = field(default_factory=tuple)
     source_categories: frozenset[str] = field(default_factory=frozenset)
     category_states: tuple['CategoryState', ...] = field(default_factory=tuple)
+    semantic_schema_version: int = SEMANTIC_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -133,6 +193,26 @@ class SourceHistoryAddition:
 
     category: str
     entity_id: int
+
+
+def _semantic_migration_categories(previous_version: int) -> frozenset[str]:
+    return frozenset().union(
+        *(
+            categories
+            for version, categories in SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION.items()
+            if previous_version < version <= SEMANTIC_SCHEMA_VERSION
+        )
+    )
+
+
+def _semantic_migration_prune_categories(previous_version: int) -> frozenset[str]:
+    return frozenset().union(
+        *(
+            categories
+            for version, categories in SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION.items()
+            if previous_version < version <= SEMANTIC_SCHEMA_VERSION
+        )
+    )
 
 
 def _has_table(conn: sqlite3.Connection, name: str) -> bool:
@@ -188,6 +268,45 @@ def _weekly_cycle(version: str) -> str:
 
 def _rows(conn: sqlite3.Connection, query: str) -> Iterable[sqlite3.Row]:
     return conn.execute(query).fetchall()
+
+
+def _equip_bonus_payloads(conn: sqlite3.Connection) -> dict[int, dict[str, Any]]:
+    """Resolve auto-numbered bonus rows into stable, meaningful content."""
+
+    if not _has_table(conn, 'equip_bonus'):
+        return {}
+
+    attributes: dict[int, dict[str, Any]] = {}
+    if _has_table(conn, 'equip_bonus_attr'):
+        attributes = {
+            int(row['id']): {key: row[key] for key in row.keys() if key != 'id'}
+            for row in _rows(conn, 'SELECT * FROM equip_bonus_attr')
+        }
+
+    effects: dict[int, dict[str, Any]] = {}
+    if _has_table(conn, 'eid_effect_in_use'):
+        for row in _rows(conn, 'SELECT * FROM eid_effect_in_use'):
+            payload = {key: row[key] for key in row.keys() if key != 'id'}
+            if isinstance(effect_args := payload.get('effect_args'), str):
+                try:
+                    payload['effect_args'] = json.loads(effect_args)
+                except json.JSONDecodeError:
+                    pass
+            effects[int(row['id'])] = payload
+
+    result: dict[int, dict[str, Any]] = {}
+    for row in _rows(conn, 'SELECT * FROM equip_bonus'):
+        payload = {
+            key: row[key]
+            for key in row.keys()
+            if key not in {'id', 'attribute_id', 'effect_in_use_id'}
+        }
+        if row['attribute_id'] is not None:
+            payload['attribute'] = attributes.get(int(row['attribute_id']), {})
+        if row['effect_in_use_id'] is not None:
+            payload['effect'] = effects.get(int(row['effect_in_use_id']), {})
+        result[int(row['id'])] = payload
+    return result
 
 
 def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
@@ -454,6 +573,16 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
             )
         )
 
+    mintmark_quality_by_id: dict[int, int] = {}
+    if _has_table(conn, 'mintmark_quality'):
+        mintmark_quality_by_id = {
+            int(row['mintmark_id']): int(row['quality'] or 0)
+            for row in _rows(
+                conn,
+                'SELECT mintmark_id, quality FROM mintmark_quality',
+            )
+        }
+
     for category, table, fields in (
         ('mintmark', 'mintmark', ('desc', 'type_id', 'rarity_id')),
         ('suit', 'suit', ('transform', 'tran_speed', 'suit_desc')),
@@ -464,13 +593,19 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         select = ', '.join(('id', 'name', *fields))
         for row in _rows(conn, f'SELECT {select} FROM {table}'):
             entity_id = int(row['id'])
+            payload = {field: row[field] for field in fields}
+            if category == 'mintmark':
+                # Quality is extracted from the official Unity
+                # ConfigPackage.  It intentionally remains separate from the
+                # legacy primary-table rarity classification.
+                payload['quality'] = mintmark_quality_by_id.get(entity_id, 0)
             items.append(
                 ContentItem(
                     category,
                     entity_id,
                     str(row['name']),
                     entity_id,
-                    {field: row[field] for field in fields},
+                    payload,
                 )
             )
 
@@ -488,28 +623,31 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         )
         if field in _table_columns(conn, 'equip')
     )
+    equip_bonus_payloads = _equip_bonus_payloads(conn)
     equip_select = ', '.join(('id', 'name', *equip_fields))
     for row in _rows(conn, f'SELECT {equip_select} FROM equip'):
         part_type = int(row['part_type_id'] or 0) if 'part_type_id' in row.keys() else 0
         category = 'mount' if part_type == 6 else 'equip'
         entity_id = int(row['id'])
+        payload = {
+            field: int(row[field] or 0)
+            for field in equip_fields
+            if field != 'bonus_id'
+        }
+        if 'bonus_id' in row.keys() and row['bonus_id'] is not None:
+            payload['bonus'] = equip_bonus_payloads.get(int(row['bonus_id']), {})
         items.append(
             ContentItem(
                 category,
                 entity_id,
                 str(row['name']),
                 entity_id,
-                {field: int(row[field] or 0) for field in equip_fields},
+                payload,
             )
         )
 
-    for category, table in (
-        ('autocard_card', 'autocard_card'),
-        ('autocard_role', 'autocard_role'),
-    ):
-        if not _has_table(conn, table):
-            continue
-        for row in _rows(conn, f'SELECT id, name, raw_json FROM {table}'):
+    if _has_table(conn, 'autocard_card'):
+        for row in _rows(conn, 'SELECT id, name, raw_json FROM autocard_card'):
             entity_id = int(row['id'])
             try:
                 payload = json.loads(str(row['raw_json']))
@@ -517,7 +655,35 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 payload = {'raw_json': str(row['raw_json'])}
             items.append(
                 ContentItem(
-                    category,
+                    'autocard_card',
+                    entity_id,
+                    str(row['name']),
+                    entity_id,
+                    payload if isinstance(payload, dict) else {'raw_json': payload},
+                )
+            )
+
+    if _has_table(conn, 'autocard_role'):
+        if _has_table(conn, 'autocard_role_raw'):
+            role_query = '''
+                SELECT role.id, role.name, raw.raw_json
+                FROM autocard_role AS role
+                JOIN autocard_role_raw AS raw ON raw.role_id = role.id
+                ORDER BY role.id
+            '''
+        elif 'raw_json' in _table_columns(conn, 'autocard_role'):
+            role_query = 'SELECT id, name, raw_json FROM autocard_role ORDER BY id'
+        else:
+            role_query = None
+        for row in _rows(conn, role_query) if role_query is not None else ():
+            entity_id = int(row['id'])
+            try:
+                payload = json.loads(str(row['raw_json']))
+            except json.JSONDecodeError:
+                payload = {'raw_json': str(row['raw_json'])}
+            items.append(
+                ContentItem(
+                    'autocard_role',
                     entity_id,
                     str(row['name']),
                     entity_id,
@@ -594,6 +760,18 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
         source_categories = _load_source_categories(conn)
         current_items = load_current_items(conn)
         current_categories = _source_categories(conn)
+        release_columns = (
+            _table_columns(conn, RELEASE_TABLE)
+            if _has_table(conn, RELEASE_TABLE)
+            else set()
+        )
+        semantic_schema_version = 1
+        if 'schema_version' in release_columns:
+            version_row = conn.execute(
+                f'SELECT schema_version FROM {RELEASE_TABLE} WHERE id = 1'
+            ).fetchone()
+            if version_row is not None:
+                semantic_schema_version = int(version_row[0])
         if not source_items:
             source_items = tuple(
                 SourceSnapshotItem.from_content(item) for item in current_items
@@ -605,6 +783,22 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 for item in current_items
                 if item.category in missing_categories
             ))
+            if semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
+                migration_categories = _semantic_migration_categories(
+                    semantic_schema_version
+                )
+                source_items = (
+                    *(
+                        item
+                        for item in source_items
+                        if item.category not in migration_categories
+                    ),
+                    *(
+                        SourceSnapshotItem.from_content(item)
+                        for item in current_items
+                        if item.category in migration_categories
+                    ),
+                )
         source_categories = source_categories | current_categories
         if not _has_table(conn, RELEASE_TABLE):
             return ReleaseState(
@@ -615,6 +809,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 (),
                 source_items,
                 source_categories,
+                semantic_schema_version=semantic_schema_version,
             )
         row = conn.execute(
             f'SELECT current_git_sha, weekly_cycle, baseline_established FROM {RELEASE_TABLE} WHERE id = 1'
@@ -628,6 +823,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 (),
                 source_items,
                 source_categories,
+                semantic_schema_version=semantic_schema_version,
             )
         item_columns = {
             str(row[1])
@@ -662,6 +858,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
             source_items,
             source_categories,
             _load_category_states(conn),
+            semantic_schema_version,
         )
 
 
@@ -872,13 +1069,33 @@ def build_release_state(
     comparable_categories = {
         state.category for state in category_states if state.comparison_ready
     }
-    increment = (
-        *_new_items(current_items, previous.source_items, comparable_categories),
-        *_modified_items(current_items, previous.source_items, comparable_categories),
-        *_source_history_items(current_items, source_history_additions),
+    increment = _current_subset(
+        (
+            *_new_items(current_items, previous.source_items, comparable_categories),
+            *_modified_items(
+                current_items,
+                previous.source_items,
+                comparable_categories,
+            ),
+            *_source_history_items(current_items, source_history_additions),
+        ),
+        current_items,
     )
     if previous.weekly_cycle == cycle:
-        items = _current_subset((*previous.items, *increment), current_items)
+        carried_items = previous.items
+        if previous.semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
+            migration_prune_categories = _semantic_migration_prune_categories(
+                previous.semantic_schema_version
+            )
+            carried_items = tuple(
+                item
+                for item in carried_items
+                if not (
+                    item.change_kind == 'modified'
+                    and item.category in migration_prune_categories
+                )
+            )
+        items = _current_subset((*carried_items, *increment), current_items)
     else:
         items = increment
     return ReleaseState(
@@ -965,7 +1182,7 @@ def write_release_state(
                 (id, current_config_version, previous_config_version,
                  current_git_sha, previous_git_sha, weekly_cycle, generated_at,
                  baseline_established, schema_version)
-            VALUES (1, ?, ?, ?, ?, ?, ?, ?, 1)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 state.config_version,
@@ -975,6 +1192,7 @@ def write_release_state(
                 state.weekly_cycle,
                 generated_at,
                 int(state.baseline_established),
+                state.semantic_schema_version,
             ),
         )
         conn.executemany(

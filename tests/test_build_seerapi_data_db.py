@@ -121,6 +121,37 @@ def test_new_content_standard_scope_requires_pet_info_and_its_own_assets() -> No
     assert builder._complete_render_asset_scopes(False, True) == ()
 
 
+def test_copy_or_download_upstream_database_uses_verified_local_input(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "verified.sqlite"
+    with sqlite3.connect(source) as conn:
+        conn.execute("CREATE TABLE verified_source (value TEXT)")
+        conn.execute("INSERT INTO verified_source VALUES ('api-data')")
+    output = tmp_path / "output.sqlite"
+    monkeypatch.setattr(builder, "UPSTREAM_SEERAPI_PATH", str(source))
+
+    builder._copy_or_download_upstream_database(output)
+
+    with sqlite3.connect(output) as conn:
+        assert conn.execute("SELECT value FROM verified_source").fetchone() == (
+            "api-data",
+        )
+
+
+def test_copy_or_download_upstream_database_rejects_missing_verified_input(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        builder,
+        "UPSTREAM_SEERAPI_PATH",
+        str(tmp_path / "missing.sqlite"),
+    )
+
+    with pytest.raises(FileNotFoundError, match="Verified upstream"):
+        builder._copy_or_download_upstream_database(tmp_path / "output.sqlite")
+
+
 def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
     payload = {
         "item": [
@@ -602,6 +633,309 @@ def _test_png(
     return output.getvalue()
 
 
+def _manifest_text(value: str) -> bytes:
+    encoded = value.encode("utf-8")
+    return struct.pack("<H", len(encoded)) + encoded
+
+
+def _package_manifest_bytes(
+    *,
+    assets: list[tuple[str, int]],
+    bundles: list[tuple[str, str, int]],
+) -> bytes:
+    parts = [
+        struct.pack("<I", 1),
+        _manifest_text("test-package"),
+        b"\x00\x00\x00",
+        struct.pack("<i", 0),
+        _manifest_text(""),
+        _manifest_text(""),
+        struct.pack("<i", len(assets)),
+    ]
+    for asset_path, bundle_index in assets:
+        parts.extend(
+            [
+                _manifest_text(asset_path),
+                struct.pack("<i", bundle_index),
+                struct.pack("<H", 0),
+            ]
+        )
+    parts.append(struct.pack("<i", len(bundles)))
+    for name, file_hash, file_size in bundles:
+        parts.extend(
+            [
+                _manifest_text(name),
+                struct.pack("<I", 0),
+                _manifest_text(file_hash),
+                _manifest_text(""),
+                struct.pack("<q", file_size),
+                b"\x00",
+                struct.pack("<b", 0),
+                struct.pack("<H", 0),
+            ]
+        )
+    return b"".join(parts)
+
+
+def test_parse_package_manifest_maps_assets_to_bundles() -> None:
+    manifest = builder._parse_package_manifest(
+        _package_manifest_bytes(
+            assets=[
+                ("Assets/Art/Ui/assets/effectIcon/307.png", 1),
+                ("Assets/Other/example.txt", 0),
+            ],
+            bundles=[
+                ("misc", "misc-hash", 12),
+                ("art_ui_effecticon", "effect-hash", 34),
+            ],
+        )
+    )
+
+    assert manifest.assets["Assets/Art/Ui/assets/effectIcon/307.png"] == (
+        builder.BundleInfo("art_ui_effecticon", "effect-hash", 34)
+    )
+
+
+def test_load_unity_effect_icon_png_assets_uses_default_package_manifest(
+    monkeypatch,
+) -> None:
+    png_data = _test_png()
+    manifest_data = _package_manifest_bytes(
+        assets=[("Assets/Art/Ui/assets/effectIcon/307.png", 0)],
+        bundles=[("art_ui_effecticon", "effect-hash", 456)],
+    )
+    downloaded_urls: list[str] = []
+
+    def fake_download(url: str) -> bytes:
+        downloaded_urls.append(url)
+        if "PackageManifest_DefaultPackage.version" in url:
+            return b"20260807162107"
+        if "PackageManifest_DefaultPackage_20260807162107.bytes" in url:
+            return manifest_data
+        if url == "https://game.test/DefaultPackage/effect-hash":
+            return b"bundle-data"
+        raise AssertionError(url)
+
+    monkeypatch.setattr(
+        builder,
+        "DEFAULT_PACKAGE_BASE_URL",
+        "https://game.test/DefaultPackage/",
+    )
+    monkeypatch.setattr(builder, "_download_bytes", fake_download)
+    monkeypatch.setattr(
+        builder,
+        "_extract_unity_effect_icon_pngs",
+        lambda data, icon_ids: ({307: png_data}, {}),
+    )
+
+    load = builder._load_unity_effect_icon_png_assets({206, 307})
+
+    assert load.package_version == "20260807162107"
+    assert load.total_manifest_icon_count == 1
+    assert load.png_renders[307].data == png_data
+    assert load.asset_checks[307].url == (
+        "https://game.test/DefaultPackage/effect-hash"
+        "#Assets/Art/Ui/assets/effectIcon/307.png"
+    )
+    assert load.png_renders[206].available is False
+    assert load.asset_checks[206].status == 404
+    assert downloaded_urls[-1] == "https://game.test/DefaultPackage/effect-hash"
+
+
+def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", False)
+    unity_png = _test_png()
+    fallback_png = _test_png(size=(3, 3))
+    unity_check = builder.EffectIconAssetCheck(
+        icon_id=307,
+        url="https://game.test/effect-hash#Assets/Art/Ui/assets/effectIcon/307.png",
+        available=True,
+        status=200,
+        content_type="image/png",
+        content_length=len(unity_png),
+        error="",
+    )
+    missing_check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://game.test/DefaultPackage/#Assets/Art/Ui/assets/effectIcon/206.png",
+        available=False,
+        status=404,
+        content_type="",
+        content_length=None,
+        error="Unity DefaultPackage effectIcon PNG missing",
+    )
+    fallback_check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://seer.61.com/resource/effectIcon/206.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    fallback_inputs: list[set[int]] = []
+
+    monkeypatch.setattr(
+        builder,
+        "_load_unity_effect_icon_png_assets",
+        lambda icon_ids: builder.UnityEffectIconPngLoad(
+            package_version="20260807162107",
+            total_manifest_icon_count=2109,
+            sources={},
+            asset_checks={206: missing_check, 307: unity_check},
+            png_renders={
+                206: builder.EffectIconPngRender(
+                    206,
+                    False,
+                    "",
+                    None,
+                    None,
+                    "Unity DefaultPackage effectIcon PNG missing",
+                ),
+                307: builder.EffectIconPngRender(
+                    307,
+                    True,
+                    "image/png",
+                    len(unity_png),
+                    unity_png,
+                    "",
+                ),
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids, **_kwargs: fallback_inputs.append(set(icon_ids))
+        or {206: fallback_check},
+    )
+    monkeypatch.setattr(
+        builder,
+        "_render_effect_icon_png_assets",
+        lambda checks, **_kwargs: {
+            206: builder.EffectIconPngRender(
+                206,
+                True,
+                "image/png",
+                len(fallback_png),
+                fallback_png,
+                "",
+            )
+        },
+    )
+
+    resolution = builder._resolve_effect_icon_png_assets({206, 307})
+
+    assert fallback_inputs == [{206}]
+    assert resolution.png_renders[307].data == unity_png
+    assert resolution.png_renders[206].data == fallback_png
+    assert resolution.asset_checks[307] == unity_check
+    assert resolution.asset_checks[206] == fallback_check
+    assert resolution.unity_missing_icon_ids == (206,)
+    assert resolution.preferred_source == "unity"
+
+
+def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
+    flash_png = _test_png(size=(3, 3))
+    unity_png = _test_png()
+    flash_check = builder.EffectIconAssetCheck(
+        icon_id=307,
+        url="https://seer.61.com/resource/effectIcon/307.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    missing_flash_check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://seer.61.com/resource/effectIcon/206.swf",
+        available=False,
+        status=404,
+        content_type="text/html",
+        content_length=None,
+        error="",
+    )
+    unity_check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://game.test/effect-hash#Assets/Art/Ui/assets/effectIcon/206.png",
+        available=True,
+        status=200,
+        content_type="image/png",
+        content_length=len(unity_png),
+        error="",
+    )
+    swf_inputs: list[set[int]] = []
+    unity_inputs: list[set[int]] = []
+
+    monkeypatch.setattr(
+        builder,
+        "_load_unity_effect_icon_png_assets",
+        lambda icon_ids: unity_inputs.append(set(icon_ids))
+        or builder.UnityEffectIconPngLoad(
+            package_version="20260807162107",
+            total_manifest_icon_count=2109,
+            sources={},
+            asset_checks={206: unity_check},
+            png_renders={
+                206: builder.EffectIconPngRender(
+                    206,
+                    True,
+                    "image/png",
+                    len(unity_png),
+                    unity_png,
+                    "",
+                ),
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids, **_kwargs: swf_inputs.append(set(icon_ids))
+        or {206: missing_flash_check, 307: flash_check},
+    )
+    monkeypatch.setattr(
+        builder,
+        "_render_effect_icon_png_assets",
+        lambda checks, **_kwargs: {
+            206: builder.EffectIconPngRender(
+                206,
+                False,
+                "",
+                None,
+                None,
+                "SWF asset unavailable",
+            ),
+            307: builder.EffectIconPngRender(
+                307,
+                True,
+                "image/png",
+                len(flash_png),
+                flash_png,
+                "",
+            ),
+        },
+    )
+
+    resolution = builder._resolve_effect_icon_png_assets({206, 307})
+
+    assert swf_inputs == [{206, 307}]
+    assert unity_inputs == [{206}]
+    assert resolution.png_renders[307].data == flash_png
+    assert resolution.png_renders[206].data == unity_png
+    assert resolution.asset_checks[307] == flash_check
+    assert resolution.asset_checks[206] == unity_check
+    assert resolution.preferred_source == "flash"
+    assert resolution.flash_missing_icon_ids == (206,)
+    assert resolution.unity_fallback_icon_count == 1
+
+
 def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
     png_data = _test_png()
     check = builder.EffectIconAssetCheck(
@@ -732,7 +1066,7 @@ def test_seed_effect_icon_cache_rejects_previous_renderer_version(
     assert not builder._effect_icon_png_cache_path(1644).exists()
 
 
-def test_render_effect_icon_cache_shard_uses_a_stable_partition(
+def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -752,13 +1086,19 @@ def test_render_effect_icon_cache_shard_uses_a_stable_partition(
     monkeypatch.setattr(builder, "_fetch_config_package_data", lambda: config_data)
     monkeypatch.setattr(
         builder,
+        "_unity_effect_icon_swf_fallback_icon_ids",
+        lambda icon_ids: captured.setdefault("fallback_input", sorted(icon_ids))
+        and [100, 102, 103],
+    )
+    monkeypatch.setattr(
+        builder,
         "_verify_effect_icon_assets",
-        lambda icon_ids: {icon_id: object() for icon_id in icon_ids},
+        lambda icon_ids, **_kwargs: {icon_id: object() for icon_id in icon_ids},
     )
     monkeypatch.setattr(
         builder,
         "_render_effect_icon_png_assets",
-        lambda checks: {
+        lambda checks, **_kwargs: {
             icon_id: builder.EffectIconPngRender(
                 icon_id,
                 True,
@@ -782,8 +1122,50 @@ def test_render_effect_icon_cache_shard_uses_a_stable_partition(
         output_dir=tmp_path,
     )
 
-    assert captured["icon_ids"] == [101, 103]
-    assert (icon_count, available_count) == (2, 2)
+    assert captured["fallback_input"] == [100, 101, 102, 103]
+    assert captured["icon_ids"] == [102]
+    assert (icon_count, available_count) == (1, 1)
+
+
+def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
+    monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
+    monkeypatch.setattr(
+        builder,
+        "_fetch_unity_effect_icon_png_sources",
+        lambda _icon_ids: (_ for _ in ()).throw(AssertionError),
+    )
+
+    assert builder._unity_effect_icon_swf_fallback_icon_ids({100, 101}) == [100, 101]
+
+
+def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
+    monkeypatch,
+) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=206,
+        url="https://seer.61.com/resource/effectIcon/206.swf",
+        available=False,
+        status=404,
+        content_type="text/html",
+        content_length=None,
+        error="",
+    )
+    monkeypatch.setattr(
+        builder.shutil,
+        "which",
+        lambda _command: (_ for _ in ()).throw(AssertionError),
+    )
+
+    renders = builder._render_effect_icon_png_assets({206: check}, require_any=False)
+
+    assert renders[206] == builder.EffectIconPngRender(
+        icon_id=206,
+        available=False,
+        content_type="",
+        content_length=None,
+        data=None,
+        error="SWF asset unavailable",
+    )
 
 
 def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
@@ -1584,6 +1966,185 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
     ]
     assert all(3142 not in group.member_pet_ids for group in data.groups)
     assert all(upgrade.pet_id != 3142 for upgrade in data.upgrades)
+
+
+def test_replace_autocard_roles_populates_official_schema_and_skips_npcs() -> None:
+    data = builder.AutocardData(
+        cards=[],
+        roles=[
+            {
+                "id": 1,
+                "name": "Raw role name",
+                "nature": 7,
+                "health": 99,
+                "picID": 17,
+                "skillID": 42,
+                "skillName": "Raw skill name",
+                "skillTxt": "Raw skill text",
+                "skillUpgrade": "Raw upgrade",
+                "desc": "Raw description",
+            },
+            {
+                "id": 10001,
+                "name": "NPC role excluded by the official analyzer",
+                "nature": 8,
+                "health": 88,
+            },
+        ],
+        natures=[
+            {"id": 7, "name": "Ground"},
+            {"id": 999, "name": "None"},
+        ],
+        buffs=[],
+        source="test-source",
+    )
+
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute(
+            """
+            CREATE TABLE autocard_element_type (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE autocard_role (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                health INTEGER NOT NULL,
+                skill_desc TEXT NOT NULL,
+                is_passive_skill BOOLEAN NOT NULL,
+                skill_cost INTEGER,
+                skill_game_limit INTEGER,
+                skill_round_limit INTEGER,
+                element_type_id INTEGER NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO autocard_role (
+                id,
+                name,
+                description,
+                health,
+                skill_desc,
+                is_passive_skill,
+                skill_cost,
+                skill_game_limit,
+                skill_round_limit,
+                element_type_id
+            )
+            VALUES (1, 'Official role', 'Official description', 42,
+                    'Official skill description', 0, 3, 4, 5, 6)
+            """
+        )
+
+        builder._replace_autocard_role_table(connection, data, 123.0)
+        builder._replace_autocard_role_table(connection, data, 456.0)
+
+        role_columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(autocard_role)")
+        }
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                name,
+                description,
+                health,
+                skill_desc,
+                is_passive_skill,
+                skill_cost,
+                skill_game_limit,
+                skill_round_limit,
+                element_type_id
+            FROM autocard_role
+            ORDER BY id
+            """
+        ).fetchall()
+        raw_rows = connection.execute(
+            """
+            SELECT
+                role_id,
+                pic_id,
+                skill_id,
+                skill_name,
+                skill_upgrade,
+                raw_json,
+                source,
+                updated_at
+            FROM autocard_role_raw
+            ORDER BY role_id
+            """
+        ).fetchall()
+        element_types = connection.execute(
+            "SELECT id, name FROM autocard_element_type ORDER BY id"
+        ).fetchall()
+
+    assert role_columns == {
+        "id",
+        "name",
+        "description",
+        "health",
+        "skill_desc",
+        "is_passive_skill",
+        "skill_cost",
+        "skill_game_limit",
+        "skill_round_limit",
+        "element_type_id",
+    }
+    assert rows == [
+        (
+            1,
+            "Raw role name",
+            "Raw description",
+            99,
+            "Raw skill text",
+            1,
+            None,
+            None,
+            None,
+            7,
+        )
+    ]
+    assert raw_rows[0][:5] == (
+        1,
+        17,
+        42,
+        "Raw skill name",
+        "Raw upgrade",
+    )
+    assert json.loads(raw_rows[0][5]) == data.roles[0]
+    assert raw_rows[0][6:] == ("test-source", 456.0)
+    assert element_types == [(7, "Ground"), (999, "None")]
+
+
+def test_replace_autocard_roles_rejects_legacy_schema() -> None:
+    data = builder.AutocardData(
+        cards=[],
+        roles=[],
+        natures=[],
+        buffs=[],
+        source="test-source",
+    )
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute(
+            """
+            CREATE TABLE autocard_role (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                raw_json TEXT NOT NULL
+            )
+            """
+        )
+
+        with pytest.raises(RuntimeError, match="expected official columns"):
+            builder._replace_autocard_role_table(connection, data, 123.0)
 
 
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
