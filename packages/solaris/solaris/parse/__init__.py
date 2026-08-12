@@ -134,7 +134,14 @@ def run_all_parser(
     with change_workdir(source_dir):
         for parser_cls in parser_classes:
             parser = parser_cls()
-            data = parser.load_source_config()
+            try:
+                data = parser.load_source_config()
+            except FileNotFoundError:
+                warnings.warn(
+                    f'配置文件不存在: {parser_cls.source_config_filename()}',
+                    UserWarning,
+                )
+                continue
             try:
                 parsed_data[parser_cls] = parser.parse(data)
             except Exception as e:
