@@ -1,7 +1,10 @@
 import importlib.util
+import json
 from pathlib import Path
 import sqlite3
 import sys
+
+import pytest
 
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1] / 'scripts' / 'build_new_content_index.py'
@@ -32,6 +35,10 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
                 id INTEGER PRIMARY KEY, name TEXT, resource_id INTEGER, pet_id INTEGER
             );
             CREATE TABLE mintmark (id INTEGER PRIMARY KEY, name TEXT, desc TEXT);
+            CREATE TABLE mintmark_quality (
+                mintmark_id INTEGER PRIMARY KEY,
+                quality INTEGER NOT NULL
+            );
             CREATE TABLE suit (id INTEGER PRIMARY KEY, name TEXT, suit_desc TEXT);
             CREATE TABLE equip (
                 id INTEGER PRIMARY KEY, name TEXT, part_type_id INTEGER, suit_id INTEGER
@@ -55,9 +62,55 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
         conn.execute("INSERT INTO skill VALUES (9000, '基础技能', '基础效果')")
         conn.execute("INSERT INTO pet_skin VALUES (100, '皮肤', 100, ?)", (pet_ids[0],))
         conn.execute("INSERT INTO mintmark VALUES (200, '刻印', '刻印描述')")
+        conn.execute("INSERT INTO mintmark_quality VALUES (200, 5)")
         conn.execute("INSERT INTO suit VALUES (300, '套装', '套装描述')")
         conn.execute("INSERT INTO equip VALUES (400, '部件', 0, 300)")
         conn.execute("INSERT INTO equip VALUES (401, '座驾', 6, 300)")
+        conn.execute("ALTER TABLE mintmark ADD COLUMN type_id INTEGER NOT NULL DEFAULT 1")
+        conn.execute("ALTER TABLE mintmark ADD COLUMN rarity_id INTEGER NOT NULL DEFAULT 4")
+
+
+def _add_equip_bonus(
+    path: Path,
+    *,
+    equip_id: int,
+    bonus_id: int,
+    atk: int,
+) -> None:
+    with sqlite3.connect(path) as conn:
+        conn.executescript(
+            """
+            ALTER TABLE equip ADD COLUMN bonus_id INTEGER;
+            CREATE TABLE equip_bonus_attr (
+                id INTEGER PRIMARY KEY,
+                atk INTEGER NOT NULL,
+                hp INTEGER NOT NULL,
+                percent INTEGER NOT NULL
+            );
+            CREATE TABLE equip_bonus (
+                id INTEGER PRIMARY KEY,
+                desc TEXT NOT NULL,
+                effect_in_use_id INTEGER,
+                newse_id INTEGER,
+                attribute_id INTEGER,
+                hit_rate INTEGER,
+                dodge_rate INTEGER,
+                crit_rate INTEGER
+            );
+            """
+        )
+        conn.execute(
+            'INSERT INTO equip_bonus_attr VALUES (?, ?, 0, 0)',
+            (bonus_id, atk),
+        )
+        conn.execute(
+            "INSERT INTO equip_bonus VALUES (?, '攻击加成', NULL, NULL, ?, NULL, NULL, NULL)",
+            (bonus_id, bonus_id),
+        )
+        conn.execute(
+            'UPDATE equip SET bonus_id = ? WHERE id = ?',
+            (bonus_id, equip_id),
+        )
 
 
 def test_new_week_records_only_new_rows_and_zero_point_achievement(
@@ -141,6 +194,253 @@ def test_renumbered_item_with_same_semantic_content_is_not_new(tmp_path: Path) -
     state = indexer.build_release_state(current_path, previous_path, 'current-sha')
 
     assert all(item.category != 'pet' for item in state.items)
+
+
+def test_pet_semantic_digest_ignores_weekly_pool_and_skill_definition_noise() -> None:
+    before = indexer.ContentItem(
+        'pet',
+        1,
+        '测试精灵',
+        1,
+        {
+            'stats': {
+                'type_id': 1,
+                'peak_pool_id': 1,
+                'peak_expert_pool_id': 2,
+                'peak_pool_vote_id': 3,
+            },
+            'skills': [
+                {
+                    'id': 100,
+                    'learning_level': 1,
+                    'is_special': False,
+                    'is_advanced': False,
+                    'is_fifth': False,
+                    'info': '待添加',
+                }
+            ],
+        },
+    )
+    after = indexer.ContentItem(
+        'pet',
+        1,
+        '测试精灵',
+        1,
+        {
+            'stats': {
+                'type_id': 1,
+                'peak_pool_id': 0,
+                'peak_expert_pool_id': 0,
+                'peak_pool_vote_id': 0,
+            },
+            'skills': [
+                {
+                    'id': 100,
+                    'learning_level': 1,
+                    'is_special': False,
+                    'is_advanced': False,
+                    'is_fifth': False,
+                    'info': '正式技能说明',
+                }
+            ],
+        },
+    )
+
+    assert before.semantic_digest == after.semantic_digest
+
+    changed_relation = indexer.replace(
+        after,
+        payload={
+            **after.payload,
+            'skills': [{**after.payload['skills'][0], 'learning_level': 5}],
+        },
+    )
+    assert before.semantic_digest != changed_relation.semantic_digest
+
+
+def test_skill_semantic_digest_ignores_linked_pet_list() -> None:
+    before = indexer.ContentItem(
+        'skill',
+        100,
+        '测试技能',
+        100,
+        {'power': 100, 'info': '技能说明', 'pets': [{'id': 1}]},
+    )
+    after = indexer.ContentItem(
+        'skill',
+        100,
+        '测试技能',
+        100,
+        {'power': 100, 'info': '技能说明', 'pets': [{'id': 2}]},
+    )
+
+    assert before.semantic_digest == after.semantic_digest
+    assert before.semantic_digest != indexer.replace(
+        after,
+        payload={**after.payload, 'info': '修正后的技能说明'},
+    ).semantic_digest
+
+
+def test_mintmark_semantic_digest_ignores_rarity_but_tracks_quality() -> None:
+    before = indexer.ContentItem(
+        'mintmark',
+        200,
+        '测试刻印',
+        200,
+        {'desc': '官方描述', 'type_id': 1, 'rarity_id': 4, 'quality': 5},
+    )
+
+    rarity_corrected = indexer.replace(
+        before,
+        payload={**before.payload, 'rarity_id': 1},
+    )
+    quality_changed = indexer.replace(
+        before,
+        payload={**before.payload, 'quality': 4},
+    )
+    description_changed = indexer.replace(
+        before,
+        payload={**before.payload, 'desc': '修正后的官方描述'},
+    )
+    type_changed = indexer.replace(
+        before,
+        payload={**before.payload, 'type_id': 2},
+    )
+
+    assert before.semantic_digest == rarity_corrected.semantic_digest
+    assert before.semantic_digest != quality_changed.semantic_digest
+    assert before.semantic_digest != description_changed.semantic_digest
+    assert before.semantic_digest != type_changed.semantic_digest
+
+
+def test_equip_bonus_row_renumbering_is_not_a_content_change(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    _add_equip_bonus(previous_path, equip_id=400, bonus_id=4, atk=10)
+    _add_equip_bonus(current_path, equip_id=400, bonus_id=7, atk=10)
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert not {
+        (item.category, item.entity_id)
+        for item in state.items
+        if item.category == 'equip'
+    }
+
+    with sqlite3.connect(current_path) as conn:
+        conn.execute('UPDATE equip_bonus_attr SET atk = 11 WHERE id = 7')
+    changed = indexer.build_release_state(
+        current_path,
+        previous_path,
+        'current-sha',
+    )
+    assert ('equip', 400, 'modified') in {
+        (item.category, item.entity_id, item.change_kind) for item in changed.items
+    }
+
+
+def test_semantic_schema_upgrade_prunes_legacy_noise_in_same_week(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260731090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    _add_equip_bonus(previous_path, equip_id=400, bonus_id=4, atk=10)
+    _add_equip_bonus(current_path, equip_id=400, bonus_id=7, atk=10)
+    baseline = indexer.build_release_state(previous_path, None, 'old-sha')
+    equip = next(
+        item
+        for item in indexer.load_current_items(sqlite3.connect(previous_path))
+        if item.category == 'equip' and item.entity_id == 400
+    )
+    legacy = indexer.replace(
+        baseline,
+        baseline_established=True,
+        items=(equip.with_change_kind('modified'),),
+        semantic_schema_version=1,
+    )
+    indexer.write_release_state(previous_path, legacy, None)
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert all(item.category != 'equip' for item in state.items)
+
+
+def test_semantic_v3_migration_prunes_rarity_only_mintmarks_and_keeps_additions(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260731090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute('UPDATE mintmark SET rarity_id = 1 WHERE id = 200')
+        conn.execute(
+            """
+            INSERT INTO mintmark (id, name, desc, type_id, rarity_id)
+            VALUES (201, '新增刻印', '新增刻印描述', 2, 1)
+            """
+        )
+        conn.execute('INSERT INTO mintmark_quality VALUES (201, 5)')
+
+    baseline = indexer.build_release_state(previous_path, None, 'old-sha')
+    legacy_mintmark = next(
+        item
+        for item in indexer.load_current_items(sqlite3.connect(previous_path))
+        if item.category == 'mintmark' and item.entity_id == 200
+    )
+    legacy = indexer.replace(
+        baseline,
+        baseline_established=True,
+        items=(legacy_mintmark.with_change_kind('modified'),),
+        semantic_schema_version=2,
+    )
+    indexer.write_release_state(previous_path, legacy, None)
+
+    state = indexer.build_release_state(
+        current_path,
+        previous_path,
+        'current-sha',
+        (indexer.SourceHistoryAddition('mintmark', 201),),
+    )
+
+    assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
+        ('mintmark', 201, 'added')
+    ]
+    assert state.items[0].payload == {
+        'desc': '新增刻印描述',
+        'type_id': 2,
+        'rarity_id': 1,
+        'quality': 5,
+    }
+
+
+def test_semantic_v3_migration_keeps_real_skill_changes_from_v2_snapshot(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260731090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute("UPDATE skill SET info = '正式技能说明' WHERE id = 9000")
+
+    baseline = indexer.build_release_state(previous_path, None, 'old-sha')
+    legacy = indexer.replace(
+        baseline,
+        baseline_established=True,
+        semantic_schema_version=2,
+    )
+    indexer.write_release_state(previous_path, legacy, None)
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert ('skill', 9000, 'modified') in {
+        (item.category, item.entity_id, item.change_kind) for item in state.items
+    }
 
 
 def test_same_week_accumulates_incremental_rows(tmp_path: Path) -> None:
@@ -244,6 +544,26 @@ def test_source_history_additions_repair_an_overwritten_same_version_baseline(
     ]
 
 
+def test_source_history_addition_is_deduplicated_from_new_cycle_diff(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1, 2))
+
+    state = indexer.build_release_state(
+        current_path,
+        previous_path,
+        'current-sha',
+        (indexer.SourceHistoryAddition('pet', 2),),
+    )
+
+    assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
+        ('pet', 2, 'added')
+    ]
+
+
 def test_source_history_additions_route_equip_mounts_to_the_runtime_category(
     tmp_path: Path,
 ) -> None:
@@ -319,6 +639,67 @@ def test_autocard_cards_and_roles_keep_separate_id_spaces(tmp_path: Path) -> Non
     assert {(item.category, item.entity_id) for item in state.items} >= {
         ('autocard_card', 1),
         ('autocard_role', 1),
+    }
+
+
+@pytest.mark.parametrize(
+    ('field', 'before', 'after'),
+    [
+        ('skillTxt', '原技能', '新技能'),
+        ('skillName', '原技能名', '新技能名'),
+        ('skillUpgrade', '原祝印', '新祝印'),
+        ('picID', 7, 8),
+        ('desc', '原描述', '新描述'),
+    ],
+)
+def test_official_autocard_role_sidecar_changes_are_marked_modified(
+    tmp_path: Path,
+    field: str,
+    before: object,
+    after: object,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260724090000', pet_ids=(1,))
+    _create_database(current_path, version='20260731090000', pet_ids=(1,))
+    base_role = {
+        'id': 1,
+        'name': '测试角色',
+        'skillTxt': '原技能',
+        'skillName': '原技能名',
+        'skillUpgrade': '原祝印',
+        'picID': 7,
+        'desc': '原描述',
+    }
+    for path, value in ((previous_path, before), (current_path, after)):
+        role = {**base_role, field: value}
+        with sqlite3.connect(path) as conn:
+            conn.executescript(
+                '''
+                CREATE TABLE autocard_role (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL
+                );
+                CREATE TABLE autocard_role_raw (
+                    role_id INTEGER PRIMARY KEY,
+                    raw_json TEXT NOT NULL
+                );
+                '''
+            )
+            conn.execute(
+                'INSERT INTO autocard_role VALUES (?, ?, ?)',
+                (1, '测试角色', str(role['desc'])),
+            )
+            conn.execute(
+                'INSERT INTO autocard_role_raw VALUES (?, ?)',
+                (1, json.dumps(role, ensure_ascii=False)),
+            )
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert ('autocard_role', 1, 'modified') in {
+        (item.category, item.entity_id, item.change_kind) for item in state.items
     }
 
 

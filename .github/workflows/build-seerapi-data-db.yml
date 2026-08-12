@@ -4,11 +4,14 @@ on:
   workflow_run:
     workflows: ["Sync Upstream"]
     types: [completed]
+  repository_dispatch:
+    types: [api-data-published]
   push:
     branches: [main]
     paths:
       - "scripts/build_seerapi_data_db.py"
       - "scripts/build_new_content_index.py"
+      - "scripts/render_flash_mount_images.py"
       - ".github/workflows/build-seerapi-data-db.yml"
   schedule:
     - cron: "5,35 * * * *"
@@ -30,7 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.source_check.outputs.skip }}
+      defer: ${{ steps.publication_gate.outputs.defer }}
       remote_sha: ${{ steps.source_check.outputs.remote_sha }}
+      expected_api_data_sha: ${{ steps.source_check.outputs.expected_api_data_sha }}
       remote_partner_sha: ${{ steps.source_check.outputs.remote_partner_sha }}
       remote_item_catalog_sha: ${{ steps.source_check.outputs.remote_item_catalog_sha }}
       remote_special_effect_status_sha: ${{ steps.source_check.outputs.remote_special_effect_status_sha }}
@@ -53,30 +58,57 @@ jobs:
         id: source_check
         env:
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
+          DISPATCHED_API_DATA_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha256 || '' }}
+          DISPATCHED_SOURCE_COMMIT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_commit || '' }}
           PARTNER_CONTRACTS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/partner_contracts.json
           UNITY_ITEM_CATALOG_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/itemsOptimizeCatItems17.json
           SPECIAL_EFFECT_STATUS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/signIconFight.json
           CONFIG_PACKAGE_BASE_URL: https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/
+          FLASH_MOUNT_ASSET_BASE_URL: https://seer.61.com/resource/item/cloth/swf
         run: |
-          set -e
+          set -euo pipefail
+          curl_retry=(curl -fsSL --retry 5 --retry-all-errors --retry-delay 3)
           remote_sha="$(
-            curl -fsSL https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite.sha256 \
+            "${curl_retry[@]}" https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite.sha256 \
               | awk '{print $1}'
           )"
+          remote_sha="${remote_sha,,}"
+          if ! [[ "${remote_sha}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "api-data latest checksum is not a SHA256 value: ${remote_sha}" >&2
+            exit 1
+          fi
+          expected_api_data_sha="${remote_sha}"
+          if [ "${GITHUB_EVENT_NAME}" = "repository_dispatch" ]; then
+            dispatched_sha="${DISPATCHED_API_DATA_SHA,,}"
+            if ! [[ "${dispatched_sha}" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "repository_dispatch payload sha256 must be a 64-character hexadecimal SHA256" >&2
+              exit 1
+            fi
+            if ! [[ "${DISPATCHED_SOURCE_COMMIT}" =~ ^[0-9a-fA-F]{40}([0-9a-fA-F]{24})?$ ]]; then
+              echo "repository_dispatch payload source_commit must be a Git commit SHA" >&2
+              exit 1
+            fi
+            if [ "${remote_sha}" != "${dispatched_sha}" ]; then
+              echo "api-data latest checksum does not match repository_dispatch payload; waiting for the matching release asset" >&2
+              exit 1
+            fi
+            expected_api_data_sha="${dispatched_sha}"
+            echo "Accepted api-data-published event for ${DISPATCHED_SOURCE_COMMIT} (${expected_api_data_sha})"
+          fi
           remote_partner_sha="$(
-            curl -fsSL "${PARTNER_CONTRACTS_URL}" | sha256sum | awk '{print $1}'
+            "${curl_retry[@]}" "${PARTNER_CONTRACTS_URL}" | sha256sum | awk '{print $1}'
           )"
           remote_item_catalog_sha="$(
-            curl -fsSL "${UNITY_ITEM_CATALOG_URL}" | sha256sum | awk '{print $1}'
+            "${curl_retry[@]}" "${UNITY_ITEM_CATALOG_URL}" | sha256sum | awk '{print $1}'
           )"
           remote_special_effect_status_sha="$(
-            curl -fsSL "${SPECIAL_EFFECT_STATUS_URL}" | sha256sum | awk '{print $1}'
+            "${curl_retry[@]}" "${SPECIAL_EFFECT_STATUS_URL}" | sha256sum | awk '{print $1}'
           )"
           config_package_version="$(
-            curl -fsSL "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage.version?t=$(date +%s)"
+            "${curl_retry[@]}" "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage.version?t=$(date +%s)"
           )"
           remote_config_package_manifest_sha="$(
-            curl -fsSL "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage_${config_package_version}.bytes" \
+            "${curl_retry[@]}" "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage_${config_package_version}.bytes" \
               | sha256sum | awk '{print $1}'
           )"
           previous_sha=""
@@ -104,30 +136,71 @@ jobs:
             previous_config_package_version="$(cat .build-state/config-package-version)"
           fi
 
+          flash_mount_retry=false
+          if [ -s .build-state/flash-mount-image-pending-ids ]; then
+            while IFS= read -r mount_id; do
+              if ! [[ "${mount_id}" =~ ^[0-9]+$ ]]; then
+                continue
+              fi
+              status_code="$(
+                curl -L -sS --max-time 15 -o /dev/null -w '%{http_code}' \
+                  "${FLASH_MOUNT_ASSET_BASE_URL}/${mount_id}.swf" || true
+              )"
+              if [ "${status_code}" = "200" ]; then
+                flash_mount_retry=true
+                echo "Flash mount ${mount_id} is now available; rebuilding fallback PNGs."
+                break
+              fi
+            done < .build-state/flash-mount-image-pending-ids
+          fi
+
           echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
+          echo "expected_api_data_sha=${expected_api_data_sha}" >> "$GITHUB_OUTPUT"
+          echo "previous_sha=${previous_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_partner_sha=${remote_partner_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_item_catalog_sha=${remote_item_catalog_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_special_effect_status_sha=${remote_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_config_package_version=${config_package_version}" >> "$GITHUB_OUTPUT"
           echo "remote_config_package_manifest_sha=${remote_config_package_manifest_sha}" >> "$GITHUB_OUTPUT"
+          echo "previous_config_package_version=${previous_config_package_version}" >> "$GITHUB_OUTPUT"
+          echo "flash_mount_retry=${flash_mount_retry}" >> "$GITHUB_OUTPUT"
 
-          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
+          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, and special effect statuses are unchanged; skipping IronsBot DB build."
+            echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, special effect statuses, and pending Flash mount availability are unchanged; skipping IronsBot DB build."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
+            echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, flash-mount-retry=${flash_mount_retry}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
+
+      - name: Apply weekly publication consistency gate
+        id: publication_gate
+        run: |
+          python scripts/weekly_publication_gate.py \
+            --current-config-version "${{ steps.source_check.outputs.remote_config_package_version }}" \
+            --previous-config-version "${{ steps.source_check.outputs.previous_config_package_version }}" \
+            --current-api-data-sha256 "${{ steps.source_check.outputs.remote_sha }}" \
+            --previous-api-data-sha256 "${{ steps.source_check.outputs.previous_sha }}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Defer until api-data catches up
+        if: steps.publication_gate.outputs.defer == 'true'
+        run: |
+          echo "Deferred: waiting for api-data to catch up with the new weekly cycle"
 
   render-effect-icon-cache:
     needs: plan
-    if: ${{ needs.plan.outputs.skip != 'true' }}
+    if: ${{ needs.plan.outputs.skip != 'true' && needs.plan.outputs.defer != 'true' }}
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: packages/solaris
     # Normal runs seed the last release and only repair missing or invalid
     # icons. A cold first release may need to render the full icon set.
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -182,6 +255,7 @@ jobs:
 
       - name: Render missing effect icon PNGs
         env:
+          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Some older animated soulmark SWFs need about 36 seconds for a
@@ -192,21 +266,22 @@ jobs:
           IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: |
           python scripts/build_seerapi_data_db.py \
-            --render-effect-icon-shard 0 \
-            --effect-icon-shard-count 1 \
+            --render-effect-icon-shard ${{ matrix.shard }} \
+            --effect-icon-shard-count 16 \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache
+          printf 'empty effect icon cache\n' > .artifacts/effect-icon-cache/EMPTY
 
       - name: Upload rendered icon PNG cache
         uses: actions/upload-artifact@v4
         with:
-          name: effect-icon-cache
+          name: effect-icon-cache-${{ matrix.shard }}
           path: .artifacts/effect-icon-cache
           retention-days: 1
           if-no-files-found: error
 
   build:
     needs: [plan, render-effect-icon-cache]
-    if: ${{ needs.plan.outputs.skip != 'true' }}
+    if: ${{ needs.plan.outputs.skip != 'true' && needs.plan.outputs.defer != 'true' }}
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: packages/solaris
@@ -249,11 +324,33 @@ jobs:
       - name: Download rendered icon PNG cache
         uses: actions/download-artifact@v4
         with:
-          name: effect-icon-cache
+          pattern: effect-icon-cache-*
           path: .cache/effect-icon-png
+          merge-multiple: true
+
+      - name: Download and verify api-data database
+        env:
+          EXPECTED_API_DATA_SHA: ${{ needs.plan.outputs.expected_api_data_sha }}
+        run: |
+          set -euo pipefail
+          database_path="${RUNNER_TEMP}/api-data.sqlite"
+          for attempt in 1 2 3; do
+            curl --fail --location --retry 3 --retry-delay 2 \
+              --output "${database_path}" \
+              https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite
+            if printf '%s  %s\n' "${EXPECTED_API_DATA_SHA}" "${database_path}" | sha256sum --check; then
+              exit 0
+            fi
+            echo "api-data checksum mismatch on download attempt ${attempt}; retrying" >&2
+            rm -f "${database_path}"
+          done
+          echo "api-data release asset changed during build; checksum verification failed after 3 attempts" >&2
+          exit 1
 
       - name: Build SeerAPI database
         env:
+          IRONSBOT_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
+          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Asset availability can change between the incremental render job and
@@ -265,8 +362,10 @@ jobs:
         run: python scripts/build_seerapi_data_db.py
 
       - name: Download previous published database
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
+          set -euo pipefail
           previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
           if ! curl -fL --retry 3 --retry-delay 2 \
             -o "${previous_db}" \
@@ -278,20 +377,93 @@ jobs:
               https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite || true
           fi
           if [ -s "${previous_db}" ]; then
-            echo "PREVIOUS_SEERAPI_DATA_DB=${previous_db}" >> "$GITHUB_ENV"
-            echo "Downloaded previous published database."
+            comparison_db="${previous_db}"
+            read -r expected_schema previous_schema current_cycle <<< "$(
+              python - "${previous_db}" <<'PY'
+          import importlib.util
+          from pathlib import Path
+          import sqlite3
+          import sys
+
+          script = Path("scripts/build_new_content_index.py")
+          spec = importlib.util.spec_from_file_location("new_content_index", script)
+          if spec is None or spec.loader is None:
+              raise SystemExit("cannot load new-content index module")
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          with sqlite3.connect(sys.argv[1]) as connection:
+              columns = module._table_columns(connection, module.RELEASE_TABLE)
+              previous_schema = 1
+              if "schema_version" in columns:
+                  row = connection.execute(
+                      f"SELECT schema_version FROM {module.RELEASE_TABLE} WHERE id = 1"
+                  ).fetchone()
+                  if row is not None:
+                      previous_schema = int(row[0])
+          with sqlite3.connect("seerapi-data.sqlite") as connection:
+              current_cycle = module._weekly_cycle(module._config_version(connection))
+          print(module.SEMANTIC_SCHEMA_VERSION, previous_schema, current_cycle)
+          PY
+            )"
+            if (( previous_schema < expected_schema )); then
+              history_json="${RUNNER_TEMP}/seerapi-data-history.json"
+              gh release view seerapi-data-history \
+                --repo "${GITHUB_REPOSITORY}" --json assets > "${history_json}"
+              history_asset="$(
+                python - "${history_json}" "${current_cycle}" <<'PY'
+          from datetime import datetime, timedelta
+          import json
+          from pathlib import Path
+          import re
+          import sys
+
+          def weekly_cycle(version: str) -> str:
+              value = datetime.strptime(version[:8], "%Y%m%d").date()
+              friday = value - timedelta(days=(value.weekday() - 4) % 7)
+              return friday.isoformat()
+
+          document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          current_cycle = sys.argv[2]
+          candidates = []
+          for asset in document["assets"]:
+              match = re.fullmatch(r"seerapi-data-(\d+)\.sqlite", asset["name"])
+              if match and weekly_cycle(match.group(1)) < current_cycle:
+                  candidates.append((match.group(1), asset["name"]))
+          if candidates:
+              print(max(candidates)[1])
+          PY
+              )"
+              if [ -n "${history_asset}" ]; then
+                gh release download seerapi-data-history \
+                  --repo "${GITHUB_REPOSITORY}" \
+                  --pattern "${history_asset}" \
+                  --dir "${RUNNER_TEMP}" --clobber
+                comparison_db="${RUNNER_TEMP}/${history_asset}"
+                echo "Using ${history_asset} as the semantic-schema migration baseline."
+              else
+                echo "No prior-cycle history asset found for semantic-schema migration."
+              fi
+            fi
+            echo "PREVIOUS_SEERAPI_DATA_DB=${comparison_db}" >> "$GITHUB_ENV"
+            echo "Downloaded previous comparison database."
           else
             echo "No previous published database is available; establishing baseline."
             rm -f "${previous_db}"
           fi
 
       - name: Collect API data source-history additions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           history_dir="${RUNNER_TEMP}/api-data-history"
           additions_path="${RUNNER_TEMP}/api-data-history-additions.json"
           asset_updated_at="$(
-            curl -fsSL https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest \
+            curl -fsSL \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest \
               | python -c 'import json, sys; print(next(asset["updated_at"] for asset in json.load(sys.stdin)["assets"] if asset["name"] == "seerapi-data.sqlite"))'
           )"
           git clone --quiet --filter=blob:none --no-checkout --depth=128 \
@@ -338,6 +510,18 @@ jobs:
           fi
           python scripts/build_new_content_index.py "${args[@]}" \
             --github-output "$GITHUB_OUTPUT"
+
+      - name: Render Flash mount fallback images
+        env:
+          PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
+          IRONSBOT_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+        run: |
+          set -e
+          args=(--database seerapi-data.sqlite)
+          if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
+            args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
+          fi
+          python scripts/render_flash_mount_images.py "${args[@]}"
 
       - name: Stage versioned historical data snapshot
         id: history_snapshot
@@ -541,7 +725,28 @@ jobs:
           printf '%s\n' "${{ needs.plan.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_version }}" > .build-state/config-package-version
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_manifest_sha }}" > .build-state/config-package-manifest-sha256
-          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          output_path = Path('.build-state/flash-mount-image-pending-ids')
+          with sqlite3.connect('seerapi-data.sqlite') as connection:
+              has_pending_table = connection.execute(
+                  "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'flash_mount_image_pending'"
+              ).fetchone()
+              rows = (
+                  connection.execute(
+                      'SELECT mount_id FROM flash_mount_image_pending ORDER BY mount_id'
+                  ).fetchall()
+                  if has_pending_table
+                  else ()
+              )
+          output_path.write_text(
+              ''.join(f'{int(mount_id)}\n' for mount_id, in rows),
+              encoding='utf-8',
+          )
+          PY
+          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/flash-mount-image-pending-ids
           if ! git diff --cached --quiet; then
             git commit -m "Record SeerAPI data source checksums"
             git push origin main
