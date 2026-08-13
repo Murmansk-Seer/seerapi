@@ -6,6 +6,7 @@ import sqlite3
 import struct
 import sys
 from typing import Any
+from urllib.error import HTTPError
 
 from PIL import Image
 import pytest
@@ -15,6 +16,11 @@ SCRIPT_PATH = (
     / "scripts"
     / "build_seerapi_data_db.py"
 )
+SCRIPT_ROOT = SCRIPT_PATH.parent
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+import render_asset_repository
+
 SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError
@@ -1407,10 +1413,80 @@ def test_parse_git_tree_blobs_reads_only_blob_entries() -> None:
         )
     )
 
-    assert builder._parse_git_tree_blobs(tree) == {
+    assert render_asset_repository.parse_git_tree_blobs(tree) == {
         "assets/pet.png": "abc123",
         "assets/type.png": "fedcba",
     }
+
+
+def test_render_asset_repository_snapshot_reads_complete_rest_tree() -> None:
+    repository = render_asset_repository.RenderAssetRepository(
+        name="example/assets",
+        git_url="https://example.invalid/assets.git",
+        ref="main",
+        commit_url="https://example.invalid/commit",
+        tree_url_template="https://example.invalid/tree/{revision}",
+    )
+    payloads = {
+        repository.commit_url: b'{"sha":"a"}',
+        "https://example.invalid/tree/a": (
+            b'{"truncated":false,"tree":['
+            b'{"type":"blob","path":"assets/pet.png","sha":"pet"},'
+            b'{"type":"tree","path":"assets","sha":"ignored"}]}'
+        ),
+    }
+
+    snapshot = render_asset_repository.load_asset_repository_snapshot(
+        repository,
+        payloads.__getitem__,
+        logger=builder.logger,
+    )
+
+    assert snapshot == render_asset_repository.AssetRepositorySnapshot(
+        revision="a",
+        blobs_by_path={"assets/pet.png": "pet"},
+    )
+
+
+def test_render_asset_repository_snapshot_uses_git_when_rest_fails(
+    monkeypatch,
+) -> None:
+    repository = render_asset_repository.RenderAssetRepository(
+        name="example/assets",
+        git_url="https://example.invalid/assets.git",
+        ref="main",
+        commit_url="https://example.invalid/commit",
+        tree_url_template="https://example.invalid/tree/{revision}",
+    )
+    expected = render_asset_repository.AssetRepositorySnapshot(
+        revision="b",
+        blobs_by_path={"assets/pet.png": "pet"},
+    )
+    calls: list[render_asset_repository.RenderAssetRepository] = []
+
+    def git_fallback(
+        value: render_asset_repository.RenderAssetRepository,
+        *,
+        logger,
+    ) -> render_asset_repository.AssetRepositorySnapshot:
+        del logger
+        calls.append(value)
+        return expected
+
+    monkeypatch.setattr(
+        render_asset_repository,
+        "_load_asset_repository_snapshot_from_git",
+        git_fallback,
+    )
+
+    snapshot = render_asset_repository.load_asset_repository_snapshot(
+        repository,
+        lambda _url: (_ for _ in ()).throw(HTTPError("url", 403, "rate", {}, None)),
+        logger=builder.logger,
+    )
+
+    assert snapshot is expected
+    assert calls == [repository]
 
 
 def test_pet_info_remote_asset_manifest_disables_scope_for_missing_mandatory_asset(

@@ -30,6 +30,20 @@ import xml.etree.ElementTree as ET
 
 from PIL import Image, UnidentifiedImageError
 
+if __package__:
+    from .render_asset_repository import (
+        AssetRepositorySnapshot,
+        RenderAssetRepository,
+        load_asset_repository_snapshot,
+    )
+else:
+    # GitHub Actions invokes this file directly as ``python scripts/...``.
+    from render_asset_repository import (  # type: ignore[import-not-found]
+        AssetRepositorySnapshot,
+        RenderAssetRepository,
+        load_asset_repository_snapshot,
+    )
+
 from solaris.analyze.output.pet_special_effect_facts import (
     replace_pet_special_effect_facts,
 )
@@ -186,6 +200,13 @@ RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE = os.environ.get(
     "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE",
     "https://api.github.com/repos/"
     f"{RENDER_ASSET_REPOSITORY}/git/trees/{{revision}}?recursive=1",
+)
+RENDER_ASSET_REPOSITORY_CONFIG = RenderAssetRepository(
+    name=RENDER_ASSET_REPOSITORY,
+    git_url=RENDER_ASSET_REPOSITORY_GIT_URL,
+    ref=RENDER_ASSET_REPOSITORY_REF,
+    commit_url=RENDER_ASSET_REPOSITORY_COMMIT_URL,
+    tree_url_template=RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE,
 )
 SKIN_IMAGE_RESOLUTION_TABLE = "skin_image_resolution"
 PET_PARTNER_GROUP_TABLE = "pet_partner_group"
@@ -496,14 +517,6 @@ class RenderAssetManifestEntry:
     release_revision: str
     available: bool
     source: str
-
-
-@dataclass(frozen=True, slots=True)
-class AssetRepositorySnapshot:
-    """An immutable Git snapshot used for remote rendering material facts."""
-
-    revision: str
-    blobs_by_path: dict[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -3051,126 +3064,6 @@ def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
     return sorted({item.icon_id for item in config_data.soulmark_icons})
 
 
-def _load_asset_repository_snapshot() -> AssetRepositorySnapshot | None:
-    """Load one complete, immutable asset-tree snapshot from GitHub.
-
-    The build does not hash tens of thousands of PNGs one by one. Git blob IDs
-    are immutable content identifiers, so the complete tree gives the release a
-    deterministic material inventory with one commit and one tree request.
-    A truncated or malformed tree is deliberately not usable for final-cache
-    scope publication.
-    """
-
-    try:
-        commit_payload = json.loads(
-            _download_bytes(RENDER_ASSET_REPOSITORY_COMMIT_URL).decode("utf-8")
-        )
-        revision = str(commit_payload.get("sha", "")).strip()
-        if not revision:
-            raise ValueError("repository commit response has no sha")
-        tree_url = RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE.format(
-            revision=revision
-        )
-        tree_payload = json.loads(_download_bytes(tree_url).decode("utf-8"))
-        if tree_payload.get("truncated") is True:
-            raise ValueError("repository tree response is truncated")
-        raw_tree = tree_payload.get("tree")
-        if not isinstance(raw_tree, list):
-            raise ValueError("repository tree response has no tree list")
-        blobs_by_path = {
-            str(entry["path"]): str(entry["sha"])
-            for entry in raw_tree
-            if isinstance(entry, dict)
-            and entry.get("type") == "blob"
-            and isinstance(entry.get("path"), str)
-            and isinstance(entry.get("sha"), str)
-        }
-        if not blobs_by_path:
-            raise ValueError("repository tree has no blob entries")
-    except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError, ValueError,
-            json.JSONDecodeError) as error:
-        logger.warning(
-            "Render asset REST snapshot is unavailable; trying Git tree fallback: %s",
-            error,
-        )
-        return _load_asset_repository_snapshot_from_git()
-    return AssetRepositorySnapshot(revision=revision, blobs_by_path=blobs_by_path)
-
-
-def _load_asset_repository_snapshot_from_git() -> AssetRepositorySnapshot | None:
-    """Read an immutable tree through Git when anonymous REST is rate-limited.
-
-    A blob-filtered clone transfers commit/tree objects only, so the build does
-    not download the PNG corpus merely to publish its immutable blob IDs.
-    """
-
-    if shutil.which("git") is None:
-        logger.warning("Git is unavailable; render asset scopes stay incomplete")
-        return None
-    try:
-        with tempfile.TemporaryDirectory(prefix="seer-render-assets-") as temp_dir:
-            repository = Path(temp_dir) / "repository"
-            subprocess.run(
-                (
-                    "git",
-                    "clone",
-                    "--quiet",
-                    "--filter=blob:none",
-                    "--no-checkout",
-                    "--depth=1",
-                    "--branch",
-                    RENDER_ASSET_REPOSITORY_REF,
-                    RENDER_ASSET_REPOSITORY_GIT_URL,
-                    str(repository),
-                ),
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=90,
-            )
-            revision = subprocess.run(
-                ("git", "-C", str(repository), "rev-parse", "HEAD"),
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            ).stdout.strip()
-            tree = subprocess.run(
-                ("git", "-C", str(repository), "ls-tree", "-r", revision),
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            ).stdout
-    except (OSError, subprocess.SubprocessError, TimeoutError) as error:
-        logger.warning("Git render asset snapshot is unavailable: %s", error)
-        return None
-    try:
-        blobs_by_path = _parse_git_tree_blobs(tree)
-    except ValueError as error:
-        logger.warning("Git render asset tree is malformed: %s", error)
-        return None
-    return AssetRepositorySnapshot(revision=revision, blobs_by_path=blobs_by_path)
-
-
-def _parse_git_tree_blobs(tree: str) -> dict[str, str]:
-    """Parse stable ``git ls-tree -r`` blob records without reading blobs."""
-
-    blobs_by_path: dict[str, str] = {}
-    for line in tree.splitlines():
-        metadata, separator, path = line.partition("\t")
-        parts = metadata.split()
-        if separator != "\t" or len(parts) != 3:
-            raise ValueError("invalid ls-tree entry")
-        _mode, kind, blob_id = parts
-        if kind != "blob" or not path or not blob_id:
-            continue
-        blobs_by_path[path] = blob_id
-    if not blobs_by_path:
-        raise ValueError("tree has no blob entries")
-    return blobs_by_path
-
-
 def _pet_info_remote_asset_requests(
     conn: sqlite3.Connection,
 ) -> tuple[RemoteRenderAssetRequest, ...] | None:
@@ -4673,7 +4566,11 @@ def _merge_ironsbot_tables(
 ) -> None:
     now = time.time()
     skin_image_resolutions = skin_image_resolutions or []
-    asset_repository_snapshot = _load_asset_repository_snapshot()
+    asset_repository_snapshot = load_asset_repository_snapshot(
+        RENDER_ASSET_REPOSITORY_CONFIG,
+        _download_bytes,
+        logger=logger,
+    )
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             f"""
