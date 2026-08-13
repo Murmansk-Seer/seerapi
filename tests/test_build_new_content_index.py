@@ -591,9 +591,15 @@ def test_first_autocard_tables_are_not_reported_as_new(tmp_path: Path) -> None:
         conn.executescript(
             """
             CREATE TABLE autocard_card (id INTEGER PRIMARY KEY, name TEXT, raw_json TEXT);
-            CREATE TABLE autocard_role (id INTEGER PRIMARY KEY, name TEXT, raw_json TEXT);
+            CREATE TABLE autocard_role (
+                id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL
+            );
+            CREATE TABLE autocard_role_raw (
+                role_id INTEGER PRIMARY KEY, raw_json TEXT NOT NULL
+            );
             INSERT INTO autocard_card VALUES (1, '卡牌一号', '{"id": 1, "cardTxt": "原效果"}');
-            INSERT INTO autocard_role VALUES (1, '角色一号', '{"id": 1, "skillTxt": "原技能"}');
+            INSERT INTO autocard_role VALUES (1, '角色一号', '角色描述');
+            INSERT INTO autocard_role_raw VALUES (1, '{"id": 1, "skillTxt": "原技能"}');
             """
         )
 
@@ -622,16 +628,22 @@ def test_autocard_cards_and_roles_keep_separate_id_spaces(tmp_path: Path) -> Non
             conn.executescript(
                 """
                 CREATE TABLE autocard_card (id INTEGER PRIMARY KEY, name TEXT, raw_json TEXT);
-                CREATE TABLE autocard_role (id INTEGER PRIMARY KEY, name TEXT, raw_json TEXT);
+                CREATE TABLE autocard_role (
+                    id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL
+                );
+                CREATE TABLE autocard_role_raw (
+                    role_id INTEGER PRIMARY KEY, raw_json TEXT NOT NULL
+                );
                 """
             )
             conn.execute(
                 "INSERT INTO autocard_card VALUES (1, ?, ?)",
                 (card_name, f'{{"id": 1, "cardTxt": "{card_name}"}}'),
             )
+            conn.execute("INSERT INTO autocard_role VALUES (1, ?, ?)", (role_name, ''))
             conn.execute(
-                "INSERT INTO autocard_role VALUES (1, ?, ?)",
-                (role_name, f'{{"id": 1, "skillTxt": "{role_name}"}}'),
+                "INSERT INTO autocard_role_raw VALUES (1, ?)",
+                (f'{{"id": 1, "skillTxt": "{role_name}"}}',),
             )
 
     state = indexer.build_release_state(current_path, previous_path, 'current-sha')
