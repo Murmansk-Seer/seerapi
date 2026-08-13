@@ -19,6 +19,10 @@ SCRIPT_PATH = (
 SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
+import config_package_sources
+import effect_metadata_sources
+import item_exchange_sources
+import partner_contract_sources
 import render_asset_repository
 
 SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
@@ -182,12 +186,14 @@ def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
         ]
     }
 
-    prices = builder._parse_battlepass_shop(
-        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    prices = item_exchange_sources.parse_commodity_shop(
+        json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        source_key=builder.BATTLEPASS_SHOP_SOURCE_KEY,
+        source_name=builder.BATTLEPASS_SHOP_SOURCE_NAME,
     )
 
     assert prices == [
-        builder.ItemExchangePrice(
+        item_exchange_sources.ItemExchangePrice(
             source_key="battlepass_shop",
             source_name="战令商店",
             source_entry_id=1005,
@@ -473,12 +479,14 @@ def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
         ]
     }
 
-    prices = builder._parse_special_skill_shop(
-        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    prices = item_exchange_sources.parse_special_skill_shop(
+        json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        source_key=builder.SPECIAL_SKILL_SHOP_SOURCE_KEY,
+        source_name=builder.SPECIAL_SKILL_SHOP_SOURCE_NAME,
     )
 
     assert prices == [
-        builder.ItemExchangePrice(
+        item_exchange_sources.ItemExchangePrice(
             source_key="special_skill_shop",
             source_name="微光秘境",
             source_entry_id=3,
@@ -491,7 +499,7 @@ def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
             start_time=0,
             end_time=0,
         ),
-        builder.ItemExchangePrice(
+        item_exchange_sources.ItemExchangePrice(
             source_key="special_skill_shop",
             source_name="微光秘境",
             source_entry_id=44,
@@ -529,12 +537,12 @@ def test_parse_effect_descriptions_keeps_named_entries() -> None:
         }
     }
 
-    rows = builder._parse_effect_descriptions(
+    rows = effect_metadata_sources.parse_effect_descriptions(
         json.dumps(payload, ensure_ascii=False).encode("utf-8")
     )
 
     assert rows == [
-        builder.EffectDescription(
+        effect_metadata_sources.EffectDescription(
             effect_id=544,
             name="冥妖之悼",
             description="效果说明",
@@ -565,24 +573,24 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
         }
     }
 
-    rows = builder._parse_special_effect_statuses(
+    rows = effect_metadata_sources.parse_special_effect_statuses(
         json.dumps(payload, ensure_ascii=False).encode("utf-8")
     )
 
     assert rows == [
-        builder.SpecialEffectStatus(
+        effect_metadata_sources.SpecialEffectStatus(
             status_id=147,
             name="旧日之晷",
             description="状态说明",
             show_monster_id=4125,
         ),
-        builder.SpecialEffectStatus(
+        effect_metadata_sources.SpecialEffectStatus(
             status_id=148,
             name="宙变之殢",
             description="另一条说明",
             show_monster_id=0,
         ),
-        builder.SpecialEffectStatus(
+        effect_metadata_sources.SpecialEffectStatus(
             status_id=148,
             name="时晷",
             description="另一条说明",
@@ -610,8 +618,8 @@ def test_parse_autocard_season_effects() -> None:
         )
     )
 
-    assert builder._parse_autocard_season_effects(payload) == [
-        builder.AutocardSeasonEffect(
+    assert config_package_sources.parse_autocard_season_effects(payload) == [
+        config_package_sources.AutocardSeasonEffect(
             effect_id=10,
             sanctuary_id=2,
             name="霁天",
@@ -684,7 +692,7 @@ def _package_manifest_bytes(
 
 
 def test_parse_package_manifest_maps_assets_to_bundles() -> None:
-    manifest = builder._parse_package_manifest(
+    manifest = config_package_sources.parse_package_manifest(
         _package_manifest_bytes(
             assets=[
                 ("Assets/Art/Ui/assets/effectIcon/307.png", 1),
@@ -698,7 +706,7 @@ def test_parse_package_manifest_maps_assets_to_bundles() -> None:
     )
 
     assert manifest.assets["Assets/Art/Ui/assets/effectIcon/307.png"] == (
-        builder.BundleInfo("art_ui_effecticon", "effect-hash", 34)
+        config_package_sources.BundleInfo("art_ui_effecticon", "effect-hash", 34)
     )
 
 
@@ -1844,7 +1852,7 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
         ]
     }
 
-    data = builder._parse_pet_partner_data(
+    data = partner_contract_sources.parse_pet_partner_data(
         json.dumps(
             {
                 "schema_version": 1,
@@ -1889,11 +1897,16 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
                 ],
             },
             ensure_ascii=False,
-        ).encode("utf-8")
+        ).encode("utf-8"),
+        schema_version=builder.PARTNER_CONTRACTS_SCHEMA_VERSION,
+        group_type=builder.PARTNER_CONTRACT_GROUP_TYPE,
+        cost_item_id=builder.CONTRACT_BADGE_ITEM_ID,
+        cost_item_name=builder.CONTRACT_BADGE_ITEM_NAME,
+        descriptions_reversed=builder.PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED,
     )
 
     assert data.groups == [
-        builder.PetPartnerGroup(
+        partner_contract_sources.PetPartnerGroup(
             group_id=15,
             name="源初之夜",
             member_pet_ids=(4329, 3491),
@@ -1903,7 +1916,7 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
         )
     ]
     assert data.upgrades == [
-        builder.PetPartnerUpgrade(
+        partner_contract_sources.PetPartnerUpgrade(
             pet_id=4329,
             before_description="强化前魂印",
             after_description="强化后魂印",
@@ -2169,7 +2182,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     )
     pet_partner_data = builder.PetPartnerData(
         groups=[
-            builder.PetPartnerGroup(
+        partner_contract_sources.PetPartnerGroup(
                 group_id=15,
                 name="源初之夜",
                 member_pet_ids=(4329, 3491),
@@ -2179,7 +2192,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             )
         ],
         upgrades=[
-            builder.PetPartnerUpgrade(
+        partner_contract_sources.PetPartnerUpgrade(
                 pet_id=4329,
                 before_description="强化前魂印",
                 after_description="强化后魂印",

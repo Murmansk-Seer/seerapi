@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
+from functools import partial
 import hashlib
 import io
 import json
@@ -19,7 +20,6 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
-import struct
 import subprocess
 import tempfile
 import time
@@ -30,6 +30,37 @@ from urllib.request import Request, urlopen
 from PIL import Image, UnidentifiedImageError
 
 if __package__:
+    from .autocard_sources import AutocardData, load_autocard_data
+    from .config_package_sources import (
+        AutocardSeasonEffect,
+        BundleInfo,
+        PackageManifestData,
+        SkinShopPrice,
+        SkinStorePrice,
+        SoulmarkIcon,
+        parse_autocard_season_effects,
+        parse_effect_icons,
+        parse_items_tip,
+        parse_mintmark_quality,
+        parse_package_manifest,
+        parse_skin_shop,
+        parse_skin_store_pool,
+    )
+    from .effect_metadata_sources import (
+        EffectDescription,
+        SpecialEffectStatus,
+        parse_effect_descriptions,
+        parse_special_effect_statuses,
+    )
+    from .item_exchange_sources import (
+        ItemExchangePrice,
+        parse_commodity_shop,
+        parse_special_skill_shop,
+    )
+    from .partner_contract_sources import (
+        PetPartnerData,
+        parse_pet_partner_data,
+    )
     from .render_asset_repository import (
         AssetRepositorySnapshot,
         RenderAssetRepository,
@@ -37,6 +68,40 @@ if __package__:
     )
 else:
     # GitHub Actions invokes this file directly as ``python scripts/...``.
+    from autocard_sources import (  # type: ignore[import-not-found]
+        AutocardData,
+        load_autocard_data,
+    )
+    from config_package_sources import (  # type: ignore[import-not-found]
+        AutocardSeasonEffect,
+        BundleInfo,
+        PackageManifestData,
+        SkinShopPrice,
+        SkinStorePrice,
+        SoulmarkIcon,
+        parse_autocard_season_effects,
+        parse_effect_icons,
+        parse_items_tip,
+        parse_mintmark_quality,
+        parse_package_manifest,
+        parse_skin_shop,
+        parse_skin_store_pool,
+    )
+    from effect_metadata_sources import (  # type: ignore[import-not-found]
+        EffectDescription,
+        SpecialEffectStatus,
+        parse_effect_descriptions,
+        parse_special_effect_statuses,
+    )
+    from item_exchange_sources import (  # type: ignore[import-not-found]
+        ItemExchangePrice,
+        parse_commodity_shop,
+        parse_special_skill_shop,
+    )
+    from partner_contract_sources import (  # type: ignore[import-not-found]
+        PetPartnerData,
+        parse_pet_partner_data,
+    )
     from render_asset_repository import (  # type: ignore[import-not-found]
         AssetRepositorySnapshot,
         RenderAssetRepository,
@@ -288,8 +353,6 @@ ACTIVITY_SHOP_SOURCE_KEY = "activity_shop"
 ACTIVITY_SHOP_SOURCE_NAME = "活动商店"
 SPECIAL_SKILL_SHOP_SOURCE_KEY = "special_skill_shop"
 SPECIAL_SKILL_SHOP_SOURCE_NAME = "微光秘境"
-SIGNED_BYTE_MAX = 127
-SIGNED_BYTE_MOD = 256
 HTTP_TIMEOUT_SECONDS = 180
 HTTP_RETRY_ATTEMPTS = int(os.environ.get("IRONSBOT_DATA_HTTP_RETRY_ATTEMPTS", "3"))
 HTTP_RETRY_BACKOFF_SECONDS = float(
@@ -312,19 +375,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
-class BundleInfo:
-    name: str
-    file_hash: str
-    file_size: int
-
-
-@dataclass(frozen=True, slots=True)
-class PackageManifestData:
-    bundles: tuple[BundleInfo, ...]
-    assets: dict[str, BundleInfo]
-
-
-@dataclass(frozen=True, slots=True)
 class UnityEffectIconPngSource:
     icon_id: int
     asset_path: str
@@ -342,46 +392,6 @@ class ConfigPackageData:
     skin_item_tips: dict[int, str]
     soulmark_icons: list["SoulmarkIcon"]
     autocard_season_effects: list["AutocardSeasonEffect"]
-
-
-@dataclass(frozen=True, slots=True)
-class SkinStorePrice:
-    skin_id: int
-    pool_id: int
-    price: int
-    original_price: int
-    discount_rate: int
-    selected_price: int
-    ticket_id: int
-    ticket_num: int
-    start_time: int
-    end_time: int
-
-
-@dataclass(frozen=True, slots=True)
-class AutocardSeasonEffect:
-    effect_id: int
-    sanctuary_id: int
-    name: str
-    description: str
-    buff_id: str
-    buff_param: str
-    count_buff_id: str
-    count_type: int
-    count_num: int
-    unlock_round: int
-    pic_id: int
-    season_id: int
-    stage: int
-
-
-@dataclass(frozen=True, slots=True)
-class SkinShopPrice:
-    skin_id: int
-    resource_id: int
-    card_price: int
-    diamond_price: int
-    original_price: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -418,69 +428,6 @@ class SkinImageResolution:
     head_resolution: str
     body_resolution: str
     source_pet_id: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class ItemExchangePrice:
-    source_key: str
-    source_name: str
-    source_entry_id: int
-    item_id: int
-    item_name: str
-    item_quantity: int
-    currency_item_id: int
-    amount: int
-    purchase_limit: int | None
-    start_time: int
-    end_time: int
-    currency_name: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class EffectDescription:
-    effect_id: int
-    name: str
-    description: str
-
-
-@dataclass(frozen=True, slots=True)
-class SpecialEffectStatus:
-    status_id: int
-    name: str
-    description: str
-    show_monster_id: int
-
-
-@dataclass(frozen=True, slots=True)
-class PetPartnerGroup:
-    group_id: int
-    name: str
-    member_pet_ids: tuple[int, ...]
-    cost_item_id: int
-    cost_item_name: str
-    cost_item_quantity: int
-
-
-@dataclass(frozen=True, slots=True)
-class PetPartnerUpgrade:
-    pet_id: int
-    before_description: str
-    after_description: str
-    skill_id: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class PetPartnerData:
-    groups: list[PetPartnerGroup]
-    upgrades: list[PetPartnerUpgrade]
-
-
-@dataclass(frozen=True, slots=True)
-class SoulmarkIcon:
-    soulmark_id: int
-    pet_id: int
-    effect_id: int
-    icon_id: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -560,58 +507,6 @@ class SoulmarkIconRenderIssue:
     icon_asset_status: int
     icon_asset_error: str
     icon_png_error: str
-
-
-@dataclass(frozen=True, slots=True)
-class AutocardData:
-    cards: list[dict[str, object]]
-    roles: list[dict[str, object]]
-    natures: list[dict[str, object]]
-    buffs: list[dict[str, object]]
-    source: str
-
-
-class BytesReader:
-    def __init__(self, data: bytes) -> None:
-        self._data = data
-        self._pos = 0
-
-    def read_bool(self) -> bool:
-        value = self._data[self._pos] != 0
-        self._pos += 1
-        return value
-
-    def read_i8(self) -> int:
-        value = self._data[self._pos]
-        self._pos += 1
-        return value - SIGNED_BYTE_MOD if value > SIGNED_BYTE_MAX else value
-
-    def read_u16(self) -> int:
-        value = struct.unpack_from("<H", self._data, self._pos)[0]
-        self._pos += 2
-        return int(value)
-
-    def read_u32(self) -> int:
-        value = struct.unpack_from("<I", self._data, self._pos)[0]
-        self._pos += 4
-        return int(value)
-
-    def read_i32(self) -> int:
-        value = struct.unpack_from("<i", self._data, self._pos)[0]
-        self._pos += 4
-        return int(value)
-
-    def read_i64(self) -> int:
-        value = struct.unpack_from("<q", self._data, self._pos)[0]
-        self._pos += 8
-        return int(value)
-
-    def read_text(self) -> str:
-        length = self.read_u16()
-        end = self._pos + length
-        value = self._data[self._pos : end].decode("utf-8")
-        self._pos = end
-        return value
 
 
 def _request(
@@ -719,63 +614,6 @@ def _probe_weekly_preview_image() -> dict[str, str]:
         }
 
 
-def _parse_package_manifest(manifest_data: bytes) -> PackageManifestData:
-    reader = BytesReader(manifest_data)
-    reader.read_u32()
-    reader.read_text()
-    reader.read_bool()
-    reader.read_bool()
-    reader.read_bool()
-    reader.read_i32()
-    reader.read_text()
-    reader.read_text()
-
-    asset_refs: list[tuple[str, int]] = []
-    asset_count = reader.read_i32()
-    for _ in range(asset_count):
-        asset_path = reader.read_text()
-        bundle_index = reader.read_i32()
-        depend_count = reader.read_u16()
-        for _ in range(depend_count):
-            reader.read_i32()
-        asset_refs.append((asset_path, bundle_index))
-
-    bundle_count = reader.read_i32()
-    bundles: list[BundleInfo] = []
-    for _ in range(bundle_count):
-        name = reader.read_text()
-        reader.read_u32()
-        file_hash = reader.read_text()
-        reader.read_text()
-        file_size = reader.read_i64()
-        reader.read_bool()
-        reader.read_i8()
-        reference_count = reader.read_u16()
-        for _ in range(reference_count):
-            reader.read_i32()
-        bundles.append(BundleInfo(name=name, file_hash=file_hash, file_size=file_size))
-
-    assets: dict[str, BundleInfo] = {}
-    for asset_path, bundle_index in asset_refs:
-        if 0 <= bundle_index < len(bundles):
-            assets[asset_path] = bundles[bundle_index]
-
-    return PackageManifestData(bundles=tuple(bundles), assets=assets)
-
-
-def _find_config_bundle(manifest_data: bytes) -> BundleInfo:
-    manifest = _parse_package_manifest(manifest_data)
-
-    for bundle in manifest.bundles:
-        if bundle.name == CONFIG_BUNDLE_NAME:
-            return bundle
-
-    if len(manifest.bundles) == 1:
-        return manifest.bundles[0]
-
-    raise ValueError("ConfigPackage bundle not found")
-
-
 def _fetch_package_manifest(
     base_url: str,
     package_name: str,
@@ -790,7 +628,7 @@ def _fetch_package_manifest(
         normalized_base_url,
         f"PackageManifest_{package_name}_{version}.bytes",
     )
-    manifest = _parse_package_manifest(_download_bytes(manifest_url))
+    manifest = parse_package_manifest(_download_bytes(manifest_url))
     return version, manifest
 
 
@@ -820,476 +658,6 @@ def _extract_text_assets(bundle_data: bytes, wanted: set[str]) -> dict[str, byte
     if missing:
         raise ValueError(
             f"ConfigPackage text assets missing: {sorted(missing)}"
-        )
-    return result
-
-
-def _skip_optional_int_array(reader: BytesReader) -> None:
-    if not reader.read_bool():
-        return
-
-    count = reader.read_i32()
-    for _ in range(count):
-        reader.read_i32()
-
-
-def _parse_mintmark_quality_item(reader: BytesReader) -> tuple[int, int]:
-    _skip_optional_int_array(reader)  # Arg
-    _skip_optional_int_array(reader)  # BaseAttriValue
-    reader.read_i32()  # Connect
-    reader.read_text()  # Des
-    reader.read_text()  # EffectDes
-    _skip_optional_int_array(reader)  # ExtraAttriValue
-    reader.read_i32()  # Grade
-    reader.read_i32()  # Hide
-    mintmark_id = reader.read_i32()  # ID
-    reader.read_i32()  # Level
-    reader.read_i32()  # Max
-    _skip_optional_int_array(reader)  # MaxAttriValue
-    reader.read_i32()  # MintmarkClass
-    _skip_optional_int_array(reader)  # MonsterID
-    _skip_optional_int_array(reader)  # MoveID
-    quality = reader.read_i32()  # Quality
-    reader.read_i32()  # Rare
-    reader.read_i32()  # Rarity
-    reader.read_i32()  # TotalConsume
-    reader.read_i32()  # Type
-    return mintmark_id, quality
-
-
-def _parse_mintmark_quality_bytes(data: bytes) -> dict[int, int]:
-    reader = BytesReader(data)
-    if not reader.read_bool():
-        return {}
-
-    quality_map: dict[int, int] = {}
-    if reader.read_bool():
-        count = reader.read_i32()
-        for _ in range(count):
-            mintmark_id, quality = _parse_mintmark_quality_item(reader)
-            if mintmark_id > 0 and quality > 0:
-                quality_map[mintmark_id] = quality
-
-    if reader.read_bool():
-        class_count = reader.read_i32()
-        for _ in range(class_count):
-            reader.read_text()
-            reader.read_i32()
-
-    return quality_map
-
-
-def _parse_skin_store_pool(data: bytes) -> list[SkinStorePrice]:
-    if not data:
-        return []
-
-    reader = BytesReader(data)
-    result: list[SkinStorePrice] = []
-    if not reader.read_bool():
-        return result
-
-    count = reader.read_i32()
-    for _ in range(count):
-        reader.read_i32()
-        price = reader.read_i32()
-        original_price = reader.read_i32()
-        discount_rate = reader.read_i32()
-        end_time = reader.read_i32()
-        reader.read_i32()
-        selected_price = reader.read_i32()
-        reader.read_i32()
-        pool_id = reader.read_i32()
-        reader.read_i32()
-        reader.read_i32()
-        reader.read_i32()
-        reader.read_i32()
-        skin_id = reader.read_i32()
-        start_time = reader.read_i32()
-        ticket_id = reader.read_i32()
-        ticket_num = reader.read_i32()
-        result.append(
-            SkinStorePrice(
-                skin_id=skin_id,
-                pool_id=pool_id,
-                price=price,
-                original_price=original_price,
-                discount_rate=discount_rate,
-                selected_price=selected_price,
-                ticket_id=ticket_id,
-                ticket_num=ticket_num,
-                start_time=start_time,
-                end_time=end_time,
-            )
-        )
-
-    return result
-
-
-def _parse_skin_shop(data: bytes) -> list[SkinShopPrice]:
-    if not data:
-        return []
-
-    reader = BytesReader(data)
-    result: list[SkinShopPrice] = []
-    if not reader.read_bool():
-        return result
-    if not reader.read_bool():
-        return result
-    if not reader.read_bool():
-        return result
-
-    count = reader.read_i32()
-    for _ in range(count):
-        reader.read_i32()
-        card_price = reader.read_i32()
-        diamond_price = reader.read_i32()
-        skin_id = reader.read_i32()
-        reader.read_i32()
-        reader.read_text()
-        original_price = reader.read_i32()
-        reader.read_i32()
-        reader.read_i32()
-        if reader.read_bool():
-            show_count = reader.read_i32()
-            for _ in range(show_count):
-                reader.read_i32()
-        resource_id = reader.read_i32()
-        result.append(
-            SkinShopPrice(
-                skin_id=skin_id,
-                resource_id=resource_id,
-                card_price=card_price,
-                diamond_price=diamond_price,
-                original_price=original_price,
-            )
-        )
-
-    return result
-
-
-def _parse_commodity_shop(
-    data: bytes,
-    *,
-    source_key: str,
-    source_name: str,
-) -> list[ItemExchangePrice]:
-    raw = json.loads(data.decode("utf-8-sig"))
-    rows = raw.get("item", [])
-    if not isinstance(rows, list):
-        return []
-
-    result: list[ItemExchangePrice] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        commodity = str(row.get("commodity", ""))
-        parts = commodity.split("_")
-        if len(parts) != 3 or parts[0] != "1":
-            continue
-        try:
-            item_id = int(parts[1])
-            commodity_quantity = int(parts[2])
-        except ValueError:
-            continue
-
-        source_entry_id = _item_int(row, "id")
-        currency_item_id = _item_int(row, "consumeitemid")
-        amount = _item_int(row, "price")
-        item_quantity = _item_int(row, "quantity") or commodity_quantity
-        if (
-            source_entry_id <= 0
-            or item_id <= 0
-            or item_quantity <= 0
-            or currency_item_id <= 0
-            or amount <= 0
-        ):
-            continue
-
-        limit = _item_int(row, "limit")
-        result.append(
-            ItemExchangePrice(
-                source_key=source_key,
-                source_name=source_name,
-                source_entry_id=source_entry_id,
-                item_id=item_id,
-                item_name=_item_text(row, "item_name", "itemname").strip(),
-                item_quantity=item_quantity,
-                currency_item_id=currency_item_id,
-                amount=amount,
-                purchase_limit=limit if limit > 0 else None,
-                start_time=_item_int(row, "timestart", "starttime"),
-                end_time=_item_int(row, "timeend", "endtime"),
-            )
-        )
-
-    return result
-
-
-def _parse_battlepass_shop(data: bytes) -> list[ItemExchangePrice]:
-    return _parse_commodity_shop(
-        data,
-        source_key=BATTLEPASS_SHOP_SOURCE_KEY,
-        source_name=BATTLEPASS_SHOP_SOURCE_NAME,
-    )
-
-
-def _parse_activity_shop(data: bytes) -> list[ItemExchangePrice]:
-    return _parse_commodity_shop(
-        data,
-        source_key=ACTIVITY_SHOP_SOURCE_KEY,
-        source_name=ACTIVITY_SHOP_SOURCE_NAME,
-    )
-
-
-def _parse_special_skill_shop(data: bytes) -> list[ItemExchangePrice]:
-    raw = json.loads(data.decode("utf-8-sig"))
-    rows = raw.get("item", [])
-    if not isinstance(rows, list):
-        return []
-
-    result: list[ItemExchangePrice] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        source_entry_id = _item_int(row, "id")
-        item_id = _item_int(row, "item_id")
-        currency_item_id = _item_int(row, "coin_id")
-        amount = _item_int(row, "price")
-        if (
-            source_entry_id <= 0
-            or item_id <= 0
-            or currency_item_id <= 0
-            or amount <= 0
-        ):
-            continue
-        limit = _item_int(row, "limit")
-        result.append(
-            ItemExchangePrice(
-                source_key=SPECIAL_SKILL_SHOP_SOURCE_KEY,
-                source_name=SPECIAL_SKILL_SHOP_SOURCE_NAME,
-                source_entry_id=source_entry_id,
-                item_id=item_id,
-                item_name=_item_text(row, "item_name", "itemname").strip(),
-                item_quantity=1,
-                currency_item_id=currency_item_id,
-                amount=amount,
-                purchase_limit=limit if limit > 0 else None,
-                start_time=0,
-                end_time=0,
-            )
-        )
-
-    return result
-
-
-def _parse_effect_descriptions(data: bytes) -> list[EffectDescription]:
-    raw = json.loads(data.decode("utf-8-sig"))
-    root = raw.get("root")
-    if not isinstance(root, dict):
-        return []
-    rows = root.get("item", [])
-    if not isinstance(rows, list):
-        return []
-
-    result: list[EffectDescription] = []
-    seen_ids: set[int] = set()
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if _item_int(row, "kind") != 1:
-            continue
-        effect_id = _item_int(row, "id")
-        name = _item_text(row, "kinddes").strip()
-        description = _item_text(row, "desc").strip()
-        if effect_id <= 0 or not name or not description or effect_id in seen_ids:
-            continue
-        seen_ids.add(effect_id)
-        result.append(
-            EffectDescription(
-                effect_id=effect_id,
-                name=name,
-                description=description,
-            )
-        )
-
-    return result
-
-
-def _parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
-    raw = json.loads(data.decode("utf-8-sig"))
-    config = raw.get("config")
-    if not isinstance(config, dict):
-        return []
-    rows = config.get("item", [])
-    if not isinstance(rows, list):
-        return []
-
-    result: list[SpecialEffectStatus] = []
-    seen: set[tuple[int, str]] = set()
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        status_id = _item_int(row, "id")
-        if status_id <= 0:
-            continue
-        names = tuple(
-            dict.fromkeys(
-                name
-                for name in (
-                    _item_text(row, "dec").strip(),
-                    _item_text(row, "tips").strip(),
-                )
-                if name
-            )
-        )
-        description = _item_text(row, "des").strip()
-        show_monster_id = _item_int(row, "show_monster")
-        for name in names:
-            key = (status_id, name)
-            if key in seen:
-                continue
-            seen.add(key)
-            result.append(
-                SpecialEffectStatus(
-                    status_id=status_id,
-                    name=name,
-                    description=description,
-                    show_monster_id=show_monster_id,
-                )
-            )
-    return sorted(result, key=lambda item: (item.status_id, item.name))
-
-
-def _parse_items_tip(data: bytes) -> dict[int, str]:
-    if not data:
-        return {}
-
-    reader = BytesReader(data)
-    result: dict[int, str] = {}
-    if not reader.read_bool():
-        return result
-    if not reader.read_bool():
-        return result
-
-    count = reader.read_i32()
-    for _ in range(count):
-        description = reader.read_text()
-        item_id = reader.read_i32()
-        result[item_id] = description
-
-    return result
-
-
-def _skip_optional_text_array(reader: BytesReader) -> None:
-    if not reader.read_bool():
-        return
-
-    count = reader.read_i32()
-    for _ in range(count):
-        reader.read_text()
-
-
-def _parse_effect_icon(data: bytes) -> list[SoulmarkIcon]:
-    if not data:
-        return []
-
-    reader = BytesReader(data)
-    if not reader.read_bool():
-        return []
-    if not reader.read_bool():
-        return []
-
-    result: list[SoulmarkIcon] = []
-    count = reader.read_i32()
-    for _ in range(count):
-        soulmark_id = reader.read_i32()
-        reader.read_text()  # analyze
-        reader.read_text()  # args
-        reader.read_text()  # come
-        _skip_optional_text_array(reader)  # des
-        effect_id = reader.read_i32()
-        icon_id = reader.read_i32()
-        reader.read_i32()  # intensify
-        reader.read_i32()  # isAdv
-        _skip_optional_int_array(reader)  # kind
-        reader.read_i32()  # label
-        reader.read_i32()  # limitedType
-
-        pet_ids: list[int] = []
-        if reader.read_bool():
-            pet_count = reader.read_i32()
-            pet_ids = [reader.read_i32() for _ in range(pet_count)]
-
-        _skip_optional_int_array(reader)  # specificId
-        _skip_optional_text_array(reader)  # tag
-        reader.read_i32()  # target
-        reader.read_text()  # tips
-        reader.read_i32()  # to
-        reader.read_i32()  # type
-
-        if soulmark_id <= 0 or icon_id <= 0:
-            continue
-        if not pet_ids:
-            pet_ids = [0]
-        result.extend(
-            SoulmarkIcon(
-                soulmark_id=soulmark_id,
-                pet_id=pet_id,
-                effect_id=effect_id,
-                icon_id=icon_id,
-            )
-            for pet_id in pet_ids
-        )
-
-    return result
-
-
-def _parse_autocard_season_effects(
-    data: bytes,
-) -> list[AutocardSeasonEffect]:
-    """Parse the authoritative current sanctuary/effect directory."""
-
-    if not data:
-        return []
-
-    reader = BytesReader(data)
-    if not reader.read_bool():
-        return []
-
-    result: list[AutocardSeasonEffect] = []
-    count = reader.read_i32()
-    for _ in range(count):
-        count_buff_id = reader.read_text()
-        buff_id = reader.read_text()
-        buff_param = reader.read_text()
-        count_type = reader.read_i32()
-        count_num = reader.read_i32()
-        sanctuary_id = reader.read_i32()
-        name = reader.read_text()
-        description = reader.read_text()
-        effect_id = reader.read_i32()
-        unlock_round = reader.read_i32()
-        pic_id = reader.read_i32()
-        season_id = reader.read_i32()
-        stage = reader.read_i32()
-        if effect_id <= 0 or sanctuary_id <= 0 or not name:
-            continue
-        result.append(
-            AutocardSeasonEffect(
-                effect_id=effect_id,
-                sanctuary_id=sanctuary_id,
-                name=name,
-                description=description,
-                buff_id=buff_id,
-                buff_param=buff_param,
-                count_buff_id=count_buff_id,
-                count_type=count_type,
-                count_num=count_num,
-                unlock_round=unlock_round,
-                pic_id=pic_id,
-                season_id=season_id,
-                stage=stage,
-            )
         )
     return result
 
@@ -3400,31 +2768,14 @@ def _fetch_config_package_data() -> ConfigPackageData:
     return ConfigPackageData(
         version=version,
         bundle_url=bundle_url,
-        mintmark_quality=_parse_mintmark_quality_bytes(assets[MINTMARK_BYTES_NAME]),
-        skin_store_prices=_parse_skin_store_pool(assets[SKIN_STORE_POOL_BYTES_NAME]),
-        skin_shop_prices=_parse_skin_shop(assets[SKIN_SHOP_BYTES_NAME]),
-        skin_item_tips=_parse_items_tip(assets[ITEMS_TIP_BYTES_NAME]),
-        soulmark_icons=_parse_effect_icon(assets[EFFECT_ICON_BYTES_NAME]),
-        autocard_season_effects=_parse_autocard_season_effects(
+        mintmark_quality=parse_mintmark_quality(assets[MINTMARK_BYTES_NAME]),
+        skin_store_prices=parse_skin_store_pool(assets[SKIN_STORE_POOL_BYTES_NAME]),
+        skin_shop_prices=parse_skin_shop(assets[SKIN_SHOP_BYTES_NAME]),
+        skin_item_tips=parse_items_tip(assets[ITEMS_TIP_BYTES_NAME]),
+        soulmark_icons=parse_effect_icons(assets[EFFECT_ICON_BYTES_NAME]),
+        autocard_season_effects=parse_autocard_season_effects(
             assets[AUTOCARD_SEASON_EFFECT_BYTES_NAME]
         ),
-    )
-
-
-def _load_autocard_data() -> AutocardData:
-    content_json, content_source = _load_autocard_json(AUTOCARD_CONTENT_FILE)
-    nature_json, nature_source = _load_autocard_json(AUTOCARD_NATURE_FILE)
-    role_json, role_source = _load_autocard_json(AUTOCARD_ROLE_FILE)
-    buff_json, buff_source = _load_autocard_json(AUTOCARD_BUFF_FILE)
-    source = "\n".join(
-        sorted({buff_source, content_source, nature_source, role_source})
-    )
-    return AutocardData(
-        cards=_json_data_rows(content_json),
-        roles=_json_data_rows(role_json),
-        natures=_json_data_rows(nature_json),
-        buffs=_json_data_rows(buff_json),
-        source=source,
     )
 
 
@@ -3445,12 +2796,32 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
         currency_names = {}
 
     sources = (
-        (BATTLEPASS_SHOP_SOURCE_NAME, BATTLEPASS_SHOP_URL, _parse_battlepass_shop),
-        (ACTIVITY_SHOP_SOURCE_NAME, ACTIVITY_SHOP_URL, _parse_activity_shop),
+        (
+            BATTLEPASS_SHOP_SOURCE_NAME,
+            BATTLEPASS_SHOP_URL,
+            partial(
+                parse_commodity_shop,
+                source_key=BATTLEPASS_SHOP_SOURCE_KEY,
+                source_name=BATTLEPASS_SHOP_SOURCE_NAME,
+            ),
+        ),
+        (
+            ACTIVITY_SHOP_SOURCE_NAME,
+            ACTIVITY_SHOP_URL,
+            partial(
+                parse_commodity_shop,
+                source_key=ACTIVITY_SHOP_SOURCE_KEY,
+                source_name=ACTIVITY_SHOP_SOURCE_NAME,
+            ),
+        ),
         (
             SPECIAL_SKILL_SHOP_SOURCE_NAME,
             SPECIAL_SKILL_SHOP_URL,
-            _parse_special_skill_shop,
+            partial(
+                parse_special_skill_shop,
+                source_key=SPECIAL_SKILL_SHOP_SOURCE_KEY,
+                source_name=SPECIAL_SKILL_SHOP_SOURCE_NAME,
+            ),
         ),
     )
     prices: list[ItemExchangePrice] = []
@@ -3481,7 +2852,7 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
 
 def _load_effect_descriptions() -> list[EffectDescription]:
     try:
-        return _parse_effect_descriptions(_download_bytes(EFFECT_DESCRIPTION_URL))
+        return parse_effect_descriptions(_download_bytes(EFFECT_DESCRIPTION_URL))
     except (
         HTTPError,
         URLError,
@@ -3499,7 +2870,7 @@ def _load_effect_descriptions() -> list[EffectDescription]:
 
 def _load_special_effect_statuses() -> list[SpecialEffectStatus]:
     try:
-        return _parse_special_effect_statuses(
+        return parse_special_effect_statuses(
             _download_bytes(SPECIAL_EFFECT_STATUS_URL)
         )
     except (
@@ -3532,13 +2903,6 @@ def _load_autocard_json(filename: str) -> tuple[dict[str, object], str]:
         json.loads(_download_bytes(url).decode("utf-8-sig")),
         url,
     )
-
-
-def _json_data_rows(raw: dict[str, object]) -> list[dict[str, object]]:
-    rows = raw.get("data", [])
-    if not isinstance(rows, list):
-        return []
-    return [row for row in rows if isinstance(row, dict)]
 
 
 def _item_int(item: dict[str, object], *names: str) -> int:
@@ -3590,132 +2954,16 @@ def _parse_unity_item_names(data: bytes) -> dict[int, str]:
     return item_names
 
 
-def _partner_contract_int(value: object, label: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"Invalid contract {label}: {value!r}")
-    try:
-        return int(value)
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"Invalid contract {label}: {value!r}") from error
-
-
-def _parse_pet_partner_data(partner_contracts_data: bytes) -> PetPartnerData:
-    """Parse canonical contract data extracted from the official ConfigPackage."""
-
-    raw = json.loads(partner_contracts_data.decode("utf-8-sig"))
-    if not isinstance(raw, dict):
-        raise ValueError("Partner contracts root must be an object")
-    if raw.get("schema_version") != PARTNER_CONTRACTS_SCHEMA_VERSION:
-        raise ValueError(
-            "Unsupported partner contracts schema: "
-            f"{raw.get('schema_version')!r}"
-        )
-    source = raw.get("source")
-    if (
-        not isinstance(source, dict)
-        or source.get("package") != "ConfigPackage"
-        or not isinstance(source.get("config_package_version"), str)
-        or not source["config_package_version"].strip()
-    ):
-        raise ValueError("Partner contracts are not sourced from ConfigPackage")
-
-    group_rows = raw.get("groups")
-    if not isinstance(group_rows, list):
-        raise ValueError("Partner contracts groups must be a list")
-
-    groups: list[PetPartnerGroup] = []
-    member_pet_ids: set[int] = set()
-    seen_group_ids: set[int] = set()
-    for index, row in enumerate(group_rows):
-        if not isinstance(row, dict):
-            raise ValueError(f"Partner contract group {index} must be an object")
-        group_id = _partner_contract_int(row.get("key"), f"groups[{index}].key")
-        group_type = _item_text(row, "type").strip()
-        name = _item_text(row, "name").strip()
-        cost = _partner_contract_int(row.get("cost"), f"groups[{index}].cost")
-        raw_members = row.get("member_pet_ids")
-        if not isinstance(raw_members, list):
-            raise ValueError(f"Partner contract group {group_id} has invalid members")
-        members = tuple(
-            _partner_contract_int(
-                member_id,
-                f"groups[{index}].member_pet_ids[{member_index}]",
-            )
-            for member_index, member_id in enumerate(raw_members)
-        )
-        if (
-            group_id <= 0
-            or not group_type
-            or not name
-            or cost <= 0
-            or len(members) < 2
-            or group_id in seen_group_ids
-            or any(member_id <= 0 for member_id in members)
-            or len(set(members)) != len(members)
-            or any(member_id in member_pet_ids for member_id in members)
-        ):
-            raise ValueError(f"Invalid partner contract group {group_id}")
-        if group_type != PARTNER_CONTRACT_GROUP_TYPE:
-            continue
-        seen_group_ids.add(group_id)
-        member_pet_ids.update(members)
-        groups.append(
-            PetPartnerGroup(
-                group_id=group_id,
-                name=name,
-                member_pet_ids=members,
-                cost_item_id=CONTRACT_BADGE_ITEM_ID,
-                cost_item_name=CONTRACT_BADGE_ITEM_NAME,
-                cost_item_quantity=cost,
-            )
-        )
-
-    upgrade_rows = raw.get("upgrades")
-    if not isinstance(upgrade_rows, list):
-        raise ValueError("Partner contract upgrades must be a list")
-
-    upgrades: dict[int, PetPartnerUpgrade] = {}
-    for index, row in enumerate(upgrade_rows):
-        if not isinstance(row, dict):
-            raise ValueError(f"Partner contract upgrade {index} must be an object")
-        pet_id = _partner_contract_int(row.get("pet_id"), f"upgrades[{index}].pet_id")
-        if pet_id <= 0 or pet_id not in member_pet_ids or pet_id in upgrades:
-            continue
-        raw_skill_ids = row.get("skill_ids", [])
-        if not isinstance(raw_skill_ids, list):
-            raise ValueError(f"Partner contract upgrade {pet_id} has invalid skill IDs")
-        skill_ids = [
-            _partner_contract_int(
-                skill_id,
-                f"upgrades[{index}].skill_ids[{skill_index}]",
-            )
-            for skill_index, skill_id in enumerate(raw_skill_ids)
-        ]
-        skill_id = next((value for value in skill_ids if value > 0), None)
-        source_before_description = _item_text(row, "before_description").strip()
-        source_after_description = _item_text(row, "after_description").strip()
-        if PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED:
-            source_before_description, source_after_description = (
-                source_after_description,
-                source_before_description,
-            )
-
-        upgrades[pet_id] = PetPartnerUpgrade(
-            pet_id=pet_id,
-            before_description=source_before_description,
-            after_description=source_after_description,
-            skill_id=skill_id,
-        )
-
-    return PetPartnerData(
-        groups=sorted(groups, key=lambda group: group.group_id),
-        upgrades=[upgrades[pet_id] for pet_id in sorted(upgrades)],
-    )
-
-
 def _load_pet_partner_data() -> PetPartnerData:
     try:
-        return _parse_pet_partner_data(_download_bytes(PARTNER_CONTRACTS_URL))
+        return parse_pet_partner_data(
+            _download_bytes(PARTNER_CONTRACTS_URL),
+            schema_version=PARTNER_CONTRACTS_SCHEMA_VERSION,
+            group_type=PARTNER_CONTRACT_GROUP_TYPE,
+            cost_item_id=CONTRACT_BADGE_ITEM_ID,
+            cost_item_name=CONTRACT_BADGE_ITEM_NAME,
+            descriptions_reversed=PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED,
+        )
     except (
         HTTPError,
         URLError,
@@ -5191,7 +4439,13 @@ def main() -> None:
         "Loading autocard JSON data: %s",
         AUTOCARD_JSON_DIR or AUTOCARD_JSON_BASE_URL,
     )
-    autocard_data = _load_autocard_data()
+    autocard_data = load_autocard_data(
+        _load_autocard_json,
+        content_file=AUTOCARD_CONTENT_FILE,
+        nature_file=AUTOCARD_NATURE_FILE,
+        role_file=AUTOCARD_ROLE_FILE,
+        buff_file=AUTOCARD_BUFF_FILE,
+    )
     logger.info("Loading official item exchange prices")
     item_exchange_prices = _load_item_exchange_prices()
     logger.info("Loading official named effect descriptions")
