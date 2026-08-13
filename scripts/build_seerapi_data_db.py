@@ -31,6 +31,12 @@ from PIL import Image, UnidentifiedImageError
 
 if __package__:
     from .autocard_sources import AutocardData, load_autocard_data
+    from .effect_metadata_sources import (
+        EffectDescription,
+        SpecialEffectStatus,
+        parse_effect_descriptions,
+        parse_special_effect_statuses,
+    )
     from .render_asset_repository import (
         AssetRepositorySnapshot,
         RenderAssetRepository,
@@ -41,6 +47,12 @@ else:
     from autocard_sources import (  # type: ignore[import-not-found]
         AutocardData,
         load_autocard_data,
+    )
+    from effect_metadata_sources import (  # type: ignore[import-not-found]
+        EffectDescription,
+        SpecialEffectStatus,
+        parse_effect_descriptions,
+        parse_special_effect_statuses,
     )
     from render_asset_repository import (  # type: ignore[import-not-found]
         AssetRepositorySnapshot,
@@ -439,21 +451,6 @@ class ItemExchangePrice:
     start_time: int
     end_time: int
     currency_name: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class EffectDescription:
-    effect_id: int
-    name: str
-    description: str
-
-
-@dataclass(frozen=True, slots=True)
-class SpecialEffectStatus:
-    status_id: int
-    name: str
-    description: str
-    show_monster_id: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -1076,84 +1073,6 @@ def _parse_special_skill_shop(data: bytes) -> list[ItemExchangePrice]:
         )
 
     return result
-
-
-def _parse_effect_descriptions(data: bytes) -> list[EffectDescription]:
-    raw = json.loads(data.decode("utf-8-sig"))
-    root = raw.get("root")
-    if not isinstance(root, dict):
-        return []
-    rows = root.get("item", [])
-    if not isinstance(rows, list):
-        return []
-
-    result: list[EffectDescription] = []
-    seen_ids: set[int] = set()
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if _item_int(row, "kind") != 1:
-            continue
-        effect_id = _item_int(row, "id")
-        name = _item_text(row, "kinddes").strip()
-        description = _item_text(row, "desc").strip()
-        if effect_id <= 0 or not name or not description or effect_id in seen_ids:
-            continue
-        seen_ids.add(effect_id)
-        result.append(
-            EffectDescription(
-                effect_id=effect_id,
-                name=name,
-                description=description,
-            )
-        )
-
-    return result
-
-
-def _parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
-    raw = json.loads(data.decode("utf-8-sig"))
-    config = raw.get("config")
-    if not isinstance(config, dict):
-        return []
-    rows = config.get("item", [])
-    if not isinstance(rows, list):
-        return []
-
-    result: list[SpecialEffectStatus] = []
-    seen: set[tuple[int, str]] = set()
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        status_id = _item_int(row, "id")
-        if status_id <= 0:
-            continue
-        names = tuple(
-            dict.fromkeys(
-                name
-                for name in (
-                    _item_text(row, "dec").strip(),
-                    _item_text(row, "tips").strip(),
-                )
-                if name
-            )
-        )
-        description = _item_text(row, "des").strip()
-        show_monster_id = _item_int(row, "show_monster")
-        for name in names:
-            key = (status_id, name)
-            if key in seen:
-                continue
-            seen.add(key)
-            result.append(
-                SpecialEffectStatus(
-                    status_id=status_id,
-                    name=name,
-                    description=description,
-                    show_monster_id=show_monster_id,
-                )
-            )
-    return sorted(result, key=lambda item: (item.status_id, item.name))
 
 
 def _parse_items_tip(data: bytes) -> dict[int, str]:
@@ -3460,7 +3379,7 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
 
 def _load_effect_descriptions() -> list[EffectDescription]:
     try:
-        return _parse_effect_descriptions(_download_bytes(EFFECT_DESCRIPTION_URL))
+        return parse_effect_descriptions(_download_bytes(EFFECT_DESCRIPTION_URL))
     except (
         HTTPError,
         URLError,
@@ -3478,7 +3397,7 @@ def _load_effect_descriptions() -> list[EffectDescription]:
 
 def _load_special_effect_statuses() -> list[SpecialEffectStatus]:
     try:
-        return _parse_special_effect_statuses(
+        return parse_special_effect_statuses(
             _download_bytes(SPECIAL_EFFECT_STATUS_URL)
         )
     except (

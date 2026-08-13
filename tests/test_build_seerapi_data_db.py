@@ -19,6 +19,7 @@ SCRIPT_PATH = (
 SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
+import effect_metadata_sources
 import render_asset_repository
 
 SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
@@ -529,12 +530,12 @@ def test_parse_effect_descriptions_keeps_named_entries() -> None:
         }
     }
 
-    rows = builder._parse_effect_descriptions(
+    rows = effect_metadata_sources.parse_effect_descriptions(
         json.dumps(payload, ensure_ascii=False).encode("utf-8")
     )
 
     assert rows == [
-        builder.EffectDescription(
+        effect_metadata_sources.EffectDescription(
             effect_id=544,
             name="冥妖之悼",
             description="效果说明",
@@ -565,24 +566,24 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
         }
     }
 
-    rows = builder._parse_special_effect_statuses(
+    rows = effect_metadata_sources.parse_special_effect_statuses(
         json.dumps(payload, ensure_ascii=False).encode("utf-8")
     )
 
     assert rows == [
-        builder.SpecialEffectStatus(
+        effect_metadata_sources.SpecialEffectStatus(
             status_id=147,
             name="旧日之晷",
             description="状态说明",
             show_monster_id=4125,
         ),
-        builder.SpecialEffectStatus(
+        effect_metadata_sources.SpecialEffectStatus(
             status_id=148,
             name="宙变之殢",
             description="另一条说明",
             show_monster_id=0,
         ),
-        builder.SpecialEffectStatus(
+        effect_metadata_sources.SpecialEffectStatus(
             status_id=148,
             name="时晷",
             description="另一条说明",
