@@ -20,6 +20,7 @@ SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 import effect_metadata_sources
+import item_exchange_sources
 import render_asset_repository
 
 SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
@@ -183,12 +184,14 @@ def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
         ]
     }
 
-    prices = builder._parse_battlepass_shop(
-        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    prices = item_exchange_sources.parse_commodity_shop(
+        json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        source_key=builder.BATTLEPASS_SHOP_SOURCE_KEY,
+        source_name=builder.BATTLEPASS_SHOP_SOURCE_NAME,
     )
 
     assert prices == [
-        builder.ItemExchangePrice(
+        item_exchange_sources.ItemExchangePrice(
             source_key="battlepass_shop",
             source_name="战令商店",
             source_entry_id=1005,
@@ -474,12 +477,14 @@ def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
         ]
     }
 
-    prices = builder._parse_special_skill_shop(
-        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    prices = item_exchange_sources.parse_special_skill_shop(
+        json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        source_key=builder.SPECIAL_SKILL_SHOP_SOURCE_KEY,
+        source_name=builder.SPECIAL_SKILL_SHOP_SOURCE_NAME,
     )
 
     assert prices == [
-        builder.ItemExchangePrice(
+        item_exchange_sources.ItemExchangePrice(
             source_key="special_skill_shop",
             source_name="微光秘境",
             source_entry_id=3,
@@ -492,7 +497,7 @@ def test_parse_special_skill_shop_reads_current_skill_scroll_prices() -> None:
             start_time=0,
             end_time=0,
         ),
-        builder.ItemExchangePrice(
+        item_exchange_sources.ItemExchangePrice(
             source_key="special_skill_shop",
             source_name="微光秘境",
             source_entry_id=44,

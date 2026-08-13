@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
+from functools import partial
 import hashlib
 import io
 import json
@@ -37,6 +38,11 @@ if __package__:
         parse_effect_descriptions,
         parse_special_effect_statuses,
     )
+    from .item_exchange_sources import (
+        ItemExchangePrice,
+        parse_commodity_shop,
+        parse_special_skill_shop,
+    )
     from .render_asset_repository import (
         AssetRepositorySnapshot,
         RenderAssetRepository,
@@ -53,6 +59,11 @@ else:
         SpecialEffectStatus,
         parse_effect_descriptions,
         parse_special_effect_statuses,
+    )
+    from item_exchange_sources import (  # type: ignore[import-not-found]
+        ItemExchangePrice,
+        parse_commodity_shop,
+        parse_special_skill_shop,
     )
     from render_asset_repository import (  # type: ignore[import-not-found]
         AssetRepositorySnapshot,
@@ -435,22 +446,6 @@ class SkinImageResolution:
     head_resolution: str
     body_resolution: str
     source_pet_id: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class ItemExchangePrice:
-    source_key: str
-    source_name: str
-    source_entry_id: int
-    item_id: int
-    item_name: str
-    item_quantity: int
-    currency_item_id: int
-    amount: int
-    purchase_limit: int | None
-    start_time: int
-    end_time: int
-    currency_name: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -954,121 +949,6 @@ def _parse_skin_shop(data: bytes) -> list[SkinShopPrice]:
                 card_price=card_price,
                 diamond_price=diamond_price,
                 original_price=original_price,
-            )
-        )
-
-    return result
-
-
-def _parse_commodity_shop(
-    data: bytes,
-    *,
-    source_key: str,
-    source_name: str,
-) -> list[ItemExchangePrice]:
-    raw = json.loads(data.decode("utf-8-sig"))
-    rows = raw.get("item", [])
-    if not isinstance(rows, list):
-        return []
-
-    result: list[ItemExchangePrice] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        commodity = str(row.get("commodity", ""))
-        parts = commodity.split("_")
-        if len(parts) != 3 or parts[0] != "1":
-            continue
-        try:
-            item_id = int(parts[1])
-            commodity_quantity = int(parts[2])
-        except ValueError:
-            continue
-
-        source_entry_id = _item_int(row, "id")
-        currency_item_id = _item_int(row, "consumeitemid")
-        amount = _item_int(row, "price")
-        item_quantity = _item_int(row, "quantity") or commodity_quantity
-        if (
-            source_entry_id <= 0
-            or item_id <= 0
-            or item_quantity <= 0
-            or currency_item_id <= 0
-            or amount <= 0
-        ):
-            continue
-
-        limit = _item_int(row, "limit")
-        result.append(
-            ItemExchangePrice(
-                source_key=source_key,
-                source_name=source_name,
-                source_entry_id=source_entry_id,
-                item_id=item_id,
-                item_name=_item_text(row, "item_name", "itemname").strip(),
-                item_quantity=item_quantity,
-                currency_item_id=currency_item_id,
-                amount=amount,
-                purchase_limit=limit if limit > 0 else None,
-                start_time=_item_int(row, "timestart", "starttime"),
-                end_time=_item_int(row, "timeend", "endtime"),
-            )
-        )
-
-    return result
-
-
-def _parse_battlepass_shop(data: bytes) -> list[ItemExchangePrice]:
-    return _parse_commodity_shop(
-        data,
-        source_key=BATTLEPASS_SHOP_SOURCE_KEY,
-        source_name=BATTLEPASS_SHOP_SOURCE_NAME,
-    )
-
-
-def _parse_activity_shop(data: bytes) -> list[ItemExchangePrice]:
-    return _parse_commodity_shop(
-        data,
-        source_key=ACTIVITY_SHOP_SOURCE_KEY,
-        source_name=ACTIVITY_SHOP_SOURCE_NAME,
-    )
-
-
-def _parse_special_skill_shop(data: bytes) -> list[ItemExchangePrice]:
-    raw = json.loads(data.decode("utf-8-sig"))
-    rows = raw.get("item", [])
-    if not isinstance(rows, list):
-        return []
-
-    result: list[ItemExchangePrice] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        source_entry_id = _item_int(row, "id")
-        item_id = _item_int(row, "item_id")
-        currency_item_id = _item_int(row, "coin_id")
-        amount = _item_int(row, "price")
-        if (
-            source_entry_id <= 0
-            or item_id <= 0
-            or currency_item_id <= 0
-            or amount <= 0
-        ):
-            continue
-        limit = _item_int(row, "limit")
-        result.append(
-            ItemExchangePrice(
-                source_key=SPECIAL_SKILL_SHOP_SOURCE_KEY,
-                source_name=SPECIAL_SKILL_SHOP_SOURCE_NAME,
-                source_entry_id=source_entry_id,
-                item_id=item_id,
-                item_name=_item_text(row, "item_name", "itemname").strip(),
-                item_quantity=1,
-                currency_item_id=currency_item_id,
-                amount=amount,
-                purchase_limit=limit if limit > 0 else None,
-                start_time=0,
-                end_time=0,
             )
         )
 
@@ -3343,12 +3223,32 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
         currency_names = {}
 
     sources = (
-        (BATTLEPASS_SHOP_SOURCE_NAME, BATTLEPASS_SHOP_URL, _parse_battlepass_shop),
-        (ACTIVITY_SHOP_SOURCE_NAME, ACTIVITY_SHOP_URL, _parse_activity_shop),
+        (
+            BATTLEPASS_SHOP_SOURCE_NAME,
+            BATTLEPASS_SHOP_URL,
+            partial(
+                parse_commodity_shop,
+                source_key=BATTLEPASS_SHOP_SOURCE_KEY,
+                source_name=BATTLEPASS_SHOP_SOURCE_NAME,
+            ),
+        ),
+        (
+            ACTIVITY_SHOP_SOURCE_NAME,
+            ACTIVITY_SHOP_URL,
+            partial(
+                parse_commodity_shop,
+                source_key=ACTIVITY_SHOP_SOURCE_KEY,
+                source_name=ACTIVITY_SHOP_SOURCE_NAME,
+            ),
+        ),
         (
             SPECIAL_SKILL_SHOP_SOURCE_NAME,
             SPECIAL_SKILL_SHOP_URL,
-            _parse_special_skill_shop,
+            partial(
+                parse_special_skill_shop,
+                source_key=SPECIAL_SKILL_SHOP_SOURCE_KEY,
+                source_name=SPECIAL_SKILL_SHOP_SOURCE_NAME,
+            ),
         ),
     )
     prices: list[ItemExchangePrice] = []
