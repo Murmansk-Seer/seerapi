@@ -65,6 +65,7 @@ nav:
       - tutorial/1. 开始食用.md
   - API参考: API参考.md
   - 版本控制: 版本控制.md
+  - 开发规范: 开发规范.md
 
 markdown_extensions:
   # Python Markdown
