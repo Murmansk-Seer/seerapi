@@ -1165,8 +1165,8 @@ def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
     ]
 
 
-def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> None:
-    png_data = _test_png()
+def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> None:
+    png_data = _test_png(size=(7, 5))
     check = builder.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
@@ -1182,17 +1182,13 @@ def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> No
 
     def fake_run(args, **_kwargs):
         calls.append(args)
-        if "-swf2xml" in args:
-            assert args[-2].endswith("1644.swf")
-            Path(args[-1]).write_text("<swf />", encoding="utf-8")
-        elif "-xml2swf" in args:
-            Path(args[-1]).write_bytes(b"FWS")
-        else:
-            assert args[-1].endswith("icon-clean.swf")
-            output_dir = Path(args[-2])
-            item_dir = output_dir / "DefineSprite_6_item"
-            item_dir.mkdir()
-            (item_dir / "1.png").write_bytes(png_data)
+        assert "-swf2xml" not in args
+        assert "-xml2swf" not in args
+        assert args[-1].endswith("1644.swf")
+        output_dir = Path(args[-2])
+        item_dir = output_dir / "DefineSprite_6_item"
+        item_dir.mkdir()
+        (item_dir / "1.png").write_bytes(png_data)
         return builder.subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.setattr(builder.subprocess, "run", fake_run)
@@ -1214,10 +1210,8 @@ def test_render_effect_icon_png_uses_sprite_export_by_default(monkeypatch) -> No
         data=png_data,
         error="",
     )
-    assert len(calls) == 3
-    assert "-swf2xml" in calls[0]
-    assert "-xml2swf" in calls[1]
-    assert "sprite" in calls[2]
+    assert len(calls) == 1
+    assert "sprite" in calls[0]
 
 
 def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
@@ -1237,7 +1231,7 @@ def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
 
     def fake_run(args, **_kwargs):
         calls.append(args)
-        if "-swf2xml" in args:
+        if "sprite" in args:
             raise RuntimeError("sprite export unavailable")
         output_dir = Path(args[-2])
         output_dir.mkdir(exist_ok=True)
@@ -1251,7 +1245,7 @@ def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
     assert render.available is True
     assert render.data == png_data
     assert len(calls) == 2
-    assert "-swf2xml" in calls[0]
+    assert "sprite" in calls[0]
     assert "shape" in calls[1]
 
 
@@ -1328,7 +1322,7 @@ def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) ->
     assert "fully transparent" in render.error
 
 
-def test_render_effect_icon_png_exports_clean_item_sprite(
+def test_render_effect_icon_png_preserves_exported_canvas_and_alpha(
     monkeypatch,
 ) -> None:
     check = builder.EffectIconAssetCheck(
@@ -1341,44 +1335,21 @@ def test_render_effect_icon_png_exports_clean_item_sprite(
         error="",
     )
     monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
-    calls: list[list[str]] = []
+    exported = io.BytesIO()
+    Image.new("RGBA", (9, 7), (0, 0, 0, 0)).save(exported, format="PNG")
+    with Image.open(io.BytesIO(exported.getvalue())) as image:
+        image.putpixel((8, 6), (255, 100, 0, 80))
+        preserved = io.BytesIO()
+        image.save(preserved, format="PNG")
+    png_data = preserved.getvalue()
 
     def fake_run(args, **_kwargs):
-        calls.append(args)
-        if "-swf2xml" in args:
-            Path(args[-1]).write_text(
-                """
-                <swf>
-                  <item type="PlaceObject3Tag"
-                        placeFlagHasFilterList="true">
-                    <surfaceFilterList>
-                      <item type="COLORMATRIXFILTER" />
-                      <item type="GLOWFILTER" />
-                      <item type="BLURFILTER" />
-                    </surfaceFilterList>
-                  </item>
-                </swf>
-                """,
-                encoding="utf-8",
-            )
-        elif "-xml2swf" in args:
-            tree = builder.ET.parse(args[-2])
-            filter_types = [
-                node.attrib["type"]
-                for node in tree.findall(".//surfaceFilterList/item")
-            ]
-            assert filter_types == [
-                "COLORMATRIXFILTER",
-                "GLOWFILTER",
-                "BLURFILTER",
-            ]
-            Path(args[-1]).write_bytes(b"FWS")
-        else:
-            assert args[-1].endswith("icon-clean.swf")
-            output_dir = Path(args[-2])
-            item_dir = output_dir / "DefineSprite_6_item"
-            item_dir.mkdir()
-            (item_dir / "1.png").write_bytes(_test_png())
+        assert "-swf2xml" not in args
+        assert "-xml2swf" not in args
+        output_dir = Path(args[-2])
+        item_dir = output_dir / "DefineSprite_6_item"
+        item_dir.mkdir()
+        (item_dir / "1.png").write_bytes(png_data)
         return builder.subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.setattr(builder.subprocess, "run", fake_run)
@@ -1386,126 +1357,10 @@ def test_render_effect_icon_png_exports_clean_item_sprite(
     render = builder._render_effect_icon_png(613, check)
 
     assert render.available is True
-    assert render.data is not None
-    assert len(calls) == 3
-    assert "-swf2xml" in calls[0]
-    assert "-xml2swf" in calls[1]
-    assert "sprite" in calls[2]
-
-
-def test_normalize_effect_icon_display_tree_collapses_presentation_duplicates(
-    tmp_path,
-) -> None:
-    xml_path = tmp_path / "icon.xml"
-    xml_path.write_text(
-        """
-        <swf>
-          <item type="DefineSpriteTag" spriteId="5">
-            <subTags>
-              <item type="PlaceObject2Tag"
-                    characterId="1"
-                    depth="2">
-                <matrix scaleX="1" scaleY="1"
-                        translateX="0" translateY="0" />
-              </item>
-              <item type="PlaceObject3Tag"
-                    characterId="3"
-                    depth="3"
-                    blendMode="8"
-                    placeFlagHasBlendMode="true"
-                    placeFlagHasColorTransform="false"
-                    placeFlagHasFilterList="true">
-                <matrix scaleX="0.6" scaleY="0.6"
-                        translateX="-480" translateY="-600" />
-                <surfaceFilterList>
-                  <item type="BLURFILTER" />
-                </surfaceFilterList>
-              </item>
-              <item type="PlaceObject2Tag"
-                    characterId="4"
-                    depth="7">
-                <matrix scaleX="1" scaleY="1"
-                        translateX="0" translateY="0" />
-              </item>
-              <item type="PlaceObject3Tag"
-                    characterId="3"
-                    depth="8"
-                    blendMode="8"
-                    placeFlagHasBlendMode="true"
-                    placeFlagHasColorTransform="true"
-                    placeFlagHasFilterList="true">
-                <matrix scaleX="0.4" scaleY="0.4"
-                        translateX="-320" translateY="-400" />
-                <colorTransform alphaMultTerm="154" />
-                <surfaceFilterList>
-                  <item type="BLURFILTER" />
-                </surfaceFilterList>
-              </item>
-            </subTags>
-          </item>
-        </swf>
-        """,
-        encoding="utf-8",
-    )
-
-    builder._normalize_effect_icon_display_tree(xml_path)
-
-    tree = builder.ET.parse(xml_path)
-    placements = tree.findall(".//subTags/item")
-    character_ids = [node.attrib["characterId"] for node in placements]
-    assert character_ids == ["1", "3", "4"]
-    foreground = next(
-        node for node in placements if node.attrib["characterId"] == "3"
-    )
-    assert foreground.attrib["depth"] == "8"
-    assert foreground.attrib["placeFlagHasBlendMode"] == "false"
-    assert foreground.attrib["placeFlagHasColorTransform"] == "false"
-    assert foreground.attrib["placeFlagHasFilterList"] == "false"
-    assert foreground.find("colorTransform") is None
-    assert foreground.find("surfaceFilterList") is None
-    matrix = foreground.find("matrix")
-    assert matrix is not None
-    assert matrix.attrib["scaleX"] == "0.6"
-
-
-def test_normalize_effect_icon_display_tree_keeps_distinct_placements(
-    tmp_path,
-) -> None:
-    xml_path = tmp_path / "icon.xml"
-    xml_path.write_text(
-        """
-        <swf>
-          <item type="DefineSpriteTag" spriteId="5">
-            <subTags>
-              <item type="PlaceObject3Tag"
-                    characterId="3"
-                    depth="1"
-                    placeFlagHasBlendMode="true"
-                    placeFlagHasColorTransform="false"
-                    placeFlagHasFilterList="false">
-                <matrix scaleX="1" scaleY="1"
-                        translateX="0" translateY="0" />
-              </item>
-              <item type="PlaceObject3Tag"
-                    characterId="3"
-                    depth="2"
-                    placeFlagHasBlendMode="true"
-                    placeFlagHasColorTransform="false"
-                    placeFlagHasFilterList="false">
-                <matrix scaleX="1" scaleY="1"
-                        translateX="1000" translateY="0" />
-              </item>
-            </subTags>
-          </item>
-        </swf>
-        """,
-        encoding="utf-8",
-    )
-
-    builder._normalize_effect_icon_display_tree(xml_path)
-
-    placements = builder.ET.parse(xml_path).findall(".//subTags/item")
-    assert len(placements) == 2
+    assert render.data == png_data
+    with Image.open(io.BytesIO(render.data)) as image:
+        assert image.size == (9, 7)
+        assert image.convert("RGBA").getpixel((8, 6)) == (255, 100, 0, 80)
 
 
 def test_parse_unity_item_names_reads_exchange_currency_names() -> None:
