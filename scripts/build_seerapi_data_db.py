@@ -30,6 +30,7 @@ from urllib.request import Request, urlopen
 from PIL import Image, UnidentifiedImageError
 
 if __package__:
+    from .autocard_sources import AutocardData, load_autocard_data
     from .render_asset_repository import (
         AssetRepositorySnapshot,
         RenderAssetRepository,
@@ -37,6 +38,10 @@ if __package__:
     )
 else:
     # GitHub Actions invokes this file directly as ``python scripts/...``.
+    from autocard_sources import (  # type: ignore[import-not-found]
+        AutocardData,
+        load_autocard_data,
+    )
     from render_asset_repository import (  # type: ignore[import-not-found]
         AssetRepositorySnapshot,
         RenderAssetRepository,
@@ -560,15 +565,6 @@ class SoulmarkIconRenderIssue:
     icon_asset_status: int
     icon_asset_error: str
     icon_png_error: str
-
-
-@dataclass(frozen=True, slots=True)
-class AutocardData:
-    cards: list[dict[str, object]]
-    roles: list[dict[str, object]]
-    natures: list[dict[str, object]]
-    buffs: list[dict[str, object]]
-    source: str
 
 
 class BytesReader:
@@ -3411,23 +3407,6 @@ def _fetch_config_package_data() -> ConfigPackageData:
     )
 
 
-def _load_autocard_data() -> AutocardData:
-    content_json, content_source = _load_autocard_json(AUTOCARD_CONTENT_FILE)
-    nature_json, nature_source = _load_autocard_json(AUTOCARD_NATURE_FILE)
-    role_json, role_source = _load_autocard_json(AUTOCARD_ROLE_FILE)
-    buff_json, buff_source = _load_autocard_json(AUTOCARD_BUFF_FILE)
-    source = "\n".join(
-        sorted({buff_source, content_source, nature_source, role_source})
-    )
-    return AutocardData(
-        cards=_json_data_rows(content_json),
-        roles=_json_data_rows(role_json),
-        natures=_json_data_rows(nature_json),
-        buffs=_json_data_rows(buff_json),
-        source=source,
-    )
-
-
 def _load_item_exchange_prices() -> list[ItemExchangePrice]:
     try:
         currency_names = _parse_unity_item_names(
@@ -3532,13 +3511,6 @@ def _load_autocard_json(filename: str) -> tuple[dict[str, object], str]:
         json.loads(_download_bytes(url).decode("utf-8-sig")),
         url,
     )
-
-
-def _json_data_rows(raw: dict[str, object]) -> list[dict[str, object]]:
-    rows = raw.get("data", [])
-    if not isinstance(rows, list):
-        return []
-    return [row for row in rows if isinstance(row, dict)]
 
 
 def _item_int(item: dict[str, object], *names: str) -> int:
@@ -5191,7 +5163,13 @@ def main() -> None:
         "Loading autocard JSON data: %s",
         AUTOCARD_JSON_DIR or AUTOCARD_JSON_BASE_URL,
     )
-    autocard_data = _load_autocard_data()
+    autocard_data = load_autocard_data(
+        _load_autocard_json,
+        content_file=AUTOCARD_CONTENT_FILE,
+        nature_file=AUTOCARD_NATURE_FILE,
+        role_file=AUTOCARD_ROLE_FILE,
+        buff_file=AUTOCARD_BUFF_FILE,
+    )
     logger.info("Loading official item exchange prices")
     item_exchange_prices = _load_item_exchange_prices()
     logger.info("Loading official named effect descriptions")
