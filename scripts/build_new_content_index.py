@@ -664,18 +664,15 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
             )
 
     if _has_table(conn, 'autocard_role'):
-        if _has_table(conn, 'autocard_role_raw'):
-            role_query = '''
-                SELECT role.id, role.name, raw.raw_json
-                FROM autocard_role AS role
-                JOIN autocard_role_raw AS raw ON raw.role_id = role.id
-                ORDER BY role.id
+        for row in _rows(
+            conn,
             '''
-        elif 'raw_json' in _table_columns(conn, 'autocard_role'):
-            role_query = 'SELECT id, name, raw_json FROM autocard_role ORDER BY id'
-        else:
-            role_query = None
-        for row in _rows(conn, role_query) if role_query is not None else ():
+            SELECT role.id, role.name, raw.raw_json
+            FROM autocard_role AS role
+            JOIN autocard_role_raw AS raw ON raw.role_id = role.id
+            ORDER BY role.id
+            ''',
+        ):
             entity_id = int(row['id'])
             try:
                 payload = json.loads(str(row['raw_json']))
