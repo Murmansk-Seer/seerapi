@@ -20,7 +20,6 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
-import struct
 import subprocess
 import tempfile
 import time
@@ -32,6 +31,21 @@ from PIL import Image, UnidentifiedImageError
 
 if __package__:
     from .autocard_sources import AutocardData, load_autocard_data
+    from .config_package_sources import (
+        AutocardSeasonEffect,
+        BundleInfo,
+        PackageManifestData,
+        SkinShopPrice,
+        SkinStorePrice,
+        SoulmarkIcon,
+        parse_autocard_season_effects,
+        parse_effect_icons,
+        parse_items_tip,
+        parse_mintmark_quality,
+        parse_package_manifest,
+        parse_skin_shop,
+        parse_skin_store_pool,
+    )
     from .effect_metadata_sources import (
         EffectDescription,
         SpecialEffectStatus,
@@ -57,6 +71,21 @@ else:
     from autocard_sources import (  # type: ignore[import-not-found]
         AutocardData,
         load_autocard_data,
+    )
+    from config_package_sources import (  # type: ignore[import-not-found]
+        AutocardSeasonEffect,
+        BundleInfo,
+        PackageManifestData,
+        SkinShopPrice,
+        SkinStorePrice,
+        SoulmarkIcon,
+        parse_autocard_season_effects,
+        parse_effect_icons,
+        parse_items_tip,
+        parse_mintmark_quality,
+        parse_package_manifest,
+        parse_skin_shop,
+        parse_skin_store_pool,
     )
     from effect_metadata_sources import (  # type: ignore[import-not-found]
         EffectDescription,
@@ -324,8 +353,6 @@ ACTIVITY_SHOP_SOURCE_KEY = "activity_shop"
 ACTIVITY_SHOP_SOURCE_NAME = "活动商店"
 SPECIAL_SKILL_SHOP_SOURCE_KEY = "special_skill_shop"
 SPECIAL_SKILL_SHOP_SOURCE_NAME = "微光秘境"
-SIGNED_BYTE_MAX = 127
-SIGNED_BYTE_MOD = 256
 HTTP_TIMEOUT_SECONDS = 180
 HTTP_RETRY_ATTEMPTS = int(os.environ.get("IRONSBOT_DATA_HTTP_RETRY_ATTEMPTS", "3"))
 HTTP_RETRY_BACKOFF_SECONDS = float(
@@ -348,19 +375,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
-class BundleInfo:
-    name: str
-    file_hash: str
-    file_size: int
-
-
-@dataclass(frozen=True, slots=True)
-class PackageManifestData:
-    bundles: tuple[BundleInfo, ...]
-    assets: dict[str, BundleInfo]
-
-
-@dataclass(frozen=True, slots=True)
 class UnityEffectIconPngSource:
     icon_id: int
     asset_path: str
@@ -378,46 +392,6 @@ class ConfigPackageData:
     skin_item_tips: dict[int, str]
     soulmark_icons: list["SoulmarkIcon"]
     autocard_season_effects: list["AutocardSeasonEffect"]
-
-
-@dataclass(frozen=True, slots=True)
-class SkinStorePrice:
-    skin_id: int
-    pool_id: int
-    price: int
-    original_price: int
-    discount_rate: int
-    selected_price: int
-    ticket_id: int
-    ticket_num: int
-    start_time: int
-    end_time: int
-
-
-@dataclass(frozen=True, slots=True)
-class AutocardSeasonEffect:
-    effect_id: int
-    sanctuary_id: int
-    name: str
-    description: str
-    buff_id: str
-    buff_param: str
-    count_buff_id: str
-    count_type: int
-    count_num: int
-    unlock_round: int
-    pic_id: int
-    season_id: int
-    stage: int
-
-
-@dataclass(frozen=True, slots=True)
-class SkinShopPrice:
-    skin_id: int
-    resource_id: int
-    card_price: int
-    diamond_price: int
-    original_price: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -454,14 +428,6 @@ class SkinImageResolution:
     head_resolution: str
     body_resolution: str
     source_pet_id: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class SoulmarkIcon:
-    soulmark_id: int
-    pet_id: int
-    effect_id: int
-    icon_id: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -541,49 +507,6 @@ class SoulmarkIconRenderIssue:
     icon_asset_status: int
     icon_asset_error: str
     icon_png_error: str
-
-
-class BytesReader:
-    def __init__(self, data: bytes) -> None:
-        self._data = data
-        self._pos = 0
-
-    def read_bool(self) -> bool:
-        value = self._data[self._pos] != 0
-        self._pos += 1
-        return value
-
-    def read_i8(self) -> int:
-        value = self._data[self._pos]
-        self._pos += 1
-        return value - SIGNED_BYTE_MOD if value > SIGNED_BYTE_MAX else value
-
-    def read_u16(self) -> int:
-        value = struct.unpack_from("<H", self._data, self._pos)[0]
-        self._pos += 2
-        return int(value)
-
-    def read_u32(self) -> int:
-        value = struct.unpack_from("<I", self._data, self._pos)[0]
-        self._pos += 4
-        return int(value)
-
-    def read_i32(self) -> int:
-        value = struct.unpack_from("<i", self._data, self._pos)[0]
-        self._pos += 4
-        return int(value)
-
-    def read_i64(self) -> int:
-        value = struct.unpack_from("<q", self._data, self._pos)[0]
-        self._pos += 8
-        return int(value)
-
-    def read_text(self) -> str:
-        length = self.read_u16()
-        end = self._pos + length
-        value = self._data[self._pos : end].decode("utf-8")
-        self._pos = end
-        return value
 
 
 def _request(
@@ -691,63 +614,6 @@ def _probe_weekly_preview_image() -> dict[str, str]:
         }
 
 
-def _parse_package_manifest(manifest_data: bytes) -> PackageManifestData:
-    reader = BytesReader(manifest_data)
-    reader.read_u32()
-    reader.read_text()
-    reader.read_bool()
-    reader.read_bool()
-    reader.read_bool()
-    reader.read_i32()
-    reader.read_text()
-    reader.read_text()
-
-    asset_refs: list[tuple[str, int]] = []
-    asset_count = reader.read_i32()
-    for _ in range(asset_count):
-        asset_path = reader.read_text()
-        bundle_index = reader.read_i32()
-        depend_count = reader.read_u16()
-        for _ in range(depend_count):
-            reader.read_i32()
-        asset_refs.append((asset_path, bundle_index))
-
-    bundle_count = reader.read_i32()
-    bundles: list[BundleInfo] = []
-    for _ in range(bundle_count):
-        name = reader.read_text()
-        reader.read_u32()
-        file_hash = reader.read_text()
-        reader.read_text()
-        file_size = reader.read_i64()
-        reader.read_bool()
-        reader.read_i8()
-        reference_count = reader.read_u16()
-        for _ in range(reference_count):
-            reader.read_i32()
-        bundles.append(BundleInfo(name=name, file_hash=file_hash, file_size=file_size))
-
-    assets: dict[str, BundleInfo] = {}
-    for asset_path, bundle_index in asset_refs:
-        if 0 <= bundle_index < len(bundles):
-            assets[asset_path] = bundles[bundle_index]
-
-    return PackageManifestData(bundles=tuple(bundles), assets=assets)
-
-
-def _find_config_bundle(manifest_data: bytes) -> BundleInfo:
-    manifest = _parse_package_manifest(manifest_data)
-
-    for bundle in manifest.bundles:
-        if bundle.name == CONFIG_BUNDLE_NAME:
-            return bundle
-
-    if len(manifest.bundles) == 1:
-        return manifest.bundles[0]
-
-    raise ValueError("ConfigPackage bundle not found")
-
-
 def _fetch_package_manifest(
     base_url: str,
     package_name: str,
@@ -762,7 +628,7 @@ def _fetch_package_manifest(
         normalized_base_url,
         f"PackageManifest_{package_name}_{version}.bytes",
     )
-    manifest = _parse_package_manifest(_download_bytes(manifest_url))
+    manifest = parse_package_manifest(_download_bytes(manifest_url))
     return version, manifest
 
 
@@ -792,283 +658,6 @@ def _extract_text_assets(bundle_data: bytes, wanted: set[str]) -> dict[str, byte
     if missing:
         raise ValueError(
             f"ConfigPackage text assets missing: {sorted(missing)}"
-        )
-    return result
-
-
-def _skip_optional_int_array(reader: BytesReader) -> None:
-    if not reader.read_bool():
-        return
-
-    count = reader.read_i32()
-    for _ in range(count):
-        reader.read_i32()
-
-
-def _parse_mintmark_quality_item(reader: BytesReader) -> tuple[int, int]:
-    _skip_optional_int_array(reader)  # Arg
-    _skip_optional_int_array(reader)  # BaseAttriValue
-    reader.read_i32()  # Connect
-    reader.read_text()  # Des
-    reader.read_text()  # EffectDes
-    _skip_optional_int_array(reader)  # ExtraAttriValue
-    reader.read_i32()  # Grade
-    reader.read_i32()  # Hide
-    mintmark_id = reader.read_i32()  # ID
-    reader.read_i32()  # Level
-    reader.read_i32()  # Max
-    _skip_optional_int_array(reader)  # MaxAttriValue
-    reader.read_i32()  # MintmarkClass
-    _skip_optional_int_array(reader)  # MonsterID
-    _skip_optional_int_array(reader)  # MoveID
-    quality = reader.read_i32()  # Quality
-    reader.read_i32()  # Rare
-    reader.read_i32()  # Rarity
-    reader.read_i32()  # TotalConsume
-    reader.read_i32()  # Type
-    return mintmark_id, quality
-
-
-def _parse_mintmark_quality_bytes(data: bytes) -> dict[int, int]:
-    reader = BytesReader(data)
-    if not reader.read_bool():
-        return {}
-
-    quality_map: dict[int, int] = {}
-    if reader.read_bool():
-        count = reader.read_i32()
-        for _ in range(count):
-            mintmark_id, quality = _parse_mintmark_quality_item(reader)
-            if mintmark_id > 0 and quality > 0:
-                quality_map[mintmark_id] = quality
-
-    if reader.read_bool():
-        class_count = reader.read_i32()
-        for _ in range(class_count):
-            reader.read_text()
-            reader.read_i32()
-
-    return quality_map
-
-
-def _parse_skin_store_pool(data: bytes) -> list[SkinStorePrice]:
-    if not data:
-        return []
-
-    reader = BytesReader(data)
-    result: list[SkinStorePrice] = []
-    if not reader.read_bool():
-        return result
-
-    count = reader.read_i32()
-    for _ in range(count):
-        reader.read_i32()
-        price = reader.read_i32()
-        original_price = reader.read_i32()
-        discount_rate = reader.read_i32()
-        end_time = reader.read_i32()
-        reader.read_i32()
-        selected_price = reader.read_i32()
-        reader.read_i32()
-        pool_id = reader.read_i32()
-        reader.read_i32()
-        reader.read_i32()
-        reader.read_i32()
-        reader.read_i32()
-        skin_id = reader.read_i32()
-        start_time = reader.read_i32()
-        ticket_id = reader.read_i32()
-        ticket_num = reader.read_i32()
-        result.append(
-            SkinStorePrice(
-                skin_id=skin_id,
-                pool_id=pool_id,
-                price=price,
-                original_price=original_price,
-                discount_rate=discount_rate,
-                selected_price=selected_price,
-                ticket_id=ticket_id,
-                ticket_num=ticket_num,
-                start_time=start_time,
-                end_time=end_time,
-            )
-        )
-
-    return result
-
-
-def _parse_skin_shop(data: bytes) -> list[SkinShopPrice]:
-    if not data:
-        return []
-
-    reader = BytesReader(data)
-    result: list[SkinShopPrice] = []
-    if not reader.read_bool():
-        return result
-    if not reader.read_bool():
-        return result
-    if not reader.read_bool():
-        return result
-
-    count = reader.read_i32()
-    for _ in range(count):
-        reader.read_i32()
-        card_price = reader.read_i32()
-        diamond_price = reader.read_i32()
-        skin_id = reader.read_i32()
-        reader.read_i32()
-        reader.read_text()
-        original_price = reader.read_i32()
-        reader.read_i32()
-        reader.read_i32()
-        if reader.read_bool():
-            show_count = reader.read_i32()
-            for _ in range(show_count):
-                reader.read_i32()
-        resource_id = reader.read_i32()
-        result.append(
-            SkinShopPrice(
-                skin_id=skin_id,
-                resource_id=resource_id,
-                card_price=card_price,
-                diamond_price=diamond_price,
-                original_price=original_price,
-            )
-        )
-
-    return result
-
-
-def _parse_items_tip(data: bytes) -> dict[int, str]:
-    if not data:
-        return {}
-
-    reader = BytesReader(data)
-    result: dict[int, str] = {}
-    if not reader.read_bool():
-        return result
-    if not reader.read_bool():
-        return result
-
-    count = reader.read_i32()
-    for _ in range(count):
-        description = reader.read_text()
-        item_id = reader.read_i32()
-        result[item_id] = description
-
-    return result
-
-
-def _skip_optional_text_array(reader: BytesReader) -> None:
-    if not reader.read_bool():
-        return
-
-    count = reader.read_i32()
-    for _ in range(count):
-        reader.read_text()
-
-
-def _parse_effect_icon(data: bytes) -> list[SoulmarkIcon]:
-    if not data:
-        return []
-
-    reader = BytesReader(data)
-    if not reader.read_bool():
-        return []
-    if not reader.read_bool():
-        return []
-
-    result: list[SoulmarkIcon] = []
-    count = reader.read_i32()
-    for _ in range(count):
-        soulmark_id = reader.read_i32()
-        reader.read_text()  # analyze
-        reader.read_text()  # args
-        reader.read_text()  # come
-        _skip_optional_text_array(reader)  # des
-        effect_id = reader.read_i32()
-        icon_id = reader.read_i32()
-        reader.read_i32()  # intensify
-        reader.read_i32()  # isAdv
-        _skip_optional_int_array(reader)  # kind
-        reader.read_i32()  # label
-        reader.read_i32()  # limitedType
-
-        pet_ids: list[int] = []
-        if reader.read_bool():
-            pet_count = reader.read_i32()
-            pet_ids = [reader.read_i32() for _ in range(pet_count)]
-
-        _skip_optional_int_array(reader)  # specificId
-        _skip_optional_text_array(reader)  # tag
-        reader.read_i32()  # target
-        reader.read_text()  # tips
-        reader.read_i32()  # to
-        reader.read_i32()  # type
-
-        if soulmark_id <= 0 or icon_id <= 0:
-            continue
-        if not pet_ids:
-            pet_ids = [0]
-        result.extend(
-            SoulmarkIcon(
-                soulmark_id=soulmark_id,
-                pet_id=pet_id,
-                effect_id=effect_id,
-                icon_id=icon_id,
-            )
-            for pet_id in pet_ids
-        )
-
-    return result
-
-
-def _parse_autocard_season_effects(
-    data: bytes,
-) -> list[AutocardSeasonEffect]:
-    """Parse the authoritative current sanctuary/effect directory."""
-
-    if not data:
-        return []
-
-    reader = BytesReader(data)
-    if not reader.read_bool():
-        return []
-
-    result: list[AutocardSeasonEffect] = []
-    count = reader.read_i32()
-    for _ in range(count):
-        count_buff_id = reader.read_text()
-        buff_id = reader.read_text()
-        buff_param = reader.read_text()
-        count_type = reader.read_i32()
-        count_num = reader.read_i32()
-        sanctuary_id = reader.read_i32()
-        name = reader.read_text()
-        description = reader.read_text()
-        effect_id = reader.read_i32()
-        unlock_round = reader.read_i32()
-        pic_id = reader.read_i32()
-        season_id = reader.read_i32()
-        stage = reader.read_i32()
-        if effect_id <= 0 or sanctuary_id <= 0 or not name:
-            continue
-        result.append(
-            AutocardSeasonEffect(
-                effect_id=effect_id,
-                sanctuary_id=sanctuary_id,
-                name=name,
-                description=description,
-                buff_id=buff_id,
-                buff_param=buff_param,
-                count_buff_id=count_buff_id,
-                count_type=count_type,
-                count_num=count_num,
-                unlock_round=unlock_round,
-                pic_id=pic_id,
-                season_id=season_id,
-                stage=stage,
-            )
         )
     return result
 
@@ -3179,12 +2768,12 @@ def _fetch_config_package_data() -> ConfigPackageData:
     return ConfigPackageData(
         version=version,
         bundle_url=bundle_url,
-        mintmark_quality=_parse_mintmark_quality_bytes(assets[MINTMARK_BYTES_NAME]),
-        skin_store_prices=_parse_skin_store_pool(assets[SKIN_STORE_POOL_BYTES_NAME]),
-        skin_shop_prices=_parse_skin_shop(assets[SKIN_SHOP_BYTES_NAME]),
-        skin_item_tips=_parse_items_tip(assets[ITEMS_TIP_BYTES_NAME]),
-        soulmark_icons=_parse_effect_icon(assets[EFFECT_ICON_BYTES_NAME]),
-        autocard_season_effects=_parse_autocard_season_effects(
+        mintmark_quality=parse_mintmark_quality(assets[MINTMARK_BYTES_NAME]),
+        skin_store_prices=parse_skin_store_pool(assets[SKIN_STORE_POOL_BYTES_NAME]),
+        skin_shop_prices=parse_skin_shop(assets[SKIN_SHOP_BYTES_NAME]),
+        skin_item_tips=parse_items_tip(assets[ITEMS_TIP_BYTES_NAME]),
+        soulmark_icons=parse_effect_icons(assets[EFFECT_ICON_BYTES_NAME]),
+        autocard_season_effects=parse_autocard_season_effects(
             assets[AUTOCARD_SEASON_EFFECT_BYTES_NAME]
         ),
     )

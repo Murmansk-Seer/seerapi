@@ -19,6 +19,7 @@ SCRIPT_PATH = (
 SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
+import config_package_sources
 import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
@@ -617,8 +618,8 @@ def test_parse_autocard_season_effects() -> None:
         )
     )
 
-    assert builder._parse_autocard_season_effects(payload) == [
-        builder.AutocardSeasonEffect(
+    assert config_package_sources.parse_autocard_season_effects(payload) == [
+        config_package_sources.AutocardSeasonEffect(
             effect_id=10,
             sanctuary_id=2,
             name="霁天",
@@ -691,7 +692,7 @@ def _package_manifest_bytes(
 
 
 def test_parse_package_manifest_maps_assets_to_bundles() -> None:
-    manifest = builder._parse_package_manifest(
+    manifest = config_package_sources.parse_package_manifest(
         _package_manifest_bytes(
             assets=[
                 ("Assets/Art/Ui/assets/effectIcon/307.png", 1),
@@ -705,7 +706,7 @@ def test_parse_package_manifest_maps_assets_to_bundles() -> None:
     )
 
     assert manifest.assets["Assets/Art/Ui/assets/effectIcon/307.png"] == (
-        builder.BundleInfo("art_ui_effecticon", "effect-hash", 34)
+        config_package_sources.BundleInfo("art_ui_effecticon", "effect-hash", 34)
     )
 
 
