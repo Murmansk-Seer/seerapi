@@ -21,6 +21,7 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 import effect_metadata_sources
 import item_exchange_sources
+import partner_contract_sources
 import render_asset_repository
 
 SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
@@ -1850,7 +1851,7 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
         ]
     }
 
-    data = builder._parse_pet_partner_data(
+    data = partner_contract_sources.parse_pet_partner_data(
         json.dumps(
             {
                 "schema_version": 1,
@@ -1895,11 +1896,16 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
                 ],
             },
             ensure_ascii=False,
-        ).encode("utf-8")
+        ).encode("utf-8"),
+        schema_version=builder.PARTNER_CONTRACTS_SCHEMA_VERSION,
+        group_type=builder.PARTNER_CONTRACT_GROUP_TYPE,
+        cost_item_id=builder.CONTRACT_BADGE_ITEM_ID,
+        cost_item_name=builder.CONTRACT_BADGE_ITEM_NAME,
+        descriptions_reversed=builder.PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED,
     )
 
     assert data.groups == [
-        builder.PetPartnerGroup(
+        partner_contract_sources.PetPartnerGroup(
             group_id=15,
             name="源初之夜",
             member_pet_ids=(4329, 3491),
@@ -1909,7 +1915,7 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
         )
     ]
     assert data.upgrades == [
-        builder.PetPartnerUpgrade(
+        partner_contract_sources.PetPartnerUpgrade(
             pet_id=4329,
             before_description="强化前魂印",
             after_description="强化后魂印",
@@ -2175,7 +2181,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     )
     pet_partner_data = builder.PetPartnerData(
         groups=[
-            builder.PetPartnerGroup(
+        partner_contract_sources.PetPartnerGroup(
                 group_id=15,
                 name="源初之夜",
                 member_pet_ids=(4329, 3491),
@@ -2185,7 +2191,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             )
         ],
         upgrades=[
-            builder.PetPartnerUpgrade(
+        partner_contract_sources.PetPartnerUpgrade(
                 pet_id=4329,
                 before_description="强化前魂印",
                 after_description="强化后魂印",

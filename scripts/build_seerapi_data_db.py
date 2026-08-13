@@ -43,6 +43,10 @@ if __package__:
         parse_commodity_shop,
         parse_special_skill_shop,
     )
+    from .partner_contract_sources import (
+        PetPartnerData,
+        parse_pet_partner_data,
+    )
     from .render_asset_repository import (
         AssetRepositorySnapshot,
         RenderAssetRepository,
@@ -64,6 +68,10 @@ else:
         ItemExchangePrice,
         parse_commodity_shop,
         parse_special_skill_shop,
+    )
+    from partner_contract_sources import (  # type: ignore[import-not-found]
+        PetPartnerData,
+        parse_pet_partner_data,
     )
     from render_asset_repository import (  # type: ignore[import-not-found]
         AssetRepositorySnapshot,
@@ -446,30 +454,6 @@ class SkinImageResolution:
     head_resolution: str
     body_resolution: str
     source_pet_id: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class PetPartnerGroup:
-    group_id: int
-    name: str
-    member_pet_ids: tuple[int, ...]
-    cost_item_id: int
-    cost_item_name: str
-    cost_item_quantity: int
-
-
-@dataclass(frozen=True, slots=True)
-class PetPartnerUpgrade:
-    pet_id: int
-    before_description: str
-    after_description: str
-    skill_id: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class PetPartnerData:
-    groups: list[PetPartnerGroup]
-    upgrades: list[PetPartnerUpgrade]
 
 
 @dataclass(frozen=True, slots=True)
@@ -3381,132 +3365,16 @@ def _parse_unity_item_names(data: bytes) -> dict[int, str]:
     return item_names
 
 
-def _partner_contract_int(value: object, label: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"Invalid contract {label}: {value!r}")
-    try:
-        return int(value)
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"Invalid contract {label}: {value!r}") from error
-
-
-def _parse_pet_partner_data(partner_contracts_data: bytes) -> PetPartnerData:
-    """Parse canonical contract data extracted from the official ConfigPackage."""
-
-    raw = json.loads(partner_contracts_data.decode("utf-8-sig"))
-    if not isinstance(raw, dict):
-        raise ValueError("Partner contracts root must be an object")
-    if raw.get("schema_version") != PARTNER_CONTRACTS_SCHEMA_VERSION:
-        raise ValueError(
-            "Unsupported partner contracts schema: "
-            f"{raw.get('schema_version')!r}"
-        )
-    source = raw.get("source")
-    if (
-        not isinstance(source, dict)
-        or source.get("package") != "ConfigPackage"
-        or not isinstance(source.get("config_package_version"), str)
-        or not source["config_package_version"].strip()
-    ):
-        raise ValueError("Partner contracts are not sourced from ConfigPackage")
-
-    group_rows = raw.get("groups")
-    if not isinstance(group_rows, list):
-        raise ValueError("Partner contracts groups must be a list")
-
-    groups: list[PetPartnerGroup] = []
-    member_pet_ids: set[int] = set()
-    seen_group_ids: set[int] = set()
-    for index, row in enumerate(group_rows):
-        if not isinstance(row, dict):
-            raise ValueError(f"Partner contract group {index} must be an object")
-        group_id = _partner_contract_int(row.get("key"), f"groups[{index}].key")
-        group_type = _item_text(row, "type").strip()
-        name = _item_text(row, "name").strip()
-        cost = _partner_contract_int(row.get("cost"), f"groups[{index}].cost")
-        raw_members = row.get("member_pet_ids")
-        if not isinstance(raw_members, list):
-            raise ValueError(f"Partner contract group {group_id} has invalid members")
-        members = tuple(
-            _partner_contract_int(
-                member_id,
-                f"groups[{index}].member_pet_ids[{member_index}]",
-            )
-            for member_index, member_id in enumerate(raw_members)
-        )
-        if (
-            group_id <= 0
-            or not group_type
-            or not name
-            or cost <= 0
-            or len(members) < 2
-            or group_id in seen_group_ids
-            or any(member_id <= 0 for member_id in members)
-            or len(set(members)) != len(members)
-            or any(member_id in member_pet_ids for member_id in members)
-        ):
-            raise ValueError(f"Invalid partner contract group {group_id}")
-        if group_type != PARTNER_CONTRACT_GROUP_TYPE:
-            continue
-        seen_group_ids.add(group_id)
-        member_pet_ids.update(members)
-        groups.append(
-            PetPartnerGroup(
-                group_id=group_id,
-                name=name,
-                member_pet_ids=members,
-                cost_item_id=CONTRACT_BADGE_ITEM_ID,
-                cost_item_name=CONTRACT_BADGE_ITEM_NAME,
-                cost_item_quantity=cost,
-            )
-        )
-
-    upgrade_rows = raw.get("upgrades")
-    if not isinstance(upgrade_rows, list):
-        raise ValueError("Partner contract upgrades must be a list")
-
-    upgrades: dict[int, PetPartnerUpgrade] = {}
-    for index, row in enumerate(upgrade_rows):
-        if not isinstance(row, dict):
-            raise ValueError(f"Partner contract upgrade {index} must be an object")
-        pet_id = _partner_contract_int(row.get("pet_id"), f"upgrades[{index}].pet_id")
-        if pet_id <= 0 or pet_id not in member_pet_ids or pet_id in upgrades:
-            continue
-        raw_skill_ids = row.get("skill_ids", [])
-        if not isinstance(raw_skill_ids, list):
-            raise ValueError(f"Partner contract upgrade {pet_id} has invalid skill IDs")
-        skill_ids = [
-            _partner_contract_int(
-                skill_id,
-                f"upgrades[{index}].skill_ids[{skill_index}]",
-            )
-            for skill_index, skill_id in enumerate(raw_skill_ids)
-        ]
-        skill_id = next((value for value in skill_ids if value > 0), None)
-        source_before_description = _item_text(row, "before_description").strip()
-        source_after_description = _item_text(row, "after_description").strip()
-        if PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED:
-            source_before_description, source_after_description = (
-                source_after_description,
-                source_before_description,
-            )
-
-        upgrades[pet_id] = PetPartnerUpgrade(
-            pet_id=pet_id,
-            before_description=source_before_description,
-            after_description=source_after_description,
-            skill_id=skill_id,
-        )
-
-    return PetPartnerData(
-        groups=sorted(groups, key=lambda group: group.group_id),
-        upgrades=[upgrades[pet_id] for pet_id in sorted(upgrades)],
-    )
-
-
 def _load_pet_partner_data() -> PetPartnerData:
     try:
-        return _parse_pet_partner_data(_download_bytes(PARTNER_CONTRACTS_URL))
+        return parse_pet_partner_data(
+            _download_bytes(PARTNER_CONTRACTS_URL),
+            schema_version=PARTNER_CONTRACTS_SCHEMA_VERSION,
+            group_type=PARTNER_CONTRACT_GROUP_TYPE,
+            cost_item_id=CONTRACT_BADGE_ITEM_ID,
+            cost_item_name=CONTRACT_BADGE_ITEM_NAME,
+            descriptions_reversed=PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED,
+        )
     except (
         HTTPError,
         URLError,
