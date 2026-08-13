@@ -1398,6 +1398,21 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
     assert "#blob:item" in by_identity[("item", "9")].source
 
 
+def test_parse_git_tree_blobs_reads_only_blob_entries() -> None:
+    tree = "\n".join(
+        (
+            "100644 blob abc123\tassets/pet.png",
+            "040000 tree def456\tassets",
+            "100644 blob fedcba\tassets/type.png",
+        )
+    )
+
+    assert builder._parse_git_tree_blobs(tree) == {
+        "assets/pet.png": "abc123",
+        "assets/type.png": "fedcba",
+    }
+
+
 def test_pet_info_remote_asset_manifest_disables_scope_for_missing_mandatory_asset(
     tmp_path: Path,
 ) -> None:
