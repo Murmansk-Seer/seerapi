@@ -92,6 +92,22 @@ class SeerAPI:
         self, resource_name: Literal['battle_effect_type'], id: int
     ) -> M.BattleEffectCategory: ...
     @overload
+    async def get(self, resource_name: Literal['sign'], id: int) -> M.Sign: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['field_effect'], id: int
+    ) -> M.FieldEffect: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['field_effect_type'], id: int
+    ) -> M.FieldEffectType: ...
+    @overload
+    async def get(self, resource_name: Literal['buff'], id: int) -> M.Buff: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['buff_type'], id: int
+    ) -> M.BuffType: ...
+    @overload
     async def get(
         self, resource_name: Literal['resistance_category'], id: int
     ) -> M.ResistanceCategory: ...
@@ -310,7 +326,6 @@ class SeerAPI:
         self, resource_name: Literal['error_code'], id: int
     ) -> M.ErrorCode: ...
     @overload
-    @overload
     async def get(
         self, resource_name: type[T_ModelInstance], id: int
     ) -> T_ModelInstance: ...
@@ -382,6 +397,26 @@ class SeerAPI:
     async def paginated_list(
         self, resource_name: Literal['battle_effect_type'], page_info: PageInfo
     ) -> PagedResponse[M.BattleEffectCategory]: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['sign'], page_info: PageInfo
+    ) -> PagedResponse[M.Sign]: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['field_effect'], page_info: PageInfo
+    ) -> PagedResponse[M.FieldEffect]: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['field_effect_type'], page_info: PageInfo
+    ) -> PagedResponse[M.FieldEffectType]: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['buff'], page_info: PageInfo
+    ) -> PagedResponse[M.Buff]: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['buff_type'], page_info: PageInfo
+    ) -> PagedResponse[M.BuffType]: ...
     @overload
     async def paginated_list(
         self, resource_name: Literal['resistance_category'], page_info: PageInfo
@@ -643,7 +678,6 @@ class SeerAPI:
         self, resource_name: Literal['activity_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.ActivityType]: ...
     @overload
-    @overload
     def list(
         self, resource_name: Literal['achievement'], *, expand: bool = True
     ) -> AsyncGenerator[M.Achievement]: ...
@@ -699,6 +733,26 @@ class SeerAPI:
     def list(
         self, resource_name: Literal['battle_effect_type'], *, expand: bool = True
     ) -> AsyncGenerator[M.BattleEffectCategory]: ...
+    @overload
+    def list(
+        self, resource_name: Literal['sign'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Sign]: ...
+    @overload
+    def list(
+        self, resource_name: Literal['field_effect'], *, expand: bool = True
+    ) -> AsyncGenerator[M.FieldEffect]: ...
+    @overload
+    def list(
+        self, resource_name: Literal['field_effect_type'], *, expand: bool = True
+    ) -> AsyncGenerator[M.FieldEffectType]: ...
+    @overload
+    def list(
+        self, resource_name: Literal['buff'], *, expand: bool = True
+    ) -> AsyncGenerator[M.Buff]: ...
+    @overload
+    def list(
+        self, resource_name: Literal['buff_type'], *, expand: bool = True
+    ) -> AsyncGenerator[M.BuffType]: ...
     @overload
     def list(
         self, resource_name: Literal['resistance_category'], *, expand: bool = True
@@ -1011,6 +1065,14 @@ class SeerAPI:
     async def get_by_name(
         self, resource_name: Literal['battle_effect_type'], name: str
     ) -> NamedData[M.BattleEffectCategory]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['sign'], name: str
+    ) -> NamedData[M.Sign]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['field_effect'], name: str
+    ) -> NamedData[M.FieldEffect]: ...
     @overload
     async def get_by_name(
         self, resource_name: Literal['resistance_category'], name: str

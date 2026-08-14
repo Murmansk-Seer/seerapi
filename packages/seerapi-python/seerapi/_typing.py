@@ -21,6 +21,8 @@ NamedModelName: TypeAlias = Literal[
     'title',
     'battle_effect',
     'battle_effect_type',
+    'sign',
+    'field_effect',
     'resistance_category',
     'pet_effect',
     'pet_effect_group',
@@ -88,6 +90,9 @@ ModelName: TypeAlias = Literal[
     'peak_pool_vote',
     'pet_advance',
     'peak_season',
+    'field_effect_type',
+    'buff',
+    'buff_type',
 ]
 
 ModelInstance: TypeAlias = BaseResModel
@@ -105,6 +110,8 @@ NamedModelInstance: TypeAlias = (
     | M.Title
     | M.BattleEffect
     | M.BattleEffectCategory
+    | M.Sign
+    | M.FieldEffect
     | M.ResistanceCategory
     | M.PetEffect
     | M.PetEffectGroup

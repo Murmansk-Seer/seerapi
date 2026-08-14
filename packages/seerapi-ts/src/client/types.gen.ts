@@ -1406,7 +1406,7 @@ export type AutocardFieldListExpanded = {
 };
 
 /**
- * 状态资源
+ * 异常状态资源
  */
 export type BattleEffect = HashPartial & {
     /**
@@ -1440,12 +1440,12 @@ export type BattleEffect = HashPartial & {
 };
 
 /**
- * 状态资源列表
+ * 异常状态资源列表
  */
 export type BattleEffectList = CommonApiResourceList;
 
 /**
- * 状态资源列表（expand=true）
+ * 异常状态资源列表（expand=true）
  *
  * expand=true 时返回完整资源对象列表
  */
@@ -1477,7 +1477,7 @@ export type BattleEffectListExpanded = {
 };
 
 /**
- * 状态类型资源
+ * 异常状态类型资源
  */
 export type BattleEffectType = HashPartial & {
     /**
@@ -1501,12 +1501,12 @@ export type BattleEffectType = HashPartial & {
 };
 
 /**
- * 状态类型资源列表
+ * 异常状态类型资源列表
  */
 export type BattleEffectTypeList = CommonApiResourceList;
 
 /**
- * 状态类型资源列表（expand=true）
+ * 异常状态类型资源列表（expand=true）
  *
  * expand=true 时返回完整资源对象列表
  */
@@ -1596,6 +1596,135 @@ export type ResistanceCategoryListExpanded = {
      * 资源列表
      */
     results: Array<ResistanceCategory>;
+};
+
+/**
+ * Buff资源
+ */
+export type Buff = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Desc
+     *
+     * 效果描述
+     */
+    desc: string;
+    /**
+     * Tag
+     *
+     * 效果标签
+     */
+    tag: string;
+    /**
+     * Desc Tag
+     *
+     * 效果描述中的标签，用于格式化效果描述
+     */
+    desc_tag?: string | null;
+    /**
+     * Icon
+     *
+     * 图标 ID 列表
+     */
+    icon?: Array<number>;
+    type: CommonResourceRef;
+};
+
+/**
+ * Buff资源列表
+ */
+export type BuffList = CommonApiResourceList;
+
+/**
+ * Buff资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type BuffListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Buff>;
+};
+
+/**
+ * Buff 图标类型资源
+ */
+export type BuffType = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Buff
+     *
+     * Buff 列表
+     */
+    buff?: Array<CommonResourceRef>;
+};
+
+/**
+ * Buff 图标类型资源列表
+ */
+export type BuffTypeList = CommonApiResourceList;
+
+/**
+ * Buff 图标类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type BuffTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<BuffType>;
 };
 
 /**
@@ -3039,6 +3168,123 @@ export type ErrorCodeListExpanded = {
      * 资源列表
      */
     results: Array<ErrorCode>;
+};
+
+/**
+ * 场地效果资源
+ */
+export type FieldEffect = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 效果名称
+     */
+    name: string;
+    /**
+     * Desc
+     *
+     * 效果描述
+     */
+    desc: string;
+    type: CommonResourceRef;
+};
+
+/**
+ * 场地效果资源列表
+ */
+export type FieldEffectList = CommonApiResourceList;
+
+/**
+ * 场地效果资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type FieldEffectListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<FieldEffect>;
+};
+
+/**
+ * 场地效果类型资源
+ */
+export type FieldEffectType = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Effect
+     *
+     * 效果列表
+     */
+    effect: Array<CommonResourceRef>;
+};
+
+/**
+ * 场地效果类型资源列表
+ */
+export type FieldEffectTypeList = CommonApiResourceList;
+
+/**
+ * 场地效果类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type FieldEffectTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<FieldEffectType>;
 };
 
 /**
@@ -5872,6 +6118,118 @@ export type PetEncyclopediaEntryListExpanded = {
 };
 
 /**
+ * 印记资源
+ */
+export type Sign = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 名称
+     */
+    name: string;
+    /**
+     * Desc
+     *
+     * 描述，当子项描述覆盖主项描述时为null
+     */
+    desc?: string | null;
+    /**
+     * Sort
+     *
+     * 战斗界面印记图标的显示顺序权重，数值越小越靠前。客户端在可见性（isShow）相同时按此字段升序排列；可见图标始终优先于隐藏图标。
+     */
+    sort: number;
+    /**
+     * Is Show Num
+     *
+     * 是否显示剩余计数
+     */
+    is_show_num: boolean;
+    /**
+     * Num Des
+     *
+     * 计数量词，仅在is_show_num为True时有效
+     */
+    num_des?: string | null;
+    /**
+     * Subitem
+     *
+     * 子项，key为子项内部ID，value为子项对象
+     */
+    subitem?: {
+        [key: string]: {
+            /**
+             * Subitem Id
+             *
+             * 子项ID
+             */
+            subitem_id: number;
+            /**
+             * Name
+             *
+             * 名称，为null时使用主项名称
+             */
+            name?: string | null;
+            /**
+             * Desc
+             *
+             * 描述，为null时使用主项描述
+             */
+            desc?: string | null;
+            /**
+             * Icon Subid
+             *
+             * 图标子ID，为null时使用不带子项ID后缀的图标
+             */
+            icon_subid?: number | null;
+        };
+    };
+};
+
+/**
+ * 印记资源列表
+ */
+export type SignList = CommonApiResourceList;
+
+/**
+ * 印记资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SignListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Sign>;
+};
+
+/**
  * 技能资源
  */
 export type Skill = HashPartial & {
@@ -6482,6 +6840,14 @@ export type RootIndex = HashPartial & {
      */
     resistance_category: string;
     /**
+     * buff Path
+     */
+    buff: string;
+    /**
+     * buff_type Path
+     */
+    buff_type: string;
+    /**
      * avatar_head Path
      */
     avatar_head: string;
@@ -6557,6 +6923,14 @@ export type RootIndex = HashPartial & {
      * error_code Path
      */
     error_code: string;
+    /**
+     * field_effect Path
+     */
+    field_effect: string;
+    /**
+     * field_effect_type Path
+     */
+    field_effect_type: string;
     /**
      * glossary_entry Path
      */
@@ -6701,6 +7075,10 @@ export type RootIndex = HashPartial & {
      * pet_encyclopedia_entry Path
      */
     pet_encyclopedia_entry: string;
+    /**
+     * sign Path
+     */
+    sign: string;
     /**
      * skill Path
      */
@@ -7637,6 +8015,110 @@ export type GetResistanceCategoryListResponses = {
 };
 
 export type GetResistanceCategoryListResponse = GetResistanceCategoryListResponses[keyof GetResistanceCategoryListResponses];
+
+export type GetBuffByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/buff/{id}';
+};
+
+export type GetBuffByIdResponses = {
+    /**
+     * OK
+     */
+    200: Buff;
+};
+
+export type GetBuffByIdResponse = GetBuffByIdResponses[keyof GetBuffByIdResponses];
+
+export type GetBuffListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/buff/';
+};
+
+export type GetBuffListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: BuffList | BuffListExpanded;
+};
+
+export type GetBuffListResponse = GetBuffListResponses[keyof GetBuffListResponses];
+
+export type GetBuffTypeByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/buff_type/{id}';
+};
+
+export type GetBuffTypeByIdResponses = {
+    /**
+     * OK
+     */
+    200: BuffType;
+};
+
+export type GetBuffTypeByIdResponse = GetBuffTypeByIdResponses[keyof GetBuffTypeByIdResponses];
+
+export type GetBuffTypeListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/buff_type/';
+};
+
+export type GetBuffTypeListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: BuffTypeList | BuffTypeListExpanded;
+};
+
+export type GetBuffTypeListResponse = GetBuffTypeListResponses[keyof GetBuffTypeListResponses];
 
 export type GetAvatarHeadByIdData = {
     body?: never;
@@ -8625,6 +9107,110 @@ export type GetErrorCodeListResponses = {
 };
 
 export type GetErrorCodeListResponse = GetErrorCodeListResponses[keyof GetErrorCodeListResponses];
+
+export type GetFieldEffectByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/field_effect/{id}';
+};
+
+export type GetFieldEffectByIdResponses = {
+    /**
+     * OK
+     */
+    200: FieldEffect;
+};
+
+export type GetFieldEffectByIdResponse = GetFieldEffectByIdResponses[keyof GetFieldEffectByIdResponses];
+
+export type GetFieldEffectListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/field_effect/';
+};
+
+export type GetFieldEffectListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: FieldEffectList | FieldEffectListExpanded;
+};
+
+export type GetFieldEffectListResponse = GetFieldEffectListResponses[keyof GetFieldEffectListResponses];
+
+export type GetFieldEffectTypeByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/field_effect_type/{id}';
+};
+
+export type GetFieldEffectTypeByIdResponses = {
+    /**
+     * OK
+     */
+    200: FieldEffectType;
+};
+
+export type GetFieldEffectTypeByIdResponse = GetFieldEffectTypeByIdResponses[keyof GetFieldEffectTypeByIdResponses];
+
+export type GetFieldEffectTypeListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/field_effect_type/';
+};
+
+export type GetFieldEffectTypeListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: FieldEffectTypeList | FieldEffectTypeListExpanded;
+};
+
+export type GetFieldEffectTypeListResponse = GetFieldEffectTypeListResponses[keyof GetFieldEffectTypeListResponses];
 
 export type GetGlossaryEntryByIdData = {
     body?: never;
@@ -10497,6 +11083,58 @@ export type GetPetEncyclopediaEntryListResponses = {
 };
 
 export type GetPetEncyclopediaEntryListResponse = GetPetEncyclopediaEntryListResponses[keyof GetPetEncyclopediaEntryListResponses];
+
+export type GetSignByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/sign/{id}';
+};
+
+export type GetSignByIdResponses = {
+    /**
+     * OK
+     */
+    200: Sign;
+};
+
+export type GetSignByIdResponse = GetSignByIdResponses[keyof GetSignByIdResponses];
+
+export type GetSignListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/sign/';
+};
+
+export type GetSignListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SignList | SignListExpanded;
+};
+
+export type GetSignListResponse = GetSignListResponses[keyof GetSignListResponses];
 
 export type GetSkillByIdData = {
     body?: never;
