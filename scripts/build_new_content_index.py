@@ -26,6 +26,7 @@ CATEGORY_SNAPSHOT_TABLE = 'new_content_source_category'
 CATEGORY_STATE_TABLE = 'new_content_category_state'
 AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
 AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
+PEAK_POOL_CATEGORY = 'peak_pool'
 PET_VOLATILE_STATS = frozenset(
     {
         'peak_pool_id',
@@ -40,7 +41,7 @@ PET_SKILL_RELATION_FIELDS = (
     'is_advanced',
     'is_fifth',
 )
-SEMANTIC_SCHEMA_VERSION = 4
+SEMANTIC_SCHEMA_VERSION = 5
 SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
     # v2 normalized the semantic snapshots for these categories.  Keep this
     # migration scoped to databases that genuinely predate it: rerunning it
@@ -66,6 +67,7 @@ SEMANTIC_MIGRATION_SUPPRESS_MODIFIED_BY_VERSION: dict[int, frozenset[str]] = {
 CONTENT_CATEGORIES = (
     'achievement',
     'pet',
+    PEAK_POOL_CATEGORY,
     'pet_skin',
     'skill',
     'mintmark',
@@ -80,6 +82,7 @@ CONTENT_CATEGORIES = (
 CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
     'achievement': ('achievement',),
     'pet': ('pet',),
+    PEAK_POOL_CATEGORY: ('pet', 'peak_pool'),
     'pet_skin': ('pet_skin',),
     'skill': ('skill',),
     'mintmark': ('mintmark',),
@@ -498,6 +501,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         column for column in pet_columns if column in _table_columns(conn, 'pet')
     )
     pet_select = ', '.join(('id', 'name', *pet_columns))
+    has_peak_pool = PEAK_POOL_CATEGORY in _source_categories(conn)
     for row in _rows(conn, f'SELECT {pet_select} FROM pet'):
         entity_id = int(row['id'])
         items.append(
@@ -514,6 +518,17 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 },
             )
         )
+        if has_peak_pool:
+            raw_limit = row['peak_pool_id']
+            items.append(
+                ContentItem(
+                    PEAK_POOL_CATEGORY,
+                    entity_id,
+                    str(row['name']),
+                    entity_id,
+                    {'limit': None if raw_limit is None else int(raw_limit)},
+                )
+            )
 
     if _has_table(conn, 'skill'):
         skill_fields = tuple(
@@ -978,6 +993,7 @@ def _new_items(
         item.with_change_kind('added')
         for item in current
         if item.category in comparable_categories
+        and item.category != PEAK_POOL_CATEGORY
         and (item.category, item.entity_id) not in previous_by_id
         and item.semantic_digest not in previous_semantic
     )
@@ -996,8 +1012,45 @@ def _modified_items(
         if (previous_item := previous_by_id.get((item.category, item.entity_id)))
         is not None
         and item.category in comparable_categories
+        and item.category != PEAK_POOL_CATEGORY
         and item.semantic_digest != previous_item
     )
+
+
+def _peak_pool_modified_items(
+    current: tuple[ContentItem, ...],
+    previous: tuple[ContentItem, ...],
+    comparable_categories: set[str],
+) -> tuple[ContentItem, ...]:
+    if PEAK_POOL_CATEGORY not in comparable_categories:
+        return ()
+    previous_by_id = {
+        item.entity_id: item
+        for item in previous
+        if item.category == PEAK_POOL_CATEGORY
+    }
+    changes: list[ContentItem] = []
+    for item in current:
+        if item.category != PEAK_POOL_CATEGORY:
+            continue
+        previous_item = previous_by_id.get(item.entity_id)
+        if previous_item is None:
+            continue
+        previous_limit = previous_item.payload.get('limit')
+        current_limit = item.payload.get('limit')
+        if previous_limit == current_limit:
+            continue
+        changes.append(
+            replace(
+                item,
+                payload={
+                    'previous_limit': previous_limit,
+                    'current_limit': current_limit,
+                },
+                change_kind='modified',
+            )
+        )
+    return tuple(changes)
 
 
 def _source_history_items(
@@ -1024,17 +1077,21 @@ def _current_subset(
     candidates: Iterable[ContentItem], current: tuple[ContentItem, ...]
 ) -> tuple[ContentItem, ...]:
     current_by_id = {(item.category, item.entity_id): item for item in current}
-    change_kinds = {
-        (item.category, item.entity_id): item.change_kind for item in candidates
+    candidate_by_key = {
+        (item.category, item.entity_id): item for item in candidates
     }
     return tuple(
         sorted(
             (
                 replace(
-                    current_by_id[key],
-                    change_kind=change_kind,
+                    (
+                        candidate
+                        if candidate.category == PEAK_POOL_CATEGORY
+                        else current_by_id[key]
+                    ),
+                    change_kind=candidate.change_kind,
                 )
-                for key, change_kind in change_kinds.items()
+                for key, candidate in candidate_by_key.items()
                 if key in current_by_id
             ),
             key=lambda item: (item.category, item.entity_id),
@@ -1090,6 +1147,14 @@ def build_release_state(
     comparable_categories = {
         state.category for state in category_states if state.comparison_ready
     }
+    previous_peak_pool_items: tuple[ContentItem, ...] = ()
+    if previous_path is not None and previous_path.is_file():
+        with sqlite3.connect(previous_path) as conn:
+            previous_peak_pool_items = tuple(
+                item
+                for item in load_current_items(conn)
+                if item.category == PEAK_POOL_CATEGORY
+            )
     modified_items = _modified_items(
         current_items,
         previous.source_items,
@@ -1109,6 +1174,11 @@ def build_release_state(
         (
             *_new_items(current_items, previous.source_items, comparable_categories),
             *modified_items,
+            *_peak_pool_modified_items(
+                current_items,
+                previous_peak_pool_items,
+                comparable_categories,
+            ),
             *_source_history_items(current_items, source_history_additions),
         ),
         current_items,
