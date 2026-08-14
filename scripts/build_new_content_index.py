@@ -27,6 +27,12 @@ CATEGORY_STATE_TABLE = 'new_content_category_state'
 AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
 AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
 PEAK_POOL_CATEGORY = 'peak_pool'
+PEAK_EXPERT_POOL_CATEGORY = 'peak_expert_pool'
+PEAK_POOL_FIELDS: dict[str, str] = {
+    PEAK_POOL_CATEGORY: 'peak_pool_id',
+    PEAK_EXPERT_POOL_CATEGORY: 'peak_expert_pool_id',
+}
+PEAK_POOL_CATEGORIES = frozenset(PEAK_POOL_FIELDS)
 PET_VOLATILE_STATS = frozenset(
     {
         'peak_pool_id',
@@ -41,7 +47,7 @@ PET_SKILL_RELATION_FIELDS = (
     'is_advanced',
     'is_fifth',
 )
-SEMANTIC_SCHEMA_VERSION = 5
+SEMANTIC_SCHEMA_VERSION = 6
 SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
     # v2 normalized the semantic snapshots for these categories.  Keep this
     # migration scoped to databases that genuinely predate it: rerunning it
@@ -68,6 +74,7 @@ CONTENT_CATEGORIES = (
     'achievement',
     'pet',
     PEAK_POOL_CATEGORY,
+    PEAK_EXPERT_POOL_CATEGORY,
     'pet_skin',
     'skill',
     'mintmark',
@@ -83,6 +90,7 @@ CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
     'achievement': ('achievement',),
     'pet': ('pet',),
     PEAK_POOL_CATEGORY: ('pet', 'peak_pool'),
+    PEAK_EXPERT_POOL_CATEGORY: ('pet', 'peak_pool'),
     'pet_skin': ('pet_skin',),
     'skill': ('skill',),
     'mintmark': ('mintmark',),
@@ -501,7 +509,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         column for column in pet_columns if column in _table_columns(conn, 'pet')
     )
     pet_select = ', '.join(('id', 'name', *pet_columns))
-    has_peak_pool = PEAK_POOL_CATEGORY in _source_categories(conn)
+    source_categories = _source_categories(conn)
     for row in _rows(conn, f'SELECT {pet_select} FROM pet'):
         entity_id = int(row['id'])
         items.append(
@@ -518,11 +526,13 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 },
             )
         )
-        if has_peak_pool:
-            raw_limit = row['peak_pool_id']
+        for category, limit_field in PEAK_POOL_FIELDS.items():
+            if category not in source_categories:
+                continue
+            raw_limit = row[limit_field]
             items.append(
                 ContentItem(
-                    PEAK_POOL_CATEGORY,
+                    category,
                     entity_id,
                     str(row['name']),
                     entity_id,
@@ -993,7 +1003,7 @@ def _new_items(
         item.with_change_kind('added')
         for item in current
         if item.category in comparable_categories
-        and item.category != PEAK_POOL_CATEGORY
+        and item.category not in PEAK_POOL_CATEGORIES
         and (item.category, item.entity_id) not in previous_by_id
         and item.semantic_digest not in previous_semantic
     )
@@ -1012,7 +1022,7 @@ def _modified_items(
         if (previous_item := previous_by_id.get((item.category, item.entity_id)))
         is not None
         and item.category in comparable_categories
-        and item.category != PEAK_POOL_CATEGORY
+        and item.category not in PEAK_POOL_CATEGORIES
         and item.semantic_digest != previous_item
     )
 
@@ -1022,18 +1032,21 @@ def _peak_pool_modified_items(
     previous: tuple[ContentItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
-    if PEAK_POOL_CATEGORY not in comparable_categories:
+    comparable_pool_categories = PEAK_POOL_CATEGORIES.intersection(
+        comparable_categories
+    )
+    if not comparable_pool_categories:
         return ()
     previous_by_id = {
-        item.entity_id: item
+        (item.category, item.entity_id): item
         for item in previous
-        if item.category == PEAK_POOL_CATEGORY
+        if item.category in comparable_pool_categories
     }
     changes: list[ContentItem] = []
     for item in current:
-        if item.category != PEAK_POOL_CATEGORY:
+        if item.category not in comparable_pool_categories:
             continue
-        previous_item = previous_by_id.get(item.entity_id)
+        previous_item = previous_by_id.get((item.category, item.entity_id))
         if previous_item is None:
             continue
         previous_limit = previous_item.payload.get('limit')
@@ -1086,7 +1099,7 @@ def _current_subset(
                 replace(
                     (
                         candidate
-                        if candidate.category == PEAK_POOL_CATEGORY
+                        if candidate.category in PEAK_POOL_CATEGORIES
                         else current_by_id[key]
                     ),
                     change_kind=candidate.change_kind,
@@ -1153,7 +1166,7 @@ def build_release_state(
             previous_peak_pool_items = tuple(
                 item
                 for item in load_current_items(conn)
-                if item.category == PEAK_POOL_CATEGORY
+                if item.category in PEAK_POOL_CATEGORIES
             )
     modified_items = _modified_items(
         current_items,
