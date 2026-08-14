@@ -894,6 +894,90 @@ def test_effect_icon_cache_is_invalidated_when_source_size_changes(
     assert builder._load_effect_icon_png_cache(icon_id, changed_check) is None
 
 
+def test_local_effect_icon_cache_requires_matching_source_metadata(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 1644
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+    metadata_path = builder._effect_icon_png_cache_metadata_path(icon_id)
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["source"] = "unity"
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    assert builder._load_effect_icon_png_cache_entry(icon_id) is None
+
+
+def test_load_swf_effect_icon_assets_reuses_valid_local_cache(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 1644
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError),
+    )
+
+    checks, renders = builder._load_swf_effect_icon_png_assets(
+        {icon_id},
+        require_any=True,
+    )
+
+    assert checks[icon_id].content_length == 123
+    assert renders[icon_id].data == _test_png()
+
+
+def test_resolve_effect_icons_avoids_a_second_remote_check_for_local_cache(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 1644
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError),
+    )
+
+    resolution = builder._resolve_effect_icon_png_assets({icon_id})
+
+    assert resolution.png_renders[icon_id].data == _test_png()
+    assert resolution.flash_missing_icon_ids == ()
+
+
 def test_effect_icon_cache_rejects_oversized_png() -> None:
     oversized_png = _test_png(
         size=(builder.EFFECT_ICON_PNG_MAX_DIMENSION + 1, 1),
@@ -1004,7 +1088,18 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     monkeypatch.setattr(
         builder,
         "_verify_effect_icon_assets",
-        lambda icon_ids, **_kwargs: {icon_id: object() for icon_id in icon_ids},
+        lambda icon_ids, **_kwargs: {
+            icon_id: builder.EffectIconAssetCheck(
+                icon_id=icon_id,
+                url=f"https://example.test/{icon_id}.swf",
+                available=False,
+                status=404,
+                content_type="text/html",
+                content_length=None,
+                error="",
+            )
+            for icon_id in icon_ids
+        },
     )
     monkeypatch.setattr(
         builder,
@@ -1027,7 +1122,7 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
         lambda icon_ids, _output_dir: captured.setdefault("icon_ids", icon_ids) and 2,
     )
 
-    icon_count, available_count = builder._render_effect_icon_png_cache_shard(
+    result = builder._render_effect_icon_png_cache_shard(
         shard_index=1,
         shard_count=2,
         output_dir=tmp_path,
@@ -1035,7 +1130,228 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
 
     assert captured["fallback_input"] == [100, 101, 102, 103]
     assert captured["icon_ids"] == [102]
-    assert (icon_count, available_count) == (1, 1)
+    assert result.icon_count == 1
+    assert result.remote_check_count == 1
+    assert result.missing_count == 1
+
+
+def test_render_effect_icon_cache_shard_skips_remote_checks_for_local_cache(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 100
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/100.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    ids_path = tmp_path / "effect-icon-ids.json"
+    ids_path.write_text('{"icon_ids":[100]}\n', encoding="utf-8")
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError),
+    )
+
+    result = builder._render_effect_icon_png_cache_shard(
+        shard_index=0,
+        shard_count=1,
+        output_dir=tmp_path / "output",
+        icon_ids_path=ids_path,
+    )
+
+    assert result.local_reuse_count == 1
+    assert result.remote_check_count == 0
+    assert result.render_count == 0
+    assert result.missing_count == 0
+
+
+def test_effect_icon_cache_shard_inspection_uses_local_cache_only(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 100
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/100.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    ids_path = tmp_path / "effect-icon-ids.json"
+    ids_path.write_text('{"icon_ids":[100]}\n', encoding="utf-8")
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+    monkeypatch.setattr(
+        builder,
+        "_fetch_config_package_data",
+        lambda: (_ for _ in ()).throw(AssertionError),
+    )
+
+    assert (
+        builder._effect_icon_cache_shard_missing_count(
+            shard_index=0,
+            shard_count=1,
+            icon_ids_path=ids_path,
+        )
+        == 0
+    )
+
+
+def test_render_effect_icon_cache_shard_refreshes_all_cached_assets(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 100
+    check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/100.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    ids_path = tmp_path / "effect-icon-ids.json"
+    ids_path.write_text('{"icon_ids":[100]}\n', encoding="utf-8")
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+    captured: dict[str, set[int]] = {}
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids, **_kwargs: captured.setdefault("checked", icon_ids)
+        and dict.fromkeys(icon_ids, check),
+    )
+    monkeypatch.setattr(
+        builder,
+        "_render_effect_icon_png_assets",
+        lambda checks, **_kwargs: (
+            captured.setdefault("rendered", set(checks)),
+            {},
+        )[1],
+    )
+
+    result = builder._render_effect_icon_png_cache_shard(
+        shard_index=0,
+        shard_count=1,
+        output_dir=tmp_path / "output",
+        icon_ids_path=ids_path,
+        refresh=True,
+    )
+
+    assert captured["checked"] == {icon_id}
+    assert captured["rendered"] == set()
+    assert result.local_reuse_count == 1
+    assert result.remote_check_count == 1
+    assert result.render_count == 0
+
+
+def test_render_effect_icon_cache_shard_rerenders_changed_source(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    icon_id = 100
+    old_check = builder.EffectIconAssetCheck(
+        icon_id=icon_id,
+        url="https://example.test/100.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    changed_check = builder.replace(old_check, content_length=124)
+    ids_path = tmp_path / "effect-icon-ids.json"
+    ids_path.write_text('{"icon_ids":[100]}\n', encoding="utf-8")
+    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    builder._save_effect_icon_png_cache(icon_id, _test_png(), old_check)
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids, **_kwargs: dict.fromkeys(icon_ids, changed_check),
+    )
+
+    def render_changed(checks, **_kwargs):
+        for current_check in checks.values():
+            builder._save_effect_icon_png_cache(
+                current_check.icon_id,
+                _test_png(size=(3, 3)),
+                current_check,
+            )
+        return {
+            current_check.icon_id: builder.EffectIconPngRender(
+                current_check.icon_id,
+                True,
+                "image/png",
+                len(_test_png(size=(3, 3))),
+                _test_png(size=(3, 3)),
+                "",
+            )
+            for current_check in checks.values()
+        }
+
+    monkeypatch.setattr(builder, "_render_effect_icon_png_assets", render_changed)
+
+    result = builder._render_effect_icon_png_cache_shard(
+        shard_index=0,
+        shard_count=1,
+        output_dir=tmp_path / "output",
+        icon_ids_path=ids_path,
+        refresh=True,
+    )
+
+    assert result.render_count == 1
+    assert builder._load_effect_icon_png_cache(icon_id, changed_check) == _test_png(
+        size=(3, 3)
+    )
+
+
+def test_render_effect_icon_cache_shard_uses_exported_ids_without_config_fetch(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    ids_path = tmp_path / "effect-icon-ids.json"
+    ids_path.write_text('{"icon_ids":[100]}\n', encoding="utf-8")
+    monkeypatch.setattr(
+        builder,
+        "_fetch_config_package_data",
+        lambda: (_ for _ in ()).throw(AssertionError),
+    )
+    monkeypatch.setattr(
+        builder,
+        "_verify_effect_icon_assets",
+        lambda icon_ids, **_kwargs: {
+            icon_id: builder.EffectIconAssetCheck(
+                icon_id=icon_id,
+                url=f"https://example.test/{icon_id}.swf",
+                available=False,
+                status=404,
+                content_type="text/html",
+                content_length=None,
+                error="",
+            )
+            for icon_id in icon_ids
+        },
+    )
+
+    result = builder._render_effect_icon_png_cache_shard(
+        shard_index=0,
+        shard_count=1,
+        output_dir=tmp_path / "output",
+        icon_ids_path=ids_path,
+    )
+
+    assert result.icon_count == 1
+    assert result.remote_check_count == 1
 
 
 def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:

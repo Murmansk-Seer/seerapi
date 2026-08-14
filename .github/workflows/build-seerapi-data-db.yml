@@ -15,11 +15,18 @@ on:
       - ".github/workflows/build-seerapi-data-db.yml"
   schedule:
     - cron: "5,35 * * * *"
+    # Friday 18:00 UTC is Saturday 02:00 in China Standard Time.
+    - cron: "0 18 * * 5"
   workflow_dispatch:
     inputs:
       force:
         type: boolean
         description: "Force rebuild even when api-data release is unchanged"
+        required: false
+        default: false
+      full_effect_icon_refresh:
+        type: boolean
+        description: "Verify every effect icon source before rebuilding the cache"
         required: false
         default: false
 
@@ -33,6 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.source_check.outputs.skip }}
+      full_effect_icon_refresh: ${{ steps.source_check.outputs.full_effect_icon_refresh }}
       defer: ${{ steps.publication_gate.outputs.defer }}
       remote_sha: ${{ steps.source_check.outputs.remote_sha }}
       expected_api_data_sha: ${{ steps.source_check.outputs.expected_api_data_sha }}
@@ -58,6 +66,7 @@ jobs:
         id: source_check
         env:
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
+          FULL_EFFECT_ICON_REFRESH: ${{ (github.event_name == 'schedule' && github.event.schedule == '0 18 * * 5') || (github.event_name == 'workflow_dispatch' && inputs.full_effect_icon_refresh == true) }}
           DISPATCHED_API_DATA_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha256 || '' }}
           DISPATCHED_SOURCE_COMMIT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_commit || '' }}
           PARTNER_CONTRACTS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/partner_contracts.json
@@ -164,13 +173,14 @@ jobs:
           echo "remote_config_package_manifest_sha=${remote_config_package_manifest_sha}" >> "$GITHUB_OUTPUT"
           echo "previous_config_package_version=${previous_config_package_version}" >> "$GITHUB_OUTPUT"
           echo "flash_mount_retry=${flash_mount_retry}" >> "$GITHUB_OUTPUT"
+          echo "full_effect_icon_refresh=${FULL_EFFECT_ICON_REFRESH}" >> "$GITHUB_OUTPUT"
 
-          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
+          if [ "${FORCE}" != "true" ] && [ "${FULL_EFFECT_ICON_REFRESH}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, special effect statuses, and pending Flash mount availability are unchanged; skipping IronsBot DB build."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, flash-mount-retry=${flash_mount_retry}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
+            echo "Build required: force=${FORCE}, full-effect-icon-refresh=${FULL_EFFECT_ICON_REFRESH}, event=${GITHUB_EVENT_NAME}, flash-mount-retry=${flash_mount_retry}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
       - name: Apply weekly publication consistency gate
@@ -188,8 +198,42 @@ jobs:
         run: |
           echo "Deferred: waiting for api-data to catch up with the new weekly cycle"
 
-  render-effect-icon-cache:
+  prepare-effect-icon-cache:
     needs: plan
+    if: ${{ needs.plan.outputs.skip != 'true' && needs.plan.outputs.defer != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install parser dependency
+        run: python -m pip install UnityPy Pillow
+
+      - name: Export current effect icon IDs
+        env:
+          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+        run: |
+          python scripts/build_seerapi_data_db.py \
+            --export-effect-icon-ids .artifacts/effect-icon-ids.json
+
+      - name: Upload effect icon IDs
+        uses: actions/upload-artifact@v4
+        with:
+          name: effect-icon-ids
+          path: .artifacts/effect-icon-ids.json
+          retention-days: 1
+          if-no-files-found: error
+
+  render-effect-icon-cache:
+    needs: [plan, prepare-effect-icon-cache]
     if: ${{ needs.plan.outputs.skip != 'true' && needs.plan.outputs.defer != 'true' }}
     runs-on: ubuntu-latest
     # Normal runs seed the last release and only repair missing or invalid
@@ -210,25 +254,14 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Download current effect icon IDs
+        uses: actions/download-artifact@v4
         with:
-          distribution: "temurin"
-          java-version: "21"
+          name: effect-icon-ids
+          path: .artifacts
 
       - name: Install parser dependency
         run: python -m pip install UnityPy Pillow
-
-      - name: Install FFDec SWF renderer
-        run: |
-          curl -fsSL \
-            -o /tmp/ffdec.zip \
-            https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.2.1/ffdec_26.2.1.zip
-          echo "0333b56998a55bd83f4e0deb678a811fcdc45607582b4f5dd438309c8c3ad5ce  /tmp/ffdec.zip" \
-            | sha256sum --check
-          sudo mkdir -p /opt/ffdec
-          sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
-          test -f /opt/ffdec/ffdec.jar
 
       - name: Restore previously published icon PNGs
         run: |
@@ -251,6 +284,35 @@ jobs:
             echo "No previous SeerAPI data release available; rendering the full icon cache."
           fi
 
+      - name: Inspect local effect icon cache
+        id: cache_probe
+        env:
+          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+        run: |
+          python scripts/build_seerapi_data_db.py \
+            --check-effect-icon-cache-shard ${{ matrix.shard }} \
+            --effect-icon-shard-count 16 \
+            --effect-icon-ids-file .artifacts/effect-icon-ids.json
+
+      - name: Setup Java
+        if: ${{ steps.cache_probe.outputs.needs_renderer == 'true' || needs.plan.outputs.full_effect_icon_refresh == 'true' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install FFDec SWF renderer
+        if: ${{ steps.cache_probe.outputs.needs_renderer == 'true' || needs.plan.outputs.full_effect_icon_refresh == 'true' }}
+        run: |
+          curl -fsSL \
+            -o /tmp/ffdec.zip \
+            https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.2.1/ffdec_26.2.1.zip
+          echo "0333b56998a55bd83f4e0deb678a811fcdc45607582b4f5dd438309c8c3ad5ce  /tmp/ffdec.zip" \
+            | sha256sum --check
+          sudo mkdir -p /opt/ffdec
+          sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
+          test -f /opt/ffdec/ffdec.jar
+
       - name: Render missing effect icon PNGs
         env:
           IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
@@ -263,10 +325,16 @@ jobs:
           IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
           IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: |
+          refresh_args=()
+          if [ "${{ needs.plan.outputs.full_effect_icon_refresh }}" = "true" ]; then
+            refresh_args+=(--refresh-effect-icon-cache)
+          fi
           python scripts/build_seerapi_data_db.py \
             --render-effect-icon-shard ${{ matrix.shard }} \
             --effect-icon-shard-count 16 \
-            --export-effect-icon-cache-shard .artifacts/effect-icon-cache
+            --effect-icon-ids-file .artifacts/effect-icon-ids.json \
+            --export-effect-icon-cache-shard .artifacts/effect-icon-cache \
+            "${refresh_args[@]}"
           printf 'empty effect icon cache\n' > .artifacts/effect-icon-cache/EMPTY
 
       - name: Upload rendered icon PNG cache

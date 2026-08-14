@@ -447,6 +447,21 @@ class EffectIconPngRender:
 
 
 @dataclass(frozen=True, slots=True)
+class EffectIconPngCacheEntry:
+    check: EffectIconAssetCheck
+    data: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class EffectIconCacheShardResult:
+    icon_count: int
+    local_reuse_count: int
+    remote_check_count: int
+    render_count: int
+    missing_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class UnityEffectIconPngLoad:
     package_version: str
     total_manifest_icon_count: int
@@ -1948,8 +1963,40 @@ def _load_swf_effect_icon_png_assets(
 ) -> tuple[dict[int, EffectIconAssetCheck], dict[int, EffectIconPngRender]]:
     if not icon_ids:
         return {}, {}
-    checks = _verify_effect_icon_assets(icon_ids, require_any=require_any)
-    renders = _render_effect_icon_png_assets(checks, require_any=require_any)
+    cached_entries = {
+        icon_id: entry
+        for icon_id in icon_ids
+        if (entry := _load_effect_icon_png_cache_entry(icon_id)) is not None
+    }
+    checks = {
+        icon_id: entry.check
+        for icon_id, entry in cached_entries.items()
+    }
+    renders = {
+        icon_id: EffectIconPngRender(
+            icon_id=icon_id,
+            available=True,
+            content_type="image/png",
+            content_length=len(entry.data),
+            data=entry.data,
+            error="",
+        )
+        for icon_id, entry in cached_entries.items()
+    }
+    missing_icon_ids = icon_ids - cached_entries.keys()
+    if not missing_icon_ids:
+        return checks, renders
+
+    verified_checks = _verify_effect_icon_assets(
+        missing_icon_ids,
+        require_any=require_any and not cached_entries,
+    )
+    verified_renders = _render_effect_icon_png_assets(
+        verified_checks,
+        require_any=require_any and not cached_entries,
+    )
+    checks.update(verified_checks)
+    renders.update(verified_renders)
     return checks, renders
 
 
@@ -2573,49 +2620,76 @@ def _effect_icon_png_cache_metadata_path(icon_id: int) -> Path:
     return _effect_icon_png_cache_path(icon_id).with_suffix(".json")
 
 
+def _load_effect_icon_png_cache_entry(
+    icon_id: int,
+) -> EffectIconPngCacheEntry | None:
+    path = _effect_icon_png_cache_path(icon_id)
+    metadata_path = _effect_icon_png_cache_metadata_path(icon_id)
+    if not path.is_file() or not metadata_path.is_file():
+        return None
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if not isinstance(metadata, dict):
+            return None
+        cached_icon_id = metadata.get("icon_id")
+        renderer_version = metadata.get("renderer_version")
+        source = metadata.get("source")
+        content_type = metadata.get("asset_content_type")
+        content_length = metadata.get("asset_content_length")
+        if (
+            cached_icon_id != icon_id
+            or renderer_version != EFFECT_ICON_PNG_CACHE_VERSION
+            or source != "flash"
+            or not isinstance(content_type, str)
+            or not content_type
+            or not isinstance(content_length, int)
+            or content_length <= 0
+        ):
+            return None
+        data = path.read_bytes()
+        _visible_png_pixel_count(data)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        logger.warning(
+            "Ignoring invalid cached effect icon PNG %s: %s",
+            path,
+            _short_error(error),
+        )
+        return None
+    return EffectIconPngCacheEntry(
+        check=EffectIconAssetCheck(
+            icon_id=icon_id,
+            url=_effect_icon_asset_url(icon_id),
+            available=True,
+            status=200,
+            content_type=content_type,
+            content_length=content_length,
+            error="",
+        ),
+        data=data,
+    )
+
+
 def _effect_icon_png_cache_matches_asset(
     icon_id: int,
     check: EffectIconAssetCheck,
 ) -> bool:
-    metadata_path = _effect_icon_png_cache_metadata_path(icon_id)
-    try:
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError) as error:
-        logger.debug(
-            "Effect icon PNG cache metadata is unavailable for %s: %s",
-            icon_id,
-            _short_error(error),
-        )
-        return False
-
-    if not isinstance(metadata, dict):
-        return False
-    cached_length = metadata.get("asset_content_length")
-    if not isinstance(cached_length, int) or check.content_length is None:
-        return False
-    return cached_length == check.content_length
+    entry = _load_effect_icon_png_cache_entry(icon_id)
+    return (
+        entry is not None
+        and check.available
+        and entry.check.content_length == check.content_length
+        and entry.check.content_type == check.content_type
+    )
 
 
 def _load_effect_icon_png_cache(
     icon_id: int,
     check: EffectIconAssetCheck,
 ) -> bytes | None:
-    path = _effect_icon_png_cache_path(icon_id)
-    if not path.is_file():
+    entry = _load_effect_icon_png_cache_entry(icon_id)
+    if entry is None or not _effect_icon_png_cache_matches_asset(icon_id, check):
         return None
-    if not _effect_icon_png_cache_matches_asset(icon_id, check):
-        return None
-    try:
-        data = path.read_bytes()
-        _visible_png_pixel_count(data)
-    except (OSError, ValueError) as e:
-        logger.warning(
-            "Ignoring invalid cached effect icon PNG %s: %s",
-            path,
-            _short_error(e),
-        )
-        return None
-    return data
+    return entry.data
 
 
 def _save_effect_icon_png_cache(
@@ -2636,8 +2710,10 @@ def _save_effect_icon_png_cache(
         metadata = json.dumps(
             {
                 "asset_content_length": check.content_length,
+                "asset_content_type": check.content_type,
                 "icon_id": icon_id,
                 "renderer_version": EFFECT_ICON_PNG_CACHE_VERSION,
+                "source": "flash",
             },
             sort_keys=True,
         )
@@ -2861,12 +2937,81 @@ def _export_effect_icon_png_cache_shard(
     return exported_count
 
 
+def _remove_effect_icon_png_cache(icon_id: int) -> None:
+    _effect_icon_png_cache_path(icon_id).unlink(missing_ok=True)
+    _effect_icon_png_cache_metadata_path(icon_id).unlink(missing_ok=True)
+
+
+def _export_effect_icon_cache_icon_ids(output_path: Path) -> int:
+    config_data = _fetch_config_package_data()
+    icon_ids = _unity_effect_icon_swf_fallback_icon_ids(
+        set(_effect_icon_ids(config_data))
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps({"icon_ids": icon_ids}, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    logger.info("Exported %s effect icon IDs to %s", len(icon_ids), output_path)
+    return len(icon_ids)
+
+
+def _load_effect_icon_cache_icon_ids(path: Path) -> list[int]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"Unable to read effect icon ID list {path}: {_short_error(error)}"
+        ) from error
+    if not isinstance(payload, dict) or not isinstance(payload.get("icon_ids"), list):
+        raise ValueError(f"Effect icon ID list {path} has no icon_ids list")
+    icon_ids = payload["icon_ids"]
+    if any(
+        not isinstance(icon_id, int) or isinstance(icon_id, bool) or icon_id <= 0
+        for icon_id in icon_ids
+    ):
+        raise ValueError(f"Effect icon ID list {path} contains an invalid ID")
+    normalized_ids = sorted(set(icon_ids))
+    if len(normalized_ids) != len(icon_ids):
+        raise ValueError(f"Effect icon ID list {path} contains duplicate IDs")
+    return normalized_ids
+
+
+def _effect_icon_cache_shard_missing_count(
+    *,
+    shard_index: int,
+    shard_count: int,
+    icon_ids_path: Path | None,
+) -> int:
+    if shard_count <= 0:
+        raise ValueError("Effect icon shard count must be positive")
+    if shard_index < 0 or shard_index >= shard_count:
+        raise ValueError(
+            f"Effect icon shard index must be in 0..{shard_count - 1}"
+        )
+    if icon_ids_path is None:
+        config_data = _fetch_config_package_data()
+        icon_ids = _unity_effect_icon_swf_fallback_icon_ids(
+            set(_effect_icon_ids(config_data))
+        )
+    else:
+        icon_ids = _load_effect_icon_cache_icon_ids(icon_ids_path)
+    shard_icon_ids = icon_ids[shard_index::shard_count]
+    return sum(
+        1
+        for icon_id in shard_icon_ids
+        if _load_effect_icon_png_cache_entry(icon_id) is None
+    )
+
+
 def _render_effect_icon_png_cache_shard(
     *,
     shard_index: int,
     shard_count: int,
     output_dir: Path,
-) -> tuple[int, int]:
+    icon_ids_path: Path | None = None,
+    refresh: bool = False,
+) -> EffectIconCacheShardResult:
     if shard_count <= 0:
         raise ValueError("Effect icon shard count must be positive")
     if shard_index < 0 or shard_index >= shard_count:
@@ -2874,22 +3019,84 @@ def _render_effect_icon_png_cache_shard(
             f"Effect icon shard index must be in 0..{shard_count - 1}"
         )
 
-    config_data = _fetch_config_package_data()
-    icon_ids = set(_effect_icon_ids(config_data))
-    fallback_icon_ids = _unity_effect_icon_swf_fallback_icon_ids(icon_ids)
+    if icon_ids_path is None:
+        config_data = _fetch_config_package_data()
+        fallback_icon_ids = _unity_effect_icon_swf_fallback_icon_ids(
+            set(_effect_icon_ids(config_data))
+        )
+    else:
+        fallback_icon_ids = _load_effect_icon_cache_icon_ids(icon_ids_path)
     shard_icon_ids = fallback_icon_ids[shard_index::shard_count]
     logger.info(
-        "Rendering SWF fallback effect icon cache shard %s/%s: %s icons",
+        "Preparing SWF fallback effect icon cache shard %s/%s: %s icons (refresh=%s)",
         shard_index + 1,
         shard_count,
         len(shard_icon_ids),
+        refresh,
     )
-    checks = _verify_effect_icon_assets(set(shard_icon_ids), require_any=False)
-    renders = _render_effect_icon_png_assets(checks, require_any=False)
+    cached_entries = {
+        icon_id: entry
+        for icon_id in shard_icon_ids
+        if (entry := _load_effect_icon_png_cache_entry(icon_id)) is not None
+    }
+    icon_ids_to_verify = set(shard_icon_ids) if refresh else (
+        set(shard_icon_ids) - cached_entries.keys()
+    )
+    checks = (
+        _verify_effect_icon_assets(
+            icon_ids_to_verify,
+            require_any=False,
+        )
+        if icon_ids_to_verify
+        else {}
+    )
+    checks_to_render: dict[int, EffectIconAssetCheck] = {}
+    for icon_id, check in checks.items():
+        cached_entry = cached_entries.get(icon_id)
+        if check.status == 404:
+            _remove_effect_icon_png_cache(icon_id)
+            cached_entries.pop(icon_id, None)
+            continue
+        if cached_entry is not None and not check.available:
+            logger.warning(
+                "Keeping cached effect icon %s after an inconclusive refresh: %s",
+                icon_id,
+                check.error or f"HTTP {check.status}",
+            )
+            continue
+        if _load_effect_icon_png_cache(icon_id, check) is None:
+            checks_to_render[icon_id] = check
+
+    renders = _render_effect_icon_png_assets(
+        checks_to_render,
+        require_any=False,
+    )
     _export_effect_icon_png_cache_shard(shard_icon_ids, output_dir)
-    return len(shard_icon_ids), sum(
-        1 for render in renders.values() if render.available
+    available_count = sum(
+        1
+        for icon_id in shard_icon_ids
+        if _load_effect_icon_png_cache_entry(icon_id) is not None
     )
+    result = EffectIconCacheShardResult(
+        icon_count=len(shard_icon_ids),
+        local_reuse_count=(
+            len(cached_entries)
+            - sum(1 for icon_id in checks_to_render if icon_id in cached_entries)
+        ),
+        remote_check_count=len(checks),
+        render_count=sum(1 for render in renders.values() if render.available),
+        missing_count=len(shard_icon_ids) - available_count,
+    )
+    logger.info(
+        "Effect icon cache shard summary: total=%s local-reuse=%s remote-check=%s "
+        "rendered=%s missing=%s",
+        result.icon_count,
+        result.local_reuse_count,
+        result.remote_check_count,
+        result.render_count,
+        result.missing_count,
+    )
+    return result
 
 
 def _fetch_config_package_data() -> ConfigPackageData:
@@ -4564,6 +4771,18 @@ def _parse_cli_args() -> argparse.Namespace:
         help="render one zero-based effect icon cache shard instead of building SQLite",
     )
     parser.add_argument(
+        "--check-effect-icon-cache-shard",
+        type=int,
+        metavar="INDEX",
+        help="report whether one effect icon cache shard needs a renderer and exit",
+    )
+    parser.add_argument(
+        "--effect-icon-ids-file",
+        type=Path,
+        metavar="PATH",
+        help="reuse a previously exported JSON list of effect icon IDs for a cache shard",
+    )
+    parser.add_argument(
         "--effect-icon-shard-count",
         type=int,
         default=1,
@@ -4576,19 +4795,60 @@ def _parse_cli_args() -> argparse.Namespace:
         metavar="DIRECTORY",
         help="output directory for the rendered shard cache",
     )
+    parser.add_argument(
+        "--refresh-effect-icon-cache",
+        action="store_true",
+        help="verify every effect icon asset in a cache shard before reuse",
+    )
+    parser.add_argument(
+        "--export-effect-icon-ids",
+        type=Path,
+        metavar="PATH",
+        help="write the current Flash fallback effect icon IDs as JSON and exit",
+    )
     arguments = parser.parse_args()
-    if arguments.render_effect_icon_shard is None:
+    if (
+        arguments.render_effect_icon_shard is not None
+        and arguments.check_effect_icon_cache_shard is not None
+    ):
+        parser.error(
+            "--render-effect-icon-shard and --check-effect-icon-cache-shard are exclusive"
+        )
+    is_cache_shard_action = (
+        arguments.render_effect_icon_shard is not None
+        or arguments.check_effect_icon_cache_shard is not None
+    )
+    if not is_cache_shard_action:
         if (
             arguments.effect_icon_shard_count != 1
             or arguments.export_effect_icon_cache_shard is not None
+            or arguments.effect_icon_ids_file is not None
+            or arguments.refresh_effect_icon_cache
         ):
             parser.error(
-                "--effect-icon-shard-count and --export-effect-icon-cache-shard "
-                "require --render-effect-icon-shard"
+                "effect icon cache shard options require a shard action"
             )
-    elif arguments.export_effect_icon_cache_shard is None:
+    elif (
+        arguments.render_effect_icon_shard is not None
+        and arguments.export_effect_icon_cache_shard is None
+    ):
         parser.error(
             "--render-effect-icon-shard requires --export-effect-icon-cache-shard"
+        )
+    if arguments.check_effect_icon_cache_shard is not None and (
+        arguments.export_effect_icon_cache_shard is not None
+        or arguments.refresh_effect_icon_cache
+    ):
+        parser.error(
+            "--export-effect-icon-cache-shard and --refresh-effect-icon-cache "
+            "require --render-effect-icon-shard"
+        )
+    if arguments.export_effect_icon_ids is not None and (
+        arguments.seed_effect_icon_cache is not None
+        or is_cache_shard_action
+    ):
+        parser.error(
+            "--export-effect-icon-ids cannot be combined with cache seed or shard options"
         )
     return arguments
 
@@ -4599,17 +4859,57 @@ def main() -> None:
     if arguments.seed_effect_icon_cache is not None:
         _seed_effect_icon_png_cache_from_database(arguments.seed_effect_icon_cache)
         return
+    if arguments.export_effect_icon_ids is not None:
+        _export_effect_icon_cache_icon_ids(arguments.export_effect_icon_ids)
+        return
+    if arguments.check_effect_icon_cache_shard is not None:
+        missing_count = _effect_icon_cache_shard_missing_count(
+            shard_index=arguments.check_effect_icon_cache_shard,
+            shard_count=arguments.effect_icon_shard_count,
+            icon_ids_path=arguments.effect_icon_ids_file,
+        )
+        logger.info(
+            "Effect icon cache shard inspection: %s missing or invalid local entries",
+            missing_count,
+        )
+        github_output_path = os.environ.get("GITHUB_OUTPUT")
+        if github_output_path:
+            with Path(github_output_path).open("a", encoding="utf-8") as output:
+                output.write(f"missing_count={missing_count}\n")
+                output.write(
+                    "needs_renderer="
+                    + ("true" if missing_count else "false")
+                    + "\n"
+                )
+        return
     if arguments.render_effect_icon_shard is not None:
-        icon_count, available_count = _render_effect_icon_png_cache_shard(
+        result = _render_effect_icon_png_cache_shard(
             shard_index=arguments.render_effect_icon_shard,
             shard_count=arguments.effect_icon_shard_count,
             output_dir=arguments.export_effect_icon_cache_shard,
+            icon_ids_path=arguments.effect_icon_ids_file,
+            refresh=arguments.refresh_effect_icon_cache,
         )
         logger.info(
-            "Rendered effect icon cache shard: %s icons, %s available",
-            icon_count,
-            available_count,
+            "Rendered effect icon cache shard: %s icons, %s local reuse, "
+            "%s remote checks, %s rendered, %s missing",
+            result.icon_count,
+            result.local_reuse_count,
+            result.remote_check_count,
+            result.render_count,
+            result.missing_count,
         )
+        github_summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+        if github_summary_path:
+            with Path(github_summary_path).open("a", encoding="utf-8") as summary:
+                summary.write(
+                    "### Effect icon cache shard\n\n"
+                    f"- Total: {result.icon_count}\n"
+                    f"- Local reuse: {result.local_reuse_count}\n"
+                    f"- Remote checks: {result.remote_check_count}\n"
+                    f"- Rendered: {result.render_count}\n"
+                    f"- Missing: {result.missing_count}\n"
+                )
         return
     OUTPUT_DB.parent.mkdir(parents=True, exist_ok=True)
     if UPSTREAM_SEERAPI_PATH:
