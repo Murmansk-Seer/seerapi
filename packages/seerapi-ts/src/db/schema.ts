@@ -41,6 +41,10 @@ export const resistanceCategory = sqliteTable("resistance_category", {
 	name: text().notNull(),
 });
 
+export const buffType = sqliteTable("buff_type", {
+	id: integer().primaryKey(),
+});
+
 export const avatarHead = sqliteTable("avatar_head", {
 	id: integer().notNull(),
 	name: text().notNull(),
@@ -110,6 +114,10 @@ export const errorCode = sqliteTable("error_code", {
 	id: integer().primaryKey(),
 	name: text().notNull(),
 	message: text().notNull(),
+});
+
+export const fieldEffectType = sqliteTable("field_effect_type", {
+	id: integer().primaryKey(),
 });
 
 export const glossaryEntry = sqliteTable("glossary_entry", {
@@ -411,6 +419,15 @@ export const peakPoolVote = sqliteTable("peak_pool_vote", {
 	subkey: integer().notNull(),
 });
 
+export const sign = sqliteTable("sign", {
+	id: integer().primaryKey(),
+	name: text().notNull(),
+	desc: text(),
+	sort: integer().notNull(),
+	isShowNum: numeric("is_show_num").notNull(),
+	numDes: text("num_des"),
+});
+
 export const eidEffectInUse = sqliteTable("eid_effect_in_use", {
 	id: integer().primaryKey(),
 	effectArgs: customType({ dataType: () => 'JSON' })("effect_args"),
@@ -487,6 +504,15 @@ export const battleEffect = sqliteTable("battle_effect", {
 	resistanceId: integer("resistance_id").references(() => resistanceCategory.id),
 });
 
+export const buff = sqliteTable("buff", {
+	id: integer().primaryKey(),
+	desc: text().notNull(),
+	tag: text().notNull(),
+	descTag: text("desc_tag"),
+	icon: customType({ dataType: () => 'JSON' })().notNull(),
+	typeId: integer("type_id").notNull().references(() => buffType.id),
+});
+
 export const elementtyperelationorm = sqliteTable("elementtyperelationorm", {
 	sourceId: integer("source_id").notNull().references(() => elementType.id),
 	targetId: integer("target_id").notNull().references(() => elementType.id),
@@ -502,6 +528,13 @@ export const elementTypeCombination = sqliteTable("element_type_combination", {
 	primaryId: integer("primary_id").notNull().references(() => elementType.id),
 	secondaryId: integer("secondary_id").references(() => elementType.id),
 	isDouble: numeric("is_double").notNull(),
+});
+
+export const fieldEffect = sqliteTable("field_effect", {
+	id: integer().primaryKey(),
+	name: text().notNull(),
+	desc: text().notNull(),
+	typeId: integer("type_id").notNull().references(() => fieldEffectType.id),
 });
 
 export const glossaryentrylink = sqliteTable("glossaryentrylink", {
@@ -587,6 +620,15 @@ export const natureAttr = sqliteTable("nature_attr", {
 	percent: numeric().notNull(),
 	id: integer().primaryKey().references(() => nature.id),
 	total: numeric().notNull(),
+});
+
+export const signSubitem = sqliteTable("sign_subitem", {
+	subitemId: integer("subitem_id").notNull(),
+	name: text(),
+	desc: text(),
+	iconSubid: integer("icon_subid"),
+	id: integer().primaryKey(),
+	signId: integer("sign_id").notNull().references(() => sign.id),
 });
 
 export const achievement = sqliteTable("achievement", {

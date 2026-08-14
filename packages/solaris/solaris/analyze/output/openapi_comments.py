@@ -512,7 +512,7 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
     # 战斗效果相关
     M.BattleEffect: APIComment(
         name_en='battle_effect',
-        name_cn='状态',
+        name_cn='异常状态',
         examples=[
             {
                 'id': 20,
@@ -528,11 +528,11 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
             }
         ],
         tags=['战斗状态', '异常状态'],
-        description='战斗状态资源，包含所有战斗状态（也就是异常状态）数据。',
+        description='异常状态资源，包含所有异常状态数据。',
     ),
     M.BattleEffectCategory: APIComment(
         name_en='battle_effect_type',
-        name_cn='状态类型',
+        name_cn='异常状态类型',
         examples=[
             {
                 'id': 3,
@@ -555,7 +555,119 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
             }
         ],
         tags=['战斗状态', '异常状态', '分类'],
-        description='战斗状态分类，用于分类不同类型的战斗状态。',
+        description='异常状态类型，用于分类不同类型的异常状态。',
+    ),
+    M.FieldEffect: APIComment(
+        name_en='field_effect',
+        name_cn='场地效果',
+        examples=[
+            {
+                'id': 2,
+                'name': '星璨舞台',
+                'desc': '精灵战斗时造成的攻击伤害提升130%且每回合结束时会恢复自身所有技能1点PP值',
+                'type': {
+                    'id': 1,
+                    'url': 'https://api.seerapi.com/v1/field_effect_type/1',
+                },
+                'hash': 'a81e39ee',
+            },
+        ],
+        tags=['战斗状态', '场地效果'],
+        description='场地效果资源，包含所有场地效果数据。',
+    ),
+    M.FieldEffectType: APIComment(
+        name_en='field_effect_type',
+        name_cn='场地效果类型',
+        examples=[
+            {
+                'id': 1,
+                'effect': [
+                    {'id': 1, 'url': 'https://api.seerapi.com/v1/field_effect/1'},
+                    {'id': 2, 'url': 'https://api.seerapi.com/v1/field_effect/2'},
+                ],
+                'hash': '4c42fb5',
+            }
+        ],
+        tags=['战斗状态', '场地效果', '分类'],
+        description='场地效果类型，用于分类不同类型的场地效果，分类逻辑尚不明确，该资源仅反应游戏内数据。',
+    ),
+    M.Buff: APIComment(
+        name_en='buff',
+        name_cn='Buff',
+        examples=[
+            {
+                'id': 264,
+                'desc': '自身{roundnext[0]}攻击有{1}%使对手{abst[2]}',
+                'tag': '施加异常',
+                'tag_description': 'roundnext, abst',
+                'icon': [14],
+                'type': {
+                    'id': 0,
+                    'url': 'https://api.seerapi.com/v1/buff_type/0',
+                },
+                'hash': 'f3a2c1d0',
+            },
+            {
+                'id': 3503,
+                'desc': '每回合开始时为自身附加200点护罩',
+                'tag': '护罩',
+                'tag_description': None,
+                'icon': [32],
+                'type': {
+                    'id': 0,
+                    'url': 'https://api.seerapi.com/v1/buff_type/0',
+                },
+                'hash': 'b8e7f6a5',
+            },
+        ],
+        tags=['战斗状态', 'Buff'],
+        description='Buff 配置资源，描述战斗中精灵身上显示的增益/减益效果图标及其描述。',
+    ),
+    M.BuffType: APIComment(
+        name_en='buff_type',
+        name_cn='Buff 图标类型',
+        examples=[
+            {
+                'id': 0,
+                'buff': [
+                    {'id': 264, 'url': 'https://api.seerapi.com/v1/buff/264'},
+                    {'id': 3503, 'url': 'https://api.seerapi.com/v1/buff/3503'},
+                ],
+                'hash': 'c1d2e3f4',
+            }
+        ],
+        tags=['战斗状态', 'Buff', '分类'],
+        description='Buff 图标类型，对应游戏内配置的 icontype 字段，用于区分 Buff 图标的展示方式。',
+    ),
+    M.Sign: APIComment(
+        name_en='sign',
+        name_cn='印记',
+        examples=[
+            {
+                'id': 151,
+                'name': '态',
+                'desc': None,
+                'sort': 1,
+                'is_show_num': False,
+                'num_des': '当前形态',
+                'subitem': {
+                    '2': {
+                        'subitem_id': 2,
+                        'name': '怀生菩怜态',
+                        'desc': '自身使用技能后随机附加1种弱化类异常状态，未触发则己方场下所有精灵恢复99点体力；自身的技能以光系结算攻击伤害',
+                        'icon_subid': 2,
+                    },
+                    '3': {
+                        'subitem_id': 3,
+                        'name': '拒赦怒威态',
+                        'desc': '自身所有技能先制+1；所有攻击必定打出致命一击且造成伤害提升100%；自身的技能以混沌系结算攻击伤害',
+                        'icon_subid': 3,
+                    },
+                },
+            }
+        ],
+        tags=['战斗状态', '印记'],
+        description='印记资源，包含印记类战斗状态数据。',
     ),
     # EID 效果
     M.EidEffect: APIComment(
