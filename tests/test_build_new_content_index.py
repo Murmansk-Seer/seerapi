@@ -62,16 +62,12 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
         conn.execute("INSERT INTO skill VALUES (9000, '基础技能', '基础效果')")
         conn.execute("INSERT INTO pet_skin VALUES (100, '皮肤', 100, ?)", (pet_ids[0],))
         conn.execute("INSERT INTO mintmark VALUES (200, '刻印', '刻印描述')")
-        conn.execute('INSERT INTO mintmark_quality VALUES (200, 5)')
+        conn.execute("INSERT INTO mintmark_quality VALUES (200, 5)")
         conn.execute("INSERT INTO suit VALUES (300, '套装', '套装描述')")
         conn.execute("INSERT INTO equip VALUES (400, '部件', 0, 300)")
         conn.execute("INSERT INTO equip VALUES (401, '座驾', 6, 300)")
-        conn.execute(
-            'ALTER TABLE mintmark ADD COLUMN type_id INTEGER NOT NULL DEFAULT 1'
-        )
-        conn.execute(
-            'ALTER TABLE mintmark ADD COLUMN rarity_id INTEGER NOT NULL DEFAULT 4'
-        )
+        conn.execute("ALTER TABLE mintmark ADD COLUMN type_id INTEGER NOT NULL DEFAULT 1")
+        conn.execute("ALTER TABLE mintmark ADD COLUMN rarity_id INTEGER NOT NULL DEFAULT 4")
 
 
 def _add_equip_bonus(
@@ -184,11 +180,7 @@ def test_same_version_source_change_is_still_indexed(tmp_path: Path) -> None:
     state = indexer.build_release_state(current_path, previous_path, 'current-sha')
 
     assert [(item.category, item.entity_id) for item in state.items] == [('pet', 2)]
-    assert all(
-        category.comparison_ready
-        for category in state.category_states
-        if category.category == 'pet'
-    )
+    assert all(category.comparison_ready for category in state.category_states if category.category == 'pet')
 
 
 def test_renumbered_item_with_same_semantic_content_is_not_new(tmp_path: Path) -> None:
@@ -283,13 +275,10 @@ def test_skill_semantic_digest_ignores_linked_pet_list() -> None:
     )
 
     assert before.semantic_digest == after.semantic_digest
-    assert (
-        before.semantic_digest
-        != indexer.replace(
-            after,
-            payload={**after.payload, 'info': '修正后的技能说明'},
-        ).semantic_digest
-    )
+    assert before.semantic_digest != indexer.replace(
+        after,
+        payload={**after.payload, 'info': '修正后的技能说明'},
+    ).semantic_digest
 
 
 def test_mintmark_semantic_digest_ignores_rarity_but_tracks_quality() -> None:
@@ -418,9 +407,9 @@ def test_semantic_v3_migration_prunes_rarity_only_mintmarks_and_keeps_additions(
         (indexer.SourceHistoryAddition('mintmark', 201),),
     )
 
-    assert [
-        (item.category, item.entity_id, item.change_kind) for item in state.items
-    ] == [('mintmark', 201, 'added')]
+    assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
+        ('mintmark', 201, 'added')
+    ]
     assert state.items[0].payload == {
         'desc': '新增刻印描述',
         'type_id': 2,
@@ -489,9 +478,9 @@ def test_semantic_v4_migration_prunes_equip_parser_corrections_and_keeps_additio
     )
 
     assert state.semantic_schema_version == 4
-    assert [
-        (item.category, item.entity_id, item.change_kind) for item in state.items
-    ] == [('equip', 402, 'added')]
+    assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
+        ('equip', 402, 'added')
+    ]
 
 
 def test_same_week_accumulates_incremental_rows(tmp_path: Path) -> None:
@@ -534,7 +523,9 @@ def test_new_skills_include_their_available_payload(tmp_path: Path) -> None:
     _create_database(previous_path, version='20260724090000', pet_ids=(1,))
     _create_database(current_path, version='20260731090000', pet_ids=(1,))
     with sqlite3.connect(current_path) as conn:
-        conn.execute("INSERT INTO skill VALUES (9001, '新增技能', '新增技能效果')")
+        conn.execute(
+            "INSERT INTO skill VALUES (9001, '新增技能', '新增技能效果')"
+        )
 
     state = indexer.build_release_state(current_path, previous_path, 'current-sha')
 
@@ -588,9 +579,9 @@ def test_source_history_additions_repair_an_overwritten_same_version_baseline(
         indexer.load_source_history_additions(additions_path),
     )
 
-    assert [
-        (item.category, item.entity_id, item.change_kind) for item in state.items
-    ] == [('pet', 2, 'added')]
+    assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
+        ('pet', 2, 'added')
+    ]
 
 
 def test_source_history_addition_is_deduplicated_from_new_cycle_diff(
@@ -608,9 +599,9 @@ def test_source_history_addition_is_deduplicated_from_new_cycle_diff(
         (indexer.SourceHistoryAddition('pet', 2),),
     )
 
-    assert [
-        (item.category, item.entity_id, item.change_kind) for item in state.items
-    ] == [('pet', 2, 'added')]
+    assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
+        ('pet', 2, 'added')
+    ]
 
 
 def test_source_history_additions_route_equip_mounts_to_the_runtime_category(
@@ -675,11 +666,11 @@ def test_autocard_cards_and_roles_keep_separate_id_spaces(tmp_path: Path) -> Non
                 """
             )
             conn.execute(
-                'INSERT INTO autocard_card VALUES (1, ?, ?)',
+                "INSERT INTO autocard_card VALUES (1, ?, ?)",
                 (card_name, f'{{"id": 1, "cardTxt": "{card_name}"}}'),
             )
             conn.execute(
-                'INSERT INTO autocard_role VALUES (1, ?, ?)',
+                "INSERT INTO autocard_role VALUES (1, ?, ?)",
                 (role_name, f'{{"id": 1, "skillTxt": "{role_name}"}}'),
             )
 
@@ -724,7 +715,7 @@ def test_official_autocard_role_sidecar_changes_are_marked_modified(
         role = {**base_role, field: value}
         with sqlite3.connect(path) as conn:
             conn.executescript(
-                """
+                '''
                 CREATE TABLE autocard_role (
                     id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -734,7 +725,7 @@ def test_official_autocard_role_sidecar_changes_are_marked_modified(
                     role_id INTEGER PRIMARY KEY,
                     raw_json TEXT NOT NULL
                 );
-                """
+                '''
             )
             conn.execute(
                 'INSERT INTO autocard_role VALUES (?, ?, ?)',
@@ -777,7 +768,7 @@ def test_autocard_effect_change_is_marked_modified(tmp_path: Path) -> None:
 def _add_autocard_sanctuary_effects(path: Path, *, effect: str) -> None:
     with sqlite3.connect(path) as conn:
         conn.executescript(
-            f"""
+            f'''
             CREATE TABLE autocard_season_effect (
                 id INTEGER PRIMARY KEY, sanctuary_id INTEGER, name TEXT,
                 description TEXT, buff_id TEXT, buff_param TEXT,
@@ -788,10 +779,10 @@ def _add_autocard_sanctuary_effects(path: Path, *, effect: str) -> None:
             INSERT INTO autocard_season_effect VALUES
                 (8, 2, '沧岚', '基础圣域', '', '', '', 0, 0, 0, 3105, 1, 0),
                 (9, 2, '潮涌', '{effect}', '50041', '1', '', 0, 0, 5, 0, 1, 1);
-            """
+            '''
         )
         conn.execute("UPDATE pet SET name = '沧岚之王' WHERE id = 1")
-        conn.execute('UPDATE autocard_season_effect SET pic_id = 1 WHERE id = 8')
+        conn.execute("UPDATE autocard_season_effect SET pic_id = 1 WHERE id = 8")
 
 
 def test_first_sanctuary_effect_table_establishes_its_own_baseline(
@@ -815,9 +806,7 @@ def test_first_sanctuary_effect_table_establishes_its_own_baseline(
     assert sanctuary.reason == 'first_observation'
 
 
-def test_source_snapshot_is_reused_when_previous_index_is_rebuilt(
-    tmp_path: Path,
-) -> None:
+def test_source_snapshot_is_reused_when_previous_index_is_rebuilt(tmp_path: Path) -> None:
     previous_path = tmp_path / 'previous.sqlite'
     current_path = tmp_path / 'current.sqlite'
     _create_database(previous_path, version='20260724090000', pet_ids=(1,))
@@ -828,9 +817,7 @@ def test_source_snapshot_is_reused_when_previous_index_is_rebuilt(
     state = indexer.build_release_state(current_path, previous_path, 'current-sha')
 
     assert [(item.category, item.entity_id) for item in state.items] == [('pet', 2)]
-    assert len(state.source_items) == len(
-        indexer.load_current_items(sqlite3.connect(current_path))
-    )
+    assert len(state.source_items) == len(indexer.load_current_items(sqlite3.connect(current_path)))
 
 
 def test_sanctuary_effect_changes_are_indexed_with_sanctuary_context(
