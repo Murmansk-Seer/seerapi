@@ -2,7 +2,6 @@ import importlib.util
 from pathlib import Path
 import sys
 
-
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1]
     / "scripts"
