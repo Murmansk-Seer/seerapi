@@ -651,7 +651,9 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         category = 'mount' if part_type == 6 else 'equip'
         entity_id = int(row['id'])
         payload = {
-            field: int(row[field] or 0) for field in equip_fields if field != 'bonus_id'
+            field: int(row[field] or 0)
+            for field in equip_fields
+            if field != 'bonus_id'
         }
         if 'bonus_id' in row.keys() and row['bonus_id'] is not None:
             payload['bonus'] = equip_bonus_payloads.get(int(row['bonus_id']), {})
@@ -684,12 +686,12 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
 
     if _has_table(conn, 'autocard_role'):
         if _has_table(conn, 'autocard_role_raw'):
-            role_query = """
+            role_query = '''
                 SELECT role.id, role.name, raw.raw_json
                 FROM autocard_role AS role
                 JOIN autocard_role_raw AS raw ON raw.role_id = role.id
                 ORDER BY role.id
-            """
+            '''
         elif 'raw_json' in _table_columns(conn, 'autocard_role'):
             role_query = 'SELECT id, name, raw_json FROM autocard_role ORDER BY id'
         else:
@@ -713,7 +715,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
     if _has_table(conn, AUTOCARD_SANCTUARY_EFFECT_TABLE):
         for row in _rows(
             conn,
-            f"""
+            f'''
             SELECT
                 effect.id,
                 effect.sanctuary_id,
@@ -739,7 +741,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
             LEFT JOIN pet
                 ON pet.id = base.pic_id
             ORDER BY effect.sanctuary_id, effect.unlock_round, effect.stage, effect.id
-            """,
+            ''',
         ):
             entity_id = int(row['id'])
             items.append(
@@ -797,14 +799,11 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
             )
         else:
             missing_categories = current_categories - source_categories
-            source_items = (
-                *source_items,
-                *(
-                    SourceSnapshotItem.from_content(item)
-                    for item in current_items
-                    if item.category in missing_categories
-                ),
-            )
+            source_items = (*source_items, *(
+                SourceSnapshotItem.from_content(item)
+                for item in current_items
+                if item.category in missing_categories
+            ))
             if semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
                 migration_categories = _semantic_migration_categories(
                     semantic_schema_version
@@ -890,11 +889,11 @@ def _load_source_snapshot(conn: sqlite3.Connection) -> tuple[SourceSnapshotItem,
     return tuple(
         SourceSnapshotItem(str(row[0]), int(row[1]), str(row[2]))
         for row in conn.execute(
-            f"""
+            f'''
             SELECT category, entity_id, semantic_digest
             FROM {SOURCE_SNAPSHOT_TABLE}
             ORDER BY category, entity_id
-            """
+            '''
         )
     )
 
@@ -904,7 +903,9 @@ def _load_source_categories(conn: sqlite3.Connection) -> frozenset[str]:
         return frozenset()
     return frozenset(
         str(row[0])
-        for row in conn.execute(f'SELECT category FROM {CATEGORY_SNAPSHOT_TABLE}')
+        for row in conn.execute(
+            f'SELECT category FROM {CATEGORY_SNAPSHOT_TABLE}'
+        )
     )
 
 
@@ -922,18 +923,16 @@ def _load_category_states(conn: sqlite3.Connection) -> tuple[CategoryState, ...]
     return tuple(
         CategoryState(str(row[0]), bool(row[1]), str(row[2]))
         for row in conn.execute(
-            f"""
+            f'''
             SELECT category, comparison_ready, reason
             FROM {CATEGORY_STATE_TABLE}
             ORDER BY category
-            """
+            '''
         )
     )
 
 
-def load_source_history_additions(
-    path: Path | None,
-) -> tuple[SourceHistoryAddition, ...]:
+def load_source_history_additions(path: Path | None) -> tuple[SourceHistoryAddition, ...]:
     """Load Git-confirmed additions without treating source-file edits as changes.
 
     The API data repository records both real content additions and broad schema
@@ -970,8 +969,7 @@ def load_source_history_additions(
 
 
 def _new_items(
-    current: tuple[ContentItem, ...],
-    previous: tuple[SourceSnapshotItem, ...],
+    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {(item.category, item.entity_id) for item in previous}
@@ -986,8 +984,7 @@ def _new_items(
 
 
 def _modified_items(
-    current: tuple[ContentItem, ...],
-    previous: tuple[SourceSnapshotItem, ...],
+    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {
@@ -1106,9 +1103,7 @@ def build_release_state(
             previous.semantic_schema_version
         )
         modified_items = tuple(
-            item
-            for item in modified_items
-            if item.category not in suppressed_categories
+            item for item in modified_items if item.category not in suppressed_categories
         )
     increment = _current_subset(
         (
