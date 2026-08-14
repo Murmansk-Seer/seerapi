@@ -34,7 +34,8 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
                 start_time TEXT NOT NULL, end_time TEXT NOT NULL
             );
             CREATE TABLE pet (
-                id INTEGER PRIMARY KEY, name TEXT, peak_pool_id INTEGER
+                id INTEGER PRIMARY KEY, name TEXT,
+                peak_pool_id INTEGER, peak_expert_pool_id INTEGER
             );
             CREATE TABLE skill (id INTEGER PRIMARY KEY, name TEXT, info TEXT);
             CREATE TABLE pet_skin (
@@ -62,7 +63,7 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
             "INSERT INTO title_part VALUES (177, '不动明王护法', '', '', 6086031)"
         )
         conn.executemany(
-            'INSERT INTO pet VALUES (?, ?, NULL)',
+            'INSERT INTO pet VALUES (?, ?, NULL, NULL)',
             [(item, f'精灵{item}') for item in pet_ids],
         )
         conn.executemany(
@@ -307,6 +308,35 @@ def test_peak_pool_changes_keep_zero_distinct_from_unlimited(tmp_path: Path) -> 
     )
 
 
+def test_peak_expert_pool_tracks_both_change_directions(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260807100000', pet_ids=(1, 2, 3))
+    _create_database(current_path, version='20260814100000', pet_ids=(1, 2, 3))
+    with sqlite3.connect(previous_path) as conn:
+        conn.executemany(
+            'UPDATE pet SET peak_expert_pool_id = ? WHERE id = ?',
+            ((None, 1), (0, 2), (0, 3)),
+        )
+    with sqlite3.connect(current_path) as conn:
+        conn.executemany(
+            'UPDATE pet SET peak_expert_pool_id = ? WHERE id = ?',
+            ((0, 1), (None, 2), (0, 3)),
+        )
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    changes = {
+        item.entity_id: item.payload
+        for item in state.items
+        if item.category == 'peak_expert_pool'
+    }
+    assert changes == {
+        1: {'previous_limit': None, 'current_limit': 0},
+        2: {'previous_limit': 0, 'current_limit': None},
+    }
+
+
 def test_same_week_rebuild_preserves_peak_pool_transition_payload(tmp_path: Path) -> None:
     previous_path = tmp_path / 'previous.sqlite'
     current_path = tmp_path / 'current.sqlite'
@@ -327,6 +357,71 @@ def test_same_week_rebuild_preserves_peak_pool_transition_payload(tmp_path: Path
 
     change = next(item for item in state.items if item.category == 'peak_pool')
     assert change.payload == {'previous_limit': 3, 'current_limit': 2}
+
+
+def test_same_week_rebuild_preserves_expert_pool_transition_payload(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260814100000', pet_ids=(1,))
+    with sqlite3.connect(previous_path) as conn:
+        conn.execute('UPDATE pet SET peak_expert_pool_id = 0 WHERE id = 1')
+    baseline_path = tmp_path / 'baseline.sqlite'
+    _create_database(baseline_path, version='20260807100000', pet_ids=(1,))
+    first = indexer.build_release_state(previous_path, baseline_path, 'first-sha')
+    indexer.write_release_state(previous_path, first, None)
+    _create_database(current_path, version='20260814110000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute('UPDATE pet SET peak_expert_pool_id = 0 WHERE id = 1')
+
+    state = indexer.build_release_state(current_path, previous_path, 'second-sha')
+
+    change = next(
+        item for item in state.items if item.category == 'peak_expert_pool'
+    )
+    assert change.payload == {'previous_limit': None, 'current_limit': 0}
+
+
+def test_schema_six_recovers_expert_pool_from_previous_raw_database(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260807100000', pet_ids=(1,))
+    baseline = indexer.build_release_state(previous_path, None, 'old-sha')
+    legacy = indexer.replace(
+        baseline,
+        baseline_established=True,
+        source_items=tuple(
+            item
+            for item in baseline.source_items
+            if item.category != 'peak_expert_pool'
+        ),
+        source_categories=frozenset(
+            category
+            for category in baseline.source_categories
+            if category != 'peak_expert_pool'
+        ),
+        category_states=tuple(
+            state
+            for state in baseline.category_states
+            if state.category != 'peak_expert_pool'
+        ),
+        semantic_schema_version=5,
+    )
+    indexer.write_release_state(previous_path, legacy, None)
+    _create_database(current_path, version='20260814100000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute('UPDATE pet SET peak_expert_pool_id = 0 WHERE id = 1')
+
+    state = indexer.build_release_state(current_path, previous_path, 'new-sha')
+
+    change = next(
+        item for item in state.items if item.category == 'peak_expert_pool'
+    )
+    assert change.payload == {'previous_limit': None, 'current_limit': 0}
+    assert state.semantic_schema_version == 6
 
 
 def test_skill_semantic_digest_ignores_linked_pet_list() -> None:
@@ -548,7 +643,7 @@ def test_semantic_v4_migration_prunes_equip_parser_corrections_and_keeps_additio
         (indexer.SourceHistoryAddition('equip', 402),),
     )
 
-    assert state.semantic_schema_version == 5
+    assert state.semantic_schema_version == 6
     assert [(item.category, item.entity_id, item.change_kind) for item in state.items] == [
         ('equip', 402, 'added')
     ]
