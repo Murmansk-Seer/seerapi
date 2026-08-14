@@ -40,7 +40,7 @@ PET_SKILL_RELATION_FIELDS = (
     'is_advanced',
     'is_fifth',
 )
-SEMANTIC_SCHEMA_VERSION = 3
+SEMANTIC_SCHEMA_VERSION = 4
 SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
     # v2 normalized the semantic snapshots for these categories.  Keep this
     # migration scoped to databases that genuinely predate it: rerunning it
@@ -48,10 +48,19 @@ SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
     2: frozenset({'pet', 'skill', 'equip', 'mount'}),
     # v3 removes catalogue-rarity-only mintmark updates from the weekly view.
     3: frozenset({'mintmark'}),
+    # Solaris 106.7.1 corrected the equip bonus attribute column order. Refresh
+    # these snapshots so old parser output is not carried into future weeks.
+    4: frozenset({'equip', 'mount'}),
 }
 SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
     2: frozenset({'pet', 'equip', 'mount'}),
     3: frozenset({'mintmark'}),
+    4: frozenset({'equip', 'mount'}),
+}
+SEMANTIC_MIGRATION_SUPPRESS_MODIFIED_BY_VERSION: dict[int, frozenset[str]] = {
+    # The old parser shifted HP -> ATK, DEF -> SP_ATK, SP_DEF -> SPD, and
+    # SPD -> HP. Suppress that one-time correction while keeping additions.
+    4: frozenset({'equip', 'mount'}),
 }
 
 CONTENT_CATEGORIES = (
@@ -210,6 +219,18 @@ def _semantic_migration_prune_categories(previous_version: int) -> frozenset[str
         *(
             categories
             for version, categories in SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION.items()
+            if previous_version < version <= SEMANTIC_SCHEMA_VERSION
+        )
+    )
+
+
+def _semantic_migration_suppress_modified_categories(
+    previous_version: int,
+) -> frozenset[str]:
+    return frozenset().union(
+        *(
+            categories
+            for version, categories in SEMANTIC_MIGRATION_SUPPRESS_MODIFIED_BY_VERSION.items()
             if previous_version < version <= SEMANTIC_SCHEMA_VERSION
         )
     )
@@ -630,9 +651,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         category = 'mount' if part_type == 6 else 'equip'
         entity_id = int(row['id'])
         payload = {
-            field: int(row[field] or 0)
-            for field in equip_fields
-            if field != 'bonus_id'
+            field: int(row[field] or 0) for field in equip_fields if field != 'bonus_id'
         }
         if 'bonus_id' in row.keys() and row['bonus_id'] is not None:
             payload['bonus'] = equip_bonus_payloads.get(int(row['bonus_id']), {})
@@ -665,12 +684,12 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
 
     if _has_table(conn, 'autocard_role'):
         if _has_table(conn, 'autocard_role_raw'):
-            role_query = '''
+            role_query = """
                 SELECT role.id, role.name, raw.raw_json
                 FROM autocard_role AS role
                 JOIN autocard_role_raw AS raw ON raw.role_id = role.id
                 ORDER BY role.id
-            '''
+            """
         elif 'raw_json' in _table_columns(conn, 'autocard_role'):
             role_query = 'SELECT id, name, raw_json FROM autocard_role ORDER BY id'
         else:
@@ -694,7 +713,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
     if _has_table(conn, AUTOCARD_SANCTUARY_EFFECT_TABLE):
         for row in _rows(
             conn,
-            f'''
+            f"""
             SELECT
                 effect.id,
                 effect.sanctuary_id,
@@ -720,7 +739,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
             LEFT JOIN pet
                 ON pet.id = base.pic_id
             ORDER BY effect.sanctuary_id, effect.unlock_round, effect.stage, effect.id
-            ''',
+            """,
         ):
             entity_id = int(row['id'])
             items.append(
@@ -778,11 +797,14 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
             )
         else:
             missing_categories = current_categories - source_categories
-            source_items = (*source_items, *(
-                SourceSnapshotItem.from_content(item)
-                for item in current_items
-                if item.category in missing_categories
-            ))
+            source_items = (
+                *source_items,
+                *(
+                    SourceSnapshotItem.from_content(item)
+                    for item in current_items
+                    if item.category in missing_categories
+                ),
+            )
             if semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
                 migration_categories = _semantic_migration_categories(
                     semantic_schema_version
@@ -868,11 +890,11 @@ def _load_source_snapshot(conn: sqlite3.Connection) -> tuple[SourceSnapshotItem,
     return tuple(
         SourceSnapshotItem(str(row[0]), int(row[1]), str(row[2]))
         for row in conn.execute(
-            f'''
+            f"""
             SELECT category, entity_id, semantic_digest
             FROM {SOURCE_SNAPSHOT_TABLE}
             ORDER BY category, entity_id
-            '''
+            """
         )
     )
 
@@ -882,9 +904,7 @@ def _load_source_categories(conn: sqlite3.Connection) -> frozenset[str]:
         return frozenset()
     return frozenset(
         str(row[0])
-        for row in conn.execute(
-            f'SELECT category FROM {CATEGORY_SNAPSHOT_TABLE}'
-        )
+        for row in conn.execute(f'SELECT category FROM {CATEGORY_SNAPSHOT_TABLE}')
     )
 
 
@@ -902,16 +922,18 @@ def _load_category_states(conn: sqlite3.Connection) -> tuple[CategoryState, ...]
     return tuple(
         CategoryState(str(row[0]), bool(row[1]), str(row[2]))
         for row in conn.execute(
-            f'''
+            f"""
             SELECT category, comparison_ready, reason
             FROM {CATEGORY_STATE_TABLE}
             ORDER BY category
-            '''
+            """
         )
     )
 
 
-def load_source_history_additions(path: Path | None) -> tuple[SourceHistoryAddition, ...]:
+def load_source_history_additions(
+    path: Path | None,
+) -> tuple[SourceHistoryAddition, ...]:
     """Load Git-confirmed additions without treating source-file edits as changes.
 
     The API data repository records both real content additions and broad schema
@@ -948,7 +970,8 @@ def load_source_history_additions(path: Path | None) -> tuple[SourceHistoryAddit
 
 
 def _new_items(
-    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
+    current: tuple[ContentItem, ...],
+    previous: tuple[SourceSnapshotItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {(item.category, item.entity_id) for item in previous}
@@ -963,7 +986,8 @@ def _new_items(
 
 
 def _modified_items(
-    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
+    current: tuple[ContentItem, ...],
+    previous: tuple[SourceSnapshotItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {
@@ -1069,14 +1093,27 @@ def build_release_state(
     comparable_categories = {
         state.category for state in category_states if state.comparison_ready
     }
+    modified_items = _modified_items(
+        current_items,
+        previous.source_items,
+        comparable_categories,
+    )
+    if (
+        previous.baseline_established
+        and previous.semantic_schema_version < SEMANTIC_SCHEMA_VERSION
+    ):
+        suppressed_categories = _semantic_migration_suppress_modified_categories(
+            previous.semantic_schema_version
+        )
+        modified_items = tuple(
+            item
+            for item in modified_items
+            if item.category not in suppressed_categories
+        )
     increment = _current_subset(
         (
             *_new_items(current_items, previous.source_items, comparable_categories),
-            *_modified_items(
-                current_items,
-                previous.source_items,
-                comparable_categories,
-            ),
+            *modified_items,
             *_source_history_items(current_items, source_history_additions),
         ),
         current_items,
