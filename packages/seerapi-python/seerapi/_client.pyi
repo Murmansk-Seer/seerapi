@@ -104,9 +104,7 @@ class SeerAPI:
     @overload
     async def get(self, resource_name: Literal['buff'], id: int) -> M.Buff: ...
     @overload
-    async def get(
-        self, resource_name: Literal['buff_type'], id: int
-    ) -> M.BuffType: ...
+    async def get(self, resource_name: Literal['buff_type'], id: int) -> M.BuffType: ...
     @overload
     async def get(
         self, resource_name: Literal['resistance_category'], id: int

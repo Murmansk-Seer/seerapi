@@ -34,9 +34,9 @@ class FieldEffectAnalyzer(BaseDataSourceAnalyzer):
         Returns:
                 包含 FieldEffect、FieldEffectType 的分析结果元组
         """
-        buff_data: list['EffectBuffItem'] = self._get_data(
-            'unity', 'effectBuff.json'
-        )['root']['buff']
+        buff_data: list['EffectBuffItem'] = self._get_data('unity', 'effectBuff.json')[
+            'root'
+        ]['buff']
 
         type_map: CategoryMap[int, FieldEffectType, ResourceRef['FieldEffect']] = (
             CategoryMap('effect')
