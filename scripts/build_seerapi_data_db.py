@@ -91,13 +91,15 @@ if __package__:
         SPECIAL_EFFECT_STATUS_TABLE,
         replace_reference_tables,
     )
+    from .release_render_manifest_tables import (
+        replace_render_asset_manifest_table,
+    )
     from .release_soulmark_icon_tables import (
         SOULMARK_ICON_TABLE,
         replace_soulmark_icon_tables,
     )
     from .render_asset_manifest_build import (
         RenderAssetManifestConfig,
-        RenderAssetManifestEntry,
         build_render_asset_manifest,
         collect_remote_asset_manifest,
     )
@@ -177,13 +179,15 @@ else:
         SPECIAL_EFFECT_STATUS_TABLE,
         replace_reference_tables,
     )
+    from release_render_manifest_tables import (  # type: ignore[import-not-found]
+        replace_render_asset_manifest_table,
+    )
     from release_soulmark_icon_tables import (  # type: ignore[import-not-found]
         SOULMARK_ICON_TABLE,
         replace_soulmark_icon_tables,
     )
     from render_asset_manifest_build import (  # type: ignore[import-not-found]
         RenderAssetManifestConfig,
-        RenderAssetManifestEntry,
         build_render_asset_manifest,
         collect_remote_asset_manifest,
     )
@@ -345,7 +349,6 @@ CONFIG_TEXT_ASSETS = {
     EFFECT_ICON_BYTES_NAME,
     AUTOCARD_SEASON_EFFECT_BYTES_NAME,
 }
-RENDER_ASSET_MANIFEST_TABLE = "render_asset_manifest"
 SEERAPI_SCHEMA_CONTRACT_VERSION = "1"
 SEERAPI_SCHEMA_CONTRACT_VERSION_KEY = "ironsbot_schema_contract_version"
 RENDER_ASSET_MANIFEST_CONTRACT_VERSION = "2"
@@ -1188,58 +1191,6 @@ def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
     return sorted({item.icon_id for item in config_data.soulmark_icons})
 
 
-def _replace_render_asset_manifest(
-    conn: sqlite3.Connection,
-    entries: tuple[RenderAssetManifestEntry, ...],
-    *,
-    now: float,
-) -> None:
-    """Replace release-owned render material facts atomically with the build."""
-
-    conn.execute(f"DROP TABLE IF EXISTS {RENDER_ASSET_MANIFEST_TABLE}")
-    conn.execute(
-        f"""
-        CREATE TABLE {RENDER_ASSET_MANIFEST_TABLE} (
-            asset_kind TEXT NOT NULL,
-            asset_key TEXT NOT NULL,
-            sha256 TEXT NOT NULL,
-            release_revision TEXT NOT NULL,
-            available INTEGER NOT NULL,
-            source TEXT NOT NULL,
-            updated_at REAL NOT NULL,
-            PRIMARY KEY (asset_kind, asset_key)
-        )
-        """
-    )
-    conn.executemany(
-        f"""
-        INSERT INTO {RENDER_ASSET_MANIFEST_TABLE}
-            (
-                asset_kind,
-                asset_key,
-                sha256,
-                release_revision,
-                available,
-                source,
-                updated_at
-            )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        [
-            (
-                entry.asset_kind,
-                entry.asset_key,
-                entry.sha256,
-                entry.release_revision,
-                int(entry.available),
-                entry.source,
-                now,
-            )
-            for entry in entries
-        ],
-    )
-
-
 def _seed_effect_icon_png_cache_from_database(db_path: Path) -> int:
     if not db_path.is_file():
         logger.info("No previous IronsBot database to seed effect icon PNG cache")
@@ -1704,10 +1655,10 @@ def _merge_ironsbot_tables(
             render_issues=soulmark_icon_render_issues,
             now=now,
         )
-        _replace_render_asset_manifest(
+        replace_render_asset_manifest_table(
             conn,
             render_asset_manifest,
-            now=now,
+            updated_at=now,
         )
         replace_autocard_tables(conn, autocard_data, now)
         replace_autocard_season_effect_table(

@@ -33,6 +33,7 @@ import partner_contract_sources
 import release_autocard_tables
 import release_config_tables
 import release_reference_tables
+import release_render_manifest_tables
 import release_soulmark_icon_tables
 import render_asset_manifest_build
 import render_asset_repository
@@ -1697,7 +1698,11 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
 
     database = tmp_path / "manifest.sqlite"
     with sqlite3.connect(database) as connection:
-        builder._replace_render_asset_manifest(connection, entries, now=123.0)
+        release_render_manifest_tables.replace_render_asset_manifest_table(
+            connection,
+            entries,
+            updated_at=123.0,
+        )
         rows = connection.execute(
             """
             SELECT asset_kind, asset_key, sha256, release_revision, available
