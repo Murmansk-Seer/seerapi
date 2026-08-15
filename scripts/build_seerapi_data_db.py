@@ -15,7 +15,6 @@ import json
 import logging
 import os
 from pathlib import Path
-import shutil
 import sqlite3
 import time
 from urllib.error import HTTPError, URLError
@@ -48,10 +47,10 @@ if __package__:
         EffectIconPngRender,
         SoulmarkIconRenderIssue,
     )
-    from .effect_icon_png_renderer import (
-        effect_icon_png_cache_metadata_path,
-        effect_icon_png_cache_path,
-        save_effect_icon_png_cache,
+    from .effect_icon_cache_cli import (
+        export_effect_icon_png_cache_shard,
+        render_effect_icon_png_cache_shard,
+        seed_effect_icon_png_cache_from_database,
     )
     from .effect_icon_source_paths import (
         effect_icon_asset_url as _effect_icon_asset_url,
@@ -151,10 +150,10 @@ else:
         EffectIconPngRender,
         SoulmarkIconRenderIssue,
     )
-    from effect_icon_png_renderer import (  # type: ignore[import-not-found]
-        effect_icon_png_cache_metadata_path,
-        effect_icon_png_cache_path,
-        save_effect_icon_png_cache,
+    from effect_icon_cache_cli import (  # type: ignore[import-not-found]
+        export_effect_icon_png_cache_shard,
+        render_effect_icon_png_cache_shard,
+        seed_effect_icon_png_cache_from_database,
     )
     from effect_icon_source_paths import (  # type: ignore[import-not-found]
         effect_icon_asset_url as _effect_icon_asset_url,
@@ -693,150 +692,6 @@ def _collect_soulmark_icon_render_issues(
 
 def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
     return sorted({item.icon_id for item in config_data.soulmark_icons})
-
-
-def _seed_effect_icon_png_cache_from_database(db_path: Path) -> int:
-    if not db_path.is_file():
-        logger.info("No previous IronsBot database to seed effect icon PNG cache")
-        return 0
-    try:
-        with sqlite3.connect(db_path) as conn:
-            metadata_row = conn.execute(
-                """
-                SELECT value
-                FROM ironsbot_metadata
-                WHERE key = 'effect_icon_png_cache_version'
-                """
-            ).fetchone()
-            if metadata_row is None or metadata_row[0] != EFFECT_ICON_PNG_CACHE_VERSION:
-                logger.info(
-                    "Previous effect icon PNG cache uses a different renderer version; "
-                    "not seeding it"
-                )
-                return 0
-            rows = conn.execute(
-                f"""
-                SELECT
-                    icon_id,
-                    icon_png,
-                    icon_asset_content_length,
-                    icon_asset_content_type
-                FROM {SOULMARK_ICON_TABLE}
-                WHERE icon_png_available = 1
-                  AND icon_png IS NOT NULL
-                  AND icon_asset_content_length IS NOT NULL
-                GROUP BY icon_id
-                """
-            ).fetchall()
-    except sqlite3.Error as error:
-        logger.warning(
-            "Unable to seed effect icon PNG cache from %s: %s",
-            db_path,
-            _short_error(error),
-        )
-        return 0
-
-    seeded_count = 0
-    for icon_id, png_data, content_length, content_type in rows:
-        if not isinstance(png_data, bytes):
-            continue
-        check = EffectIconAssetCheck(
-            icon_id=int(icon_id),
-            url=_effect_icon_asset_url(int(icon_id), config=EFFECT_ICON_BUILD_CONFIG),
-            available=True,
-            status=200,
-            content_type=str(content_type),
-            content_length=int(content_length),
-            error="",
-        )
-        if save_effect_icon_png_cache(
-            int(icon_id),
-            png_data,
-            check,
-            config=EFFECT_ICON_BUILD_CONFIG,
-            logger=logger,
-        ):
-            seeded_count += 1
-    logger.info(
-        "Seeded %s effect icon PNGs from previous IronsBot database",
-        seeded_count,
-    )
-    return seeded_count
-
-
-def _export_effect_icon_png_cache_shard(
-    icon_ids: list[int],
-    output_dir: Path,
-) -> int:
-    exported_count = 0
-    target_dir = output_dir / EFFECT_ICON_PNG_CACHE_VERSION
-    target_dir.mkdir(parents=True, exist_ok=True)
-    for icon_id in icon_ids:
-        source_path = effect_icon_png_cache_path(
-            icon_id,
-            config=EFFECT_ICON_BUILD_CONFIG,
-        )
-        metadata_path = effect_icon_png_cache_metadata_path(
-            icon_id,
-            config=EFFECT_ICON_BUILD_CONFIG,
-        )
-        if not source_path.is_file() or not metadata_path.is_file():
-            continue
-        shutil.copy2(source_path, target_dir / source_path.name)
-        shutil.copy2(metadata_path, target_dir / metadata_path.name)
-        exported_count += 1
-    logger.info(
-        "Exported %s effect icon PNG cache entries to %s",
-        exported_count,
-        output_dir,
-    )
-    return exported_count
-
-
-def _render_effect_icon_png_cache_shard(
-    *,
-    shard_index: int,
-    shard_count: int,
-    output_dir: Path,
-) -> tuple[int, int]:
-    if shard_count <= 0:
-        raise ValueError("Effect icon shard count must be positive")
-    if shard_index < 0 or shard_index >= shard_count:
-        raise ValueError(
-            f"Effect icon shard index must be in 0..{shard_count - 1}"
-        )
-
-    config_data = _fetch_config_package_data()
-    icon_ids = set(_effect_icon_ids(config_data))
-    fallback_icon_ids = unity_effect_icon_swf_fallback_icon_ids(
-        icon_ids,
-        config=_effect_icon_source_config(),
-        fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
-            base_url,
-            package_name,
-            parse_manifest=parse_package_manifest,
-        ),
-        logger=logger,
-    )
-    shard_icon_ids = fallback_icon_ids[shard_index::shard_count]
-    logger.info(
-        "Rendering SWF fallback effect icon cache shard %s/%s: %s icons",
-        shard_index + 1,
-        shard_count,
-        len(shard_icon_ids),
-    )
-    _checks, renders = load_flash_effect_icon_png_assets(
-        set(shard_icon_ids),
-        config=EFFECT_ICON_BUILD_CONFIG,
-        request=BUILD_HTTP.request,
-        open_url=urlopen,
-        logger=logger,
-        require_any=False,
-    )
-    _export_effect_icon_png_cache_shard(shard_icon_ids, output_dir)
-    return len(shard_icon_ids), sum(
-        1 for render in renders.values() if render.available
-    )
 
 
 def _fetch_config_package_data() -> ConfigPackageData:
@@ -1407,13 +1262,50 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     arguments = _parse_cli_args()
     if arguments.seed_effect_icon_cache is not None:
-        _seed_effect_icon_png_cache_from_database(arguments.seed_effect_icon_cache)
+        seed_effect_icon_png_cache_from_database(
+            arguments.seed_effect_icon_cache,
+            cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
+            icon_table=SOULMARK_ICON_TABLE,
+            config=EFFECT_ICON_BUILD_CONFIG,
+            effect_icon_url=lambda icon_id: _effect_icon_asset_url(
+                icon_id,
+                config=EFFECT_ICON_BUILD_CONFIG,
+            ),
+            logger=logger,
+        )
         return
     if arguments.render_effect_icon_shard is not None:
-        icon_count, available_count = _render_effect_icon_png_cache_shard(
+        icon_count, available_count = render_effect_icon_png_cache_shard(
             shard_index=arguments.render_effect_icon_shard,
             shard_count=arguments.effect_icon_shard_count,
             output_dir=arguments.export_effect_icon_cache_shard,
+            fetch_icon_ids=lambda: set(_effect_icon_ids(_fetch_config_package_data())),
+            find_fallback_icon_ids=lambda icon_ids: unity_effect_icon_swf_fallback_icon_ids(
+                icon_ids,
+                config=_effect_icon_source_config(),
+                fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
+                    base_url,
+                    package_name,
+                    parse_manifest=parse_package_manifest,
+                ),
+                logger=logger,
+            ),
+            render_icons=lambda icon_ids: load_flash_effect_icon_png_assets(
+                icon_ids,
+                config=EFFECT_ICON_BUILD_CONFIG,
+                request=BUILD_HTTP.request,
+                open_url=urlopen,
+                logger=logger,
+                require_any=False,
+            )[1],
+            export_cache=lambda icon_ids, output_dir: export_effect_icon_png_cache_shard(
+                icon_ids,
+                output_dir,
+                cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
+                config=EFFECT_ICON_BUILD_CONFIG,
+                logger=logger,
+            ),
+            logger=logger,
         )
         logger.info(
             "Rendered effect icon cache shard: %s icons, %s available",

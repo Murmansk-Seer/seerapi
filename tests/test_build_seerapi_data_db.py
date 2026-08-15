@@ -23,6 +23,7 @@ if str(SCRIPT_ROOT) not in sys.path:
 import config_package_sources
 import effect_icon_build
 import effect_icon_build_types
+import effect_icon_cache_cli
 import effect_icon_flash_sources
 import effect_icon_png_renderer
 import effect_icon_source_paths
@@ -53,6 +54,20 @@ def _fetch_package_manifest(base_url: str, package_name: str):
         base_url,
         package_name,
         parse_manifest=builder.parse_package_manifest,
+    )
+
+
+def _seed_effect_icon_cache(database_path: Path) -> int:
+    return effect_icon_cache_cli.seed_effect_icon_png_cache_from_database(
+        database_path,
+        cache_version=builder.EFFECT_ICON_PNG_CACHE_VERSION,
+        icon_table=builder.SOULMARK_ICON_TABLE,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        effect_icon_url=lambda icon_id: builder._effect_icon_asset_url(
+            icon_id,
+            config=builder.EFFECT_ICON_BUILD_CONFIG,
+        ),
+        logger=builder.logger,
     )
 
 
@@ -1425,7 +1440,7 @@ def test_seed_effect_icon_cache_uses_matching_renderer_version(
         error="",
     )
 
-    assert builder._seed_effect_icon_png_cache_from_database(database_path) == 1
+    assert _seed_effect_icon_cache(database_path) == 1
     assert effect_icon_png_renderer.load_effect_icon_png_cache(
         icon_id,
         check,
@@ -1466,7 +1481,7 @@ def test_seed_effect_icon_cache_rejects_previous_renderer_version(
         _effect_icon_render_config(cache_dir=tmp_path / "cache"),
     )
 
-    assert builder._seed_effect_icon_png_cache_from_database(database_path) == 0
+    assert _seed_effect_icon_cache(database_path) == 0
     assert not effect_icon_png_renderer.effect_icon_png_cache_path(
         1644,
         config=builder.EFFECT_ICON_BUILD_CONFIG,
@@ -1515,16 +1530,31 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
             },
         ),
     )
-    monkeypatch.setattr(
-        builder,
-        "_export_effect_icon_png_cache_shard",
-        lambda icon_ids, _output_dir: captured.setdefault("icon_ids", icon_ids) and 2,
-    )
-
-    icon_count, available_count = builder._render_effect_icon_png_cache_shard(
+    icon_count, available_count = effect_icon_cache_cli.render_effect_icon_png_cache_shard(
         shard_index=1,
         shard_count=2,
         output_dir=tmp_path,
+        fetch_icon_ids=lambda: set(
+            builder._effect_icon_ids(builder._fetch_config_package_data())
+        ),
+        find_fallback_icon_ids=lambda icon_ids: builder.unity_effect_icon_swf_fallback_icon_ids(
+            icon_ids,
+            config=builder._effect_icon_source_config(),
+            fetch_package_manifest=_fetch_package_manifest,
+            logger=builder.logger,
+        ),
+        render_icons=lambda icon_ids: builder.load_flash_effect_icon_png_assets(
+            icon_ids,
+            config=builder.EFFECT_ICON_BUILD_CONFIG,
+            request=builder.BUILD_HTTP.request,
+            open_url=builder.urlopen,
+            logger=builder.logger,
+            require_any=False,
+        )[1],
+        export_cache=lambda icon_ids, _output_dir: captured.setdefault(
+            "icon_ids", list(icon_ids)
+        ) and 2,
+        logger=builder.logger,
     )
 
     assert captured["fallback_input"] == [100, 101, 102, 103]
