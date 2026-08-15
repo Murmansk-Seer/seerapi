@@ -1,3 +1,4 @@
+from dataclasses import replace
 import importlib.util
 import json
 from pathlib import Path
@@ -9,6 +10,9 @@ import pytest
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1] / 'scripts' / 'build_new_content_index.py'
 )
+SCRIPT_DIRECTORY = str(SCRIPT_PATH.parent)
+if SCRIPT_DIRECTORY not in sys.path:
+    sys.path.insert(0, SCRIPT_DIRECTORY)
 SPEC = importlib.util.spec_from_file_location('build_new_content_index', SCRIPT_PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError
@@ -248,7 +252,7 @@ def test_pet_semantic_digest_ignores_weekly_pool_and_skill_definition_noise() ->
 
     assert before.semantic_digest == after.semantic_digest
 
-    changed_relation = indexer.replace(
+    changed_relation = replace(
         after,
         payload={
             **after.payload,
@@ -275,7 +279,7 @@ def test_skill_semantic_digest_ignores_linked_pet_list() -> None:
     )
 
     assert before.semantic_digest == after.semantic_digest
-    assert before.semantic_digest != indexer.replace(
+    assert before.semantic_digest != replace(
         after,
         payload={**after.payload, 'info': '修正后的技能说明'},
     ).semantic_digest
@@ -290,19 +294,19 @@ def test_mintmark_semantic_digest_ignores_rarity_but_tracks_quality() -> None:
         {'desc': '官方描述', 'type_id': 1, 'rarity_id': 4, 'quality': 5},
     )
 
-    rarity_corrected = indexer.replace(
+    rarity_corrected = replace(
         before,
         payload={**before.payload, 'rarity_id': 1},
     )
-    quality_changed = indexer.replace(
+    quality_changed = replace(
         before,
         payload={**before.payload, 'quality': 4},
     )
-    description_changed = indexer.replace(
+    description_changed = replace(
         before,
         payload={**before.payload, 'desc': '修正后的官方描述'},
     )
-    type_changed = indexer.replace(
+    type_changed = replace(
         before,
         payload={**before.payload, 'type_id': 2},
     )
@@ -356,7 +360,7 @@ def test_semantic_schema_upgrade_prunes_legacy_noise_in_same_week(
         for item in indexer.load_current_items(sqlite3.connect(previous_path))
         if item.category == 'equip' and item.entity_id == 400
     )
-    legacy = indexer.replace(
+    legacy = replace(
         baseline,
         baseline_established=True,
         items=(equip.with_change_kind('modified'),),
@@ -392,7 +396,7 @@ def test_semantic_v3_migration_prunes_rarity_only_mintmarks_and_keeps_additions(
         for item in indexer.load_current_items(sqlite3.connect(previous_path))
         if item.category == 'mintmark' and item.entity_id == 200
     )
-    legacy = indexer.replace(
+    legacy = replace(
         baseline,
         baseline_established=True,
         items=(legacy_mintmark.with_change_kind('modified'),),
@@ -429,7 +433,7 @@ def test_semantic_v3_migration_keeps_real_skill_changes_from_v2_snapshot(
         conn.execute("UPDATE skill SET info = '正式技能说明' WHERE id = 9000")
 
     baseline = indexer.build_release_state(previous_path, None, 'old-sha')
-    legacy = indexer.replace(
+    legacy = replace(
         baseline,
         baseline_established=True,
         semantic_schema_version=2,
