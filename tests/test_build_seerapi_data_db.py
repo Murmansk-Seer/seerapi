@@ -23,6 +23,7 @@ import config_package_sources
 import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
+import render_asset_manifest_build
 import render_asset_repository
 
 SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
@@ -112,23 +113,53 @@ def _create_special_effect_source_tables(database: Path) -> None:
         )
 
 
+def _collect_remote_asset_manifest(
+    connection: sqlite3.Connection,
+    snapshot: render_asset_repository.AssetRepositorySnapshot | None,
+    *,
+    release_revision: str,
+) -> render_asset_manifest_build.RemoteAssetManifestBuild:
+    return render_asset_manifest_build.collect_remote_asset_manifest(
+        connection,
+        snapshot,
+        release_revision=release_revision,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    )
+
+
 def test_pet_info_scope_proves_type_matchup_asset_subset() -> None:
-    assert builder._complete_render_asset_scopes(True) == (
+    assert render_asset_manifest_build.complete_render_asset_scopes(
+        True,
+        False,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    ) == (
         builder.PET_INFO_RENDER_ASSET_SCOPE,
         builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
         builder.PEAK_POOL_RENDER_ASSET_SCOPE,
     )
-    assert builder._complete_render_asset_scopes(False) == ()
+    assert render_asset_manifest_build.complete_render_asset_scopes(
+        False,
+        False,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    ) == ()
 
 
 def test_new_content_standard_scope_requires_pet_info_and_its_own_assets() -> None:
-    assert builder._complete_render_asset_scopes(True, True) == (
+    assert render_asset_manifest_build.complete_render_asset_scopes(
+        True,
+        True,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    ) == (
         builder.PET_INFO_RENDER_ASSET_SCOPE,
         builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
         builder.PEAK_POOL_RENDER_ASSET_SCOPE,
         builder.NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE,
     )
-    assert builder._complete_render_asset_scopes(False, True) == ()
+    assert render_asset_manifest_build.complete_render_asset_scopes(
+        False,
+        True,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    ) == ()
 
 
 def test_copy_or_download_upstream_database_uses_verified_local_input(
@@ -1271,50 +1302,20 @@ def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
 def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
     tmp_path: Path,
 ) -> None:
-    checks = {
-        18: builder.EffectIconAssetCheck(
-            icon_id=18,
-            url="https://example.test/18.swf",
-            available=True,
-            status=200,
-            content_type="application/x-shockwave-flash",
-            content_length=100,
-            error="",
+    result = render_asset_manifest_build.build_render_asset_manifest(
+        render_asset_manifest_build.RemoteAssetManifestBuild(
+            pet_info_entries=(),
+            new_content_standard_entries=(),
+            pet_info_scope_complete=False,
+            new_content_standard_scope_complete=False,
         ),
-        19: builder.EffectIconAssetCheck(
-            icon_id=19,
-            url="https://example.test/19.swf",
-            available=False,
-            status=404,
-            content_type="text/html",
-            content_length=None,
-            error="missing",
-        ),
-    }
-    renders = {
-        18: builder.EffectIconPngRender(
-            icon_id=18,
-            available=True,
-            content_type="image/png",
-            content_length=3,
-            data=b"png",
-            error="",
-        ),
-        19: builder.EffectIconPngRender(
-            icon_id=19,
-            available=False,
-            content_type="",
-            content_length=None,
-            data=None,
-            error="missing",
-        ),
-    }
-
-    entries = builder._build_effect_icon_render_asset_manifest(
-        checks,
-        renders,
+        {18: b"png", 19: None},
+        None,
         release_revision="config-20260806",
+        effect_icon_source_version=builder.EFFECT_ICON_PNG_CACHE_VERSION,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
+    entries = result.entries
 
     assert [(entry.asset_kind, entry.asset_key) for entry in entries] == [
         ("soulmark_icon_png", "18"),
@@ -1325,11 +1326,13 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
     assert entries[0].available is True
     assert entries[1].sha256 == ""
     assert entries[1].available is False
-    assert builder._render_asset_manifest_revision(entries) == (
-        builder._render_asset_manifest_revision(tuple(reversed(entries)))
+    assert render_asset_manifest_build.render_asset_manifest_revision(entries) == (
+        render_asset_manifest_build.render_asset_manifest_revision(
+            tuple(reversed(entries))
+        )
     )
     changed_source = (
-        builder.RenderAssetManifestEntry(
+        render_asset_manifest_build.RenderAssetManifestEntry(
             asset_kind=entries[0].asset_kind,
             asset_key=entries[0].asset_key,
             sha256=entries[0].sha256,
@@ -1339,8 +1342,8 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
         ),
         entries[1],
     )
-    assert builder._render_asset_manifest_revision(entries) != (
-        builder._render_asset_manifest_revision(changed_source)
+    assert render_asset_manifest_build.render_asset_manifest_revision(entries) != (
+        render_asset_manifest_build.render_asset_manifest_revision(changed_source)
     )
 
     database = tmp_path / "manifest.sqlite"
@@ -1368,7 +1371,7 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
 
 def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> None:
     entries = (
-        builder.RenderAssetManifestEntry(
+        render_asset_manifest_build.RenderAssetManifestEntry(
             asset_kind="pet_head",
             asset_key="1",
             sha256="",
@@ -1377,21 +1380,26 @@ def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> 
             source="example",
         ),
     )
-    snapshot = builder.AssetRepositorySnapshot(
+    snapshot = render_asset_repository.AssetRepositorySnapshot(
         revision="a" * 40,
         blobs_by_path={},
     )
 
-    metadata = builder._render_asset_manifest_metadata(
+    scopes = render_asset_manifest_build.complete_render_asset_scopes(
+        True,
+        False,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    )
+    metadata = render_asset_manifest_build.render_asset_manifest_metadata(
         entries,
         snapshot,
-        pet_info_scope_complete=True,
-        new_content_standard_scope_complete=False,
+        complete_scopes=scopes,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
 
     assert metadata == {
         builder.RENDER_ASSET_MANIFEST_REVISION_KEY: (
-            builder._render_asset_manifest_revision(entries)
+            render_asset_manifest_build.render_asset_manifest_revision(entries)
         ),
         builder.RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: "2",
         builder.RENDER_ASSET_MANIFEST_SCOPES_KEY: (
@@ -1405,11 +1413,11 @@ def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> 
         "render_asset_manifest_available_count": "1",
     }
 
-    unavailable = builder._render_asset_manifest_metadata(
+    unavailable = render_asset_manifest_build.render_asset_manifest_metadata(
         entries,
         None,
-        pet_info_scope_complete=False,
-        new_content_standard_scope_complete=False,
+        complete_scopes=(),
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
 
     assert unavailable[builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY] == ""
@@ -1440,7 +1448,7 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
             INSERT INTO special_effect_status VALUES (10);
             """
         )
-        snapshot = builder.AssetRepositorySnapshot(
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision="a" * 40,
             blobs_by_path={
                 "newseer/assets/art/ui/assets/pet/head/100.png": "head-100",
@@ -1453,11 +1461,13 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
                 "newseer/assets/art/ui/assets/item/petitem/icon/9.png": "item",
             },
         )
-        entries, complete = builder._build_pet_info_remote_asset_manifest(
+        remote = _collect_remote_asset_manifest(
             connection,
             snapshot,
             release_revision="release-1",
         )
+        entries = remote.pet_info_entries
+        complete = remote.pet_info_scope_complete
 
     assert complete is True
     by_identity = {(entry.asset_kind, entry.asset_key): entry for entry in entries}
@@ -1569,7 +1579,7 @@ def test_pet_info_remote_asset_manifest_disables_scope_for_missing_mandatory_ass
             INSERT INTO mintmark VALUES (8);
             """
         )
-        snapshot = builder.AssetRepositorySnapshot(
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision="b" * 40,
             blobs_by_path={
                 "newseer/assets/art/ui/assets/pet/head/100.png": "head-100",
@@ -1578,11 +1588,13 @@ def test_pet_info_remote_asset_manifest_disables_scope_for_missing_mandatory_ass
                 "newseer/assets/art/ui/assets/pettype/prop.png": "prop",
             },
         )
-        entries, complete = builder._build_pet_info_remote_asset_manifest(
+        remote = _collect_remote_asset_manifest(
             connection,
             snapshot,
             release_revision="release-1",
         )
+        entries = remote.pet_info_entries
+        complete = remote.pet_info_scope_complete
 
     assert complete is False
     missing = next(
@@ -1613,7 +1625,7 @@ def test_new_content_standard_remote_asset_manifest_requires_all_assets(
             INSERT INTO skin_image_resolution VALUES (100), (101);
             """
         )
-        snapshot = builder.AssetRepositorySnapshot(
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision="c" * 40,
             blobs_by_path={
                 "newseer/assets/art/ui/assets/item/cloth/suiticon/11.png": "suit",
@@ -1622,11 +1634,13 @@ def test_new_content_standard_remote_asset_manifest_requires_all_assets(
                 "newseer/assets/art/ui/assets/pet/head/101.png": "skin-head",
             },
         )
-        entries, complete = builder._build_new_content_standard_remote_asset_manifest(
+        remote = _collect_remote_asset_manifest(
             connection,
             snapshot,
             release_revision="release-1",
         )
+        entries = remote.new_content_standard_entries
+        complete = remote.new_content_standard_scope_complete
 
     assert complete is True
     assert [(entry.asset_kind, entry.asset_key) for entry in entries] == [
@@ -1656,18 +1670,20 @@ def test_new_content_standard_remote_asset_manifest_stays_incomplete_when_missin
             INSERT INTO skin_image_resolution VALUES (100);
             """
         )
-        snapshot = builder.AssetRepositorySnapshot(
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision="d" * 40,
             blobs_by_path={
                 "newseer/assets/art/ui/assets/item/cloth/suiticon/11.png": "suit",
                 "newseer/assets/art/ui/assets/item/cloth/prev/12.png": "equip",
             },
         )
-        entries, complete = builder._build_new_content_standard_remote_asset_manifest(
+        remote = _collect_remote_asset_manifest(
             connection,
             snapshot,
             release_revision="release-1",
         )
+        entries = remote.new_content_standard_entries
+        complete = remote.new_content_standard_scope_complete
 
     assert complete is False
     missing = next(entry for entry in entries if entry.asset_kind == "title")

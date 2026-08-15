@@ -61,8 +61,13 @@ if __package__:
         PetPartnerData,
         parse_pet_partner_data,
     )
+    from .render_asset_manifest_build import (
+        RenderAssetManifestConfig,
+        RenderAssetManifestEntry,
+        build_render_asset_manifest,
+        collect_remote_asset_manifest,
+    )
     from .render_asset_repository import (
-        AssetRepositorySnapshot,
         RenderAssetRepository,
         load_asset_repository_snapshot,
     )
@@ -102,8 +107,13 @@ else:
         PetPartnerData,
         parse_pet_partner_data,
     )
+    from render_asset_manifest_build import (  # type: ignore[import-not-found]
+        RenderAssetManifestConfig,
+        RenderAssetManifestEntry,
+        build_render_asset_manifest,
+        collect_remote_asset_manifest,
+    )
     from render_asset_repository import (  # type: ignore[import-not-found]
-        AssetRepositorySnapshot,
         RenderAssetRepository,
         load_asset_repository_snapshot,
     )
@@ -274,6 +284,23 @@ RENDER_ASSET_REPOSITORY_CONFIG = RenderAssetRepository(
     tree_url_template=RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE,
 )
 SKIN_IMAGE_RESOLUTION_TABLE = "skin_image_resolution"
+RENDER_ASSET_MANIFEST_CONFIG = RenderAssetManifestConfig(
+    asset_repository_name=RENDER_ASSET_REPOSITORY,
+    manifest_contract_version=RENDER_ASSET_MANIFEST_CONTRACT_VERSION,
+    manifest_contract_version_key=RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY,
+    manifest_revision_key=RENDER_ASSET_MANIFEST_REVISION_KEY,
+    manifest_scopes_key=RENDER_ASSET_MANIFEST_SCOPES_KEY,
+    manifest_asset_repository_key=RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY,
+    manifest_asset_repository_revision_key=(
+        RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY
+    ),
+    pet_info_scope=PET_INFO_RENDER_ASSET_SCOPE,
+    type_matchup_scope=TYPE_MATCHUP_RENDER_ASSET_SCOPE,
+    peak_pool_scope=PEAK_POOL_RENDER_ASSET_SCOPE,
+    new_content_standard_scope=NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE,
+    special_effect_status_table=SPECIAL_EFFECT_STATUS_TABLE,
+    skin_image_resolution_table=SKIN_IMAGE_RESOLUTION_TABLE,
+)
 PET_PARTNER_GROUP_TABLE = "pet_partner_group"
 PET_PARTNER_MEMBER_TABLE = "pet_partner_member"
 PET_PARTNER_UPGRADE_TABLE = "pet_partner_upgrade"
@@ -452,28 +479,6 @@ class EffectIconPngRender:
     content_length: int | None
     data: bytes | None
     error: str
-
-
-@dataclass(frozen=True, slots=True)
-class RenderAssetManifestEntry:
-    """One build-time material fact used to invalidate final render caches."""
-
-    asset_kind: str
-    asset_key: str
-    sha256: str
-    release_revision: str
-    available: bool
-    source: str
-
-
-@dataclass(frozen=True, slots=True)
-class RemoteRenderAssetRequest:
-    """One renderer input whose path is resolved from a published repository tree."""
-
-    asset_kind: str
-    asset_key: str
-    candidate_paths: tuple[str, ...]
-    required: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -2226,432 +2231,6 @@ def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
     return sorted({item.icon_id for item in config_data.soulmark_icons})
 
 
-def _pet_info_remote_asset_requests(
-    conn: sqlite3.Connection,
-) -> tuple[RemoteRenderAssetRequest, ...] | None:
-    """Enumerate every remote material the pet-info renderer can request.
-
-    Optional assets stay in the manifest too. A missing optional icon is a
-    stable, intentional absence; a missing mandatory material makes the whole
-    ``pet_info`` scope ineligible for early L3 caching.
-    """
-
-    pet_resource_ids = _select_positive_ids(conn, "pet", "resource_id")
-    type_ids = _select_positive_ids(conn, "element_type", "id")
-    mintmark_ids = _select_positive_ids(conn, "mintmark", "id")
-    item_ids = _select_positive_ids(conn, "item", "id")
-    status_ids = _select_positive_ids(conn, SPECIAL_EFFECT_STATUS_TABLE, "status_id")
-    if any(
-        values is None
-        for values in (
-            pet_resource_ids,
-            type_ids,
-            mintmark_ids,
-            item_ids,
-            status_ids,
-        )
-    ):
-        return None
-    assert pet_resource_ids is not None
-    assert type_ids is not None
-    assert mintmark_ids is not None
-    assert item_ids is not None
-    assert status_ids is not None
-    requests: list[RemoteRenderAssetRequest] = []
-    for resource_id in pet_resource_ids:
-        requests.extend(
-            (
-                _remote_asset_request(
-                    "pet_head",
-                    str(resource_id),
-                    (f"newseer/assets/art/ui/assets/pet/head/{resource_id}.png",),
-                    required=True,
-                ),
-                _remote_asset_request(
-                    "pet_body",
-                    str(resource_id),
-                    (f"newseer/assets/art/ui/assets/pet/body/{resource_id}.png",),
-                    required=True,
-                ),
-            )
-        )
-    for type_key in (*map(str, type_ids), "prop"):
-        requests.append(
-            _remote_asset_request(
-                "element_type",
-                type_key,
-                (f"newseer/assets/art/ui/assets/pettype/{type_key}.png",),
-                required=True,
-            )
-        )
-    for mintmark_id in mintmark_ids:
-        requests.append(
-            _remote_asset_request(
-                "mintmark",
-                str(mintmark_id),
-                (
-                    "newseer/assets/art/ui/assets/countermark/icon/"
-                    f"{mintmark_id}.png",
-                ),
-                required=True,
-            )
-        )
-    for item_id in item_ids:
-        requests.append(
-            _remote_asset_request(
-                "item",
-                str(item_id),
-                tuple(
-                    f"newseer/assets/art/ui/assets/item/{category}/icon/{item_id}.png"
-                    for category in (
-                        "doodle",
-                        "petitem",
-                        "skillstone",
-                        "throw",
-                        "userinfo",
-                    )
-                ),
-                required=False,
-            )
-        )
-    for status_id in status_ids:
-        requests.append(
-            _remote_asset_request(
-                "sign_buff",
-                str(status_id),
-                (
-                    "newseer/assets/art/ui/assets/battleeffect/signbuff/"
-                    f"{status_id}.png",
-                ),
-                required=False,
-            )
-        )
-    return tuple(sorted(requests, key=lambda item: (item.asset_kind, item.asset_key)))
-
-
-def _new_content_standard_remote_asset_requests(
-    conn: sqlite3.Connection,
-) -> tuple[RemoteRenderAssetRequest, ...] | None:
-    """Enumerate release-owned materials unique to standard new-content cards.
-
-    Pet heads, types and mintmarks are already proven by the pet-info inventory.
-    This scope adds only the remaining immutable material families used by the
-    standard new-content renderer.  Autocard artwork deliberately stays out:
-    it is provided by arbitrary upstream URLs rather than this repository.
-    """
-
-    suit_ids = _select_positive_ids(conn, "suit", "id")
-    equip_ids = _select_positive_ids(conn, "equip", "id")
-    title_ids = _select_positive_ids(conn, "title_part", "id")
-    pet_resource_ids = _select_positive_ids(conn, "pet", "resource_id")
-    skin_head_resource_ids = _select_positive_ids(
-        conn,
-        SKIN_IMAGE_RESOLUTION_TABLE,
-        "head_resource_id",
-    )
-    if any(
-        values is None
-        for values in (
-            suit_ids,
-            equip_ids,
-            title_ids,
-            pet_resource_ids,
-            skin_head_resource_ids,
-        )
-    ):
-        return None
-    assert suit_ids is not None
-    assert equip_ids is not None
-    assert title_ids is not None
-    assert pet_resource_ids is not None
-    assert skin_head_resource_ids is not None
-    requests: list[RemoteRenderAssetRequest] = []
-    for suit_id in suit_ids:
-        requests.append(
-            _remote_asset_request(
-                "suit",
-                str(suit_id),
-                (f"newseer/assets/art/ui/assets/item/cloth/suiticon/{suit_id}.png",),
-                required=True,
-            )
-        )
-    for equip_id in equip_ids:
-        requests.append(
-            _remote_asset_request(
-                "equip",
-                str(equip_id),
-                (f"newseer/assets/art/ui/assets/item/cloth/prev/{equip_id}.png",),
-                required=True,
-            )
-        )
-    for title_id in title_ids:
-        requests.append(
-            _remote_asset_request(
-                "title",
-                str(title_id),
-                (f"newseer/assets/art/ui/assets/achieve/title/{title_id}.png",),
-                required=True,
-            )
-        )
-    # Standard new-content can show a skin-specific head whose resource ID is
-    # absent from ``pet``. The pet-info scope already proves ordinary heads;
-    # publish only the additional skin IDs here to keep manifest identities
-    # unique across scopes.
-    for resource_id in sorted(
-        set(skin_head_resource_ids).difference(pet_resource_ids)
-    ):
-        requests.append(
-            _remote_asset_request(
-                "pet_head",
-                str(resource_id),
-                (f"newseer/assets/art/ui/assets/pet/head/{resource_id}.png",),
-                required=True,
-            )
-        )
-    return tuple(sorted(requests, key=lambda item: (item.asset_kind, item.asset_key)))
-
-
-def _select_positive_ids(
-    conn: sqlite3.Connection,
-    table: str,
-    column: str,
-) -> tuple[int, ...] | None:
-    """Read one database-owned positive ID domain for material inventory."""
-
-    try:
-        rows = conn.execute(
-            f"SELECT DISTINCT {column} FROM {table} "
-            f"WHERE {column} > 0 ORDER BY {column}"
-        ).fetchall()
-    except sqlite3.OperationalError:
-        logger.warning(
-            "Render asset inventory cannot read %s.%s; scope stays incomplete",
-            table,
-            column,
-        )
-        return None
-    return tuple(int(row[0]) for row in rows)
-
-
-def _remote_asset_request(
-    asset_kind: str,
-    asset_key: str,
-    candidate_paths: tuple[str, ...],
-    *,
-    required: bool,
-) -> RemoteRenderAssetRequest:
-    return RemoteRenderAssetRequest(
-        asset_kind=asset_kind,
-        asset_key=asset_key,
-        candidate_paths=candidate_paths,
-        required=required,
-    )
-
-
-def _build_pet_info_remote_asset_manifest(
-    conn: sqlite3.Connection,
-    snapshot: AssetRepositorySnapshot | None,
-    *,
-    release_revision: str,
-) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
-    """Publish the complete material inventory and whether it can enable L3."""
-
-    if snapshot is None:
-        return (), False
-    requests = _pet_info_remote_asset_requests(conn)
-    if requests is None:
-        return (), False
-    entries, complete = _build_remote_asset_manifest_entries(
-        requests,
-        snapshot,
-        release_revision=release_revision,
-    )
-    required_entries = [
-        entry
-        for entry in entries
-        if entry.asset_kind
-        in {"element_type", "mintmark", "pet_body", "pet_head"}
-    ]
-    return entries, complete and bool(required_entries)
-
-
-def _build_new_content_standard_remote_asset_manifest(
-    conn: sqlite3.Connection,
-    snapshot: AssetRepositorySnapshot | None,
-    *,
-    release_revision: str,
-) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
-    """Publish the immutable non-pet materials for standard new-content cards."""
-
-    if snapshot is None:
-        return (), False
-    requests = _new_content_standard_remote_asset_requests(conn)
-    if requests is None:
-        return (), False
-    entries, complete = _build_remote_asset_manifest_entries(
-        requests,
-        snapshot,
-        release_revision=release_revision,
-    )
-    return entries, complete
-
-
-def _build_remote_asset_manifest_entries(
-    requests: tuple[RemoteRenderAssetRequest, ...],
-    snapshot: AssetRepositorySnapshot,
-    *,
-    release_revision: str,
-) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
-    """Resolve one inventory against an immutable repository snapshot."""
-
-    entries: list[RenderAssetManifestEntry] = []
-    complete = True
-    for request in requests:
-        matched_path = next(
-            (
-                path
-                for path in request.candidate_paths
-                if path in snapshot.blobs_by_path
-            ),
-            None,
-        )
-        available = matched_path is not None
-        if request.required and not available:
-            complete = False
-        source = (
-            f"{RENDER_ASSET_REPOSITORY}@{snapshot.revision}:"
-            f"{matched_path}#blob:{snapshot.blobs_by_path[matched_path]}"
-            if matched_path is not None
-            else f"{RENDER_ASSET_REPOSITORY}@{snapshot.revision}:missing:"
-            + "|".join(request.candidate_paths)
-        )
-        entries.append(
-            RenderAssetManifestEntry(
-                asset_kind=request.asset_kind,
-                asset_key=request.asset_key,
-                sha256="",
-                release_revision=release_revision,
-                available=available,
-                source=source,
-            )
-        )
-    return tuple(entries), complete
-
-
-def _complete_render_asset_scopes(
-    pet_info_render_scope_complete: bool,
-    new_content_standard_render_scope_complete: bool = False,
-) -> tuple[str, ...]:
-    """Return scopes proven by the complete pet-info material inventory.
-
-    Type-matchup and peak-pool rendering require only material subsets that
-    pet-info already verifies. Keeping the proof here avoids partial manifests
-    with subtly different interpretations of the same asset set.
-    """
-    scopes: list[str] = []
-    if pet_info_render_scope_complete:
-        scopes.extend(
-            (
-                PET_INFO_RENDER_ASSET_SCOPE,
-                TYPE_MATCHUP_RENDER_ASSET_SCOPE,
-                PEAK_POOL_RENDER_ASSET_SCOPE,
-            )
-        )
-    if pet_info_render_scope_complete and new_content_standard_render_scope_complete:
-        scopes.append(NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE)
-    return tuple(scopes)
-
-
-def _build_effect_icon_render_asset_manifest(
-    checks: dict[int, EffectIconAssetCheck],
-    renders: dict[int, EffectIconPngRender],
-    *,
-    release_revision: str,
-) -> tuple[RenderAssetManifestEntry, ...]:
-    """Publish deterministic facts for every built soulmark icon PNG.
-
-    The PNG bytes are embedded in ``soulmark_icon``. Their hashes therefore
-    give consumers a stable release-owned material revision without fetching
-    or re-rendering the original SWF at runtime.
-    """
-
-    return tuple(
-        RenderAssetManifestEntry(
-            asset_kind="soulmark_icon_png",
-            asset_key=str(icon_id),
-            sha256=(
-                hashlib.sha256(render.data).hexdigest()
-                if render.available and render.data is not None
-                else ""
-            ),
-            release_revision=release_revision,
-            available=render.available and render.data is not None,
-            source=(
-                "ConfigPackage/effectIcon.bytes"
-                f"#{EFFECT_ICON_PNG_CACHE_VERSION}"
-            ),
-        )
-        for icon_id, render in sorted(renders.items())
-        if icon_id in checks
-    )
-
-
-def _render_asset_manifest_revision(
-    entries: tuple[RenderAssetManifestEntry, ...],
-) -> str:
-    """Return the order-independent revision for one published asset manifest."""
-
-    digest = hashlib.sha256()
-    for entry in sorted(entries, key=lambda item: (item.asset_kind, item.asset_key)):
-        digest.update(entry.asset_kind.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(entry.asset_key.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(entry.sha256.encode("ascii"))
-        digest.update(b"\0")
-        digest.update(entry.release_revision.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(entry.source.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(b"1" if entry.available else b"0")
-        digest.update(b"\n")
-    return digest.hexdigest()
-
-
-def _render_asset_manifest_metadata(
-    entries: tuple[RenderAssetManifestEntry, ...],
-    snapshot: AssetRepositorySnapshot | None,
-    *,
-    pet_info_scope_complete: bool,
-    new_content_standard_scope_complete: bool,
-) -> dict[str, str]:
-    """Publish the immutable source contract consumed by render adapters."""
-
-    return {
-        RENDER_ASSET_MANIFEST_REVISION_KEY: _render_asset_manifest_revision(entries),
-        RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: (
-            RENDER_ASSET_MANIFEST_CONTRACT_VERSION
-        ),
-        RENDER_ASSET_MANIFEST_SCOPES_KEY: json.dumps(
-            _complete_render_asset_scopes(
-                pet_info_scope_complete,
-                new_content_standard_scope_complete,
-            ),
-            separators=(",", ":"),
-        ),
-        RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY: (
-            RENDER_ASSET_REPOSITORY if snapshot is not None else ""
-        ),
-        RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY: (
-            snapshot.revision if snapshot is not None else ""
-        ),
-        "render_asset_manifest_count": str(len(entries)),
-        "render_asset_manifest_available_count": str(
-            sum(1 for entry in entries if entry.available)
-        ),
-    }
-
-
 def _replace_render_asset_manifest(
     conn: sqlite3.Connection,
     entries: tuple[RenderAssetManifestEntry, ...],
@@ -4019,21 +3598,11 @@ def _merge_ironsbot_tables(
             ON {SPECIAL_EFFECT_STATUS_TABLE} (name)
             """
         )
-        (
-            pet_info_remote_asset_manifest,
-            pet_info_render_scope_complete,
-        ) = _build_pet_info_remote_asset_manifest(
+        remote_asset_manifest = collect_remote_asset_manifest(
             conn,
             asset_repository_snapshot,
             release_revision=config_data.version,
-        )
-        (
-            new_content_standard_remote_asset_manifest,
-            new_content_standard_render_scope_complete,
-        ) = _build_new_content_standard_remote_asset_manifest(
-            conn,
-            asset_repository_snapshot,
-            release_revision=config_data.version,
+            config=RENDER_ASSET_MANIFEST_CONFIG,
         )
         deduplicated_soulmark_icons = sorted(
             {
@@ -4051,16 +3620,21 @@ def _merge_ironsbot_tables(
         )
         effect_icon_asset_checks = effect_icon_resolution.asset_checks
         effect_icon_png_renders = effect_icon_resolution.png_renders
-        render_asset_manifest = _build_effect_icon_render_asset_manifest(
-            effect_icon_asset_checks,
-            effect_icon_png_renders,
+        render_asset_manifest_build = build_render_asset_manifest(
+            remote_asset_manifest,
+            {
+                icon_id: (
+                    render.data if render.available and render.data is not None else None
+                )
+                for icon_id, render in effect_icon_png_renders.items()
+                if icon_id in effect_icon_asset_checks
+            },
+            asset_repository_snapshot,
             release_revision=config_data.version,
+            effect_icon_source_version=EFFECT_ICON_PNG_CACHE_VERSION,
+            config=RENDER_ASSET_MANIFEST_CONFIG,
         )
-        render_asset_manifest = (
-            *render_asset_manifest,
-            *pet_info_remote_asset_manifest,
-            *new_content_standard_remote_asset_manifest,
-        )
+        render_asset_manifest = render_asset_manifest_build.entries
         issue_pet_ids = sorted(
             {
                 pet_id
@@ -4335,14 +3909,7 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_issue_row_count": str(
                 len(soulmark_icon_render_issues)
             ),
-            **_render_asset_manifest_metadata(
-                render_asset_manifest,
-                asset_repository_snapshot,
-                pet_info_scope_complete=pet_info_render_scope_complete,
-                new_content_standard_scope_complete=(
-                    new_content_standard_render_scope_complete
-                ),
-            ),
+            **render_asset_manifest_build.metadata,
             "mintmark_quality_count": str(len(config_data.mintmark_quality)),
             "skin_store_price_count": str(len(config_data.skin_store_prices)),
             "skin_shop_price_count": str(len(config_data.skin_shop_prices)),
