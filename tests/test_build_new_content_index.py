@@ -273,6 +273,36 @@ def test_pet_semantic_digest_ignores_weekly_pool_and_skill_definition_noise() ->
     assert before.semantic_digest != changed_relation.semantic_digest
 
 
+def test_modified_item_includes_compact_field_change_summary() -> None:
+    previous = indexer.ContentItem(
+        'skill',
+        9000,
+        '测试技能',
+        9000,
+        {'power': 120, 'info': '旧效果', 'pets': [{'id': 1, 'name': '精灵'}]},
+    )
+    current = indexer.ContentItem(
+        'skill',
+        9000,
+        '测试技能',
+        9000,
+        {'power': 130, 'info': '新效果', 'pets': [{'id': 2, 'name': '其他精灵'}]},
+    )
+
+    [changed] = indexer._modified_items(
+        (current,),
+        (indexer.SourceSnapshotItem.from_content(previous),),
+        (previous,),
+        {'skill'},
+    )
+
+    assert changed.change_kind == 'modified'
+    assert changed.payload['change_summary'] == [
+        '技能说明：旧效果 → 新效果',
+        '威力：120 → 130',
+    ]
+
+
 def test_peak_pool_changes_keep_zero_distinct_from_unlimited(tmp_path: Path) -> None:
     previous_path = tmp_path / 'previous.sqlite'
     current_path = tmp_path / 'current.sqlite'
