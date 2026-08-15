@@ -30,6 +30,7 @@ import effect_icon_unity_sources
 import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
+import release_autocard_tables
 import release_config_tables
 import release_reference_tables
 import release_soulmark_icon_tables
@@ -2468,8 +2469,8 @@ def test_replace_autocard_roles_populates_official_schema_and_skips_npcs() -> No
             """
         )
 
-        builder._replace_autocard_role_table(connection, data, 123.0)
-        builder._replace_autocard_role_table(connection, data, 456.0)
+        release_autocard_tables.replace_autocard_role_table(connection, data, 123.0)
+        release_autocard_tables.replace_autocard_role_table(connection, data, 456.0)
 
         role_columns = {
             row[1]
@@ -2569,7 +2570,11 @@ def test_replace_autocard_roles_rejects_legacy_schema() -> None:
         )
 
         with pytest.raises(RuntimeError, match="expected official columns"):
-            builder._replace_autocard_role_table(connection, data, 123.0)
+            release_autocard_tables.replace_autocard_role_table(
+                connection,
+                data,
+                123.0,
+            )
 
 
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
