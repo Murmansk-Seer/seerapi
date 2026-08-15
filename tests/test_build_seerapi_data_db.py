@@ -22,6 +22,7 @@ if str(SCRIPT_ROOT) not in sys.path:
 import config_package_sources
 import effect_icon_png_renderer
 import effect_icon_source_paths
+import effect_icon_unity_sources
 import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
@@ -805,12 +806,17 @@ def test_load_unity_effect_icon_png_assets_uses_default_package_manifest(
     )
     monkeypatch.setattr(builder, "_download_bytes", fake_download)
     monkeypatch.setattr(
-        builder,
-        "_extract_unity_effect_icon_pngs",
-        lambda data, icon_ids: ({307: png_data}, {}),
+        effect_icon_unity_sources,
+        "extract_unity_effect_icon_pngs",
+        lambda data, icon_ids, **_kwargs: ({307: png_data}, {}),
     )
 
-    load = builder._load_unity_effect_icon_png_assets({206, 307})
+    load = effect_icon_unity_sources.load_unity_effect_icon_png_assets(
+        {206, 307},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=builder._fetch_package_manifest,
+        download_bytes=builder._download_bytes,
+    )
 
     assert load.package_version == "20260807162107"
     assert load.total_manifest_icon_count == 1
@@ -861,8 +867,8 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
 
     monkeypatch.setattr(
         builder,
-        "_load_unity_effect_icon_png_assets",
-        lambda icon_ids: builder.UnityEffectIconPngLoad(
+        "load_unity_effect_icon_png_assets",
+        lambda icon_ids, **_kwargs: effect_icon_unity_sources.UnityEffectIconPngLoad(
             package_version="20260807162107",
             total_manifest_icon_count=2109,
             sources={},
@@ -957,9 +963,9 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
 
     monkeypatch.setattr(
         builder,
-        "_load_unity_effect_icon_png_assets",
-        lambda icon_ids: unity_inputs.append(set(icon_ids))
-        or builder.UnityEffectIconPngLoad(
+        "load_unity_effect_icon_png_assets",
+        lambda icon_ids, **_kwargs: unity_inputs.append(set(icon_ids))
+        or effect_icon_unity_sources.UnityEffectIconPngLoad(
             package_version="20260807162107",
             total_manifest_icon_count=2109,
             sources={},
@@ -1204,8 +1210,8 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     monkeypatch.setattr(builder, "_fetch_config_package_data", lambda: config_data)
     monkeypatch.setattr(
         builder,
-        "_unity_effect_icon_swf_fallback_icon_ids",
-        lambda icon_ids: captured.setdefault("fallback_input", sorted(icon_ids))
+        "unity_effect_icon_swf_fallback_icon_ids",
+        lambda icon_ids, **_kwargs: captured.setdefault("fallback_input", sorted(icon_ids))
         and [100, 102, 103],
     )
     monkeypatch.setattr(
@@ -1247,13 +1253,13 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
 
 def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
     monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
-    monkeypatch.setattr(
-        builder,
-        "_fetch_unity_effect_icon_png_sources",
-        lambda _icon_ids: (_ for _ in ()).throw(AssertionError),
-    )
 
-    assert builder._unity_effect_icon_swf_fallback_icon_ids({100, 101}) == [100, 101]
+    assert effect_icon_unity_sources.unity_effect_icon_swf_fallback_icon_ids(
+        {100, 101},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=lambda *_args: (_ for _ in ()).throw(AssertionError),
+        logger=builder.logger,
+    ) == [100, 101]
 
 
 def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
