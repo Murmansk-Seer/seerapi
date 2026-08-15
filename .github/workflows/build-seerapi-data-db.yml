@@ -11,7 +11,9 @@ on:
     paths:
       - "scripts/build_seerapi_data_db.py"
       - "scripts/build_new_content_index.py"
+      - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
+      - "scripts/render_asset_manifest_build.py"
       - ".github/workflows/build-seerapi-data-db.yml"
   schedule:
     - cron: "5,35 * * * *"
