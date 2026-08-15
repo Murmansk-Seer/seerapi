@@ -20,6 +20,7 @@ SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 import config_package_sources
+import effect_icon_flash_sources
 import effect_icon_png_renderer
 import effect_icon_source_paths
 import effect_icon_unity_sources
@@ -82,6 +83,57 @@ def test_effect_icon_source_paths_use_resolved_build_config() -> None:
         "Assets/effect/not-an-id.texture", config=config
     ) is None
     assert effect_icon_source_paths.unity_effect_icon_id_from_object_name("42.png") == 42
+
+
+def test_flash_effect_icon_adapter_accepts_ranged_swf_when_head_is_not_supported() -> None:
+    class Headers:
+        def get_content_type(self) -> str:
+            return "application/octet-stream"
+
+        def get(self, key: str) -> str | None:
+            return "16" if key == "Content-Length" else None
+
+    class Response:
+        status = 206
+        headers = Headers()
+
+        def __enter__(self) -> object:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, _size: int = -1) -> bytes:
+            return b"FWS\x09" if _size >= 0 else b"FWS\x09payload"
+
+    requests: list[tuple[str, str, dict[str, str] | None]] = []
+
+    def fake_request(
+        url: str,
+        *,
+        method: str,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[str, str, dict[str, str] | None]:
+        requests.append((url, method, headers))
+        return url, method, headers
+
+    check = effect_icon_flash_sources.verify_effect_icon_asset(
+        77,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        request=fake_request,
+        open_url=lambda _request, **_kwargs: Response(),
+    )
+
+    assert check.available is True
+    assert check.status == 206
+    assert requests == [
+        ("https://seer.61.com/resource/effectIcon/77.swf", "HEAD", None),
+        (
+            "https://seer.61.com/resource/effectIcon/77.swf",
+            "GET",
+            {"Range": "bytes=0-15"},
+        ),
+    ]
 
 
 def _effect_icon_render_config(**changes):
@@ -895,7 +947,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     )
     monkeypatch.setattr(
         builder,
-        "_verify_effect_icon_assets",
+        "verify_effect_icon_assets",
         lambda icon_ids, **_kwargs: fallback_inputs.append(set(icon_ids))
         or {206: fallback_check},
     )
@@ -984,7 +1036,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
     )
     monkeypatch.setattr(
         builder,
-        "_verify_effect_icon_assets",
+        "verify_effect_icon_assets",
         lambda icon_ids, **_kwargs: swf_inputs.append(set(icon_ids))
         or {206: missing_flash_check, 307: flash_check},
     )
@@ -1216,7 +1268,7 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     )
     monkeypatch.setattr(
         builder,
-        "_verify_effect_icon_assets",
+        "verify_effect_icon_assets",
         lambda icon_ids, **_kwargs: {icon_id: object() for icon_id in icon_ids},
     )
     monkeypatch.setattr(

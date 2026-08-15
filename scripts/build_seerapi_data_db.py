@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+﻿# SPDX-License-Identifier: MIT
 """Build the published SeerAPI runtime SQLite database.
 
 IronsBot downloads this database as its main data source. The upstream SeerAPI
@@ -47,6 +47,10 @@ if __package__:
         EffectIconPngRender,
         EffectIconPngResolution,
         SoulmarkIconRenderIssue,
+    )
+    from .effect_icon_flash_sources import (
+        download_effect_icon_asset,
+        verify_effect_icon_assets,
     )
     from .effect_icon_png_renderer import (
         effect_icon_png_cache_metadata_path,
@@ -113,6 +117,10 @@ else:
         EffectIconPngRender,
         EffectIconPngResolution,
         SoulmarkIconRenderIssue,
+    )
+    from effect_icon_flash_sources import (  # type: ignore[import-not-found]
+        download_effect_icon_asset,
+        verify_effect_icon_assets,
     )
     from effect_icon_png_renderer import (  # type: ignore[import-not-found]
         effect_icon_png_cache_metadata_path,
@@ -1147,11 +1155,23 @@ def _load_swf_effect_icon_png_assets(
 ) -> tuple[dict[int, EffectIconAssetCheck], dict[int, EffectIconPngRender]]:
     if not icon_ids:
         return {}, {}
-    checks = _verify_effect_icon_assets(icon_ids, require_any=require_any)
+    checks = verify_effect_icon_assets(
+        icon_ids,
+        config=EFFECT_ICON_BUILD_CONFIG,
+        request=_request,
+        open_url=urlopen,
+        logger=logger,
+        require_any=require_any,
+    )
     renders = render_effect_icon_png_assets(
         checks,
         config=EFFECT_ICON_BUILD_CONFIG,
-        download_effect_icon=_download_effect_icon_asset,
+        download_effect_icon=partial(
+            download_effect_icon_asset,
+            config=EFFECT_ICON_BUILD_CONFIG,
+            request=_request,
+            open_url=urlopen,
+        ),
         logger=logger,
         require_any=require_any,
     )
@@ -1369,199 +1389,6 @@ def _resolve_effect_icon_png_assets(
             0 if EFFECT_ICON_PREFER_FLASH else len(unity_missing_icon_ids)
         ),
     )
-
-
-def _is_effect_icon_asset_content(
-    content_type: str,
-    header: bytes = b"",
-) -> bool:
-    normalized_content_type = content_type.lower().split(";", maxsplit=1)[0]
-    return normalized_content_type in {
-        "application/x-shockwave-flash",
-        "application/vnd.adobe.flash.movie",
-    } or header.startswith((b"CWS", b"FWS", b"ZWS"))
-
-
-def _probe_effect_icon_asset_range(
-    icon_id: int,
-    url: str,
-    *,
-    prior_error: str = "",
-) -> EffectIconAssetCheck:
-    try:
-        request = _request(url, method="GET", headers={"Range": "bytes=0-15"})
-        with urlopen(
-            request,
-            timeout=EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS,
-        ) as response:
-            content_type = response.headers.get_content_type()
-            content_length = _parse_content_length(
-                response.headers.get("Content-Length")
-            )
-            header = response.read(16)
-            available = response.status in (200, 206) and (
-                _is_effect_icon_asset_content(content_type, header)
-            )
-            error = ""
-            if not available:
-                error = prior_error or (
-                    f"unexpected ranged response: {response.status} "
-                    f"{content_type}"
-                )
-            return EffectIconAssetCheck(
-                icon_id=icon_id,
-                url=url,
-                available=available,
-                status=response.status,
-                content_type=content_type,
-                content_length=content_length,
-                error=error,
-            )
-    except HTTPError as e:
-        return EffectIconAssetCheck(
-            icon_id=icon_id,
-            url=url,
-            available=False,
-            status=e.code,
-            content_type=e.headers.get_content_type(),
-            content_length=_parse_content_length(e.headers.get("Content-Length")),
-            error="" if e.code == 404 else _short_error(e),
-        )
-    except (URLError, TimeoutError, OSError) as e:
-        return EffectIconAssetCheck(
-            icon_id=icon_id,
-            url=url,
-            available=False,
-            status=0,
-            content_type="",
-            content_length=None,
-            error=prior_error or _short_error(e),
-        )
-
-
-def _verify_effect_icon_asset(icon_id: int) -> EffectIconAssetCheck:
-    url = _effect_icon_asset_url(icon_id, config=EFFECT_ICON_BUILD_CONFIG)
-    try:
-        with urlopen(
-            _request(url, method="HEAD"),
-            timeout=EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS,
-        ) as response:
-            content_type = response.headers.get_content_type()
-            content_length = _parse_content_length(
-                response.headers.get("Content-Length")
-            )
-            available = (
-                response.status == 200
-                and (content_length is None or content_length > 0)
-                and _is_effect_icon_asset_content(content_type)
-            )
-            if available:
-                return EffectIconAssetCheck(
-                    icon_id=icon_id,
-                    url=url,
-                    available=True,
-                    status=response.status,
-                    content_type=content_type,
-                    content_length=content_length,
-                    error="",
-                )
-            return _probe_effect_icon_asset_range(
-                icon_id,
-                url,
-                prior_error=(
-                    f"unexpected HEAD response: {response.status} {content_type}"
-                ),
-            )
-    except HTTPError as e:
-        if e.code in {403, 405, 501}:
-            return _probe_effect_icon_asset_range(
-                icon_id,
-                url,
-                prior_error=_short_error(e),
-            )
-        return EffectIconAssetCheck(
-            icon_id=icon_id,
-            url=url,
-            available=False,
-            status=e.code,
-            content_type=e.headers.get_content_type(),
-            content_length=_parse_content_length(e.headers.get("Content-Length")),
-            error="" if e.code == 404 else _short_error(e),
-        )
-    except (URLError, TimeoutError, OSError) as e:
-        ranged_check = _probe_effect_icon_asset_range(
-            icon_id,
-            url,
-            prior_error=_short_error(e),
-        )
-        return ranged_check
-
-
-def _verify_effect_icon_assets(
-    icon_ids: set[int],
-    *,
-    require_any: bool = True,
-) -> dict[int, EffectIconAssetCheck]:
-    if not icon_ids:
-        return {}
-
-    logger.info(
-        "Validating official effect icon assets: %s unique icons",
-        len(icon_ids),
-    )
-    checks: dict[int, EffectIconAssetCheck] = {}
-    worker_count = min(EFFECT_ICON_ASSET_VERIFY_WORKERS, len(icon_ids))
-    with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = {
-            executor.submit(_verify_effect_icon_asset, icon_id): icon_id
-            for icon_id in sorted(icon_ids)
-        }
-        for future in as_completed(futures):
-            icon_id = futures[future]
-            try:
-                checks[icon_id] = future.result()
-            except Exception as e:
-                checks[icon_id] = EffectIconAssetCheck(
-                    icon_id=icon_id,
-                    url=_effect_icon_asset_url(icon_id, config=EFFECT_ICON_BUILD_CONFIG),
-                    available=False,
-                    status=0,
-                    content_type="",
-                    content_length=None,
-                    error=_short_error(e),
-                )
-
-    available_count = sum(1 for check in checks.values() if check.available)
-    missing_checks = [
-        check for check in checks.values() if not check.available
-    ]
-    if available_count == 0 and require_any:
-        raise ValueError("No official effect icon assets could be verified")
-    if missing_checks:
-        logger.warning(
-            "Effect icon asset validation missing %s/%s icons; first missing: %s",
-            len(missing_checks),
-            len(checks),
-            ", ".join(str(check.icon_id) for check in missing_checks[:10]),
-        )
-    return checks
-
-
-def _download_effect_icon_asset(check: EffectIconAssetCheck) -> bytes:
-    with urlopen(
-        _request(check.url, method="GET"),
-        timeout=EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS,
-    ) as response:
-        content_type = response.headers.get_content_type()
-        data = response.read()
-        if response.status != 200 or not _is_effect_icon_asset_content(
-            content_type,
-            data[:16],
-        ):
-            raise ValueError(
-                f"unexpected SWF response: {response.status} {content_type}"
-            )
-        return data
 
 
 def _effect_icon_runtime_asset_url(
@@ -1782,11 +1609,23 @@ def _render_effect_icon_png_cache_shard(
         shard_count,
         len(shard_icon_ids),
     )
-    checks = _verify_effect_icon_assets(set(shard_icon_ids), require_any=False)
+    checks = verify_effect_icon_assets(
+        set(shard_icon_ids),
+        config=EFFECT_ICON_BUILD_CONFIG,
+        request=_request,
+        open_url=urlopen,
+        logger=logger,
+        require_any=False,
+    )
     renders = render_effect_icon_png_assets(
         checks,
         config=EFFECT_ICON_BUILD_CONFIG,
-        download_effect_icon=_download_effect_icon_asset,
+        download_effect_icon=partial(
+            download_effect_icon_asset,
+            config=EFFECT_ICON_BUILD_CONFIG,
+            request=_request,
+            open_url=urlopen,
+        ),
         logger=logger,
         require_any=False,
     )
