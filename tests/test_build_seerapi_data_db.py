@@ -20,9 +20,15 @@ SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 import config_package_sources
+import effect_icon_build
+import effect_icon_flash_sources
+import effect_icon_png_renderer
+import effect_icon_source_paths
+import effect_icon_unity_sources
 import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
+import render_asset_manifest_build
 import render_asset_repository
 
 SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
@@ -44,9 +50,95 @@ def test_published_schema_contract_metadata_is_explicit() -> None:
 def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(
         builder,
-        "EFFECT_ICON_PNG_CACHE_DIR",
-        tmp_path / "effect-icon-png",
+        "EFFECT_ICON_BUILD_CONFIG",
+        builder.replace(
+            builder.EFFECT_ICON_BUILD_CONFIG,
+            cache_dir=tmp_path / "effect-icon-png",
+        ),
     )
+
+
+def test_effect_icon_source_paths_use_resolved_build_config() -> None:
+    config = builder.replace(
+        builder.EFFECT_ICON_BUILD_CONFIG,
+        effect_icon_asset_base_url="https://assets.example/effect/",
+        effect_icon_asset_suffix=".bin",
+        default_package_base_url="https://assets.example/default/",
+        unity_asset_prefix="Assets/effect/",
+        unity_asset_suffix=".texture",
+    )
+
+    assert effect_icon_source_paths.effect_icon_asset_url(
+        42, config=config
+    ) == "https://assets.example/effect/42.bin"
+    assert effect_icon_source_paths.unity_effect_icon_asset_path(
+        42, config=config
+    ) == "Assets/effect/42.texture"
+    assert effect_icon_source_paths.unity_effect_icon_expected_url(
+        42, config=config
+    ) == "https://assets.example/default/#Assets/effect/42.texture"
+    assert effect_icon_source_paths.unity_effect_icon_id_from_asset_path(
+        "Assets/effect/42.texture", config=config
+    ) == 42
+    assert effect_icon_source_paths.unity_effect_icon_id_from_asset_path(
+        "Assets/effect/not-an-id.texture", config=config
+    ) is None
+    assert effect_icon_source_paths.unity_effect_icon_id_from_object_name("42.png") == 42
+
+
+def test_flash_effect_icon_adapter_accepts_ranged_swf_when_head_is_not_supported() -> None:
+    class Headers:
+        def get_content_type(self) -> str:
+            return "application/octet-stream"
+
+        def get(self, key: str) -> str | None:
+            return "16" if key == "Content-Length" else None
+
+    class Response:
+        status = 206
+        headers = Headers()
+
+        def __enter__(self) -> object:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, _size: int = -1) -> bytes:
+            return b"FWS\x09" if _size >= 0 else b"FWS\x09payload"
+
+    requests: list[tuple[str, str, dict[str, str] | None]] = []
+
+    def fake_request(
+        url: str,
+        *,
+        method: str,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[str, str, dict[str, str] | None]:
+        requests.append((url, method, headers))
+        return url, method, headers
+
+    check = effect_icon_flash_sources.verify_effect_icon_asset(
+        77,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        request=fake_request,
+        open_url=lambda _request, **_kwargs: Response(),
+    )
+
+    assert check.available is True
+    assert check.status == 206
+    assert requests == [
+        ("https://seer.61.com/resource/effectIcon/77.swf", "HEAD", None),
+        (
+            "https://seer.61.com/resource/effectIcon/77.swf",
+            "GET",
+            {"Range": "bytes=0-15"},
+        ),
+    ]
+
+
+def _effect_icon_render_config(**changes):
+    return builder.replace(builder.EFFECT_ICON_BUILD_CONFIG, **changes)
 
 
 def _create_special_effect_source_tables(database: Path) -> None:
@@ -112,23 +204,53 @@ def _create_special_effect_source_tables(database: Path) -> None:
         )
 
 
+def _collect_remote_asset_manifest(
+    connection: sqlite3.Connection,
+    snapshot: render_asset_repository.AssetRepositorySnapshot | None,
+    *,
+    release_revision: str,
+) -> render_asset_manifest_build.RemoteAssetManifestBuild:
+    return render_asset_manifest_build.collect_remote_asset_manifest(
+        connection,
+        snapshot,
+        release_revision=release_revision,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    )
+
+
 def test_pet_info_scope_proves_type_matchup_asset_subset() -> None:
-    assert builder._complete_render_asset_scopes(True) == (
+    assert render_asset_manifest_build.complete_render_asset_scopes(
+        True,
+        False,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    ) == (
         builder.PET_INFO_RENDER_ASSET_SCOPE,
         builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
         builder.PEAK_POOL_RENDER_ASSET_SCOPE,
     )
-    assert builder._complete_render_asset_scopes(False) == ()
+    assert render_asset_manifest_build.complete_render_asset_scopes(
+        False,
+        False,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    ) == ()
 
 
 def test_new_content_standard_scope_requires_pet_info_and_its_own_assets() -> None:
-    assert builder._complete_render_asset_scopes(True, True) == (
+    assert render_asset_manifest_build.complete_render_asset_scopes(
+        True,
+        True,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    ) == (
         builder.PET_INFO_RENDER_ASSET_SCOPE,
         builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
         builder.PEAK_POOL_RENDER_ASSET_SCOPE,
         builder.NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE,
     )
-    assert builder._complete_render_asset_scopes(False, True) == ()
+    assert render_asset_manifest_build.complete_render_asset_scopes(
+        False,
+        True,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    ) == ()
 
 
 def test_copy_or_download_upstream_database_uses_verified_local_input(
@@ -737,12 +859,17 @@ def test_load_unity_effect_icon_png_assets_uses_default_package_manifest(
     )
     monkeypatch.setattr(builder, "_download_bytes", fake_download)
     monkeypatch.setattr(
-        builder,
-        "_extract_unity_effect_icon_pngs",
-        lambda data, icon_ids: ({307: png_data}, {}),
+        effect_icon_unity_sources,
+        "extract_unity_effect_icon_pngs",
+        lambda data, icon_ids, **_kwargs: ({307: png_data}, {}),
     )
 
-    load = builder._load_unity_effect_icon_png_assets({206, 307})
+    load = effect_icon_unity_sources.load_unity_effect_icon_png_assets(
+        {206, 307},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=builder._fetch_package_manifest,
+        download_bytes=builder._download_bytes,
+    )
 
     assert load.package_version == "20260807162107"
     assert load.total_manifest_icon_count == 1
@@ -792,9 +919,9 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     fallback_inputs: list[set[int]] = []
 
     monkeypatch.setattr(
-        builder,
-        "_load_unity_effect_icon_png_assets",
-        lambda icon_ids: builder.UnityEffectIconPngLoad(
+        effect_icon_build,
+        "load_unity_effect_icon_png_assets",
+        lambda icon_ids, **_kwargs: effect_icon_unity_sources.UnityEffectIconPngLoad(
             package_version="20260807162107",
             total_manifest_icon_count=2109,
             sources={},
@@ -820,14 +947,14 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
         ),
     )
     monkeypatch.setattr(
-        builder,
-        "_verify_effect_icon_assets",
+        effect_icon_build,
+        "verify_effect_icon_assets",
         lambda icon_ids, **_kwargs: fallback_inputs.append(set(icon_ids))
         or {206: fallback_check},
     )
     monkeypatch.setattr(
-        builder,
-        "_render_effect_icon_png_assets",
+        effect_icon_build,
+        "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
             206: builder.EffectIconPngRender(
                 206,
@@ -840,7 +967,15 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
         },
     )
 
-    resolution = builder._resolve_effect_icon_png_assets({206, 307})
+    resolution = effect_icon_build.resolve_effect_icon_png_assets(
+        {206, 307},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=builder._fetch_package_manifest,
+        download_bytes=builder._download_bytes,
+        request=builder._request,
+        open_url=builder.urlopen,
+        logger=builder.logger,
+    )
 
     assert fallback_inputs == [{206}]
     assert resolution.png_renders[307].data == unity_png
@@ -888,10 +1023,10 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
     unity_inputs: list[set[int]] = []
 
     monkeypatch.setattr(
-        builder,
-        "_load_unity_effect_icon_png_assets",
-        lambda icon_ids: unity_inputs.append(set(icon_ids))
-        or builder.UnityEffectIconPngLoad(
+        effect_icon_build,
+        "load_unity_effect_icon_png_assets",
+        lambda icon_ids, **_kwargs: unity_inputs.append(set(icon_ids))
+        or effect_icon_unity_sources.UnityEffectIconPngLoad(
             package_version="20260807162107",
             total_manifest_icon_count=2109,
             sources={},
@@ -909,14 +1044,14 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
         ),
     )
     monkeypatch.setattr(
-        builder,
-        "_verify_effect_icon_assets",
+        effect_icon_build,
+        "verify_effect_icon_assets",
         lambda icon_ids, **_kwargs: swf_inputs.append(set(icon_ids))
         or {206: missing_flash_check, 307: flash_check},
     )
     monkeypatch.setattr(
-        builder,
-        "_render_effect_icon_png_assets",
+        effect_icon_build,
+        "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
             206: builder.EffectIconPngRender(
                 206,
@@ -937,7 +1072,15 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
         },
     )
 
-    resolution = builder._resolve_effect_icon_png_assets({206, 307})
+    resolution = effect_icon_build.resolve_effect_icon_png_assets(
+        {206, 307},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=builder._fetch_package_manifest,
+        download_bytes=builder._download_bytes,
+        request=builder._request,
+        open_url=builder.urlopen,
+        logger=builder.logger,
+    )
 
     assert swf_inputs == [{206, 307}]
     assert unity_inputs == [{206}]
@@ -961,18 +1104,59 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
         content_length=123,
         error="",
     )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
-    builder._save_effect_icon_png_cache(1644, png_data, check)
-    monkeypatch.setattr(
-        builder,
-        "_download_effect_icon_asset",
-        lambda _check: (_ for _ in ()).throw(AssertionError),
+    config = _effect_icon_render_config(cache_dir=tmp_path)
+    effect_icon_png_renderer.save_effect_icon_png_cache(
+        1644,
+        png_data,
+        check,
+        config=config,
+        logger=builder.logger,
     )
 
-    render = builder._render_effect_icon_png(1644, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        1644,
+        check,
+        config=config,
+        download_effect_icon=lambda _check: (_ for _ in ()).throw(AssertionError),
+        logger=builder.logger,
+    )
 
     assert render.available is True
     assert render.data == png_data
+
+
+def test_render_effect_icon_assets_uses_complete_cache_without_ffdec(tmp_path) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    config = _effect_icon_render_config(
+        cache_dir=tmp_path,
+        java_command="missing-java",
+        ffdec_jar=tmp_path / "missing-ffdec.jar",
+    )
+    effect_icon_png_renderer.save_effect_icon_png_cache(
+        1644,
+        _test_png(),
+        check,
+        config=config,
+        logger=builder.logger,
+    )
+
+    renders = effect_icon_png_renderer.render_effect_icon_png_assets(
+        {1644: check},
+        config=config,
+        download_effect_icon=lambda _check: (_ for _ in ()).throw(AssertionError),
+        logger=builder.logger,
+    )
+
+    assert renders[1644].available is True
+    assert renders[1644].data == _test_png()
 
 
 def test_effect_icon_cache_is_invalidated_when_source_size_changes(
@@ -990,11 +1174,21 @@ def test_effect_icon_cache_is_invalidated_when_source_size_changes(
         error="",
     )
     changed_check = builder.replace(check, content_length=124)
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
-    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+    config = _effect_icon_render_config(cache_dir=tmp_path)
+    effect_icon_png_renderer.save_effect_icon_png_cache(
+        icon_id,
+        _test_png(),
+        check,
+        config=config,
+        logger=builder.logger,
+    )
 
-    assert builder._load_effect_icon_png_cache(icon_id, check) is not None
-    assert builder._load_effect_icon_png_cache(icon_id, changed_check) is None
+    assert effect_icon_png_renderer.load_effect_icon_png_cache(
+        icon_id, check, config=config, logger=builder.logger
+    ) is not None
+    assert effect_icon_png_renderer.load_effect_icon_png_cache(
+        icon_id, changed_check, config=config, logger=builder.logger
+    ) is None
 
 
 def test_effect_icon_cache_rejects_oversized_png() -> None:
@@ -1003,7 +1197,10 @@ def test_effect_icon_cache_rejects_oversized_png() -> None:
     )
 
     with pytest.raises(ValueError, match="dimensions exceed"):
-        builder._visible_png_pixel_count(oversized_png)
+        effect_icon_png_renderer.visible_png_pixel_count(
+            oversized_png,
+            config=builder.EFFECT_ICON_BUILD_CONFIG,
+        )
 
 
 def test_seed_effect_icon_cache_uses_matching_renderer_version(
@@ -1033,7 +1230,11 @@ def test_seed_effect_icon_cache_uses_matching_renderer_version(
             "INSERT INTO soulmark_icon VALUES (?, ?, 1, 123, ?)",
             (icon_id, _test_png(), "application/x-shockwave-flash"),
         )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(
+        builder,
+        "EFFECT_ICON_BUILD_CONFIG",
+        _effect_icon_render_config(cache_dir=tmp_path / "cache"),
+    )
     check = builder.EffectIconAssetCheck(
         icon_id=icon_id,
         url="https://example.test/1644.swf",
@@ -1045,7 +1246,12 @@ def test_seed_effect_icon_cache_uses_matching_renderer_version(
     )
 
     assert builder._seed_effect_icon_png_cache_from_database(database_path) == 1
-    assert builder._load_effect_icon_png_cache(icon_id, check) == _test_png()
+    assert effect_icon_png_renderer.load_effect_icon_png_cache(
+        icon_id,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        logger=builder.logger,
+    ) == _test_png()
 
 
 def test_seed_effect_icon_cache_rejects_previous_renderer_version(
@@ -1074,10 +1280,17 @@ def test_seed_effect_icon_cache_rejects_previous_renderer_version(
             "INSERT INTO soulmark_icon VALUES (1644, ?, 1, 123, ?)",
             (_test_png(), "application/x-shockwave-flash"),
         )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(
+        builder,
+        "EFFECT_ICON_BUILD_CONFIG",
+        _effect_icon_render_config(cache_dir=tmp_path / "cache"),
+    )
 
     assert builder._seed_effect_icon_png_cache_from_database(database_path) == 0
-    assert not builder._effect_icon_png_cache_path(1644).exists()
+    assert not effect_icon_png_renderer.effect_icon_png_cache_path(
+        1644,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+    ).exists()
 
 
 def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
@@ -1100,19 +1313,16 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     monkeypatch.setattr(builder, "_fetch_config_package_data", lambda: config_data)
     monkeypatch.setattr(
         builder,
-        "_unity_effect_icon_swf_fallback_icon_ids",
-        lambda icon_ids: captured.setdefault("fallback_input", sorted(icon_ids))
+        "unity_effect_icon_swf_fallback_icon_ids",
+        lambda icon_ids, **_kwargs: captured.setdefault("fallback_input", sorted(icon_ids))
         and [100, 102, 103],
     )
     monkeypatch.setattr(
         builder,
-        "_verify_effect_icon_assets",
-        lambda icon_ids, **_kwargs: {icon_id: object() for icon_id in icon_ids},
-    )
-    monkeypatch.setattr(
-        builder,
-        "_render_effect_icon_png_assets",
-        lambda checks, **_kwargs: {
+        "load_flash_effect_icon_png_assets",
+        lambda icon_ids, **_kwargs: (
+            {icon_id: object() for icon_id in icon_ids},
+            {
             icon_id: builder.EffectIconPngRender(
                 icon_id,
                 True,
@@ -1121,8 +1331,9 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
                 b"x",
                 "",
             )
-            for icon_id in checks
-        },
+            for icon_id in icon_ids
+            },
+        ),
     )
     monkeypatch.setattr(
         builder,
@@ -1143,13 +1354,13 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
 
 def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
     monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
-    monkeypatch.setattr(
-        builder,
-        "_fetch_unity_effect_icon_png_sources",
-        lambda _icon_ids: (_ for _ in ()).throw(AssertionError),
-    )
 
-    assert builder._unity_effect_icon_swf_fallback_icon_ids({100, 101}) == [100, 101]
+    assert effect_icon_unity_sources.unity_effect_icon_swf_fallback_icon_ids(
+        {100, 101},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=lambda *_args: (_ for _ in ()).throw(AssertionError),
+        logger=builder.logger,
+    ) == [100, 101]
 
 
 def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
@@ -1165,12 +1376,18 @@ def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
         error="",
     )
     monkeypatch.setattr(
-        builder.shutil,
+        effect_icon_png_renderer.shutil,
         "which",
         lambda _command: (_ for _ in ()).throw(AssertionError),
     )
 
-    renders = builder._render_effect_icon_png_assets({206: check}, require_any=False)
+    renders = effect_icon_png_renderer.render_effect_icon_png_assets(
+        {206: check},
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=lambda _check: (_ for _ in ()).throw(AssertionError),
+        logger=builder.logger,
+        require_any=False,
+    )
 
     assert renders[206] == builder.EffectIconPngRender(
         icon_id=206,
@@ -1192,11 +1409,18 @@ def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
         content_length=123,
         error="",
     )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_ENABLED", False)
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_REQUIRE_CACHED", True)
+    config = _effect_icon_render_config(
+        png_render_enabled=False,
+        png_require_cached=True,
+    )
 
     with pytest.raises(ValueError, match="Missing pre-rendered effect icon PNGs: 1644"):
-        builder._render_effect_icon_png_assets({1644: check})
+        effect_icon_png_renderer.render_effect_icon_png_assets(
+            {1644: check},
+            config=config,
+            download_effect_icon=lambda _check: (_ for _ in ()).throw(AssertionError),
+            logger=builder.logger,
+        )
 
 
 def test_effect_icon_render_defaults_allow_complex_swf_exports() -> None:
@@ -1271,50 +1495,20 @@ def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
 def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
     tmp_path: Path,
 ) -> None:
-    checks = {
-        18: builder.EffectIconAssetCheck(
-            icon_id=18,
-            url="https://example.test/18.swf",
-            available=True,
-            status=200,
-            content_type="application/x-shockwave-flash",
-            content_length=100,
-            error="",
+    result = render_asset_manifest_build.build_render_asset_manifest(
+        render_asset_manifest_build.RemoteAssetManifestBuild(
+            pet_info_entries=(),
+            new_content_standard_entries=(),
+            pet_info_scope_complete=False,
+            new_content_standard_scope_complete=False,
         ),
-        19: builder.EffectIconAssetCheck(
-            icon_id=19,
-            url="https://example.test/19.swf",
-            available=False,
-            status=404,
-            content_type="text/html",
-            content_length=None,
-            error="missing",
-        ),
-    }
-    renders = {
-        18: builder.EffectIconPngRender(
-            icon_id=18,
-            available=True,
-            content_type="image/png",
-            content_length=3,
-            data=b"png",
-            error="",
-        ),
-        19: builder.EffectIconPngRender(
-            icon_id=19,
-            available=False,
-            content_type="",
-            content_length=None,
-            data=None,
-            error="missing",
-        ),
-    }
-
-    entries = builder._build_effect_icon_render_asset_manifest(
-        checks,
-        renders,
+        {18: b"png", 19: None},
+        None,
         release_revision="config-20260806",
+        effect_icon_source_version=builder.EFFECT_ICON_PNG_CACHE_VERSION,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
+    entries = result.entries
 
     assert [(entry.asset_kind, entry.asset_key) for entry in entries] == [
         ("soulmark_icon_png", "18"),
@@ -1325,11 +1519,13 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
     assert entries[0].available is True
     assert entries[1].sha256 == ""
     assert entries[1].available is False
-    assert builder._render_asset_manifest_revision(entries) == (
-        builder._render_asset_manifest_revision(tuple(reversed(entries)))
+    assert render_asset_manifest_build.render_asset_manifest_revision(entries) == (
+        render_asset_manifest_build.render_asset_manifest_revision(
+            tuple(reversed(entries))
+        )
     )
     changed_source = (
-        builder.RenderAssetManifestEntry(
+        render_asset_manifest_build.RenderAssetManifestEntry(
             asset_kind=entries[0].asset_kind,
             asset_key=entries[0].asset_key,
             sha256=entries[0].sha256,
@@ -1339,8 +1535,8 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
         ),
         entries[1],
     )
-    assert builder._render_asset_manifest_revision(entries) != (
-        builder._render_asset_manifest_revision(changed_source)
+    assert render_asset_manifest_build.render_asset_manifest_revision(entries) != (
+        render_asset_manifest_build.render_asset_manifest_revision(changed_source)
     )
 
     database = tmp_path / "manifest.sqlite"
@@ -1368,7 +1564,7 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
 
 def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> None:
     entries = (
-        builder.RenderAssetManifestEntry(
+        render_asset_manifest_build.RenderAssetManifestEntry(
             asset_kind="pet_head",
             asset_key="1",
             sha256="",
@@ -1377,21 +1573,26 @@ def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> 
             source="example",
         ),
     )
-    snapshot = builder.AssetRepositorySnapshot(
+    snapshot = render_asset_repository.AssetRepositorySnapshot(
         revision="a" * 40,
         blobs_by_path={},
     )
 
-    metadata = builder._render_asset_manifest_metadata(
+    scopes = render_asset_manifest_build.complete_render_asset_scopes(
+        True,
+        False,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    )
+    metadata = render_asset_manifest_build.render_asset_manifest_metadata(
         entries,
         snapshot,
-        pet_info_scope_complete=True,
-        new_content_standard_scope_complete=False,
+        complete_scopes=scopes,
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
 
     assert metadata == {
         builder.RENDER_ASSET_MANIFEST_REVISION_KEY: (
-            builder._render_asset_manifest_revision(entries)
+            render_asset_manifest_build.render_asset_manifest_revision(entries)
         ),
         builder.RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: "2",
         builder.RENDER_ASSET_MANIFEST_SCOPES_KEY: (
@@ -1405,11 +1606,11 @@ def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> 
         "render_asset_manifest_available_count": "1",
     }
 
-    unavailable = builder._render_asset_manifest_metadata(
+    unavailable = render_asset_manifest_build.render_asset_manifest_metadata(
         entries,
         None,
-        pet_info_scope_complete=False,
-        new_content_standard_scope_complete=False,
+        complete_scopes=(),
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
 
     assert unavailable[builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY] == ""
@@ -1440,7 +1641,7 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
             INSERT INTO special_effect_status VALUES (10);
             """
         )
-        snapshot = builder.AssetRepositorySnapshot(
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision="a" * 40,
             blobs_by_path={
                 "newseer/assets/art/ui/assets/pet/head/100.png": "head-100",
@@ -1453,11 +1654,13 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
                 "newseer/assets/art/ui/assets/item/petitem/icon/9.png": "item",
             },
         )
-        entries, complete = builder._build_pet_info_remote_asset_manifest(
+        remote = _collect_remote_asset_manifest(
             connection,
             snapshot,
             release_revision="release-1",
         )
+        entries = remote.pet_info_entries
+        complete = remote.pet_info_scope_complete
 
     assert complete is True
     by_identity = {(entry.asset_kind, entry.asset_key): entry for entry in entries}
@@ -1569,7 +1772,7 @@ def test_pet_info_remote_asset_manifest_disables_scope_for_missing_mandatory_ass
             INSERT INTO mintmark VALUES (8);
             """
         )
-        snapshot = builder.AssetRepositorySnapshot(
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision="b" * 40,
             blobs_by_path={
                 "newseer/assets/art/ui/assets/pet/head/100.png": "head-100",
@@ -1578,11 +1781,13 @@ def test_pet_info_remote_asset_manifest_disables_scope_for_missing_mandatory_ass
                 "newseer/assets/art/ui/assets/pettype/prop.png": "prop",
             },
         )
-        entries, complete = builder._build_pet_info_remote_asset_manifest(
+        remote = _collect_remote_asset_manifest(
             connection,
             snapshot,
             release_revision="release-1",
         )
+        entries = remote.pet_info_entries
+        complete = remote.pet_info_scope_complete
 
     assert complete is False
     missing = next(
@@ -1613,7 +1818,7 @@ def test_new_content_standard_remote_asset_manifest_requires_all_assets(
             INSERT INTO skin_image_resolution VALUES (100), (101);
             """
         )
-        snapshot = builder.AssetRepositorySnapshot(
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision="c" * 40,
             blobs_by_path={
                 "newseer/assets/art/ui/assets/item/cloth/suiticon/11.png": "suit",
@@ -1622,11 +1827,13 @@ def test_new_content_standard_remote_asset_manifest_requires_all_assets(
                 "newseer/assets/art/ui/assets/pet/head/101.png": "skin-head",
             },
         )
-        entries, complete = builder._build_new_content_standard_remote_asset_manifest(
+        remote = _collect_remote_asset_manifest(
             connection,
             snapshot,
             release_revision="release-1",
         )
+        entries = remote.new_content_standard_entries
+        complete = remote.new_content_standard_scope_complete
 
     assert complete is True
     assert [(entry.asset_kind, entry.asset_key) for entry in entries] == [
@@ -1656,18 +1863,20 @@ def test_new_content_standard_remote_asset_manifest_stays_incomplete_when_missin
             INSERT INTO skin_image_resolution VALUES (100);
             """
         )
-        snapshot = builder.AssetRepositorySnapshot(
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision="d" * 40,
             blobs_by_path={
                 "newseer/assets/art/ui/assets/item/cloth/suiticon/11.png": "suit",
                 "newseer/assets/art/ui/assets/item/cloth/prev/12.png": "equip",
             },
         )
-        entries, complete = builder._build_new_content_standard_remote_asset_manifest(
+        remote = _collect_remote_asset_manifest(
             connection,
             snapshot,
             release_revision="release-1",
         )
+        entries = remote.new_content_standard_entries
+        complete = remote.new_content_standard_scope_complete
 
     assert complete is False
     missing = next(entry for entry in entries if entry.asset_kind == "title")
@@ -1686,7 +1895,6 @@ def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> 
         error="",
     )
 
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
     calls: list[list[str]] = []
 
     def fake_run(args, **_kwargs):
@@ -1698,18 +1906,25 @@ def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> 
         item_dir = output_dir / "DefineSprite_6_item"
         item_dir.mkdir()
         (item_dir / "1.png").write_bytes(png_data)
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_JAVA_COMMAND", "java")
-    monkeypatch.setattr(
-        builder,
-        "EFFECT_ICON_PNG_RENDER_FFDEC_JAR",
-        Path("ffdec.jar"),
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
+    config = _effect_icon_render_config(
+        java_command="java",
+        ffdec_jar=Path("ffdec.jar"),
+        render_zoom=6,
     )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_ZOOM", 6)
 
-    render = builder._render_effect_icon_png(1644, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        1644,
+        check,
+        config=config,
+        download_effect_icon=lambda _check: b"FWS",
+        logger=builder.logger,
+    )
 
     assert render == builder.EffectIconPngRender(
         icon_id=1644,
@@ -1735,7 +1950,6 @@ def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
         error="",
     )
 
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
     calls: list[list[str]] = []
 
     def fake_run(args, **_kwargs):
@@ -1745,11 +1959,20 @@ def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
         output_dir = Path(args[-2])
         output_dir.mkdir(exist_ok=True)
         (output_dir / "1.png").write_bytes(png_data)
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
 
-    render = builder._render_effect_icon_png(1644, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        1644,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=lambda _check: b"FWS",
+        logger=builder.logger,
+    )
 
     assert render.available is True
     assert render.data == png_data
@@ -1779,12 +2002,20 @@ def test_render_effect_icon_png_retries_transient_verification_failure(
 
     def fake_run(args, **_kwargs):
         (Path(args[-2]) / "1.png").write_bytes(png_data)
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", fake_download)
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
 
-    render = builder._render_effect_icon_png(806, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        806,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=fake_download,
+        logger=builder.logger,
+    )
 
     assert download_calls == [check]
     assert render.available is True
@@ -1816,15 +2047,22 @@ def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) ->
         content_length=123,
         error="",
     )
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
-
     def fake_run(args, **_kwargs):
         (Path(args[-2]) / "1.png").write_bytes(_test_png(alpha=0))
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
 
-    render = builder._render_effect_icon_png(1644, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        1644,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=lambda _check: b"FWS",
+        logger=builder.logger,
+    )
 
     assert render.available is False
     assert render.data is None
@@ -1843,7 +2081,6 @@ def test_render_effect_icon_png_preserves_exported_canvas_and_alpha(
         content_length=123,
         error="",
     )
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
     exported = io.BytesIO()
     Image.new("RGBA", (9, 7), (0, 0, 0, 0)).save(exported, format="PNG")
     with Image.open(io.BytesIO(exported.getvalue())) as image:
@@ -1859,11 +2096,20 @@ def test_render_effect_icon_png_preserves_exported_canvas_and_alpha(
         item_dir = output_dir / "DefineSprite_6_item"
         item_dir.mkdir()
         (item_dir / "1.png").write_bytes(png_data)
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
 
-    render = builder._render_effect_icon_png(613, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        613,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=lambda _check: b"FWS",
+        logger=builder.logger,
+    )
 
     assert render.available is True
     assert render.data == png_data
