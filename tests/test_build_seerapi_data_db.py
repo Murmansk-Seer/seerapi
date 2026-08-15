@@ -1604,9 +1604,13 @@ def test_new_content_standard_remote_asset_manifest_requires_all_assets(
             CREATE TABLE suit (id INTEGER NOT NULL);
             CREATE TABLE equip (id INTEGER NOT NULL);
             CREATE TABLE title_part (id INTEGER NOT NULL);
+            CREATE TABLE pet (resource_id INTEGER NOT NULL);
+            CREATE TABLE skin_image_resolution (head_resource_id INTEGER NOT NULL);
             INSERT INTO suit VALUES (11);
             INSERT INTO equip VALUES (12);
             INSERT INTO title_part VALUES (13);
+            INSERT INTO pet VALUES (100);
+            INSERT INTO skin_image_resolution VALUES (100), (101);
             """
         )
         snapshot = builder.AssetRepositorySnapshot(
@@ -1615,6 +1619,7 @@ def test_new_content_standard_remote_asset_manifest_requires_all_assets(
                 "newseer/assets/art/ui/assets/item/cloth/suiticon/11.png": "suit",
                 "newseer/assets/art/ui/assets/item/cloth/prev/12.png": "equip",
                 "newseer/assets/art/ui/assets/achieve/title/13.png": "title",
+                "newseer/assets/art/ui/assets/pet/head/101.png": "skin-head",
             },
         )
         entries, complete = builder._build_new_content_standard_remote_asset_manifest(
@@ -1626,6 +1631,7 @@ def test_new_content_standard_remote_asset_manifest_requires_all_assets(
     assert complete is True
     assert [(entry.asset_kind, entry.asset_key) for entry in entries] == [
         ("equip", "12"),
+        ("pet_head", "101"),
         ("suit", "11"),
         ("title", "13"),
     ]
@@ -1641,9 +1647,13 @@ def test_new_content_standard_remote_asset_manifest_stays_incomplete_when_missin
             CREATE TABLE suit (id INTEGER NOT NULL);
             CREATE TABLE equip (id INTEGER NOT NULL);
             CREATE TABLE title_part (id INTEGER NOT NULL);
+            CREATE TABLE pet (resource_id INTEGER NOT NULL);
+            CREATE TABLE skin_image_resolution (head_resource_id INTEGER NOT NULL);
             INSERT INTO suit VALUES (11);
             INSERT INTO equip VALUES (12);
             INSERT INTO title_part VALUES (13);
+            INSERT INTO pet VALUES (100);
+            INSERT INTO skin_image_resolution VALUES (100);
             """
         )
         snapshot = builder.AssetRepositorySnapshot(
