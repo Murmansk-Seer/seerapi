@@ -57,6 +57,21 @@ if __package__:
         save_effect_icon_png_cache,
         visible_png_pixel_count,
     )
+    from .effect_icon_source_paths import (
+        effect_icon_asset_url as _effect_icon_asset_url,
+    )
+    from .effect_icon_source_paths import (
+        unity_effect_icon_expected_url as _unity_effect_icon_expected_url,
+    )
+    from .effect_icon_source_paths import (
+        unity_effect_icon_id_from_asset_path as _unity_effect_icon_id_from_asset_path,
+    )
+    from .effect_icon_source_paths import (
+        unity_effect_icon_id_from_object_name as _unity_effect_icon_id_from_object_name,
+    )
+    from .effect_icon_source_paths import (
+        unity_effect_icon_source_url as _unity_effect_icon_source_url,
+    )
     from .effect_metadata_sources import (
         EffectDescription,
         SpecialEffectStatus,
@@ -117,6 +132,21 @@ else:
         render_effect_icon_png_assets,
         save_effect_icon_png_cache,
         visible_png_pixel_count,
+    )
+    from effect_icon_source_paths import (  # type: ignore[import-not-found]
+        effect_icon_asset_url as _effect_icon_asset_url,
+    )
+    from effect_icon_source_paths import (
+        unity_effect_icon_expected_url as _unity_effect_icon_expected_url,
+    )
+    from effect_icon_source_paths import (
+        unity_effect_icon_id_from_asset_path as _unity_effect_icon_id_from_asset_path,
+    )
+    from effect_icon_source_paths import (
+        unity_effect_icon_id_from_object_name as _unity_effect_icon_id_from_object_name,
+    )
+    from effect_icon_source_paths import (
+        unity_effect_icon_source_url as _unity_effect_icon_source_url,
     )
     from effect_metadata_sources import (  # type: ignore[import-not-found]
         EffectDescription,
@@ -1103,11 +1133,6 @@ def _build_classic_skin_image_resolutions(
     return resolutions
 
 
-def _effect_icon_asset_url(icon_id: int) -> str:
-    base_url = EFFECT_ICON_ASSET_BASE_URL.rstrip("/") + "/"
-    return urljoin(base_url, f"{icon_id}{EFFECT_ICON_ASSET_SUFFIX}")
-
-
 def _parse_content_length(value: str | None) -> int | None:
     if not value:
         return None
@@ -1119,44 +1144,6 @@ def _parse_content_length(value: str | None) -> int | None:
 
 def _short_error(error: Exception | str) -> str:
     return str(error).replace("\n", " ")[:200]
-
-
-def _unity_effect_icon_asset_path(icon_id: int) -> str:
-    return (
-        f"{UNITY_EFFECT_ICON_ASSET_PREFIX}"
-        f"{icon_id}{UNITY_EFFECT_ICON_ASSET_SUFFIX}"
-    )
-
-
-def _unity_effect_icon_expected_url(icon_id: int) -> str:
-    return (
-        f"{DEFAULT_PACKAGE_BASE_URL.rstrip('/')}/"
-        f"#{_unity_effect_icon_asset_path(icon_id)}"
-    )
-
-
-def _unity_effect_icon_source_url(source: UnityEffectIconPngSource) -> str:
-    return f"{source.bundle_url}#{source.asset_path}"
-
-
-def _unity_effect_icon_id_from_asset_path(asset_path: str) -> int | None:
-    if not asset_path.startswith(UNITY_EFFECT_ICON_ASSET_PREFIX):
-        return None
-    if not asset_path.endswith(UNITY_EFFECT_ICON_ASSET_SUFFIX):
-        return None
-    name = asset_path[
-        len(UNITY_EFFECT_ICON_ASSET_PREFIX) : -len(UNITY_EFFECT_ICON_ASSET_SUFFIX)
-    ]
-    if not name.isdecimal():
-        return None
-    return int(name)
-
-
-def _unity_effect_icon_id_from_object_name(name: str) -> int | None:
-    normalized = name[:-4] if name.endswith(".png") else name
-    if not normalized.isdecimal():
-        return None
-    return int(normalized)
 
 
 def _encode_unity_image_png(image: object) -> bytes:
@@ -1218,7 +1205,7 @@ def _missing_unity_effect_icon_png_load(
         asset_checks={
             icon_id: EffectIconAssetCheck(
                 icon_id=icon_id,
-                url=_unity_effect_icon_expected_url(icon_id),
+                url=_unity_effect_icon_expected_url(icon_id, config=EFFECT_ICON_BUILD_CONFIG),
                 available=False,
                 status=status,
                 content_type="",
@@ -1248,7 +1235,7 @@ def _fetch_unity_effect_icon_png_sources(
     version, manifest = _fetch_package_manifest(base_url, DEFAULT_PACKAGE_NAME)
     all_sources: dict[int, UnityEffectIconPngSource] = {}
     for asset_path, bundle in manifest.assets.items():
-        icon_id = _unity_effect_icon_id_from_asset_path(asset_path)
+        icon_id = _unity_effect_icon_id_from_asset_path(asset_path, config=EFFECT_ICON_BUILD_CONFIG)
         if icon_id is None:
             continue
         all_sources[icon_id] = UnityEffectIconPngSource(
@@ -1285,7 +1272,7 @@ def _load_unity_effect_icon_png_assets(
     for icon_id in missing_icon_ids:
         asset_checks[icon_id] = EffectIconAssetCheck(
             icon_id=icon_id,
-            url=_unity_effect_icon_expected_url(icon_id),
+            url=_unity_effect_icon_expected_url(icon_id, config=EFFECT_ICON_BUILD_CONFIG),
             available=False,
             status=404,
             content_type="",
@@ -1410,7 +1397,7 @@ def _missing_swf_effect_icon_png_assets(
         {
             icon_id: EffectIconAssetCheck(
                 icon_id=icon_id,
-                url=_effect_icon_asset_url(icon_id),
+                url=_effect_icon_asset_url(icon_id, config=EFFECT_ICON_BUILD_CONFIG),
                 available=False,
                 status=0,
                 content_type="",
@@ -1672,7 +1659,7 @@ def _probe_effect_icon_asset_range(
 
 
 def _verify_effect_icon_asset(icon_id: int) -> EffectIconAssetCheck:
-    url = _effect_icon_asset_url(icon_id)
+    url = _effect_icon_asset_url(icon_id, config=EFFECT_ICON_BUILD_CONFIG)
     try:
         with urlopen(
             _request(url, method="HEAD"),
@@ -1755,7 +1742,7 @@ def _verify_effect_icon_assets(
             except Exception as e:
                 checks[icon_id] = EffectIconAssetCheck(
                     icon_id=icon_id,
-                    url=_effect_icon_asset_url(icon_id),
+                    url=_effect_icon_asset_url(icon_id, config=EFFECT_ICON_BUILD_CONFIG),
                     available=False,
                     status=0,
                     content_type="",
@@ -1935,7 +1922,7 @@ def _seed_effect_icon_png_cache_from_database(db_path: Path) -> int:
             continue
         check = EffectIconAssetCheck(
             icon_id=int(icon_id),
-            url=_effect_icon_asset_url(int(icon_id)),
+            url=_effect_icon_asset_url(int(icon_id), config=EFFECT_ICON_BUILD_CONFIG),
             available=True,
             status=200,
             content_type=str(content_type),
