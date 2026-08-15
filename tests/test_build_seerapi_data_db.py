@@ -22,6 +22,7 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 import config_package_sources
 import effect_icon_build
+import effect_icon_build_types
 import effect_icon_flash_sources
 import effect_icon_png_renderer
 import effect_icon_source_paths
@@ -31,6 +32,7 @@ import item_exchange_sources
 import partner_contract_sources
 import release_config_tables
 import release_reference_tables
+import release_soulmark_icon_tables
 import render_asset_manifest_build
 import render_asset_repository
 
@@ -162,6 +164,53 @@ def test_release_reference_table_writer_replaces_official_reference_tables() -> 
         assert connection.execute(
             "SELECT status_id, name, show_monster_id FROM special_effect_status"
         ).fetchall() == [(147, "旧日之晷", 4125)]
+
+
+def test_release_soulmark_icon_writer_replaces_icons_and_issues() -> None:
+    asset_check = effect_icon_build.EffectIconAssetCheck(
+        icon_id=18,
+        url="https://assets.example/18.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=10,
+        error="",
+    )
+    png_render = effect_icon_build.EffectIconPngRender(
+        icon_id=18,
+        available=True,
+        content_type="image/png",
+        content_length=3,
+        data=b"png",
+        error="",
+    )
+    issue = effect_icon_build_types.SoulmarkIconRenderIssue(
+        icon_id=19,
+        soulmark_id=2,
+        pet_id=300,
+        pet_name="测试精灵",
+        effect_id=4,
+        icon_asset_status=404,
+        icon_asset_error="not found",
+        icon_png_error="missing",
+    )
+
+    with sqlite3.connect(":memory:") as connection:
+        release_soulmark_icon_tables.replace_soulmark_icon_tables(
+            connection,
+            soulmark_icons=[(1, 200, 3, 18)],
+            asset_checks={18: asset_check},
+            png_renders={18: png_render},
+            render_issues=[issue],
+            now=123.0,
+        )
+        assert connection.execute(
+            "SELECT soulmark_id, icon_id, icon_asset_url, icon_png FROM soulmark_icon"
+        ).fetchall() == [(1, 18, "https://assets.example/18.swf", b"png")]
+        assert connection.execute(
+            "SELECT icon_id, pet_id, pet_name, icon_png_error "
+            "FROM soulmark_icon_render_issue"
+        ).fetchall() == [(19, 300, "测试精灵", "missing")]
 
 
 def test_effect_icon_source_paths_use_resolved_build_config() -> None:
@@ -2126,7 +2175,7 @@ def test_render_effect_icon_png_retries_transient_verification_failure(
     assert download_calls == [check]
     assert render.available is True
     assert render.data == png_data
-    assert builder._effect_icon_runtime_asset_url(check) == check.url
+    assert release_soulmark_icon_tables.effect_icon_runtime_asset_url(check) == check.url
 
 
 def test_effect_icon_runtime_asset_url_omits_confirmed_missing_asset() -> None:
@@ -2140,7 +2189,7 @@ def test_effect_icon_runtime_asset_url_omits_confirmed_missing_asset() -> None:
         error="",
     )
 
-    assert builder._effect_icon_runtime_asset_url(check) is None
+    assert release_soulmark_icon_tables.effect_icon_runtime_asset_url(check) is None
 
 
 def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) -> None:

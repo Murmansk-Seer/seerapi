@@ -85,6 +85,10 @@ if __package__:
         SPECIAL_EFFECT_STATUS_TABLE,
         replace_reference_tables,
     )
+    from .release_soulmark_icon_tables import (
+        SOULMARK_ICON_TABLE,
+        replace_soulmark_icon_tables,
+    )
     from .render_asset_manifest_build import (
         RenderAssetManifestConfig,
         RenderAssetManifestEntry,
@@ -158,6 +162,10 @@ else:
     from release_reference_tables import (  # type: ignore[import-not-found]
         SPECIAL_EFFECT_STATUS_TABLE,
         replace_reference_tables,
+    )
+    from release_soulmark_icon_tables import (  # type: ignore[import-not-found]
+        SOULMARK_ICON_TABLE,
+        replace_soulmark_icon_tables,
     )
     from render_asset_manifest_build import (  # type: ignore[import-not-found]
         RenderAssetManifestConfig,
@@ -323,8 +331,6 @@ CONFIG_TEXT_ASSETS = {
     EFFECT_ICON_BYTES_NAME,
     AUTOCARD_SEASON_EFFECT_BYTES_NAME,
 }
-SOULMARK_ICON_TABLE = "soulmark_icon"
-SOULMARK_ICON_RENDER_ISSUE_TABLE = "soulmark_icon_render_issue"
 RENDER_ASSET_MANIFEST_TABLE = "render_asset_manifest"
 SEERAPI_SCHEMA_CONTRACT_VERSION = "1"
 SEERAPI_SCHEMA_CONTRACT_VERSION_KEY = "ironsbot_schema_contract_version"
@@ -1146,14 +1152,6 @@ def _parse_content_length(value: str | None) -> int | None:
 
 def _short_error(error: Exception | str) -> str:
     return str(error).replace("\n", " ")[:200]
-
-
-def _effect_icon_runtime_asset_url(
-    check: EffectIconAssetCheck,
-) -> str | None:
-    if check.available or check.status == 0:
-        return check.url
-    return None
 
 
 def _collect_soulmark_icon_render_issues(
@@ -2318,141 +2316,13 @@ def _merge_ironsbot_tables(
             effect_icon_png_renders,
             pet_names,
         )
-        soulmark_icon_rows = []
-        for soulmark_id, pet_id, effect_id, icon_id in deduplicated_soulmark_icons:
-            asset_check = effect_icon_asset_checks[icon_id]
-            png_render = effect_icon_png_renders[icon_id]
-            soulmark_icon_rows.append(
-                (
-                    soulmark_id,
-                    pet_id,
-                    effect_id,
-                    icon_id,
-                    _effect_icon_runtime_asset_url(asset_check),
-                    int(asset_check.available),
-                    asset_check.status,
-                    asset_check.content_type,
-                    asset_check.content_length,
-                    asset_check.error,
-                    png_render.data,
-                    int(png_render.available),
-                    png_render.content_type,
-                    png_render.content_length,
-                    png_render.error,
-                    "ConfigPackage/effectIcon.bytes",
-                    now,
-                )
-            )
-        conn.execute(f"DROP TABLE IF EXISTS {SOULMARK_ICON_TABLE}")
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {SOULMARK_ICON_TABLE} (
-                soulmark_id INTEGER NOT NULL,
-                pet_id INTEGER NOT NULL,
-                effect_id INTEGER NOT NULL,
-                icon_id INTEGER NOT NULL,
-                icon_asset_url TEXT,
-                icon_asset_available INTEGER NOT NULL,
-                icon_asset_status INTEGER NOT NULL,
-                icon_asset_content_type TEXT NOT NULL,
-                icon_asset_content_length INTEGER,
-                icon_asset_error TEXT NOT NULL,
-                icon_png BLOB,
-                icon_png_available INTEGER NOT NULL,
-                icon_png_content_type TEXT NOT NULL,
-                icon_png_content_length INTEGER,
-                icon_png_error TEXT NOT NULL,
-                source TEXT NOT NULL,
-                updated_at REAL NOT NULL,
-                PRIMARY KEY (soulmark_id, pet_id, effect_id, icon_id)
-            )
-            """
-        )
-        conn.executemany(
-            f"""
-            INSERT INTO {SOULMARK_ICON_TABLE}
-                (
-                    soulmark_id,
-                    pet_id,
-                    effect_id,
-                    icon_id,
-                    icon_asset_url,
-                    icon_asset_available,
-                    icon_asset_status,
-                    icon_asset_content_type,
-                    icon_asset_content_length,
-                    icon_asset_error,
-                    icon_png,
-                    icon_png_available,
-                    icon_png_content_type,
-                    icon_png_content_length,
-                    icon_png_error,
-                    source,
-                    updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            soulmark_icon_rows,
-        )
-        conn.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_{SOULMARK_ICON_TABLE}_soulmark_id
-            ON {SOULMARK_ICON_TABLE} (soulmark_id)
-            """
-        )
-        conn.execute(f"DROP TABLE IF EXISTS {SOULMARK_ICON_RENDER_ISSUE_TABLE}")
-        conn.execute(
-            f"""
-            CREATE TABLE {SOULMARK_ICON_RENDER_ISSUE_TABLE} (
-                icon_id INTEGER NOT NULL,
-                soulmark_id INTEGER NOT NULL,
-                pet_id INTEGER NOT NULL,
-                pet_name TEXT NOT NULL,
-                effect_id INTEGER NOT NULL,
-                icon_asset_status INTEGER NOT NULL,
-                icon_asset_error TEXT NOT NULL,
-                icon_png_error TEXT NOT NULL,
-                updated_at REAL NOT NULL,
-                PRIMARY KEY (icon_id, soulmark_id, pet_id, effect_id)
-            )
-            """
-        )
-        conn.executemany(
-            f"""
-            INSERT INTO {SOULMARK_ICON_RENDER_ISSUE_TABLE}
-                (
-                    icon_id,
-                    soulmark_id,
-                    pet_id,
-                    pet_name,
-                    effect_id,
-                    icon_asset_status,
-                    icon_asset_error,
-                    icon_png_error,
-                    updated_at
-                )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    issue.icon_id,
-                    issue.soulmark_id,
-                    issue.pet_id,
-                    issue.pet_name,
-                    issue.effect_id,
-                    issue.icon_asset_status,
-                    issue.icon_asset_error,
-                    issue.icon_png_error,
-                    now,
-                )
-                for issue in soulmark_icon_render_issues
-            ],
-        )
-        conn.execute(
-            f"""
-            CREATE INDEX idx_{SOULMARK_ICON_RENDER_ISSUE_TABLE}_pet_id
-            ON {SOULMARK_ICON_RENDER_ISSUE_TABLE} (pet_id)
-            """
+        replace_soulmark_icon_tables(
+            conn,
+            soulmark_icons=deduplicated_soulmark_icons,
+            asset_checks=effect_icon_asset_checks,
+            png_renders=effect_icon_png_renders,
+            render_issues=soulmark_icon_render_issues,
+            now=now,
         )
         _replace_render_asset_manifest(
             conn,
@@ -2616,7 +2486,7 @@ def _merge_ironsbot_tables(
             "pet_partner_group_count": str(len(pet_partner_data.groups)),
             "pet_partner_upgrade_count": str(len(pet_partner_data.upgrades)),
             "pet_partner_source_url": PARTNER_CONTRACTS_URL,
-            "soulmark_icon_count": str(len(soulmark_icon_rows)),
+            "soulmark_icon_count": str(len(deduplicated_soulmark_icons)),
             "autocard_card_count": str(len(autocard_data.cards)),
             "autocard_role_count": str(len(autocard_data.roles)),
             "autocard_nature_count": str(len(autocard_data.natures)),
