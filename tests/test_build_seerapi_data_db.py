@@ -46,6 +46,14 @@ sys.modules[SPEC.name] = builder
 SPEC.loader.exec_module(builder)
 
 
+def _fetch_package_manifest(base_url: str, package_name: str):
+    return builder.BUILD_HTTP.fetch_package_manifest(
+        base_url,
+        package_name,
+        parse_manifest=builder.parse_package_manifest,
+    )
+
+
 def test_published_schema_contract_metadata_is_explicit() -> None:
     assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION == "1"
     assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION_KEY == (
@@ -420,7 +428,11 @@ def test_copy_or_download_upstream_database_uses_verified_local_input(
     output = tmp_path / "output.sqlite"
     monkeypatch.setattr(builder, "UPSTREAM_SEERAPI_PATH", str(source))
 
-    builder._copy_or_download_upstream_database(output)
+    builder.BUILD_HTTP.copy_or_download_upstream_database(
+        output,
+        upstream_path=builder.UPSTREAM_SEERAPI_PATH,
+        upstream_url=builder.UPSTREAM_SEERAPI_URL,
+    )
 
     with sqlite3.connect(output) as conn:
         assert conn.execute("SELECT value FROM verified_source").fetchone() == (
@@ -438,7 +450,11 @@ def test_copy_or_download_upstream_database_rejects_missing_verified_input(
     )
 
     with pytest.raises(FileNotFoundError, match="Verified upstream"):
-        builder._copy_or_download_upstream_database(tmp_path / "output.sqlite")
+        builder.BUILD_HTTP.copy_or_download_upstream_database(
+            tmp_path / "output.sqlite",
+            upstream_path=builder.UPSTREAM_SEERAPI_PATH,
+            upstream_url=builder.UPSTREAM_SEERAPI_URL,
+        )
 
 
 def test_parse_battlepass_shop_keeps_exchange_price_details() -> None:
@@ -1014,7 +1030,7 @@ def test_load_unity_effect_icon_png_assets_uses_default_package_manifest(
         "DEFAULT_PACKAGE_BASE_URL",
         "https://game.test/DefaultPackage/",
     )
-    monkeypatch.setattr(builder, "_download_bytes", fake_download)
+    monkeypatch.setattr(builder.BUILD_HTTP, "download_bytes", fake_download)
     monkeypatch.setattr(
         effect_icon_unity_sources,
         "extract_unity_effect_icon_pngs",
@@ -1024,8 +1040,8 @@ def test_load_unity_effect_icon_png_assets_uses_default_package_manifest(
     load = effect_icon_unity_sources.load_unity_effect_icon_png_assets(
         {206, 307},
         config=builder._effect_icon_source_config(),
-        fetch_package_manifest=builder._fetch_package_manifest,
-        download_bytes=builder._download_bytes,
+        fetch_package_manifest=_fetch_package_manifest,
+        download_bytes=builder.BUILD_HTTP.download_bytes,
     )
 
     assert load.package_version == "20260807162107"
@@ -1127,9 +1143,9 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     resolution = effect_icon_build.resolve_effect_icon_png_assets(
         {206, 307},
         config=builder._effect_icon_source_config(),
-        fetch_package_manifest=builder._fetch_package_manifest,
-        download_bytes=builder._download_bytes,
-        request=builder._request,
+        fetch_package_manifest=_fetch_package_manifest,
+        download_bytes=builder.BUILD_HTTP.download_bytes,
+        request=builder.BUILD_HTTP.request,
         open_url=builder.urlopen,
         logger=builder.logger,
     )
@@ -1232,9 +1248,9 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
     resolution = effect_icon_build.resolve_effect_icon_png_assets(
         {206, 307},
         config=builder._effect_icon_source_config(),
-        fetch_package_manifest=builder._fetch_package_manifest,
-        download_bytes=builder._download_bytes,
-        request=builder._request,
+        fetch_package_manifest=_fetch_package_manifest,
+        download_bytes=builder.BUILD_HTTP.download_bytes,
+        request=builder.BUILD_HTTP.request,
         open_url=builder.urlopen,
         logger=builder.logger,
     )

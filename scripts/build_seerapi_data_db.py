@@ -13,7 +13,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from functools import partial
 import hashlib
-import io
 import json
 import logging
 import os
@@ -23,13 +22,13 @@ import sqlite3
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 if __package__:
     from .autocard_sources import AutocardData, load_autocard_data
+    from .build_http import BuildHttpClient, BuildHttpConfig, extract_text_assets
     from .config_package_sources import (
         AutocardSeasonEffect,
-        PackageManifestData,
         SkinShopPrice,
         SkinStorePrice,
         SoulmarkIcon,
@@ -113,9 +112,13 @@ else:
         AutocardData,
         load_autocard_data,
     )
+    from build_http import (  # type: ignore[import-not-found]
+        BuildHttpClient,
+        BuildHttpConfig,
+        extract_text_assets,
+    )
     from config_package_sources import (  # type: ignore[import-not-found]
         AutocardSeasonEffect,
-        PackageManifestData,
         SkinShopPrice,
         SkinStorePrice,
         SoulmarkIcon,
@@ -497,6 +500,14 @@ PET_IMAGE_ASSET_VERIFY_WORKERS = max(
 CLASSIC_SKIN_CATEGORY_ID = 0
 PET_IMAGE_ASSET_KINDS = ("head", "body")
 logger = logging.getLogger(__name__)
+BUILD_HTTP = BuildHttpClient(
+    BuildHttpConfig(
+        timeout_seconds=HTTP_TIMEOUT_SECONDS,
+        retry_attempts=HTTP_RETRY_ATTEMPTS,
+        retry_backoff_seconds=HTTP_RETRY_BACKOFF_SECONDS,
+    ),
+    logger=logger,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -547,159 +558,6 @@ class SkinImageResolution:
     source_pet_id: int | None
 
 
-def _request(
-    url: str,
-    *,
-    method: str | None = None,
-    headers: dict[str, str] | None = None,
-) -> Request:
-    request_headers = {"User-Agent": "IronsBot data builder"}
-    if headers:
-        request_headers.update(headers)
-    return Request(
-        url,
-        headers=request_headers,
-        method=method,
-    )
-
-
-def _urlopen_with_retries(request: Request):
-    attempts = max(1, HTTP_RETRY_ATTEMPTS)
-    last_error: Exception | None = None
-
-    for attempt in range(1, attempts + 1):
-        try:
-            return urlopen(request, timeout=HTTP_TIMEOUT_SECONDS)
-        except HTTPError as e:
-            last_error = e
-            if e.code < 500 and e.code != 429:
-                raise
-        except (URLError, TimeoutError, OSError) as e:
-            last_error = e
-
-        if attempt >= attempts:
-            break
-
-        delay = HTTP_RETRY_BACKOFF_SECONDS * attempt
-        logger.warning(
-            "HTTP request failed (%s/%s): %s; retrying in %.1fs",
-            attempt,
-            attempts,
-            last_error,
-            delay,
-        )
-        time.sleep(delay)
-
-    if last_error is not None:
-        raise last_error
-    raise RuntimeError("HTTP request failed without an exception")
-
-
-def _download_bytes(url: str) -> bytes:
-    with _urlopen_with_retries(_request(url)) as response:
-        return response.read()
-
-
-def _download_file(url: str, path: Path) -> None:
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.unlink(missing_ok=True)
-    with (
-        _urlopen_with_retries(_request(url)) as response,
-        tmp_path.open("wb") as output,
-    ):
-        shutil.copyfileobj(response, output)
-    tmp_path.replace(path)
-
-
-def _copy_or_download_upstream_database(path: Path) -> None:
-    """Populate *path* from a locally verified DB when supplied, else download."""
-    if UPSTREAM_SEERAPI_PATH:
-        source = Path(UPSTREAM_SEERAPI_PATH).expanduser()
-        if not source.is_file():
-            raise FileNotFoundError(
-                "Verified upstream SeerAPI database does not exist: "
-                f"{source}"
-            )
-        if source.resolve() != path.resolve():
-            shutil.copy2(source, path)
-        return
-    _download_file(UPSTREAM_SEERAPI_URL, path)
-
-
-def _probe_weekly_preview_image() -> dict[str, str]:
-    try:
-        with _urlopen_with_retries(
-            _request(WEEKLY_PREVIEW_IMAGE_URL, method="HEAD")
-        ) as response:
-            headers = response.headers
-            return {
-                "weekly_preview_status": str(response.status),
-                "weekly_preview_content_type": headers.get_content_type()
-                or "image/png",
-                "weekly_preview_content_length": headers.get(
-                    "Content-Length",
-                    "",
-                ),
-                "weekly_preview_probe_error": "",
-            }
-    except (HTTPError, URLError, TimeoutError, OSError) as e:
-        logger.warning("Weekly preview image probe skipped: %s", e)
-        return {
-            "weekly_preview_status": "",
-            "weekly_preview_content_type": "",
-            "weekly_preview_content_length": "",
-            "weekly_preview_probe_error": str(e)[:200],
-        }
-
-
-def _fetch_package_manifest(
-    base_url: str,
-    package_name: str,
-) -> tuple[str, PackageManifestData]:
-    normalized_base_url = base_url.rstrip("/") + "/"
-    version_url = urljoin(
-        normalized_base_url,
-        f"PackageManifest_{package_name}.version",
-    )
-    version = _download_bytes(f"{version_url}?t={int(time.time())}").decode().strip()
-    manifest_url = urljoin(
-        normalized_base_url,
-        f"PackageManifest_{package_name}_{version}.bytes",
-    )
-    manifest = parse_package_manifest(_download_bytes(manifest_url))
-    return version, manifest
-
-
-def _extract_text_assets(bundle_data: bytes, wanted: set[str]) -> dict[str, bytes]:
-    import UnityPy
-
-    result: dict[str, bytes] = {}
-    env = UnityPy.load(io.BytesIO(bundle_data))
-    for obj in env.objects:
-        if obj.type.name != "TextAsset":
-            continue
-        data = obj.read()
-        name = str(data.m_Name)
-        normalized_name = name if name.endswith(".bytes") else f"{name}.bytes"
-        if normalized_name not in wanted:
-            continue
-        script = data.m_Script
-        result[normalized_name] = (
-            script
-            if isinstance(script, bytes)
-            else script.encode("utf-8", "surrogateescape")
-        )
-        if len(result) == len(wanted):
-            break
-
-    missing = wanted.difference(result)
-    if missing:
-        raise ValueError(
-            f"ConfigPackage text assets missing: {sorted(missing)}"
-        )
-    return result
-
-
 def _pet_image_asset_url(kind: str, resource_id: int) -> str:
     if kind not in PET_IMAGE_ASSET_KINDS:
         raise ValueError(f"unsupported pet image asset kind: {kind}")
@@ -722,7 +580,11 @@ def _probe_pet_image_asset_range(
     prior_error: str = "",
 ) -> PetImageAssetCheck:
     try:
-        request = _request(url, method="GET", headers={"Range": "bytes=0-15"})
+        request = BUILD_HTTP.request(
+            url,
+            method="GET",
+            headers={"Range": "bytes=0-15"},
+        )
         with urlopen(request, timeout=PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS) as response:
             content_type = response.headers.get_content_type()
             content_length = _parse_content_length(response.headers.get("Content-Length"))
@@ -873,7 +735,7 @@ def _download_pet_image_asset_hash(check: PetImageAssetCheck) -> str | None:
         return None
     try:
         with urlopen(
-            _request(check.url, method="GET"),
+            BUILD_HTTP.request(check.url, method="GET"),
             timeout=PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS,
         ) as response:
             data = response.read()
@@ -1307,7 +1169,11 @@ def _render_effect_icon_png_cache_shard(
     fallback_icon_ids = unity_effect_icon_swf_fallback_icon_ids(
         icon_ids,
         config=_effect_icon_source_config(),
-        fetch_package_manifest=_fetch_package_manifest,
+        fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
+            base_url,
+            package_name,
+            parse_manifest=parse_package_manifest,
+        ),
         logger=logger,
     )
     shard_icon_ids = fallback_icon_ids[shard_index::shard_count]
@@ -1320,7 +1186,7 @@ def _render_effect_icon_png_cache_shard(
     _checks, renders = load_flash_effect_icon_png_assets(
         set(shard_icon_ids),
         config=EFFECT_ICON_BUILD_CONFIG,
-        request=_request,
+        request=BUILD_HTTP.request,
         open_url=urlopen,
         logger=logger,
         require_any=False,
@@ -1333,7 +1199,11 @@ def _render_effect_icon_png_cache_shard(
 
 def _fetch_config_package_data() -> ConfigPackageData:
     base_url = CONFIG_PACKAGE_BASE_URL.rstrip("/") + "/"
-    version, manifest = _fetch_package_manifest(base_url, PACKAGE_NAME)
+    version, manifest = BUILD_HTTP.fetch_package_manifest(
+        base_url,
+        PACKAGE_NAME,
+        parse_manifest=parse_package_manifest,
+    )
     for bundle in manifest.bundles:
         if bundle.name == CONFIG_BUNDLE_NAME:
             break
@@ -1342,8 +1212,8 @@ def _fetch_config_package_data() -> ConfigPackageData:
             raise ValueError("ConfigPackage bundle not found")
         bundle = manifest.bundles[0]
     bundle_url = urljoin(base_url, bundle.file_hash)
-    bundle_data = _download_bytes(bundle_url)
-    assets = _extract_text_assets(bundle_data, CONFIG_TEXT_ASSETS)
+    bundle_data = BUILD_HTTP.download_bytes(bundle_url)
+    assets = extract_text_assets(bundle_data, CONFIG_TEXT_ASSETS)
     return ConfigPackageData(
         version=version,
         bundle_url=bundle_url,
@@ -1361,7 +1231,7 @@ def _fetch_config_package_data() -> ConfigPackageData:
 def _load_item_exchange_prices() -> list[ItemExchangePrice]:
     try:
         currency_names = _parse_unity_item_names(
-            _download_bytes(UNITY_ITEM_CATALOG_URL)
+            BUILD_HTTP.download_bytes(UNITY_ITEM_CATALOG_URL)
         )
     except (
         HTTPError,
@@ -1411,7 +1281,7 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
                     price,
                     currency_name=currency_names.get(price.currency_item_id, ""),
                 )
-                for price in parser(_download_bytes(source_url))
+                for price in parser(BUILD_HTTP.download_bytes(source_url))
             )
         except (
             HTTPError,
@@ -1431,7 +1301,9 @@ def _load_item_exchange_prices() -> list[ItemExchangePrice]:
 
 def _load_effect_descriptions() -> list[EffectDescription]:
     try:
-        return parse_effect_descriptions(_download_bytes(EFFECT_DESCRIPTION_URL))
+        return parse_effect_descriptions(
+            BUILD_HTTP.download_bytes(EFFECT_DESCRIPTION_URL)
+        )
     except (
         HTTPError,
         URLError,
@@ -1450,7 +1322,7 @@ def _load_effect_descriptions() -> list[EffectDescription]:
 def _load_special_effect_statuses() -> list[SpecialEffectStatus]:
     try:
         return parse_special_effect_statuses(
-            _download_bytes(SPECIAL_EFFECT_STATUS_URL)
+            BUILD_HTTP.download_bytes(SPECIAL_EFFECT_STATUS_URL)
         )
     except (
         HTTPError,
@@ -1479,7 +1351,7 @@ def _load_autocard_json(filename: str) -> tuple[dict[str, object], str]:
     base_url = AUTOCARD_JSON_BASE_URL.rstrip("/") + "/"
     url = urljoin(base_url, filename)
     return (
-        json.loads(_download_bytes(url).decode("utf-8-sig")),
+        json.loads(BUILD_HTTP.download_bytes(url).decode("utf-8-sig")),
         url,
     )
 
@@ -1517,7 +1389,7 @@ def _parse_unity_item_names(data: bytes) -> dict[int, str]:
 def _load_pet_partner_data() -> PetPartnerData:
     try:
         return parse_pet_partner_data(
-            _download_bytes(PARTNER_CONTRACTS_URL),
+            BUILD_HTTP.download_bytes(PARTNER_CONTRACTS_URL),
             schema_version=PARTNER_CONTRACTS_SCHEMA_VERSION,
             group_type=PARTNER_CONTRACT_GROUP_TYPE,
             cost_item_id=CONTRACT_BADGE_ITEM_ID,
@@ -1564,7 +1436,7 @@ def _merge_ironsbot_tables(
     skin_image_resolutions = skin_image_resolutions or []
     asset_repository_snapshot = load_asset_repository_snapshot(
         RENDER_ASSET_REPOSITORY_CONFIG,
-        _download_bytes,
+        BUILD_HTTP.download_bytes,
         logger=logger,
     )
     with sqlite3.connect(db_path) as conn:
@@ -1601,9 +1473,13 @@ def _merge_ironsbot_tables(
         effect_icon_resolution = resolve_effect_icon_png_assets(
             {icon_id for _, _, _, icon_id in deduplicated_soulmark_icons},
             config=_effect_icon_source_config(),
-            fetch_package_manifest=_fetch_package_manifest,
-            download_bytes=_download_bytes,
-            request=_request,
+            fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
+                base_url,
+                package_name,
+                parse_manifest=parse_package_manifest,
+            ),
+            download_bytes=BUILD_HTTP.download_bytes,
+            request=BUILD_HTTP.request,
             open_url=urlopen,
             logger=logger,
         )
@@ -1911,7 +1787,11 @@ def main() -> None:
         )
     else:
         logger.info("Downloading upstream SeerAPI database: %s", UPSTREAM_SEERAPI_URL)
-    _copy_or_download_upstream_database(OUTPUT_DB)
+    BUILD_HTTP.copy_or_download_upstream_database(
+        OUTPUT_DB,
+        upstream_path=UPSTREAM_SEERAPI_PATH,
+        upstream_url=UPSTREAM_SEERAPI_URL,
+    )
     _quick_check(OUTPUT_DB)
 
     logger.info("Loading official ConfigPackage: %s", CONFIG_PACKAGE_BASE_URL)
@@ -1940,7 +1820,7 @@ def main() -> None:
     logger.info("Resolving classic skin image resources")
     skin_image_resolutions = _build_classic_skin_image_resolutions(OUTPUT_DB)
     logger.info("Probing weekly preview image: %s", WEEKLY_PREVIEW_IMAGE_URL)
-    weekly_preview_probe = _probe_weekly_preview_image()
+    weekly_preview_probe = BUILD_HTTP.probe_image(WEEKLY_PREVIEW_IMAGE_URL)
 
     _merge_ironsbot_tables(
         OUTPUT_DB,
