@@ -30,6 +30,7 @@ import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
 import release_config_tables
+import release_reference_tables
 import render_asset_manifest_build
 import render_asset_repository
 
@@ -119,6 +120,48 @@ def test_release_config_table_writer_replaces_all_config_package_tables() -> Non
         assert connection.execute(
             "SELECT skin_id, head_resource_id, source_pet_id FROM skin_image_resolution"
         ).fetchall() == [(538, 3382, 3382)]
+
+
+def test_release_reference_table_writer_replaces_official_reference_tables() -> None:
+    price = SimpleNamespace(
+        source_key="battlepass_shop",
+        source_name="战令商店",
+        source_entry_id=1,
+        item_id=1728296,
+        item_name="双源魂蒂",
+        item_quantity=1,
+        currency_item_id=1726710,
+        currency_name="共鸣锚点",
+        amount=2000,
+        purchase_limit=6,
+        start_time=0,
+        end_time=0,
+    )
+    effect = SimpleNamespace(effect_id=544, name="冥妖之悼", description="效果说明")
+    status = SimpleNamespace(
+        status_id=147,
+        name="旧日之晷",
+        description="状态说明",
+        show_monster_id=4125,
+    )
+
+    with sqlite3.connect(":memory:") as connection:
+        release_reference_tables.replace_reference_tables(
+            connection,
+            item_exchange_prices=[price],
+            effect_descriptions=[effect],
+            special_effect_statuses=[status],
+            now=123.0,
+        )
+        assert connection.execute(
+            "SELECT item_id, source_name, amount FROM item_exchange_price"
+        ).fetchall() == [(1728296, "战令商店", 2000)]
+        assert connection.execute(
+            "SELECT effect_id, name, description FROM effect_description"
+        ).fetchall() == [(544, "冥妖之悼", "效果说明")]
+        assert connection.execute(
+            "SELECT status_id, name, show_monster_id FROM special_effect_status"
+        ).fetchall() == [(147, "旧日之晷", 4125)]
 
 
 def test_effect_icon_source_paths_use_resolved_build_config() -> None:
