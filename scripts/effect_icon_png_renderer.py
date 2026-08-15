@@ -397,7 +397,18 @@ def render_effect_icon_png_assets(
     renderable_checks = [
         check for check in checks.values() if check.available or check.status == 0
     ]
-    if config.png_render_enabled and renderable_checks:
+    uncached_renderable_checks = [
+        check
+        for check in renderable_checks
+        if load_effect_icon_png_cache(
+            check.icon_id,
+            check,
+            config=config,
+            logger=logger,
+        )
+        is None
+    ]
+    if config.png_render_enabled and uncached_renderable_checks:
         if shutil.which(config.java_command) is None:
             raise FileNotFoundError(f"Java command not found: {config.java_command}")
         if not config.ffdec_jar.is_file():

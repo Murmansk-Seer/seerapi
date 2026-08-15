@@ -1125,6 +1125,40 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
     assert render.data == png_data
 
 
+def test_render_effect_icon_assets_uses_complete_cache_without_ffdec(tmp_path) -> None:
+    check = builder.EffectIconAssetCheck(
+        icon_id=1644,
+        url="https://example.test/1644.swf",
+        available=True,
+        status=200,
+        content_type="application/x-shockwave-flash",
+        content_length=123,
+        error="",
+    )
+    config = _effect_icon_render_config(
+        cache_dir=tmp_path,
+        java_command="missing-java",
+        ffdec_jar=tmp_path / "missing-ffdec.jar",
+    )
+    effect_icon_png_renderer.save_effect_icon_png_cache(
+        1644,
+        _test_png(),
+        check,
+        config=config,
+        logger=builder.logger,
+    )
+
+    renders = effect_icon_png_renderer.render_effect_icon_png_assets(
+        {1644: check},
+        config=config,
+        download_effect_icon=lambda _check: (_ for _ in ()).throw(AssertionError),
+        logger=builder.logger,
+    )
+
+    assert renders[1644].available is True
+    assert renders[1644].data == _test_png()
+
+
 def test_effect_icon_cache_is_invalidated_when_source_size_changes(
     monkeypatch,
     tmp_path,
