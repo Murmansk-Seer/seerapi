@@ -2343,11 +2343,28 @@ def _new_content_standard_remote_asset_requests(
     suit_ids = _select_positive_ids(conn, "suit", "id")
     equip_ids = _select_positive_ids(conn, "equip", "id")
     title_ids = _select_positive_ids(conn, "title_part", "id")
-    if any(values is None for values in (suit_ids, equip_ids, title_ids)):
+    pet_resource_ids = _select_positive_ids(conn, "pet", "resource_id")
+    skin_head_resource_ids = _select_positive_ids(
+        conn,
+        SKIN_IMAGE_RESOLUTION_TABLE,
+        "head_resource_id",
+    )
+    if any(
+        values is None
+        for values in (
+            suit_ids,
+            equip_ids,
+            title_ids,
+            pet_resource_ids,
+            skin_head_resource_ids,
+        )
+    ):
         return None
     assert suit_ids is not None
     assert equip_ids is not None
     assert title_ids is not None
+    assert pet_resource_ids is not None
+    assert skin_head_resource_ids is not None
     requests: list[RemoteRenderAssetRequest] = []
     for suit_id in suit_ids:
         requests.append(
@@ -2373,6 +2390,21 @@ def _new_content_standard_remote_asset_requests(
                 "title",
                 str(title_id),
                 (f"newseer/assets/art/ui/assets/achieve/title/{title_id}.png",),
+                required=True,
+            )
+        )
+    # Standard new-content can show a skin-specific head whose resource ID is
+    # absent from ``pet``. The pet-info scope already proves ordinary heads;
+    # publish only the additional skin IDs here to keep manifest identities
+    # unique across scopes.
+    for resource_id in sorted(
+        set(skin_head_resource_ids).difference(pet_resource_ids)
+    ):
+        requests.append(
+            _remote_asset_request(
+                "pet_head",
+                str(resource_id),
+                (f"newseer/assets/art/ui/assets/pet/head/{resource_id}.png",),
                 required=True,
             )
         )
