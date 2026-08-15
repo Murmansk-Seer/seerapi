@@ -20,6 +20,7 @@ SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 import config_package_sources
+import effect_icon_png_renderer
 import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
@@ -45,9 +46,16 @@ def test_published_schema_contract_metadata_is_explicit() -> None:
 def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(
         builder,
-        "EFFECT_ICON_PNG_CACHE_DIR",
-        tmp_path / "effect-icon-png",
+        "EFFECT_ICON_BUILD_CONFIG",
+        builder.replace(
+            builder.EFFECT_ICON_BUILD_CONFIG,
+            cache_dir=tmp_path / "effect-icon-png",
+        ),
     )
+
+
+def _effect_icon_render_config(**changes):
+    return builder.replace(builder.EFFECT_ICON_BUILD_CONFIG, **changes)
 
 
 def _create_special_effect_source_tables(database: Path) -> None:
@@ -858,7 +866,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     )
     monkeypatch.setattr(
         builder,
-        "_render_effect_icon_png_assets",
+        "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
             206: builder.EffectIconPngRender(
                 206,
@@ -947,7 +955,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
     )
     monkeypatch.setattr(
         builder,
-        "_render_effect_icon_png_assets",
+        "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
             206: builder.EffectIconPngRender(
                 206,
@@ -992,15 +1000,22 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
         content_length=123,
         error="",
     )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
-    builder._save_effect_icon_png_cache(1644, png_data, check)
-    monkeypatch.setattr(
-        builder,
-        "_download_effect_icon_asset",
-        lambda _check: (_ for _ in ()).throw(AssertionError),
+    config = _effect_icon_render_config(cache_dir=tmp_path)
+    effect_icon_png_renderer.save_effect_icon_png_cache(
+        1644,
+        png_data,
+        check,
+        config=config,
+        logger=builder.logger,
     )
 
-    render = builder._render_effect_icon_png(1644, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        1644,
+        check,
+        config=config,
+        download_effect_icon=lambda _check: (_ for _ in ()).throw(AssertionError),
+        logger=builder.logger,
+    )
 
     assert render.available is True
     assert render.data == png_data
@@ -1021,11 +1036,21 @@ def test_effect_icon_cache_is_invalidated_when_source_size_changes(
         error="",
     )
     changed_check = builder.replace(check, content_length=124)
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path)
-    builder._save_effect_icon_png_cache(icon_id, _test_png(), check)
+    config = _effect_icon_render_config(cache_dir=tmp_path)
+    effect_icon_png_renderer.save_effect_icon_png_cache(
+        icon_id,
+        _test_png(),
+        check,
+        config=config,
+        logger=builder.logger,
+    )
 
-    assert builder._load_effect_icon_png_cache(icon_id, check) is not None
-    assert builder._load_effect_icon_png_cache(icon_id, changed_check) is None
+    assert effect_icon_png_renderer.load_effect_icon_png_cache(
+        icon_id, check, config=config, logger=builder.logger
+    ) is not None
+    assert effect_icon_png_renderer.load_effect_icon_png_cache(
+        icon_id, changed_check, config=config, logger=builder.logger
+    ) is None
 
 
 def test_effect_icon_cache_rejects_oversized_png() -> None:
@@ -1034,7 +1059,10 @@ def test_effect_icon_cache_rejects_oversized_png() -> None:
     )
 
     with pytest.raises(ValueError, match="dimensions exceed"):
-        builder._visible_png_pixel_count(oversized_png)
+        effect_icon_png_renderer.visible_png_pixel_count(
+            oversized_png,
+            config=builder.EFFECT_ICON_BUILD_CONFIG,
+        )
 
 
 def test_seed_effect_icon_cache_uses_matching_renderer_version(
@@ -1064,7 +1092,11 @@ def test_seed_effect_icon_cache_uses_matching_renderer_version(
             "INSERT INTO soulmark_icon VALUES (?, ?, 1, 123, ?)",
             (icon_id, _test_png(), "application/x-shockwave-flash"),
         )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(
+        builder,
+        "EFFECT_ICON_BUILD_CONFIG",
+        _effect_icon_render_config(cache_dir=tmp_path / "cache"),
+    )
     check = builder.EffectIconAssetCheck(
         icon_id=icon_id,
         url="https://example.test/1644.swf",
@@ -1076,7 +1108,12 @@ def test_seed_effect_icon_cache_uses_matching_renderer_version(
     )
 
     assert builder._seed_effect_icon_png_cache_from_database(database_path) == 1
-    assert builder._load_effect_icon_png_cache(icon_id, check) == _test_png()
+    assert effect_icon_png_renderer.load_effect_icon_png_cache(
+        icon_id,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        logger=builder.logger,
+    ) == _test_png()
 
 
 def test_seed_effect_icon_cache_rejects_previous_renderer_version(
@@ -1105,10 +1142,17 @@ def test_seed_effect_icon_cache_rejects_previous_renderer_version(
             "INSERT INTO soulmark_icon VALUES (1644, ?, 1, 123, ?)",
             (_test_png(), "application/x-shockwave-flash"),
         )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(
+        builder,
+        "EFFECT_ICON_BUILD_CONFIG",
+        _effect_icon_render_config(cache_dir=tmp_path / "cache"),
+    )
 
     assert builder._seed_effect_icon_png_cache_from_database(database_path) == 0
-    assert not builder._effect_icon_png_cache_path(1644).exists()
+    assert not effect_icon_png_renderer.effect_icon_png_cache_path(
+        1644,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+    ).exists()
 
 
 def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
@@ -1142,7 +1186,7 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     )
     monkeypatch.setattr(
         builder,
-        "_render_effect_icon_png_assets",
+        "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
             icon_id: builder.EffectIconPngRender(
                 icon_id,
@@ -1196,12 +1240,18 @@ def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
         error="",
     )
     monkeypatch.setattr(
-        builder.shutil,
+        effect_icon_png_renderer.shutil,
         "which",
         lambda _command: (_ for _ in ()).throw(AssertionError),
     )
 
-    renders = builder._render_effect_icon_png_assets({206: check}, require_any=False)
+    renders = effect_icon_png_renderer.render_effect_icon_png_assets(
+        {206: check},
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=lambda _check: (_ for _ in ()).throw(AssertionError),
+        logger=builder.logger,
+        require_any=False,
+    )
 
     assert renders[206] == builder.EffectIconPngRender(
         icon_id=206,
@@ -1223,11 +1273,18 @@ def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
         content_length=123,
         error="",
     )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_ENABLED", False)
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_REQUIRE_CACHED", True)
+    config = _effect_icon_render_config(
+        png_render_enabled=False,
+        png_require_cached=True,
+    )
 
     with pytest.raises(ValueError, match="Missing pre-rendered effect icon PNGs: 1644"):
-        builder._render_effect_icon_png_assets({1644: check})
+        effect_icon_png_renderer.render_effect_icon_png_assets(
+            {1644: check},
+            config=config,
+            download_effect_icon=lambda _check: (_ for _ in ()).throw(AssertionError),
+            logger=builder.logger,
+        )
 
 
 def test_effect_icon_render_defaults_allow_complex_swf_exports() -> None:
@@ -1702,7 +1759,6 @@ def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> 
         error="",
     )
 
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
     calls: list[list[str]] = []
 
     def fake_run(args, **_kwargs):
@@ -1714,18 +1770,25 @@ def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> 
         item_dir = output_dir / "DefineSprite_6_item"
         item_dir.mkdir()
         (item_dir / "1.png").write_bytes(png_data)
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_JAVA_COMMAND", "java")
-    monkeypatch.setattr(
-        builder,
-        "EFFECT_ICON_PNG_RENDER_FFDEC_JAR",
-        Path("ffdec.jar"),
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
+    config = _effect_icon_render_config(
+        java_command="java",
+        ffdec_jar=Path("ffdec.jar"),
+        render_zoom=6,
     )
-    monkeypatch.setattr(builder, "EFFECT_ICON_PNG_RENDER_ZOOM", 6)
 
-    render = builder._render_effect_icon_png(1644, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        1644,
+        check,
+        config=config,
+        download_effect_icon=lambda _check: b"FWS",
+        logger=builder.logger,
+    )
 
     assert render == builder.EffectIconPngRender(
         icon_id=1644,
@@ -1751,7 +1814,6 @@ def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
         error="",
     )
 
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
     calls: list[list[str]] = []
 
     def fake_run(args, **_kwargs):
@@ -1761,11 +1823,20 @@ def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
         output_dir = Path(args[-2])
         output_dir.mkdir(exist_ok=True)
         (output_dir / "1.png").write_bytes(png_data)
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
 
-    render = builder._render_effect_icon_png(1644, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        1644,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=lambda _check: b"FWS",
+        logger=builder.logger,
+    )
 
     assert render.available is True
     assert render.data == png_data
@@ -1795,12 +1866,20 @@ def test_render_effect_icon_png_retries_transient_verification_failure(
 
     def fake_run(args, **_kwargs):
         (Path(args[-2]) / "1.png").write_bytes(png_data)
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", fake_download)
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
 
-    render = builder._render_effect_icon_png(806, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        806,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=fake_download,
+        logger=builder.logger,
+    )
 
     assert download_calls == [check]
     assert render.available is True
@@ -1832,15 +1911,22 @@ def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) ->
         content_length=123,
         error="",
     )
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
-
     def fake_run(args, **_kwargs):
         (Path(args[-2]) / "1.png").write_bytes(_test_png(alpha=0))
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
 
-    render = builder._render_effect_icon_png(1644, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        1644,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=lambda _check: b"FWS",
+        logger=builder.logger,
+    )
 
     assert render.available is False
     assert render.data is None
@@ -1859,7 +1945,6 @@ def test_render_effect_icon_png_preserves_exported_canvas_and_alpha(
         content_length=123,
         error="",
     )
-    monkeypatch.setattr(builder, "_download_effect_icon_asset", lambda _: b"FWS")
     exported = io.BytesIO()
     Image.new("RGBA", (9, 7), (0, 0, 0, 0)).save(exported, format="PNG")
     with Image.open(io.BytesIO(exported.getvalue())) as image:
@@ -1875,11 +1960,20 @@ def test_render_effect_icon_png_preserves_exported_canvas_and_alpha(
         item_dir = output_dir / "DefineSprite_6_item"
         item_dir.mkdir()
         (item_dir / "1.png").write_bytes(png_data)
-        return builder.subprocess.CompletedProcess(args=args, returncode=0)
+        return effect_icon_png_renderer.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        )
 
-    monkeypatch.setattr(builder.subprocess, "run", fake_run)
+    monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
 
-    render = builder._render_effect_icon_png(613, check)
+    render = effect_icon_png_renderer._render_effect_icon_png(
+        613,
+        check,
+        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=lambda _check: b"FWS",
+        logger=builder.logger,
+    )
 
     assert render.available is True
     assert render.data == png_data

@@ -20,20 +20,15 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
-import subprocess
-import tempfile
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
-from PIL import Image, UnidentifiedImageError
-
 if __package__:
     from .autocard_sources import AutocardData, load_autocard_data
     from .config_package_sources import (
         AutocardSeasonEffect,
-        BundleInfo,
         PackageManifestData,
         SkinShopPrice,
         SkinStorePrice,
@@ -45,6 +40,22 @@ if __package__:
         parse_package_manifest,
         parse_skin_shop,
         parse_skin_store_pool,
+    )
+    from .effect_icon_build_types import (
+        EffectIconAssetCheck,
+        EffectIconBuildConfig,
+        EffectIconPngRender,
+        EffectIconPngResolution,
+        SoulmarkIconRenderIssue,
+        UnityEffectIconPngLoad,
+        UnityEffectIconPngSource,
+    )
+    from .effect_icon_png_renderer import (
+        effect_icon_png_cache_metadata_path,
+        effect_icon_png_cache_path,
+        render_effect_icon_png_assets,
+        save_effect_icon_png_cache,
+        visible_png_pixel_count,
     )
     from .effect_metadata_sources import (
         EffectDescription,
@@ -79,7 +90,6 @@ else:
     )
     from config_package_sources import (  # type: ignore[import-not-found]
         AutocardSeasonEffect,
-        BundleInfo,
         PackageManifestData,
         SkinShopPrice,
         SkinStorePrice,
@@ -91,6 +101,22 @@ else:
         parse_package_manifest,
         parse_skin_shop,
         parse_skin_store_pool,
+    )
+    from effect_icon_build_types import (  # type: ignore[import-not-found]
+        EffectIconAssetCheck,
+        EffectIconBuildConfig,
+        EffectIconPngRender,
+        EffectIconPngResolution,
+        SoulmarkIconRenderIssue,
+        UnityEffectIconPngLoad,
+        UnityEffectIconPngSource,
+    )
+    from effect_icon_png_renderer import (  # type: ignore[import-not-found]
+        effect_icon_png_cache_metadata_path,
+        effect_icon_png_cache_path,
+        render_effect_icon_png_assets,
+        save_effect_icon_png_cache,
+        visible_png_pixel_count,
     )
     from effect_metadata_sources import (  # type: ignore[import-not-found]
         EffectDescription,
@@ -223,6 +249,32 @@ EFFECT_ICON_PNG_CACHE_DIR = Path(
     )
 )
 EFFECT_ICON_PNG_MAX_DIMENSION = 1024
+EFFECT_ICON_BUILD_CONFIG = EffectIconBuildConfig(
+    unity_asset_prefix=UNITY_EFFECT_ICON_ASSET_PREFIX,
+    unity_asset_suffix=UNITY_EFFECT_ICON_ASSET_SUFFIX,
+    unity_png_enabled=UNITY_EFFECT_ICON_PNG_ENABLED,
+    default_package_base_url=DEFAULT_PACKAGE_BASE_URL,
+    default_package_name=DEFAULT_PACKAGE_NAME,
+    effect_icon_asset_base_url=EFFECT_ICON_ASSET_BASE_URL,
+    effect_icon_asset_suffix=EFFECT_ICON_ASSET_SUFFIX,
+    asset_verify_timeout_seconds=EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS,
+    asset_verify_workers=EFFECT_ICON_ASSET_VERIFY_WORKERS,
+    prefer_flash=EFFECT_ICON_PREFER_FLASH,
+    png_render_enabled=EFFECT_ICON_PNG_RENDER_ENABLED,
+    png_require_cached=EFFECT_ICON_PNG_REQUIRE_CACHED,
+    java_command=EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+    ffdec_jar=EFFECT_ICON_PNG_RENDER_FFDEC_JAR,
+    render_zoom=EFFECT_ICON_PNG_RENDER_ZOOM,
+    render_timeout_seconds=EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
+    composite_render_timeout_seconds=(
+        EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS
+    ),
+    shape_render_timeout_seconds=EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS,
+    render_workers=EFFECT_ICON_PNG_RENDER_WORKERS,
+    cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
+    cache_dir=EFFECT_ICON_PNG_CACHE_DIR,
+    max_png_dimension=EFFECT_ICON_PNG_MAX_DIMENSION,
+)
 CONFIG_TEXT_ASSETS = {
     MINTMARK_BYTES_NAME,
     SKIN_STORE_POOL_BYTES_NAME,
@@ -405,14 +457,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
-class UnityEffectIconPngSource:
-    icon_id: int
-    asset_path: str
-    bundle: BundleInfo
-    bundle_url: str
-
-
-@dataclass(frozen=True, slots=True)
 class ConfigPackageData:
     version: str
     bundle_url: str
@@ -458,63 +502,6 @@ class SkinImageResolution:
     head_resolution: str
     body_resolution: str
     source_pet_id: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class EffectIconAssetCheck:
-    icon_id: int
-    url: str
-    available: bool
-    status: int
-    content_type: str
-    content_length: int | None
-    error: str
-
-
-@dataclass(frozen=True, slots=True)
-class EffectIconPngRender:
-    icon_id: int
-    available: bool
-    content_type: str
-    content_length: int | None
-    data: bytes | None
-    error: str
-
-
-@dataclass(frozen=True, slots=True)
-class UnityEffectIconPngLoad:
-    package_version: str
-    total_manifest_icon_count: int
-    sources: dict[int, UnityEffectIconPngSource]
-    asset_checks: dict[int, EffectIconAssetCheck]
-    png_renders: dict[int, EffectIconPngRender]
-
-
-@dataclass(frozen=True, slots=True)
-class EffectIconPngResolution:
-    asset_checks: dict[int, EffectIconAssetCheck]
-    png_renders: dict[int, EffectIconPngRender]
-    preferred_source: str
-    unity_package_version: str
-    unity_manifest_icon_count: int
-    unity_png_available_count: int
-    unity_missing_icon_ids: tuple[int, ...]
-    flash_png_available_count: int
-    flash_missing_icon_ids: tuple[int, ...]
-    unity_fallback_icon_count: int
-    swf_fallback_icon_count: int
-
-
-@dataclass(frozen=True, slots=True)
-class SoulmarkIconRenderIssue:
-    icon_id: int
-    soulmark_id: int
-    pet_id: int
-    pet_name: str
-    effect_id: int
-    icon_asset_status: int
-    icon_asset_error: str
-    icon_png_error: str
 
 
 def _request(
@@ -1180,7 +1167,7 @@ def _encode_unity_image_png(image: object) -> bytes:
     output = io.BytesIO()
     image.save(output, format="PNG")
     png_data = output.getvalue()
-    _visible_png_pixel_count(png_data)
+    visible_png_pixel_count(png_data, config=EFFECT_ICON_BUILD_CONFIG)
     return png_data
 
 
@@ -1405,7 +1392,13 @@ def _load_swf_effect_icon_png_assets(
     if not icon_ids:
         return {}, {}
     checks = _verify_effect_icon_assets(icon_ids, require_any=require_any)
-    renders = _render_effect_icon_png_assets(checks, require_any=require_any)
+    renders = render_effect_icon_png_assets(
+        checks,
+        config=EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=_download_effect_icon_asset,
+        logger=logger,
+        require_any=require_any,
+    )
     return checks, renders
 
 
@@ -1811,394 +1804,6 @@ def _effect_icon_runtime_asset_url(
     return None
 
 
-def _visible_png_pixel_count(data: bytes) -> int:
-    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
-        raise ValueError("renderer output is not PNG")
-    try:
-        with Image.open(io.BytesIO(data)) as image:
-            image.load()
-            if max(image.size) > EFFECT_ICON_PNG_MAX_DIMENSION:
-                raise ValueError(
-                    "renderer output dimensions exceed "
-                    f"{EFFECT_ICON_PNG_MAX_DIMENSION}px: {image.size}"
-                )
-            alpha_histogram = image.convert("RGBA").getchannel("A").histogram()
-    except (OSError, UnidentifiedImageError) as e:
-        raise ValueError(f"renderer output is an invalid PNG: {e}") from e
-    return sum(alpha_histogram[1:])
-
-
-def _run_ffdec_command(
-    args: list[str],
-    *,
-    timeout_seconds: float | None = None,
-) -> None:
-    completed = subprocess.run(
-        args,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=timeout_seconds or EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS,
-    )
-    if completed.returncode == 0:
-        return
-    message = (completed.stderr or "").strip() or (
-        completed.stdout or ""
-    ).strip()
-    raise RuntimeError(f"FFDec exited {completed.returncode}: {message}")
-
-
-def _select_visible_png(
-    output_dir: Path,
-    *,
-    prefer_item_sprite: bool = False,
-) -> bytes:
-    candidates: list[tuple[int, bytes, Path]] = []
-    invalid_errors: list[str] = []
-    for png_path in sorted(output_dir.rglob("*.png")):
-        png_data = png_path.read_bytes()
-        try:
-            visible_pixels = _visible_png_pixel_count(png_data)
-        except ValueError as e:
-            invalid_errors.append(f"{png_path.name}: {e}")
-            continue
-        if visible_pixels > 0:
-            candidates.append((visible_pixels, png_data, png_path))
-        else:
-            invalid_errors.append(f"{png_path.name}: fully transparent")
-    if prefer_item_sprite:
-        item_candidates = [
-            candidate
-            for candidate in candidates
-            if any(part.endswith("_item") for part in candidate[2].parts)
-        ]
-        if item_candidates:
-            candidates = item_candidates
-    if not candidates:
-        details = "; ".join(invalid_errors[:5]) or "no PNG files exported"
-        raise ValueError(f"FFDec produced no visible PNG: {details}")
-    _, png_data, _ = max(
-        candidates,
-        key=lambda candidate: (candidate[0], len(candidate[1])),
-    )
-    return png_data
-
-
-def _render_full_effect_icon_png(
-    swf_path: Path,
-    temp_path: Path,
-) -> bytes:
-    output_dir = temp_path / "sprites"
-    output_dir.mkdir()
-    _run_ffdec_command(
-        [
-            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
-            "-jar",
-            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
-            "-zoom",
-            str(EFFECT_ICON_PNG_RENDER_ZOOM),
-            "-ignorebackground",
-            "-format",
-            "sprite:png",
-            "-export",
-            "sprite",
-            str(output_dir),
-            str(swf_path),
-        ],
-        timeout_seconds=EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS,
-    )
-    return _select_visible_png(output_dir, prefer_item_sprite=True)
-
-
-def _render_shape_effect_icon_png(
-    swf_path: Path,
-    temp_path: Path,
-) -> bytes:
-    output_dir = temp_path / "shapes"
-    output_dir.mkdir()
-    _run_ffdec_command(
-        [
-            EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
-            "-jar",
-            str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
-            "-zoom",
-            str(EFFECT_ICON_PNG_RENDER_ZOOM),
-            "-format",
-            "shape:png",
-            "-export",
-            "shape",
-            str(output_dir),
-            str(swf_path),
-        ],
-        timeout_seconds=EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS,
-    )
-    return _select_visible_png(output_dir)
-
-
-def _render_effect_icon_png(
-    icon_id: int,
-    check: EffectIconAssetCheck,
-) -> EffectIconPngRender:
-    cached_png = _load_effect_icon_png_cache(icon_id, check)
-    if cached_png is not None:
-        return EffectIconPngRender(
-            icon_id=icon_id,
-            available=True,
-            content_type="image/png",
-            content_length=len(cached_png),
-            data=cached_png,
-            error="",
-        )
-    if not EFFECT_ICON_PNG_RENDER_ENABLED:
-        return EffectIconPngRender(
-            icon_id=icon_id,
-            available=False,
-            content_type="",
-            content_length=None,
-            data=None,
-            error="PNG rendering disabled",
-        )
-    if not check.available and check.status != 0:
-        return EffectIconPngRender(
-            icon_id=icon_id,
-            available=False,
-            content_type="",
-            content_length=None,
-            data=None,
-            error=check.error or "SWF asset unavailable",
-        )
-
-    try:
-        swf_data = _download_effect_icon_asset(check)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            swf_path = temp_path / f"{icon_id}.swf"
-            swf_path.write_bytes(swf_data)
-            try:
-                png_data = _render_full_effect_icon_png(
-                    swf_path,
-                    temp_path,
-                )
-            except (
-                OSError,
-                subprocess.SubprocessError,
-                ValueError,
-                RuntimeError,
-            ) as full_render_error:
-                logger.warning(
-                    "Full effect icon render failed for %s; "
-                    "falling back to shape export: %s",
-                    icon_id,
-                    _short_error(full_render_error),
-                )
-                png_data = _render_shape_effect_icon_png(swf_path, temp_path)
-        _save_effect_icon_png_cache(icon_id, png_data, check)
-        return EffectIconPngRender(
-            icon_id=icon_id,
-            available=True,
-            content_type="image/png",
-            content_length=len(png_data),
-            data=png_data,
-            error="",
-        )
-    except (
-        OSError,
-        subprocess.SubprocessError,
-        ValueError,
-        RuntimeError,
-    ) as e:
-        return EffectIconPngRender(
-            icon_id=icon_id,
-            available=False,
-            content_type="",
-            content_length=None,
-            data=None,
-            error=_short_error(e),
-        )
-
-
-def _effect_icon_png_cache_path(icon_id: int) -> Path:
-    return (
-        EFFECT_ICON_PNG_CACHE_DIR
-        / EFFECT_ICON_PNG_CACHE_VERSION
-        / f"{icon_id}-sprite-z{EFFECT_ICON_PNG_RENDER_ZOOM}.png"
-    )
-
-
-def _effect_icon_png_cache_metadata_path(icon_id: int) -> Path:
-    return _effect_icon_png_cache_path(icon_id).with_suffix(".json")
-
-
-def _effect_icon_png_cache_matches_asset(
-    icon_id: int,
-    check: EffectIconAssetCheck,
-) -> bool:
-    metadata_path = _effect_icon_png_cache_metadata_path(icon_id)
-    try:
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError) as error:
-        logger.debug(
-            "Effect icon PNG cache metadata is unavailable for %s: %s",
-            icon_id,
-            _short_error(error),
-        )
-        return False
-
-    if not isinstance(metadata, dict):
-        return False
-    cached_length = metadata.get("asset_content_length")
-    if not isinstance(cached_length, int) or check.content_length is None:
-        return False
-    return cached_length == check.content_length
-
-
-def _load_effect_icon_png_cache(
-    icon_id: int,
-    check: EffectIconAssetCheck,
-) -> bytes | None:
-    path = _effect_icon_png_cache_path(icon_id)
-    if not path.is_file():
-        return None
-    if not _effect_icon_png_cache_matches_asset(icon_id, check):
-        return None
-    try:
-        data = path.read_bytes()
-        _visible_png_pixel_count(data)
-    except (OSError, ValueError) as e:
-        logger.warning(
-            "Ignoring invalid cached effect icon PNG %s: %s",
-            path,
-            _short_error(e),
-        )
-        return None
-    return data
-
-
-def _save_effect_icon_png_cache(
-    icon_id: int,
-    data: bytes,
-    check: EffectIconAssetCheck,
-) -> bool:
-    try:
-        _visible_png_pixel_count(data)
-        path = _effect_icon_png_cache_path(icon_id)
-        metadata_path = _effect_icon_png_cache_metadata_path(icon_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, temp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-        temp_path = Path(temp_name)
-        with os.fdopen(fd, "wb") as file:
-            file.write(data)
-        temp_path.replace(path)
-        metadata = json.dumps(
-            {
-                "asset_content_length": check.content_length,
-                "icon_id": icon_id,
-                "renderer_version": EFFECT_ICON_PNG_CACHE_VERSION,
-            },
-            sort_keys=True,
-        )
-        metadata_path.write_text(metadata, encoding="utf-8")
-        return True
-    except (OSError, ValueError) as e:
-        logger.warning(
-            "Failed to cache effect icon PNG %s: %s",
-            icon_id,
-            _short_error(e),
-        )
-        return False
-
-
-def _render_effect_icon_png_assets(
-    checks: dict[int, EffectIconAssetCheck],
-    *,
-    require_any: bool = True,
-) -> dict[int, EffectIconPngRender]:
-    if not checks:
-        return {}
-    renderable_checks = [
-        check for check in checks.values() if check.available or check.status == 0
-    ]
-    if EFFECT_ICON_PNG_RENDER_ENABLED and renderable_checks:
-        if shutil.which(EFFECT_ICON_PNG_RENDER_JAVA_COMMAND) is None:
-            raise FileNotFoundError(
-                f"Java command not found: {EFFECT_ICON_PNG_RENDER_JAVA_COMMAND}"
-            )
-        if not EFFECT_ICON_PNG_RENDER_FFDEC_JAR.is_file():
-            raise FileNotFoundError(
-                f"FFDec jar not found: {EFFECT_ICON_PNG_RENDER_FFDEC_JAR}"
-            )
-
-    logger.info(
-        "Rendering official effect icon PNGs: %s unique icons",
-        len(checks),
-    )
-    renders: dict[int, EffectIconPngRender] = {}
-    worker_count = min(EFFECT_ICON_PNG_RENDER_WORKERS, len(checks))
-    with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = {
-            executor.submit(_render_effect_icon_png, icon_id, check): icon_id
-            for icon_id, check in sorted(checks.items())
-        }
-        completed_count = 0
-        for future in as_completed(futures):
-            icon_id = futures[future]
-            try:
-                renders[icon_id] = future.result()
-            except Exception as e:
-                renders[icon_id] = EffectIconPngRender(
-                    icon_id=icon_id,
-                    available=False,
-                    content_type="",
-                    content_length=None,
-                    data=None,
-                    error=_short_error(e),
-                )
-            completed_count += 1
-            if completed_count % 20 == 0 or completed_count == len(futures):
-                available_count = sum(
-                    1 for render in renders.values() if render.available
-                )
-                logger.info(
-                    "Effect icon PNG render progress: %s/%s completed, "
-                    "%s available",
-                    completed_count,
-                    len(futures),
-                    available_count,
-                )
-
-    available_count = sum(1 for render in renders.values() if render.available)
-    if EFFECT_ICON_PNG_REQUIRE_CACHED:
-        missing_icon_ids = [
-            icon_id
-            for icon_id, check in checks.items()
-            if (check.available or check.status == 0)
-            and not renders[icon_id].available
-        ]
-        if missing_icon_ids:
-            preview = ", ".join(str(icon_id) for icon_id in missing_icon_ids[:10])
-            raise ValueError(
-                "Missing pre-rendered effect icon PNGs: "
-                f"{preview}"
-                + (" ..." if len(missing_icon_ids) > 10 else "")
-            )
-    if EFFECT_ICON_PNG_RENDER_ENABLED and available_count == 0 and require_any:
-        first_errors = "; ".join(
-            render.error
-            for render in list(renders.values())[:5]
-            if render.error
-        )
-        raise ValueError(
-            "FFDec did not render any visible effect icon PNGs"
-            + (f": {first_errors}" if first_errors else "")
-        )
-    logger.info(
-        "Rendered official effect icon PNGs: %s/%s available",
-        available_count,
-        len(renders),
-    )
-    return renders
-
-
 def _collect_soulmark_icon_render_issues(
     soulmark_icons: list[tuple[int, int, int, int]],
     asset_checks: dict[int, EffectIconAssetCheck],
@@ -2337,7 +1942,13 @@ def _seed_effect_icon_png_cache_from_database(db_path: Path) -> int:
             content_length=int(content_length),
             error="",
         )
-        if _save_effect_icon_png_cache(int(icon_id), png_data, check):
+        if save_effect_icon_png_cache(
+            int(icon_id),
+            png_data,
+            check,
+            config=EFFECT_ICON_BUILD_CONFIG,
+            logger=logger,
+        ):
             seeded_count += 1
     logger.info(
         "Seeded %s effect icon PNGs from previous IronsBot database",
@@ -2354,8 +1965,14 @@ def _export_effect_icon_png_cache_shard(
     target_dir = output_dir / EFFECT_ICON_PNG_CACHE_VERSION
     target_dir.mkdir(parents=True, exist_ok=True)
     for icon_id in icon_ids:
-        source_path = _effect_icon_png_cache_path(icon_id)
-        metadata_path = _effect_icon_png_cache_metadata_path(icon_id)
+        source_path = effect_icon_png_cache_path(
+            icon_id,
+            config=EFFECT_ICON_BUILD_CONFIG,
+        )
+        metadata_path = effect_icon_png_cache_metadata_path(
+            icon_id,
+            config=EFFECT_ICON_BUILD_CONFIG,
+        )
         if not source_path.is_file() or not metadata_path.is_file():
             continue
         shutil.copy2(source_path, target_dir / source_path.name)
@@ -2393,7 +2010,13 @@ def _render_effect_icon_png_cache_shard(
         len(shard_icon_ids),
     )
     checks = _verify_effect_icon_assets(set(shard_icon_ids), require_any=False)
-    renders = _render_effect_icon_png_assets(checks, require_any=False)
+    renders = render_effect_icon_png_assets(
+        checks,
+        config=EFFECT_ICON_BUILD_CONFIG,
+        download_effect_icon=_download_effect_icon_asset,
+        logger=logger,
+        require_any=False,
+    )
     _export_effect_icon_png_cache_shard(shard_icon_ids, output_dir)
     return len(shard_icon_ids), sum(
         1 for render in renders.values() if render.available
