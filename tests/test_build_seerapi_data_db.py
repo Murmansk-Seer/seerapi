@@ -5,6 +5,7 @@ from pathlib import Path
 import sqlite3
 import struct
 import sys
+from types import SimpleNamespace
 from typing import Any
 from urllib.error import HTTPError
 
@@ -28,6 +29,7 @@ import effect_icon_unity_sources
 import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
+import release_config_tables
 import render_asset_manifest_build
 import render_asset_repository
 
@@ -56,6 +58,67 @@ def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
             cache_dir=tmp_path / "effect-icon-png",
         ),
     )
+
+
+def test_release_config_table_writer_replaces_all_config_package_tables() -> None:
+    config_data = SimpleNamespace(
+        mintmark_quality={8: 6},
+        skin_store_prices=[
+            SimpleNamespace(
+                skin_id=538,
+                pool_id=1,
+                price=50,
+                original_price=60,
+                discount_rate=80,
+                selected_price=45,
+                ticket_id=1720001,
+                ticket_num=2,
+                start_time=1,
+                end_time=2,
+            )
+        ],
+        skin_shop_prices=[
+            SimpleNamespace(
+                skin_id=539,
+                resource_id=1400539,
+                card_price=20,
+                diamond_price=30,
+                original_price=40,
+            )
+        ],
+        skin_item_tips={1720001: "测试道具"},
+    )
+    resolution = SimpleNamespace(
+        skin_id=538,
+        head_resource_id=3382,
+        body_resource_id=1400538,
+        head_resolution="unique_name_source",
+        body_resolution="direct_skin",
+        source_pet_id=3382,
+    )
+
+    with sqlite3.connect(":memory:") as connection:
+        release_config_tables.replace_config_package_tables(
+            connection,
+            config_data,
+            [resolution],
+            now=123.0,
+        )
+        assert connection.execute(
+            "SELECT mintmark_id, quality, source, updated_at FROM mintmark_quality"
+        ).fetchall() == [(8, 6, "ConfigPackage/mintmark.bytes", 123.0)]
+        assert connection.execute(
+            "SELECT skin_id, pool_id, price, ticket_num FROM skin_store_price"
+        ).fetchall() == [(538, 1, 50, 2)]
+        assert connection.execute(
+            "SELECT skin_id, resource_id, diamond_price FROM skin_shop_price"
+        ).fetchall() == [(539, 1400539, 30)]
+        assert connection.execute(
+            "SELECT item_id, description FROM skin_item_tip"
+        ).fetchall() == [(1720001, "测试道具")]
+        assert connection.execute(
+            "SELECT skin_id, head_resource_id, source_pet_id FROM skin_image_resolution"
+        ).fetchall() == [(538, 3382, 3382)]
 
 
 def test_effect_icon_source_paths_use_resolved_build_config() -> None:

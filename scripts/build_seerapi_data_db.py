@@ -77,6 +77,10 @@ if __package__:
         PetPartnerData,
         parse_pet_partner_data,
     )
+    from .release_config_tables import (
+        SKIN_IMAGE_RESOLUTION_TABLE,
+        replace_config_package_tables,
+    )
     from .render_asset_manifest_build import (
         RenderAssetManifestConfig,
         RenderAssetManifestEntry,
@@ -142,6 +146,10 @@ else:
     from partner_contract_sources import (  # type: ignore[import-not-found]
         PetPartnerData,
         parse_pet_partner_data,
+    )
+    from release_config_tables import (  # type: ignore[import-not-found]
+        SKIN_IMAGE_RESOLUTION_TABLE,
+        replace_config_package_tables,
     )
     from render_asset_manifest_build import (  # type: ignore[import-not-found]
         RenderAssetManifestConfig,
@@ -307,10 +315,6 @@ CONFIG_TEXT_ASSETS = {
     EFFECT_ICON_BYTES_NAME,
     AUTOCARD_SEASON_EFFECT_BYTES_NAME,
 }
-MINTMARK_QUALITY_TABLE = "mintmark_quality"
-SKIN_STORE_PRICE_TABLE = "skin_store_price"
-SKIN_SHOP_PRICE_TABLE = "skin_shop_price"
-SKIN_ITEM_TIP_TABLE = "skin_item_tip"
 ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
 EFFECT_DESCRIPTION_TABLE = "effect_description"
 SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
@@ -359,7 +363,6 @@ RENDER_ASSET_REPOSITORY_CONFIG = RenderAssetRepository(
     commit_url=RENDER_ASSET_REPOSITORY_COMMIT_URL,
     tree_url_template=RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE,
 )
-SKIN_IMAGE_RESOLUTION_TABLE = "skin_image_resolution"
 RENDER_ASSET_MANIFEST_CONFIG = RenderAssetManifestConfig(
     asset_repository_name=RENDER_ASSET_REPOSITORY,
     manifest_contract_version=RENDER_ASSET_MANIFEST_CONTRACT_VERSION,
@@ -2231,209 +2234,11 @@ def _merge_ironsbot_tables(
         logger=logger,
     )
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {MINTMARK_QUALITY_TABLE} (
-                mintmark_id INTEGER PRIMARY KEY,
-                quality INTEGER NOT NULL,
-                source TEXT NOT NULL,
-                updated_at REAL NOT NULL
-            )
-            """
-        )
-        conn.execute(f"DELETE FROM {MINTMARK_QUALITY_TABLE}")
-        conn.executemany(
-            f"""
-            INSERT INTO {MINTMARK_QUALITY_TABLE}
-                (mintmark_id, quality, source, updated_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            [
-                (mintmark_id, quality, "ConfigPackage/mintmark.bytes", now)
-                for mintmark_id, quality in sorted(
-                    config_data.mintmark_quality.items()
-                )
-            ],
-        )
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {SKIN_STORE_PRICE_TABLE} (
-                row_index INTEGER PRIMARY KEY,
-                skin_id INTEGER NOT NULL,
-                pool_id INTEGER NOT NULL,
-                price INTEGER NOT NULL,
-                original_price INTEGER NOT NULL,
-                discount_rate INTEGER NOT NULL,
-                selected_price INTEGER NOT NULL,
-                ticket_id INTEGER NOT NULL,
-                ticket_num INTEGER NOT NULL,
-                start_time INTEGER NOT NULL,
-                end_time INTEGER NOT NULL,
-                source TEXT NOT NULL,
-                updated_at REAL NOT NULL
-            )
-            """
-        )
-        conn.execute(f"DELETE FROM {SKIN_STORE_PRICE_TABLE}")
-        conn.executemany(
-            f"""
-            INSERT INTO {SKIN_STORE_PRICE_TABLE}
-                (
-                    row_index,
-                    skin_id,
-                    pool_id,
-                    price,
-                    original_price,
-                    discount_rate,
-                    selected_price,
-                    ticket_id,
-                    ticket_num,
-                    start_time,
-                    end_time,
-                    source,
-                    updated_at
-                )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    index,
-                    item.skin_id,
-                    item.pool_id,
-                    item.price,
-                    item.original_price,
-                    item.discount_rate,
-                    item.selected_price,
-                    item.ticket_id,
-                    item.ticket_num,
-                    item.start_time,
-                    item.end_time,
-                    "ConfigPackage/skinStorePool.bytes",
-                    now,
-                )
-                for index, item in enumerate(config_data.skin_store_prices, start=1)
-            ],
-        )
-        conn.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_{SKIN_STORE_PRICE_TABLE}_skin_id
-            ON {SKIN_STORE_PRICE_TABLE} (skin_id)
-            """
-        )
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {SKIN_SHOP_PRICE_TABLE} (
-                skin_id INTEGER PRIMARY KEY,
-                resource_id INTEGER NOT NULL,
-                card_price INTEGER NOT NULL,
-                diamond_price INTEGER NOT NULL,
-                original_price INTEGER NOT NULL,
-                source TEXT NOT NULL,
-                updated_at REAL NOT NULL
-            )
-            """
-        )
-        conn.execute(f"DELETE FROM {SKIN_SHOP_PRICE_TABLE}")
-        conn.executemany(
-            f"""
-            INSERT INTO {SKIN_SHOP_PRICE_TABLE}
-                (
-                    skin_id,
-                    resource_id,
-                    card_price,
-                    diamond_price,
-                    original_price,
-                    source,
-                    updated_at
-                )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    item.skin_id,
-                    item.resource_id,
-                    item.card_price,
-                    item.diamond_price,
-                    item.original_price,
-                    "ConfigPackage/skin_shop.bytes",
-                    now,
-                )
-                for item in config_data.skin_shop_prices
-            ],
-        )
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {SKIN_ITEM_TIP_TABLE} (
-                item_id INTEGER PRIMARY KEY,
-                description TEXT NOT NULL,
-                source TEXT NOT NULL,
-                updated_at REAL NOT NULL
-            )
-            """
-        )
-        conn.execute(f"DELETE FROM {SKIN_ITEM_TIP_TABLE}")
-        conn.executemany(
-            f"""
-            INSERT INTO {SKIN_ITEM_TIP_TABLE}
-                (item_id, description, source, updated_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            [
-                (item_id, description, "ConfigPackage/itemsTip.bytes", now)
-                for item_id, description in sorted(
-                    config_data.skin_item_tips.items()
-                )
-            ],
-        )
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {SKIN_IMAGE_RESOLUTION_TABLE} (
-                skin_id INTEGER PRIMARY KEY,
-                head_resource_id INTEGER NOT NULL,
-                body_resource_id INTEGER NOT NULL,
-                head_resolution TEXT NOT NULL,
-                body_resolution TEXT NOT NULL,
-                source_pet_id INTEGER,
-                source TEXT NOT NULL,
-                updated_at REAL NOT NULL
-            )
-            """
-        )
-        conn.execute(f"DELETE FROM {SKIN_IMAGE_RESOLUTION_TABLE}")
-        conn.executemany(
-            f"""
-            INSERT INTO {SKIN_IMAGE_RESOLUTION_TABLE}
-                (
-                    skin_id,
-                    head_resource_id,
-                    body_resource_id,
-                    head_resolution,
-                    body_resolution,
-                    source_pet_id,
-                    source,
-                    updated_at
-                )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    resolution.skin_id,
-                    resolution.head_resource_id,
-                    resolution.body_resource_id,
-                    resolution.head_resolution,
-                    resolution.body_resolution,
-                    resolution.source_pet_id,
-                    "official pet image assets",
-                    now,
-                )
-                for resolution in skin_image_resolutions
-            ],
-        )
-        conn.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_{SKIN_IMAGE_RESOLUTION_TABLE}_source_pet_id
-            ON {SKIN_IMAGE_RESOLUTION_TABLE} (source_pet_id)
-            """
+        replace_config_package_tables(
+            conn,
+            config_data,
+            skin_image_resolutions,
+            now=now,
         )
         conn.execute(f"DROP TABLE IF EXISTS {ITEM_EXCHANGE_PRICE_TABLE}")
         conn.execute(
