@@ -1,4 +1,4 @@
-﻿import importlib.util
+import importlib.util
 import io
 import json
 from pathlib import Path
@@ -20,6 +20,7 @@ SCRIPT_PATH = (
 SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
+import autocard_sources
 import config_package_sources
 import effect_icon_build
 import effect_icon_build_types
@@ -32,10 +33,13 @@ import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
 import release_autocard_tables
+import release_build_types
 import release_config_tables
+import release_publication
 import release_reference_tables
 import release_render_manifest_tables
 import release_soulmark_icon_tables
+import release_source_loaders
 import render_asset_manifest_build
 import render_asset_repository
 import skin_image_asset_probe
@@ -1084,7 +1088,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", False)
     unity_png = _test_png()
     fallback_png = _test_png(size=(3, 3))
-    unity_check = builder.EffectIconAssetCheck(
+    unity_check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=307,
         url="https://game.test/effect-hash#Assets/Art/Ui/assets/effectIcon/307.png",
         available=True,
@@ -1093,7 +1097,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
         content_length=len(unity_png),
         error="",
     )
-    missing_check = builder.EffectIconAssetCheck(
+    missing_check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=206,
         url="https://game.test/DefaultPackage/#Assets/Art/Ui/assets/effectIcon/206.png",
         available=False,
@@ -1102,7 +1106,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
         content_length=None,
         error="Unity DefaultPackage effectIcon PNG missing",
     )
-    fallback_check = builder.EffectIconAssetCheck(
+    fallback_check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=206,
         url="https://seer.61.com/resource/effectIcon/206.swf",
         available=True,
@@ -1122,7 +1126,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
             sources={},
             asset_checks={206: missing_check, 307: unity_check},
             png_renders={
-                206: builder.EffectIconPngRender(
+                206: effect_icon_build_types.EffectIconPngRender(
                     206,
                     False,
                     "",
@@ -1130,7 +1134,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
                     None,
                     "Unity DefaultPackage effectIcon PNG missing",
                 ),
-                307: builder.EffectIconPngRender(
+                307: effect_icon_build_types.EffectIconPngRender(
                     307,
                     True,
                     "image/png",
@@ -1151,7 +1155,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
         effect_icon_build,
         "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
-            206: builder.EffectIconPngRender(
+            206: effect_icon_build_types.EffectIconPngRender(
                 206,
                 True,
                 "image/png",
@@ -1187,7 +1191,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
     monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
     flash_png = _test_png(size=(3, 3))
     unity_png = _test_png()
-    flash_check = builder.EffectIconAssetCheck(
+    flash_check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=307,
         url="https://seer.61.com/resource/effectIcon/307.swf",
         available=True,
@@ -1196,7 +1200,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
         content_length=123,
         error="",
     )
-    missing_flash_check = builder.EffectIconAssetCheck(
+    missing_flash_check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=206,
         url="https://seer.61.com/resource/effectIcon/206.swf",
         available=False,
@@ -1205,7 +1209,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
         content_length=None,
         error="",
     )
-    unity_check = builder.EffectIconAssetCheck(
+    unity_check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=206,
         url="https://game.test/effect-hash#Assets/Art/Ui/assets/effectIcon/206.png",
         available=True,
@@ -1227,7 +1231,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
             sources={},
             asset_checks={206: unity_check},
             png_renders={
-                206: builder.EffectIconPngRender(
+                206: effect_icon_build_types.EffectIconPngRender(
                     206,
                     True,
                     "image/png",
@@ -1248,7 +1252,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
         effect_icon_build,
         "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
-            206: builder.EffectIconPngRender(
+            206: effect_icon_build_types.EffectIconPngRender(
                 206,
                 False,
                 "",
@@ -1256,7 +1260,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
                 None,
                 "SWF asset unavailable",
             ),
-            307: builder.EffectIconPngRender(
+            307: effect_icon_build_types.EffectIconPngRender(
                 307,
                 True,
                 "image/png",
@@ -1290,7 +1294,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
 
 def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
     png_data = _test_png()
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
         available=True,
@@ -1321,7 +1325,7 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
 
 
 def test_render_effect_icon_assets_uses_complete_cache_without_ffdec(tmp_path) -> None:
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
         available=True,
@@ -1359,7 +1363,7 @@ def test_effect_icon_cache_is_invalidated_when_source_size_changes(
     tmp_path,
 ) -> None:
     icon_id = 1644
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=icon_id,
         url="https://example.test/1644.swf",
         available=True,
@@ -1430,7 +1434,7 @@ def test_seed_effect_icon_cache_uses_matching_renderer_version(
         "EFFECT_ICON_BUILD_CONFIG",
         _effect_icon_render_config(cache_dir=tmp_path / "cache"),
     )
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=icon_id,
         url="https://example.test/1644.swf",
         available=True,
@@ -1497,15 +1501,14 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
         (),
         {
             "soulmark_icons": [
-                builder.SoulmarkIcon(1, 1, 1, 100),
-                builder.SoulmarkIcon(2, 2, 2, 101),
-                builder.SoulmarkIcon(3, 3, 3, 102),
-                builder.SoulmarkIcon(4, 4, 4, 103),
+                config_package_sources.SoulmarkIcon(1, 1, 1, 100),
+                config_package_sources.SoulmarkIcon(2, 2, 2, 101),
+                config_package_sources.SoulmarkIcon(3, 3, 3, 102),
+                config_package_sources.SoulmarkIcon(4, 4, 4, 103),
             ]
         },
     )()
     captured: dict[str, list[int]] = {}
-    monkeypatch.setattr(builder, "_fetch_config_package_data", lambda: config_data)
     monkeypatch.setattr(
         builder,
         "unity_effect_icon_swf_fallback_icon_ids",
@@ -1518,7 +1521,7 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
         lambda icon_ids, **_kwargs: (
             {icon_id: object() for icon_id in icon_ids},
             {
-            icon_id: builder.EffectIconPngRender(
+            icon_id: effect_icon_build_types.EffectIconPngRender(
                 icon_id,
                 True,
                 "image/png",
@@ -1534,9 +1537,7 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
         shard_index=1,
         shard_count=2,
         output_dir=tmp_path,
-        fetch_icon_ids=lambda: set(
-            builder._effect_icon_ids(builder._fetch_config_package_data())
-        ),
+        fetch_icon_ids=lambda: {item.icon_id for item in config_data.soulmark_icons},
         find_fallback_icon_ids=lambda icon_ids: builder.unity_effect_icon_swf_fallback_icon_ids(
             icon_ids,
             config=builder._effect_icon_source_config(),
@@ -1576,7 +1577,7 @@ def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
 def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
     monkeypatch,
 ) -> None:
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=206,
         url="https://seer.61.com/resource/effectIcon/206.swf",
         available=False,
@@ -1599,7 +1600,7 @@ def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
         require_any=False,
     )
 
-    assert renders[206] == builder.EffectIconPngRender(
+    assert renders[206] == effect_icon_build_types.EffectIconPngRender(
         icon_id=206,
         available=False,
         content_type="",
@@ -1610,7 +1611,7 @@ def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
 
 
 def test_require_cached_effect_icons_rejects_missing_pngs(monkeypatch) -> None:
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
         available=True,
@@ -1640,7 +1641,7 @@ def test_effect_icon_render_defaults_allow_complex_swf_exports() -> None:
 
 
 def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
-    unavailable_asset = builder.EffectIconAssetCheck(
+    unavailable_asset = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=206,
         url="https://example.test/206.swf",
         available=False,
@@ -1649,7 +1650,7 @@ def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
         content_length=123,
         error="HTTP Error 404: Not Found",
     )
-    render_failure_asset = builder.EffectIconAssetCheck(
+    render_failure_asset = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=509,
         url="https://example.test/509.swf",
         available=True,
@@ -1658,7 +1659,7 @@ def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
         content_length=456,
         error="",
     )
-    successful_asset = builder.EffectIconAssetCheck(
+    successful_asset = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
         available=True,
@@ -1667,19 +1668,19 @@ def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
         content_length=789,
         error="",
     )
-    issues = builder._collect_soulmark_icon_render_issues(
+    issues = release_publication._collect_soulmark_icon_render_issues(
         [(220, 461, 0, 206), (527, 3142, 791, 509), (1, 2, 3, 1644)],
         {206: unavailable_asset, 509: render_failure_asset, 1644: successful_asset},
         {
-            206: builder.EffectIconPngRender(206, False, "", None, None, "asset unavailable"),
-            509: builder.EffectIconPngRender(509, False, "", None, None, "FFDec timed out"),
-            1644: builder.EffectIconPngRender(1644, True, "image/png", 10, _test_png(), ""),
+            206: effect_icon_build_types.EffectIconPngRender(206, False, "", None, None, "asset unavailable"),
+            509: effect_icon_build_types.EffectIconPngRender(509, False, "", None, None, "FFDec timed out"),
+            1644: effect_icon_build_types.EffectIconPngRender(1644, True, "image/png", 10, _test_png(), ""),
         },
         {461: "阿尔克", 3142: "王·雷伊"},
     )
 
     assert issues == [
-        builder.SoulmarkIconRenderIssue(
+        effect_icon_build_types.SoulmarkIconRenderIssue(
             icon_id=206,
             soulmark_id=220,
             pet_id=461,
@@ -1689,7 +1690,7 @@ def test_collect_soulmark_icon_render_issues_keeps_pet_level_context() -> None:
             icon_asset_error="HTTP Error 404: Not Found",
             icon_png_error="asset unavailable",
         ),
-        builder.SoulmarkIconRenderIssue(
+        effect_icon_build_types.SoulmarkIconRenderIssue(
             icon_id=509,
             soulmark_id=527,
             pet_id=3142,
@@ -2099,7 +2100,7 @@ def test_new_content_standard_remote_asset_manifest_stays_incomplete_when_missin
 
 def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> None:
     png_data = _test_png(size=(7, 5))
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
         available=True,
@@ -2140,7 +2141,7 @@ def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> 
         logger=builder.logger,
     )
 
-    assert render == builder.EffectIconPngRender(
+    assert render == effect_icon_build_types.EffectIconPngRender(
         icon_id=1644,
         available=True,
         content_type="image/png",
@@ -2154,7 +2155,7 @@ def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> 
 
 def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
     png_data = _test_png()
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
         available=True,
@@ -2199,7 +2200,7 @@ def test_render_effect_icon_png_retries_transient_verification_failure(
     monkeypatch,
 ) -> None:
     png_data = _test_png()
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=806,
         url="https://seer.61.com/resource/effectIcon/806.swf",
         available=False,
@@ -2238,7 +2239,7 @@ def test_render_effect_icon_png_retries_transient_verification_failure(
 
 
 def test_effect_icon_runtime_asset_url_omits_confirmed_missing_asset() -> None:
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=999999,
         url="https://seer.61.com/resource/effectIcon/999999.swf",
         available=False,
@@ -2252,7 +2253,7 @@ def test_effect_icon_runtime_asset_url_omits_confirmed_missing_asset() -> None:
 
 
 def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) -> None:
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
         available=True,
@@ -2286,7 +2287,7 @@ def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) ->
 def test_render_effect_icon_png_preserves_exported_canvas_and_alpha(
     monkeypatch,
 ) -> None:
-    check = builder.EffectIconAssetCheck(
+    check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
         available=True,
@@ -2342,7 +2343,7 @@ def test_parse_unity_item_names_reads_exchange_currency_names() -> None:
         }
     }
 
-    names = builder._parse_unity_item_names(
+    names = release_source_loaders._parse_unity_item_names(
         json.dumps(payload, ensure_ascii=False).encode("utf-8")
     )
 
@@ -2453,7 +2454,7 @@ def test_parse_pet_partner_data_keeps_badge_cost_and_skill_upgrade() -> None:
 
 
 def test_replace_autocard_roles_populates_official_schema_and_skips_npcs() -> None:
-    data = builder.AutocardData(
+    data = autocard_sources.AutocardData(
         cards=[],
         roles=[
             {
@@ -2609,7 +2610,7 @@ def test_replace_autocard_roles_populates_official_schema_and_skips_npcs() -> No
 
 
 def test_replace_autocard_roles_rejects_legacy_schema() -> None:
-    data = builder.AutocardData(
+    data = autocard_sources.AutocardData(
         cards=[],
         roles=[],
         natures=[],
@@ -2638,7 +2639,7 @@ def test_replace_autocard_roles_rejects_legacy_schema() -> None:
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     database = tmp_path / "seerapi-data.sqlite"
     _create_special_effect_source_tables(database)
-    price = builder.ItemExchangePrice(
+    price = item_exchange_sources.ItemExchangePrice(
         source_key="battlepass_shop",
         source_name="战令商店",
         source_entry_id=1005,
@@ -2652,18 +2653,18 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         start_time=0,
         end_time=0,
     )
-    effect_description = builder.EffectDescription(
+    effect_description = effect_metadata_sources.EffectDescription(
         effect_id=544,
         name="冥妖之悼",
         description="效果说明",
     )
-    special_effect_status = builder.SpecialEffectStatus(
+    special_effect_status = effect_metadata_sources.SpecialEffectStatus(
         status_id=147,
         name="旧日之晷",
         description="状态说明",
         show_monster_id=4125,
     )
-    config_data = builder.ConfigPackageData(
+    config_data = release_build_types.ConfigPackageData(
         version="test",
         bundle_url="https://example.invalid/config.bytes",
         mintmark_quality={},
@@ -2672,7 +2673,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         skin_item_tips={},
         soulmark_icons=[],
         autocard_season_effects=[
-            builder.AutocardSeasonEffect(
+            config_package_sources.AutocardSeasonEffect(
                 effect_id=10,
                 sanctuary_id=2,
                 name="霁天",
@@ -2689,7 +2690,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
             )
         ],
     )
-    autocard_data = builder.AutocardData(
+    autocard_data = autocard_sources.AutocardData(
         cards=[],
         roles=[],
         natures=[],
@@ -2709,7 +2710,7 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         ],
         source="test",
     )
-    pet_partner_data = builder.PetPartnerData(
+    pet_partner_data = partner_contract_sources.PetPartnerData(
         groups=[
         partner_contract_sources.PetPartnerGroup(
                 group_id=15,
@@ -2730,25 +2731,28 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
         ],
     )
 
-    builder._merge_ironsbot_tables(
+    release_publication.publish_release_tables(
         database,
-        config_data=config_data,
-        autocard_data=autocard_data,
-        item_exchange_prices=[price],
-        effect_descriptions=[effect_description],
-        special_effect_statuses=[special_effect_status],
-        pet_partner_data=pet_partner_data,
-        weekly_preview_probe={},
-        skin_image_resolutions=[
-            skin_image_resolution.SkinImageResolution(
-                skin_id=538,
-                head_resource_id=3382,
-                body_resource_id=1400538,
-                head_resolution="unique_name_source",
-                body_resolution="direct_skin",
-                source_pet_id=3382,
-            )
-        ],
+        release=release_publication.ReleasePublicationInput(
+            config_data=config_data,
+            autocard_data=autocard_data,
+            item_exchange_prices=[price],
+            effect_descriptions=[effect_description],
+            special_effect_statuses=[special_effect_status],
+            pet_partner_data=pet_partner_data,
+            weekly_preview_probe={},
+            skin_image_resolutions=[
+                skin_image_resolution.SkinImageResolution(
+                    skin_id=538,
+                    head_resource_id=3382,
+                    body_resource_id=1400538,
+                    head_resolution="unique_name_source",
+                    body_resolution="direct_skin",
+                    source_pet_id=3382,
+                )
+            ],
+        ),
+        context=builder._release_publication_context(),
     )
 
     with sqlite3.connect(database) as connection:

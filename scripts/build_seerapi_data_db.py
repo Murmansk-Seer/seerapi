@@ -9,43 +9,25 @@ the final SQLite file before it is published.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, replace
-from functools import partial
-import json
+from dataclasses import replace
 import logging
 import os
 from pathlib import Path
 import sqlite3
-import time
-from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
 from urllib.request import urlopen
 
 if __package__:
-    from .autocard_sources import AutocardData, load_autocard_data
-    from .build_http import BuildHttpClient, BuildHttpConfig, extract_text_assets
+    from .autocard_sources import load_autocard_data
+    from .build_http import BuildHttpClient, BuildHttpConfig
     from .config_package_sources import (
-        AutocardSeasonEffect,
-        SkinShopPrice,
-        SkinStorePrice,
-        SoulmarkIcon,
-        parse_autocard_season_effects,
-        parse_effect_icons,
-        parse_items_tip,
-        parse_mintmark_quality,
         parse_package_manifest,
-        parse_skin_shop,
-        parse_skin_store_pool,
     )
     from .effect_icon_build import (
         load_flash_effect_icon_png_assets,
         resolve_effect_icon_png_assets,
     )
     from .effect_icon_build_types import (
-        EffectIconAssetCheck,
         EffectIconBuildConfig,
-        EffectIconPngRender,
-        SoulmarkIconRenderIssue,
     )
     from .effect_icon_cache_cli import (
         export_effect_icon_png_cache_shard,
@@ -58,51 +40,27 @@ if __package__:
     from .effect_icon_unity_sources import (
         unity_effect_icon_swf_fallback_icon_ids,
     )
-    from .effect_metadata_sources import (
-        EffectDescription,
-        SpecialEffectStatus,
-        parse_effect_descriptions,
-        parse_special_effect_statuses,
-    )
-    from .item_exchange_sources import (
-        ItemExchangePrice,
-        parse_commodity_shop,
-        parse_special_skill_shop,
-    )
-    from .json_value_helpers import item_int, item_text
-    from .partner_contract_sources import (
-        PetPartnerData,
-        parse_pet_partner_data,
-    )
-    from .release_autocard_tables import (
-        replace_autocard_season_effect_table,
-        replace_autocard_tables,
-    )
     from .release_config_tables import (
         SKIN_IMAGE_RESOLUTION_TABLE,
-        replace_config_package_tables,
     )
     from .release_metadata import (
         ReleaseMetadataContext,
-        build_release_metadata,
-        replace_release_metadata,
     )
-    from .release_partner_tables import replace_pet_partner_tables
+    from .release_publication import (
+        ReleasePublicationContext,
+        ReleasePublicationInput,
+        publish_release_tables,
+    )
     from .release_reference_tables import (
         SPECIAL_EFFECT_STATUS_TABLE,
-        replace_reference_tables,
     )
-    from .release_render_manifest_tables import (
-        replace_render_asset_manifest_table,
-    )
+    from .release_skin_image_loader import build_classic_skin_image_resolutions
     from .release_soulmark_icon_tables import (
         SOULMARK_ICON_TABLE,
-        replace_soulmark_icon_tables,
     )
+    from .release_source_loaders import ReleaseSourceConfig, ReleaseSourceLoader
     from .render_asset_manifest_build import (
         RenderAssetManifestConfig,
-        build_render_asset_manifest,
-        collect_remote_asset_manifest,
     )
     from .render_asset_repository import (
         RenderAssetRepository,
@@ -112,48 +70,24 @@ if __package__:
         SkinImageAssetProbe,
         SkinImageAssetProbeConfig,
     )
-    from .skin_image_resolution import (
-        PET_IMAGE_ASSET_KINDS,
-        ClassicSkinImageSource,
-        PetImageSource,
-        SkinImageResolution,
-        content_hash_keys_for_classic_skin_fallbacks,
-        resolve_classic_skin_image_resources,
-        source_asset_keys_for_classic_skin_fallbacks,
-    )
 else:
     # GitHub Actions invokes this file directly as ``python scripts/...``.
     from autocard_sources import (  # type: ignore[import-not-found]
-        AutocardData,
         load_autocard_data,
     )
     from build_http import (  # type: ignore[import-not-found]
         BuildHttpClient,
         BuildHttpConfig,
-        extract_text_assets,
     )
     from config_package_sources import (  # type: ignore[import-not-found]
-        AutocardSeasonEffect,
-        SkinShopPrice,
-        SkinStorePrice,
-        SoulmarkIcon,
-        parse_autocard_season_effects,
-        parse_effect_icons,
-        parse_items_tip,
-        parse_mintmark_quality,
         parse_package_manifest,
-        parse_skin_shop,
-        parse_skin_store_pool,
     )
     from effect_icon_build import (  # type: ignore[import-not-found]
         load_flash_effect_icon_png_assets,
         resolve_effect_icon_png_assets,
     )
     from effect_icon_build_types import (  # type: ignore[import-not-found]
-        EffectIconAssetCheck,
         EffectIconBuildConfig,
-        EffectIconPngRender,
-        SoulmarkIconRenderIssue,
     )
     from effect_icon_cache_cli import (  # type: ignore[import-not-found]
         export_effect_icon_png_cache_shard,
@@ -166,53 +100,32 @@ else:
     from effect_icon_unity_sources import (  # type: ignore[import-not-found]
         unity_effect_icon_swf_fallback_icon_ids,
     )
-    from effect_metadata_sources import (  # type: ignore[import-not-found]
-        EffectDescription,
-        SpecialEffectStatus,
-        parse_effect_descriptions,
-        parse_special_effect_statuses,
-    )
-    from item_exchange_sources import (  # type: ignore[import-not-found]
-        ItemExchangePrice,
-        parse_commodity_shop,
-        parse_special_skill_shop,
-    )
-    from json_value_helpers import item_int, item_text  # type: ignore[import-not-found]
-    from partner_contract_sources import (  # type: ignore[import-not-found]
-        PetPartnerData,
-        parse_pet_partner_data,
-    )
-    from release_autocard_tables import (  # type: ignore[import-not-found]
-        replace_autocard_season_effect_table,
-        replace_autocard_tables,
-    )
     from release_config_tables import (  # type: ignore[import-not-found]
         SKIN_IMAGE_RESOLUTION_TABLE,
-        replace_config_package_tables,
     )
     from release_metadata import (  # type: ignore[import-not-found]
         ReleaseMetadataContext,
-        build_release_metadata,
-        replace_release_metadata,
     )
-    from release_partner_tables import (  # type: ignore[import-not-found]
-        replace_pet_partner_tables,
+    from release_publication import (  # type: ignore[import-not-found]
+        ReleasePublicationContext,
+        ReleasePublicationInput,
+        publish_release_tables,
     )
     from release_reference_tables import (  # type: ignore[import-not-found]
         SPECIAL_EFFECT_STATUS_TABLE,
-        replace_reference_tables,
     )
-    from release_render_manifest_tables import (  # type: ignore[import-not-found]
-        replace_render_asset_manifest_table,
+    from release_skin_image_loader import (  # type: ignore[import-not-found]
+        build_classic_skin_image_resolutions,
     )
     from release_soulmark_icon_tables import (  # type: ignore[import-not-found]
         SOULMARK_ICON_TABLE,
-        replace_soulmark_icon_tables,
+    )
+    from release_source_loaders import (  # type: ignore[import-not-found]
+        ReleaseSourceConfig,
+        ReleaseSourceLoader,
     )
     from render_asset_manifest_build import (  # type: ignore[import-not-found]
         RenderAssetManifestConfig,
-        build_render_asset_manifest,
-        collect_remote_asset_manifest,
     )
     from render_asset_repository import (  # type: ignore[import-not-found]
         RenderAssetRepository,
@@ -222,19 +135,7 @@ else:
         SkinImageAssetProbe,
         SkinImageAssetProbeConfig,
     )
-    from skin_image_resolution import (  # type: ignore[import-not-found]
-        PET_IMAGE_ASSET_KINDS,
-        ClassicSkinImageSource,
-        PetImageSource,
-        SkinImageResolution,
-        content_hash_keys_for_classic_skin_fallbacks,
-        resolve_classic_skin_image_resources,
-        source_asset_keys_for_classic_skin_fallbacks,
-    )
 
-from solaris.analyze.output.pet_special_effect_facts import (
-    replace_pet_special_effect_facts,
-)
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DB = ROOT / os.environ.get("SEERAPI_DATA_OUTPUT", "seerapi-data.sqlite")
@@ -553,369 +454,45 @@ SKIN_IMAGE_ASSET_PROBE = SkinImageAssetProbe(
 )
 
 
-@dataclass(frozen=True, slots=True)
-class ConfigPackageData:
-    version: str
-    bundle_url: str
-    mintmark_quality: dict[int, int]
-    skin_store_prices: list["SkinStorePrice"]
-    skin_shop_prices: list["SkinShopPrice"]
-    skin_item_tips: dict[int, str]
-    soulmark_icons: list["SoulmarkIcon"]
-    autocard_season_effects: list["AutocardSeasonEffect"]
-
-
-def _build_classic_skin_image_resolutions(
-    db_path: Path,
-) -> list[SkinImageResolution]:
-    with sqlite3.connect(db_path) as conn:
-        skin_rows = conn.execute(
-            """
-            SELECT id, name, resource_id
-            FROM pet_skin
-            WHERE category_id = ?
-            ORDER BY id
-            """,
-            (CLASSIC_SKIN_CATEGORY_ID,),
-        ).fetchall()
-        skins = tuple(
-            ClassicSkinImageSource(
-                skin_id=int(skin_id),
-                name=str(name).strip(),
-                resource_id=int(resource_id),
-            )
-            for skin_id, name, resource_id in skin_rows
-            if int(resource_id) > 0 and str(name).strip()
-        )
-        skin_names = {skin.name for skin in skins}
-        pet_rows = conn.execute(
-            """
-            SELECT id, name, resource_id
-            FROM pet
-            WHERE resource_id > 0
-            ORDER BY id
-            """
-        ).fetchall()
-        pets = tuple(
-            PetImageSource(
-                pet_id=int(pet_id),
-                name=str(name).strip(),
-                resource_id=int(resource_id),
-            )
-            for pet_id, name, resource_id in pet_rows
-            if str(name).strip() in skin_names
-        )
-
-    direct_keys = {
-        (kind, skin.resource_id)
-        for skin in skins
-        for kind in PET_IMAGE_ASSET_KINDS
-    }
-    checks = SKIN_IMAGE_ASSET_PROBE.verify_assets(direct_keys)
-    source_keys = source_asset_keys_for_classic_skin_fallbacks(
-        skins,
-        pets,
-        checks,
-    )
-    checks.update(SKIN_IMAGE_ASSET_PROBE.verify_assets(source_keys - checks.keys()))
-
-    hash_asset_keys = content_hash_keys_for_classic_skin_fallbacks(
-        skins,
-        pets,
-        checks,
-    )
-    asset_hashes = {
-        asset_key: asset_hash
-        for asset_key in hash_asset_keys
-        for check in (checks[asset_key],)
-        if check.available
-        and (asset_hash := SKIN_IMAGE_ASSET_PROBE.download_asset_hash(check))
-        is not None
-    }
-    resolutions = resolve_classic_skin_image_resources(
-        skins,
-        pets,
-        checks,
-        asset_hashes,
-    )
-    fallback_count = sum(
-        1
-        for resolution in resolutions
-        if resolution.head_resolution != "direct_skin"
-        or resolution.body_resolution != "direct_skin"
-    )
-    unresolved_count = sum(
-        1
-        for resolution in resolutions
-        if resolution.head_resolution in {"unresolved", "unverified"}
-        or resolution.body_resolution in {"unresolved", "unverified"}
-    )
-    logger.info(
-        "Resolved classic skin images: %s rows, %s with fallback, %s unresolved",
-        len(resolutions),
-        fallback_count,
-        unresolved_count,
-    )
-    return resolutions
-
-
-def _parse_content_length(value: str | None) -> int | None:
-    if not value:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None
-
-
-def _short_error(error: Exception | str) -> str:
-    return str(error).replace("\n", " ")[:200]
-
-
-def _collect_soulmark_icon_render_issues(
-    soulmark_icons: list[tuple[int, int, int, int]],
-    asset_checks: dict[int, EffectIconAssetCheck],
-    png_renders: dict[int, EffectIconPngRender],
-    pet_names: dict[int, str],
-) -> list[SoulmarkIconRenderIssue]:
-    """Return every pet/soulmark whose verified icon did not yield a PNG."""
-    issues: list[SoulmarkIconRenderIssue] = []
-    for soulmark_id, pet_id, effect_id, icon_id in soulmark_icons:
-        png_render = png_renders[icon_id]
-        if png_render.available:
-            continue
-        asset_check = asset_checks[icon_id]
-        issues.append(
-            SoulmarkIconRenderIssue(
-                icon_id=icon_id,
-                soulmark_id=soulmark_id,
-                pet_id=pet_id,
-                pet_name=pet_names.get(pet_id, f"未知精灵#{pet_id}"),
-                effect_id=effect_id,
-                icon_asset_status=asset_check.status,
-                icon_asset_error=asset_check.error,
-                icon_png_error=png_render.error,
-            )
-        )
-    return issues
-
-
-def _effect_icon_ids(config_data: ConfigPackageData) -> list[int]:
-    return sorted({item.icon_id for item in config_data.soulmark_icons})
-
-
-def _fetch_config_package_data() -> ConfigPackageData:
-    base_url = CONFIG_PACKAGE_BASE_URL.rstrip("/") + "/"
-    version, manifest = BUILD_HTTP.fetch_package_manifest(
-        base_url,
-        PACKAGE_NAME,
-        parse_manifest=parse_package_manifest,
-    )
-    for bundle in manifest.bundles:
-        if bundle.name == CONFIG_BUNDLE_NAME:
-            break
-    else:
-        if len(manifest.bundles) != 1:
-            raise ValueError("ConfigPackage bundle not found")
-        bundle = manifest.bundles[0]
-    bundle_url = urljoin(base_url, bundle.file_hash)
-    bundle_data = BUILD_HTTP.download_bytes(bundle_url)
-    assets = extract_text_assets(bundle_data, CONFIG_TEXT_ASSETS)
-    return ConfigPackageData(
-        version=version,
-        bundle_url=bundle_url,
-        mintmark_quality=parse_mintmark_quality(assets[MINTMARK_BYTES_NAME]),
-        skin_store_prices=parse_skin_store_pool(assets[SKIN_STORE_POOL_BYTES_NAME]),
-        skin_shop_prices=parse_skin_shop(assets[SKIN_SHOP_BYTES_NAME]),
-        skin_item_tips=parse_items_tip(assets[ITEMS_TIP_BYTES_NAME]),
-        soulmark_icons=parse_effect_icons(assets[EFFECT_ICON_BYTES_NAME]),
-        autocard_season_effects=parse_autocard_season_effects(
-            assets[AUTOCARD_SEASON_EFFECT_BYTES_NAME]
-        ),
-    )
-
-
-def _load_item_exchange_prices() -> list[ItemExchangePrice]:
-    try:
-        currency_names = _parse_unity_item_names(
-            BUILD_HTTP.download_bytes(UNITY_ITEM_CATALOG_URL)
-        )
-    except (
-        HTTPError,
-        URLError,
-        TimeoutError,
-        OSError,
-        UnicodeDecodeError,
-        json.JSONDecodeError,
-    ) as error:
-        logger.warning("Official Unity item names skipped: %s", _short_error(error))
-        currency_names = {}
-
-    sources = (
-        (
-            BATTLEPASS_SHOP_SOURCE_NAME,
-            BATTLEPASS_SHOP_URL,
-            partial(
-                parse_commodity_shop,
-                source_key=BATTLEPASS_SHOP_SOURCE_KEY,
-                source_name=BATTLEPASS_SHOP_SOURCE_NAME,
+def _release_source_loader() -> ReleaseSourceLoader:
+    return ReleaseSourceLoader(
+        BUILD_HTTP,
+        ReleaseSourceConfig(
+            config_package_base_url=CONFIG_PACKAGE_BASE_URL,
+            config_package_name=PACKAGE_NAME,
+            config_bundle_name=CONFIG_BUNDLE_NAME,
+            config_text_assets=CONFIG_TEXT_ASSETS,
+            mintmark_bytes_name=MINTMARK_BYTES_NAME,
+            skin_store_pool_bytes_name=SKIN_STORE_POOL_BYTES_NAME,
+            skin_shop_bytes_name=SKIN_SHOP_BYTES_NAME,
+            items_tip_bytes_name=ITEMS_TIP_BYTES_NAME,
+            effect_icon_bytes_name=EFFECT_ICON_BYTES_NAME,
+            autocard_season_effect_bytes_name=AUTOCARD_SEASON_EFFECT_BYTES_NAME,
+            autocard_json_dir=AUTOCARD_JSON_DIR,
+            autocard_json_base_url=AUTOCARD_JSON_BASE_URL,
+            unity_item_catalog_url=UNITY_ITEM_CATALOG_URL,
+            battlepass_shop_url=BATTLEPASS_SHOP_URL,
+            battlepass_shop_source_key=BATTLEPASS_SHOP_SOURCE_KEY,
+            battlepass_shop_source_name=BATTLEPASS_SHOP_SOURCE_NAME,
+            activity_shop_url=ACTIVITY_SHOP_URL,
+            activity_shop_source_key=ACTIVITY_SHOP_SOURCE_KEY,
+            activity_shop_source_name=ACTIVITY_SHOP_SOURCE_NAME,
+            special_skill_shop_url=SPECIAL_SKILL_SHOP_URL,
+            special_skill_shop_source_key=SPECIAL_SKILL_SHOP_SOURCE_KEY,
+            special_skill_shop_source_name=SPECIAL_SKILL_SHOP_SOURCE_NAME,
+            effect_description_url=EFFECT_DESCRIPTION_URL,
+            special_effect_status_url=SPECIAL_EFFECT_STATUS_URL,
+            partner_contracts_url=PARTNER_CONTRACTS_URL,
+            partner_contracts_schema_version=PARTNER_CONTRACTS_SCHEMA_VERSION,
+            partner_contract_group_type=PARTNER_CONTRACT_GROUP_TYPE,
+            contract_badge_item_id=CONTRACT_BADGE_ITEM_ID,
+            contract_badge_item_name=CONTRACT_BADGE_ITEM_NAME,
+            partner_contracts_descriptions_reversed=(
+                PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED
             ),
         ),
-        (
-            ACTIVITY_SHOP_SOURCE_NAME,
-            ACTIVITY_SHOP_URL,
-            partial(
-                parse_commodity_shop,
-                source_key=ACTIVITY_SHOP_SOURCE_KEY,
-                source_name=ACTIVITY_SHOP_SOURCE_NAME,
-            ),
-        ),
-        (
-            SPECIAL_SKILL_SHOP_SOURCE_NAME,
-            SPECIAL_SKILL_SHOP_URL,
-            partial(
-                parse_special_skill_shop,
-                source_key=SPECIAL_SKILL_SHOP_SOURCE_KEY,
-                source_name=SPECIAL_SKILL_SHOP_SOURCE_NAME,
-            ),
-        ),
+        logger=logger,
     )
-    prices: list[ItemExchangePrice] = []
-    for source_name, source_url, parser in sources:
-        try:
-            prices.extend(
-                replace(
-                    price,
-                    currency_name=currency_names.get(price.currency_item_id, ""),
-                )
-                for price in parser(BUILD_HTTP.download_bytes(source_url))
-            )
-        except (
-            HTTPError,
-            URLError,
-            TimeoutError,
-            OSError,
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-        ) as error:
-            logger.warning(
-                "Item exchange price source skipped (%s): %s",
-                source_name,
-                _short_error(error),
-            )
-    return prices
-
-
-def _load_effect_descriptions() -> list[EffectDescription]:
-    try:
-        return parse_effect_descriptions(
-            BUILD_HTTP.download_bytes(EFFECT_DESCRIPTION_URL)
-        )
-    except (
-        HTTPError,
-        URLError,
-        TimeoutError,
-        OSError,
-        UnicodeDecodeError,
-        json.JSONDecodeError,
-    ) as error:
-        logger.warning(
-            "Effect description source skipped: %s",
-            _short_error(error),
-        )
-        return []
-
-
-def _load_special_effect_statuses() -> list[SpecialEffectStatus]:
-    try:
-        return parse_special_effect_statuses(
-            BUILD_HTTP.download_bytes(SPECIAL_EFFECT_STATUS_URL)
-        )
-    except (
-        HTTPError,
-        URLError,
-        TimeoutError,
-        OSError,
-        UnicodeDecodeError,
-        json.JSONDecodeError,
-    ) as error:
-        logger.warning(
-            "Special effect status source skipped: %s",
-            _short_error(error),
-        )
-        return []
-
-
-def _load_autocard_json(filename: str) -> tuple[dict[str, object], str]:
-    if AUTOCARD_JSON_DIR:
-        path = Path(AUTOCARD_JSON_DIR) / filename
-        if path.exists():
-            return (
-                json.loads(path.read_text(encoding="utf-8")),
-                str(path),
-            )
-
-    base_url = AUTOCARD_JSON_BASE_URL.rstrip("/") + "/"
-    url = urljoin(base_url, filename)
-    return (
-        json.loads(BUILD_HTTP.download_bytes(url).decode("utf-8-sig")),
-        url,
-    )
-
-
-def _parse_unity_item_names(data: bytes) -> dict[int, str]:
-    """Read exchange-currency labels from the official Unity item catalog."""
-
-    raw = json.loads(data.decode("utf-8-sig"))
-    if not isinstance(raw, dict):
-        raise ValueError("Unity item catalog root must be an object")
-    items_root = raw.get("root")
-    if not isinstance(items_root, dict):
-        raise ValueError("Unity item catalog has no root object")
-    rows = items_root.get("items")
-    if not isinstance(rows, list):
-        raise ValueError("Unity item catalog has no items list")
-
-    item_names: dict[int, str] = {}
-    for index, row in enumerate(rows):
-        if not isinstance(row, dict):
-            continue
-        item_id = item_int(row, "id")
-        item_name = item_text(row, "name").strip()
-        if item_id <= 0 or not item_name:
-            continue
-        existing_name = item_names.setdefault(item_id, item_name)
-        if existing_name != item_name:
-            raise ValueError(
-                f"Unity item catalog has conflicting name for item {item_id} "
-                f"at index {index}"
-            )
-    return item_names
-
-
-def _load_pet_partner_data() -> PetPartnerData:
-    try:
-        return parse_pet_partner_data(
-            BUILD_HTTP.download_bytes(PARTNER_CONTRACTS_URL),
-            schema_version=PARTNER_CONTRACTS_SCHEMA_VERSION,
-            group_type=PARTNER_CONTRACT_GROUP_TYPE,
-            cost_item_id=CONTRACT_BADGE_ITEM_ID,
-            cost_item_name=CONTRACT_BADGE_ITEM_NAME,
-            descriptions_reversed=PARTNER_CONTRACTS_V1_DESCRIPTIONS_REVERSED,
-        )
-    except (
-        HTTPError,
-        URLError,
-        TimeoutError,
-        OSError,
-        UnicodeDecodeError,
-        json.JSONDecodeError,
-        ValueError,
-    ) as error:
-        raise RuntimeError(
-            "Unable to load official ConfigPackage partner contracts: "
-            f"{_short_error(error)}"
-        ) from error
 
 
 def _quick_check(path: Path) -> None:
@@ -927,58 +504,15 @@ def _quick_check(path: Path) -> None:
         )
 
 
-def _merge_ironsbot_tables(
-    db_path: Path,
-    *,
-    config_data: ConfigPackageData,
-    autocard_data: AutocardData,
-    item_exchange_prices: list[ItemExchangePrice],
-    effect_descriptions: list[EffectDescription],
-    special_effect_statuses: list[SpecialEffectStatus],
-    pet_partner_data: PetPartnerData,
-    weekly_preview_probe: dict[str, str],
-    skin_image_resolutions: list[SkinImageResolution] | None = None,
-) -> None:
-    now = time.time()
-    skin_image_resolutions = skin_image_resolutions or []
-    asset_repository_snapshot = load_asset_repository_snapshot(
-        RENDER_ASSET_REPOSITORY_CONFIG,
-        BUILD_HTTP.download_bytes,
-        logger=logger,
-    )
-    with sqlite3.connect(db_path) as conn:
-        replace_config_package_tables(
-            conn,
-            config_data,
-            skin_image_resolutions,
-            now=now,
-        )
-        replace_reference_tables(
-            conn,
-            item_exchange_prices=item_exchange_prices,
-            effect_descriptions=effect_descriptions,
-            special_effect_statuses=special_effect_statuses,
-            now=now,
-        )
-        remote_asset_manifest = collect_remote_asset_manifest(
-            conn,
-            asset_repository_snapshot,
-            release_revision=config_data.version,
-            config=RENDER_ASSET_MANIFEST_CONFIG,
-        )
-        deduplicated_soulmark_icons = sorted(
-            {
-                (
-                    item.soulmark_id,
-                    item.pet_id,
-                    item.effect_id,
-                    item.icon_id,
-                )
-                for item in config_data.soulmark_icons
-            }
-        )
-        effect_icon_resolution = resolve_effect_icon_png_assets(
-            {icon_id for _, _, _, icon_id in deduplicated_soulmark_icons},
+def _release_publication_context() -> ReleasePublicationContext:
+    return ReleasePublicationContext(
+        load_asset_repository_snapshot=lambda: load_asset_repository_snapshot(
+            RENDER_ASSET_REPOSITORY_CONFIG,
+            BUILD_HTTP.download_bytes,
+            logger=logger,
+        ),
+        resolve_effect_icons=lambda icon_ids: resolve_effect_icon_png_assets(
+            icon_ids,
             config=_effect_icon_source_config(),
             fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
                 base_url,
@@ -989,115 +523,38 @@ def _merge_ironsbot_tables(
             request=BUILD_HTTP.request,
             open_url=urlopen,
             logger=logger,
-        )
-        effect_icon_asset_checks = effect_icon_resolution.asset_checks
-        effect_icon_png_renders = effect_icon_resolution.png_renders
-        render_asset_manifest_build = build_render_asset_manifest(
-            remote_asset_manifest,
-            {
-                icon_id: (
-                    render.data if render.available and render.data is not None else None
-                )
-                for icon_id, render in effect_icon_png_renders.items()
-                if icon_id in effect_icon_asset_checks
-            },
-            asset_repository_snapshot,
-            release_revision=config_data.version,
-            effect_icon_source_version=EFFECT_ICON_PNG_CACHE_VERSION,
-            config=RENDER_ASSET_MANIFEST_CONFIG,
-        )
-        render_asset_manifest = render_asset_manifest_build.entries
-        issue_pet_ids = sorted(
-            {
-                pet_id
-                for _, pet_id, _, icon_id in deduplicated_soulmark_icons
-                if not effect_icon_png_renders[icon_id].available
-            }
-        )
-        pet_names: dict[int, str] = {}
-        if issue_pet_ids:
-            placeholders = ", ".join("?" for _ in issue_pet_ids)
-            pet_names = {
-                int(pet_id): str(name)
-                for pet_id, name in conn.execute(
-                    f"SELECT id, name FROM pet WHERE id IN ({placeholders})",
-                    issue_pet_ids,
-                )
-            }
-        soulmark_icon_render_issues = _collect_soulmark_icon_render_issues(
-            deduplicated_soulmark_icons,
-            effect_icon_asset_checks,
-            effect_icon_png_renders,
-            pet_names,
-        )
-        replace_soulmark_icon_tables(
-            conn,
-            soulmark_icons=deduplicated_soulmark_icons,
-            asset_checks=effect_icon_asset_checks,
-            png_renders=effect_icon_png_renders,
-            render_issues=soulmark_icon_render_issues,
-            now=now,
-        )
-        replace_render_asset_manifest_table(
-            conn,
-            render_asset_manifest,
-            updated_at=now,
-        )
-        replace_autocard_tables(conn, autocard_data, now)
-        replace_autocard_season_effect_table(
-            conn,
-            config_data.autocard_season_effects,
-            now,
-        )
-        replace_pet_partner_tables(conn, pet_partner_data, updated_at=now)
-        special_effect_facts = replace_pet_special_effect_facts(conn, now=now)
-        metadata = build_release_metadata(
-            context=ReleaseMetadataContext(
-                schema_contract_version_key=SEERAPI_SCHEMA_CONTRACT_VERSION_KEY,
-                schema_contract_version=SEERAPI_SCHEMA_CONTRACT_VERSION,
-                upstream_seerapi_url=UPSTREAM_SEERAPI_URL,
-                config_package_base_url=CONFIG_PACKAGE_BASE_URL,
-                effect_icon_asset_base_url=EFFECT_ICON_ASSET_BASE_URL,
-                effect_icon_asset_suffix=EFFECT_ICON_ASSET_SUFFIX,
-                effect_icon_prefer_flash=EFFECT_ICON_PREFER_FLASH,
-                effect_icon_unity_png_enabled=UNITY_EFFECT_ICON_PNG_ENABLED,
-                default_package_base_url=DEFAULT_PACKAGE_BASE_URL,
-                effect_icon_png_render_enabled=EFFECT_ICON_PNG_RENDER_ENABLED,
-                effect_icon_png_java_command=EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
-                effect_icon_png_ffdec_jar=str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
-                effect_icon_png_cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
-                effect_icon_png_render_zoom=EFFECT_ICON_PNG_RENDER_ZOOM,
-                item_exchange_source_urls=(
-                    BATTLEPASS_SHOP_URL,
-                    ACTIVITY_SHOP_URL,
-                    SPECIAL_SKILL_SHOP_URL,
-                    UNITY_ITEM_CATALOG_URL,
-                ),
-                effect_description_url=EFFECT_DESCRIPTION_URL,
-                special_effect_status_url=SPECIAL_EFFECT_STATUS_URL,
-                partner_contracts_url=PARTNER_CONTRACTS_URL,
-                weekly_preview_image_url=WEEKLY_PREVIEW_IMAGE_URL,
-                weekly_preview_source_url=WEEKLY_PREVIEW_SOURCE_URL,
+        ),
+        render_asset_manifest_config=RENDER_ASSET_MANIFEST_CONFIG,
+        effect_icon_cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
+        metadata_context=ReleaseMetadataContext(
+            schema_contract_version_key=SEERAPI_SCHEMA_CONTRACT_VERSION_KEY,
+            schema_contract_version=SEERAPI_SCHEMA_CONTRACT_VERSION,
+            upstream_seerapi_url=UPSTREAM_SEERAPI_URL,
+            config_package_base_url=CONFIG_PACKAGE_BASE_URL,
+            effect_icon_asset_base_url=EFFECT_ICON_ASSET_BASE_URL,
+            effect_icon_asset_suffix=EFFECT_ICON_ASSET_SUFFIX,
+            effect_icon_prefer_flash=EFFECT_ICON_PREFER_FLASH,
+            effect_icon_unity_png_enabled=UNITY_EFFECT_ICON_PNG_ENABLED,
+            default_package_base_url=DEFAULT_PACKAGE_BASE_URL,
+            effect_icon_png_render_enabled=EFFECT_ICON_PNG_RENDER_ENABLED,
+            effect_icon_png_java_command=EFFECT_ICON_PNG_RENDER_JAVA_COMMAND,
+            effect_icon_png_ffdec_jar=str(EFFECT_ICON_PNG_RENDER_FFDEC_JAR),
+            effect_icon_png_cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
+            effect_icon_png_render_zoom=EFFECT_ICON_PNG_RENDER_ZOOM,
+            item_exchange_source_urls=(
+                BATTLEPASS_SHOP_URL,
+                ACTIVITY_SHOP_URL,
+                SPECIAL_SKILL_SHOP_URL,
+                UNITY_ITEM_CATALOG_URL,
             ),
-            built_at=now,
-            config_data=config_data,
-            effect_icon_resolution=effect_icon_resolution,
-            effect_icon_asset_checks=effect_icon_asset_checks,
-            effect_icon_png_renders=effect_icon_png_renders,
-            effect_icon_render_issue_count=len(soulmark_icon_render_issues),
-            render_manifest_metadata=render_asset_manifest_build.metadata,
-            skin_image_resolutions=skin_image_resolutions,
-            item_exchange_prices=item_exchange_prices,
-            effect_descriptions=effect_descriptions,
-            special_effect_statuses=special_effect_statuses,
-            special_effect_facts=special_effect_facts,
-            pet_partner_data=pet_partner_data,
-            soulmark_icon_count=len(deduplicated_soulmark_icons),
-            autocard_data=autocard_data,
-            weekly_preview_probe=weekly_preview_probe,
-        )
-        replace_release_metadata(conn, metadata)
-        conn.commit()
+            effect_description_url=EFFECT_DESCRIPTION_URL,
+            special_effect_status_url=SPECIAL_EFFECT_STATUS_URL,
+            partner_contracts_url=PARTNER_CONTRACTS_URL,
+            weekly_preview_image_url=WEEKLY_PREVIEW_IMAGE_URL,
+            weekly_preview_source_url=WEEKLY_PREVIEW_SOURCE_URL,
+        ),
+        logger=logger,
+    )
 
 
 def _parse_cli_args() -> argparse.Namespace:
@@ -1165,7 +622,12 @@ def main() -> None:
             shard_index=arguments.render_effect_icon_shard,
             shard_count=arguments.effect_icon_shard_count,
             output_dir=arguments.export_effect_icon_cache_shard,
-            fetch_icon_ids=lambda: set(_effect_icon_ids(_fetch_config_package_data())),
+            fetch_icon_ids=lambda: {
+                item.icon_id
+                for item in _release_source_loader()
+                .fetch_config_package_data()
+                .soulmark_icons
+            },
             find_fallback_icon_ids=lambda icon_ids: unity_effect_icon_swf_fallback_icon_ids(
                 icon_ids,
                 config=_effect_icon_source_config(),
@@ -1214,8 +676,9 @@ def main() -> None:
     )
     _quick_check(OUTPUT_DB)
 
+    sources = _release_source_loader()
     logger.info("Loading official ConfigPackage: %s", CONFIG_PACKAGE_BASE_URL)
-    config_data = _fetch_config_package_data()
+    config_data = sources.fetch_config_package_data()
     if not config_data.mintmark_quality:
         raise ValueError("mintmark Quality map is empty")
     logger.info(
@@ -1223,35 +686,43 @@ def main() -> None:
         AUTOCARD_JSON_DIR or AUTOCARD_JSON_BASE_URL,
     )
     autocard_data = load_autocard_data(
-        _load_autocard_json,
+        sources.load_autocard_json,
         content_file=AUTOCARD_CONTENT_FILE,
         nature_file=AUTOCARD_NATURE_FILE,
         role_file=AUTOCARD_ROLE_FILE,
         buff_file=AUTOCARD_BUFF_FILE,
     )
     logger.info("Loading official item exchange prices")
-    item_exchange_prices = _load_item_exchange_prices()
+    item_exchange_prices = sources.load_item_exchange_prices()
     logger.info("Loading official named effect descriptions")
-    effect_descriptions = _load_effect_descriptions()
+    effect_descriptions = sources.load_effect_descriptions()
     logger.info("Loading official special effect statuses")
-    special_effect_statuses = _load_special_effect_statuses()
+    special_effect_statuses = sources.load_special_effect_statuses()
     logger.info("Loading official contract-partner data")
-    pet_partner_data = _load_pet_partner_data()
+    pet_partner_data = sources.load_pet_partner_data()
     logger.info("Resolving classic skin image resources")
-    skin_image_resolutions = _build_classic_skin_image_resolutions(OUTPUT_DB)
+    skin_image_resolutions = build_classic_skin_image_resolutions(
+        OUTPUT_DB,
+        classic_skin_category_id=CLASSIC_SKIN_CATEGORY_ID,
+        asset_probe=SKIN_IMAGE_ASSET_PROBE,
+        logger=logger,
+    )
     logger.info("Probing weekly preview image: %s", WEEKLY_PREVIEW_IMAGE_URL)
     weekly_preview_probe = BUILD_HTTP.probe_image(WEEKLY_PREVIEW_IMAGE_URL)
 
-    _merge_ironsbot_tables(
+    publish_release_tables(
         OUTPUT_DB,
-        config_data=config_data,
-        autocard_data=autocard_data,
-        item_exchange_prices=item_exchange_prices,
-        effect_descriptions=effect_descriptions,
-        special_effect_statuses=special_effect_statuses,
-        pet_partner_data=pet_partner_data,
-        weekly_preview_probe=weekly_preview_probe,
-        skin_image_resolutions=skin_image_resolutions,
+        release=ReleasePublicationInput(
+            config_data=config_data,
+            autocard_data=autocard_data,
+            item_exchange_prices=item_exchange_prices,
+            effect_descriptions=effect_descriptions,
+            special_effect_statuses=special_effect_statuses,
+            pet_partner_data=pet_partner_data,
+            weekly_preview_probe=weekly_preview_probe,
+            skin_image_resolutions=skin_image_resolutions,
+        ),
+        context=_release_publication_context(),
     )
     _quick_check(OUTPUT_DB)
     size_mb = OUTPUT_DB.stat().st_size / 1024 / 1024
