@@ -1366,6 +1366,61 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
     ]
 
 
+def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> None:
+    entries = (
+        builder.RenderAssetManifestEntry(
+            asset_kind="pet_head",
+            asset_key="1",
+            sha256="",
+            release_revision="config-20260815",
+            available=True,
+            source="example",
+        ),
+    )
+    snapshot = builder.AssetRepositorySnapshot(
+        revision="a" * 40,
+        blobs_by_path={},
+    )
+
+    metadata = builder._render_asset_manifest_metadata(
+        entries,
+        snapshot,
+        pet_info_scope_complete=True,
+        new_content_standard_scope_complete=False,
+    )
+
+    assert metadata == {
+        builder.RENDER_ASSET_MANIFEST_REVISION_KEY: (
+            builder._render_asset_manifest_revision(entries)
+        ),
+        builder.RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: "2",
+        builder.RENDER_ASSET_MANIFEST_SCOPES_KEY: (
+            '["pet_info","type_matchup","peak_pool"]'
+        ),
+        builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY: (
+            "Murmansk-Seer/seer-unity-assets"
+        ),
+        builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY: "a" * 40,
+        "render_asset_manifest_count": "1",
+        "render_asset_manifest_available_count": "1",
+    }
+
+    unavailable = builder._render_asset_manifest_metadata(
+        entries,
+        None,
+        pet_info_scope_complete=False,
+        new_content_standard_scope_complete=False,
+    )
+
+    assert unavailable[builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY] == ""
+    assert (
+        unavailable[
+            builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY
+        ]
+        == ""
+    )
+
+
 def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
     tmp_path: Path,
 ) -> None:
