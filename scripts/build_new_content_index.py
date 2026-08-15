@@ -119,45 +119,7 @@ class ContentItem:
     @property
     def semantic_key(self) -> str:
         """A stable fallback for an upstream item whose numeric id changed."""
-        payload = dict(self.payload)
-        if self.category == 'pet_skin':
-            # The linked pet name is presentation-only. A pet change must not
-            # make every one of its skins look modified.
-            payload = {
-                key: value for key, value in payload.items() if key != 'pet_name'
-            }
-        elif self.category == 'pet':
-            # Weekly peak-pool membership is operational rotation state, not a
-            # change to the pet itself. Skill definitions are indexed in the
-            # skill category; retain only the pet-to-skill relationship here so
-            # a corrected skill description does not modify every linked pet.
-            if isinstance(stats := payload.get('stats'), dict):
-                payload['stats'] = {
-                    key: value
-                    for key, value in stats.items()
-                    if key not in PET_VOLATILE_STATS
-                }
-            if isinstance(skills := payload.get('skills'), list):
-                payload['skills'] = [
-                    {
-                        field: skill[field]
-                        for field in PET_SKILL_RELATION_FIELDS
-                        if field in skill
-                    }
-                    for skill in skills
-                    if isinstance(skill, dict)
-                ]
-        elif self.category == 'skill':
-            # A new pet learning an existing skill changes the pet relation,
-            # not the skill definition.
-            payload.pop('pets', None)
-        elif self.category == 'mintmark':
-            # The API primary-table rarity is a catalogue classification.  It
-            # is distinct from the Unity mintmark quality shown to players,
-            # and upstream corrections to the former must not create a false
-            # weekly content update.  Keep rarity in the published payload
-            # for consumers; compare the description, type, and quality.
-            payload.pop('rarity_id', None)
+        payload = _semantic_payload(self)
         return json.dumps(
             {
                 'category': self.category,
@@ -187,6 +149,7 @@ class ReleaseState:
     source_categories: frozenset[str] = field(default_factory=frozenset)
     category_states: tuple['CategoryState', ...] = field(default_factory=tuple)
     semantic_schema_version: int = SEMANTIC_SCHEMA_VERSION
+    raw_items: tuple[ContentItem, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -213,6 +176,132 @@ class SourceHistoryAddition:
 
     category: str
     entity_id: int
+
+
+_CHANGE_FIELD_LABELS = {
+    'accuracy': '命中',
+    'advance_id': '进阶效果',
+    'bonus': '效果',
+    'category_id': '分类',
+    'crit_rate': '暴击率',
+    'desc': '效果说明',
+    'description': '效果说明',
+    'info': '技能说明',
+    'learning_level': '学习等级',
+    'max_pp': 'PP',
+    'must_hit': '必中',
+    'power': '威力',
+    'priority': '先制',
+    'quality': '品质',
+    'suit_desc': '套装说明',
+    'transform': '变身效果',
+    'type_id': '属性',
+}
+_STAT_FIELD_LABELS = {
+    'atk': '攻击',
+    'def': '防御',
+    'def_': '防御',
+    'hp': '体力',
+    'sp_atk': '特攻',
+    'sp_def': '特防',
+    'spd': '速度',
+}
+_CHANGE_SUMMARY_LIMIT = 4
+
+
+def _semantic_payload(item: ContentItem) -> dict[str, Any]:
+    """Return the payload fields that participate in weekly change detection."""
+
+    payload = dict(item.payload)
+    if item.category == 'pet_skin':
+        # The linked pet name is presentation-only. A pet change must not
+        # make every one of its skins look modified.
+        payload.pop('pet_name', None)
+    elif item.category == 'pet':
+        # Weekly peak-pool membership is operational rotation state, not a
+        # change to the pet itself. Skill definitions are indexed in the
+        # skill category; retain only the pet-to-skill relationship here so
+        # a corrected skill description does not modify every linked pet.
+        if isinstance(stats := payload.get('stats'), dict):
+            payload['stats'] = {
+                key: value
+                for key, value in stats.items()
+                if key not in PET_VOLATILE_STATS
+            }
+        if isinstance(skills := payload.get('skills'), list):
+            payload['skills'] = [
+                {
+                    field: skill[field]
+                    for field in PET_SKILL_RELATION_FIELDS
+                    if field in skill
+                }
+                for skill in skills
+                if isinstance(skill, dict)
+            ]
+    elif item.category == 'skill':
+        # A new pet learning an existing skill changes the pet relation, not
+        # the skill definition.
+        payload.pop('pets', None)
+    elif item.category == 'mintmark':
+        # Catalogue rarity differs from the player-facing Unity quality.
+        payload.pop('rarity_id', None)
+    return payload
+
+
+def _content_change_summary(
+    previous: ContentItem,
+    current: ContentItem,
+) -> list[str]:
+    """Build a compact, user-facing summary without storing old long text."""
+
+    summary: list[str] = []
+    if previous.name != current.name:
+        summary.append(f'名称：{previous.name} → {current.name}')
+
+    old_payload = _semantic_payload(previous)
+    new_payload = _semantic_payload(current)
+    for key in sorted(set(old_payload) | set(new_payload)):
+        old_value = old_payload.get(key)
+        new_value = new_payload.get(key)
+        if old_value == new_value:
+            continue
+        if key == 'stats' and isinstance(old_value, dict) and isinstance(new_value, dict):
+            summary.extend(_stat_change_summary(old_value, new_value))
+            continue
+        label = _CHANGE_FIELD_LABELS.get(key, key)
+        summary.append(_format_change(label, old_value, new_value))
+
+    if len(summary) <= _CHANGE_SUMMARY_LIMIT:
+        return summary
+    omitted = len(summary) - _CHANGE_SUMMARY_LIMIT
+    return [*summary[:_CHANGE_SUMMARY_LIMIT], f'另有 {omitted} 项数据更新']
+
+
+def _stat_change_summary(
+    previous: dict[str, Any],
+    current: dict[str, Any],
+) -> list[str]:
+    summary: list[str] = []
+    for key in sorted(set(previous) | set(current)):
+        old_value = previous.get(key)
+        new_value = current.get(key)
+        if old_value != new_value:
+            summary.append(
+                _format_change(_STAT_FIELD_LABELS.get(key, key), old_value, new_value)
+            )
+    return summary or ['基础属性已更新']
+
+
+def _format_change(label: str, previous: Any, current: Any) -> str:
+    if isinstance(previous, (dict, list)) or isinstance(current, (dict, list)):
+        return f'{label}已更新'
+    if isinstance(previous, str) or isinstance(current, str):
+        previous_text = str(previous or '').strip()
+        current_text = str(current or '').strip()
+        if max(len(previous_text), len(current_text)) > 32:
+            return f'{label}已更新'
+        return f'{label}：{previous_text or "无"} → {current_text or "无"}'
+    return f'{label}：{previous} → {current}'
 
 
 def _semantic_migration_categories(previous_version: int) -> frozenset[str]:
@@ -856,6 +945,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 source_items,
                 source_categories,
                 semantic_schema_version=semantic_schema_version,
+                raw_items=current_items,
             )
         row = conn.execute(
             f'SELECT current_git_sha, weekly_cycle, baseline_established FROM {RELEASE_TABLE} WHERE id = 1'
@@ -870,6 +960,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 source_items,
                 source_categories,
                 semantic_schema_version=semantic_schema_version,
+                raw_items=current_items,
             )
         item_columns = {
             str(row[1])
@@ -905,6 +996,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
             source_categories,
             _load_category_states(conn),
             semantic_schema_version,
+            current_items,
         )
 
 
@@ -1010,17 +1102,33 @@ def _new_items(
 
 
 def _modified_items(
-    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
+    current: tuple[ContentItem, ...],
+    previous: tuple[SourceSnapshotItem, ...],
+    previous_raw_items: tuple[ContentItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {
         (item.category, item.entity_id): item.semantic_digest for item in previous
     }
+    previous_raw_by_id = {
+        (item.category, item.entity_id): item for item in previous_raw_items
+    }
     return tuple(
-        item.with_change_kind('modified')
+        replace(
+            item,
+            payload={
+                **item.payload,
+                'change_summary': _content_change_summary(
+                    previous_raw_by_id[(item.category, item.entity_id)],
+                    item,
+                ),
+            },
+            change_kind='modified',
+        )
         for item in current
         if (previous_item := previous_by_id.get((item.category, item.entity_id)))
         is not None
+        and (item.category, item.entity_id) in previous_raw_by_id
         and item.category in comparable_categories
         and item.category not in PEAK_POOL_CATEGORIES
         and item.semantic_digest != previous_item
@@ -1099,7 +1207,10 @@ def _current_subset(
                 replace(
                     (
                         candidate
-                        if candidate.category in PEAK_POOL_CATEGORIES
+                        if (
+                            candidate.category in PEAK_POOL_CATEGORIES
+                            or candidate.change_kind == 'modified'
+                        )
                         else current_by_id[key]
                     ),
                     change_kind=candidate.change_kind,
@@ -1160,17 +1271,10 @@ def build_release_state(
     comparable_categories = {
         state.category for state in category_states if state.comparison_ready
     }
-    previous_peak_pool_items: tuple[ContentItem, ...] = ()
-    if previous_path is not None and previous_path.is_file():
-        with sqlite3.connect(previous_path) as conn:
-            previous_peak_pool_items = tuple(
-                item
-                for item in load_current_items(conn)
-                if item.category in PEAK_POOL_CATEGORIES
-            )
     modified_items = _modified_items(
         current_items,
         previous.source_items,
+        previous.raw_items,
         comparable_categories,
     )
     if (
@@ -1189,7 +1293,7 @@ def build_release_state(
             *modified_items,
             *_peak_pool_modified_items(
                 current_items,
-                previous_peak_pool_items,
+                previous.raw_items,
                 comparable_categories,
             ),
             *_source_history_items(current_items, source_history_additions),
