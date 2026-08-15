@@ -21,6 +21,7 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 import config_package_sources
 import effect_icon_png_renderer
+import effect_icon_source_paths
 import effect_metadata_sources
 import item_exchange_sources
 import partner_contract_sources
@@ -52,6 +53,34 @@ def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
             cache_dir=tmp_path / "effect-icon-png",
         ),
     )
+
+
+def test_effect_icon_source_paths_use_resolved_build_config() -> None:
+    config = builder.replace(
+        builder.EFFECT_ICON_BUILD_CONFIG,
+        effect_icon_asset_base_url="https://assets.example/effect/",
+        effect_icon_asset_suffix=".bin",
+        default_package_base_url="https://assets.example/default/",
+        unity_asset_prefix="Assets/effect/",
+        unity_asset_suffix=".texture",
+    )
+
+    assert effect_icon_source_paths.effect_icon_asset_url(
+        42, config=config
+    ) == "https://assets.example/effect/42.bin"
+    assert effect_icon_source_paths.unity_effect_icon_asset_path(
+        42, config=config
+    ) == "Assets/effect/42.texture"
+    assert effect_icon_source_paths.unity_effect_icon_expected_url(
+        42, config=config
+    ) == "https://assets.example/default/#Assets/effect/42.texture"
+    assert effect_icon_source_paths.unity_effect_icon_id_from_asset_path(
+        "Assets/effect/42.texture", config=config
+    ) == 42
+    assert effect_icon_source_paths.unity_effect_icon_id_from_asset_path(
+        "Assets/effect/not-an-id.texture", config=config
+    ) is None
+    assert effect_icon_source_paths.unity_effect_icon_id_from_object_name("42.png") == 42
 
 
 def _effect_icon_render_config(**changes):
