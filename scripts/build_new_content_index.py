@@ -11,208 +11,32 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterable
-from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
-import hashlib
 import json
 from pathlib import Path
 import sqlite3
 from typing import Any
+
+from new_content_index_models import (
+    AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
+    AUTOCARD_SANCTUARY_EFFECT_TABLE,
+    CATEGORY_SOURCE_TABLES,
+    CONTENT_CATEGORIES,
+    SEMANTIC_SCHEMA_VERSION,
+    CategoryState,
+    ContentItem,
+    ReleaseState,
+    SourceHistoryAddition,
+    SourceSnapshotItem,
+    semantic_migration_categories,
+    semantic_migration_prune_categories,
+)
 
 RELEASE_TABLE = 'new_content_release'
 ITEM_TABLE = 'new_content_item'
 SOURCE_SNAPSHOT_TABLE = 'new_content_source_snapshot'
 CATEGORY_SNAPSHOT_TABLE = 'new_content_source_category'
 CATEGORY_STATE_TABLE = 'new_content_category_state'
-AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
-AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
-PET_VOLATILE_STATS = frozenset(
-    {
-        'peak_pool_id',
-        'peak_expert_pool_id',
-        'peak_pool_vote_id',
-    }
-)
-PET_SKILL_RELATION_FIELDS = (
-    'id',
-    'learning_level',
-    'is_special',
-    'is_advanced',
-    'is_fifth',
-)
-SEMANTIC_SCHEMA_VERSION = 3
-SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
-    # v2 normalized the semantic snapshots for these categories.  Keep this
-    # migration scoped to databases that genuinely predate it: rerunning it
-    # for an already-v2 release would hide legitimate skill changes.
-    2: frozenset({'pet', 'skill', 'equip', 'mount'}),
-    # v3 removes catalogue-rarity-only mintmark updates from the weekly view.
-    3: frozenset({'mintmark'}),
-}
-SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
-    2: frozenset({'pet', 'equip', 'mount'}),
-    3: frozenset({'mintmark'}),
-}
-
-CONTENT_CATEGORIES = (
-    'achievement',
-    'pet',
-    'pet_skin',
-    'skill',
-    'mintmark',
-    'suit',
-    'equip',
-    'mount',
-    'autocard_card',
-    'autocard_role',
-    AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
-)
-
-CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
-    'achievement': ('achievement',),
-    'pet': ('pet',),
-    'pet_skin': ('pet_skin',),
-    'skill': ('skill',),
-    'mintmark': ('mintmark',),
-    'suit': ('suit',),
-    'equip': ('equip',),
-    'mount': ('equip',),
-    'autocard_card': ('autocard_card',),
-    'autocard_role': ('autocard_role',),
-    AUTOCARD_SANCTUARY_EFFECT_CATEGORY: (AUTOCARD_SANCTUARY_EFFECT_TABLE,),
-}
-
-
-@dataclass(frozen=True)
-class ContentItem:
-    category: str
-    entity_id: int
-    name: str
-    sort_value: int
-    payload: dict[str, Any]
-    change_kind: str = 'added'
-
-    @property
-    def payload_json(self) -> str:
-        return json.dumps(self.payload, ensure_ascii=False, sort_keys=True)
-
-    @property
-    def semantic_key(self) -> str:
-        """A stable fallback for an upstream item whose numeric id changed."""
-        payload = dict(self.payload)
-        if self.category == 'pet_skin':
-            # The linked pet name is presentation-only. A pet change must not
-            # make every one of its skins look modified.
-            payload = {
-                key: value for key, value in payload.items() if key != 'pet_name'
-            }
-        elif self.category == 'pet':
-            # Weekly peak-pool membership is operational rotation state, not a
-            # change to the pet itself. Skill definitions are indexed in the
-            # skill category; retain only the pet-to-skill relationship here so
-            # a corrected skill description does not modify every linked pet.
-            if isinstance(stats := payload.get('stats'), dict):
-                payload['stats'] = {
-                    key: value
-                    for key, value in stats.items()
-                    if key not in PET_VOLATILE_STATS
-                }
-            if isinstance(skills := payload.get('skills'), list):
-                payload['skills'] = [
-                    {
-                        field: skill[field]
-                        for field in PET_SKILL_RELATION_FIELDS
-                        if field in skill
-                    }
-                    for skill in skills
-                    if isinstance(skill, dict)
-                ]
-        elif self.category == 'skill':
-            # A new pet learning an existing skill changes the pet relation,
-            # not the skill definition.
-            payload.pop('pets', None)
-        elif self.category == 'mintmark':
-            # The API primary-table rarity is a catalogue classification.  It
-            # is distinct from the Unity mintmark quality shown to players,
-            # and upstream corrections to the former must not create a false
-            # weekly content update.  Keep rarity in the published payload
-            # for consumers; compare the description, type, and quality.
-            payload.pop('rarity_id', None)
-        return json.dumps(
-            {
-                'category': self.category,
-                'name': self.name,
-                'payload': payload,
-            },
-            ensure_ascii=False,
-            sort_keys=True,
-        )
-
-    @property
-    def semantic_digest(self) -> str:
-        return hashlib.sha256(self.semantic_key.encode('utf-8')).hexdigest()
-
-    def with_change_kind(self, change_kind: str) -> 'ContentItem':
-        return replace(self, change_kind=change_kind)
-
-
-@dataclass(frozen=True)
-class ReleaseState:
-    config_version: str
-    git_sha: str | None
-    weekly_cycle: str
-    baseline_established: bool
-    items: tuple[ContentItem, ...]
-    source_items: tuple['SourceSnapshotItem', ...] = field(default_factory=tuple)
-    source_categories: frozenset[str] = field(default_factory=frozenset)
-    category_states: tuple['CategoryState', ...] = field(default_factory=tuple)
-    semantic_schema_version: int = SEMANTIC_SCHEMA_VERSION
-
-
-@dataclass(frozen=True)
-class SourceSnapshotItem:
-    category: str
-    entity_id: int
-    semantic_digest: str
-
-    @classmethod
-    def from_content(cls, item: ContentItem) -> 'SourceSnapshotItem':
-        return cls(item.category, item.entity_id, item.semantic_digest)
-
-
-@dataclass(frozen=True)
-class CategoryState:
-    category: str
-    comparison_ready: bool
-    reason: str
-
-
-@dataclass(frozen=True)
-class SourceHistoryAddition:
-    """An entity added by the source repository between two published revisions."""
-
-    category: str
-    entity_id: int
-
-
-def _semantic_migration_categories(previous_version: int) -> frozenset[str]:
-    return frozenset().union(
-        *(
-            categories
-            for version, categories in SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION.items()
-            if previous_version < version <= SEMANTIC_SCHEMA_VERSION
-        )
-    )
-
-
-def _semantic_migration_prune_categories(previous_version: int) -> frozenset[str]:
-    return frozenset().union(
-        *(
-            categories
-            for version, categories in SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION.items()
-            if previous_version < version <= SEMANTIC_SCHEMA_VERSION
-        )
-    )
 
 
 def _has_table(conn: sqlite3.Connection, name: str) -> bool:
@@ -781,7 +605,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 if item.category in missing_categories
             ))
             if semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
-                migration_categories = _semantic_migration_categories(
+                migration_categories = semantic_migration_categories(
                     semantic_schema_version
                 )
                 source_items = (
@@ -1006,10 +830,7 @@ def _current_subset(
     return tuple(
         sorted(
             (
-                replace(
-                    current_by_id[key],
-                    change_kind=change_kind,
-                )
+                current_by_id[key].with_change_kind(change_kind)
                 for key, change_kind in change_kinds.items()
                 if key in current_by_id
             ),
@@ -1081,7 +902,7 @@ def build_release_state(
     if previous.weekly_cycle == cycle:
         carried_items = previous.items
         if previous.semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
-            migration_prune_categories = _semantic_migration_prune_categories(
+            migration_prune_categories = semantic_migration_prune_categories(
                 previous.semantic_schema_version
             )
             carried_items = tuple(
