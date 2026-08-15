@@ -9,10 +9,8 @@ the final SQLite file before it is published.
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from functools import partial
-import hashlib
 import json
 import logging
 import os
@@ -106,14 +104,16 @@ if __package__:
         RenderAssetRepository,
         load_asset_repository_snapshot,
     )
+    from .skin_image_asset_probe import (
+        SkinImageAssetProbe,
+        SkinImageAssetProbeConfig,
+    )
     from .skin_image_resolution import (
         PET_IMAGE_ASSET_KINDS,
         ClassicSkinImageSource,
-        PetImageAssetCheck,
         PetImageSource,
         SkinImageResolution,
         content_hash_keys_for_classic_skin_fallbacks,
-        is_transient_asset_failure,
         resolve_classic_skin_image_resources,
         source_asset_keys_for_classic_skin_fallbacks,
     )
@@ -209,14 +209,16 @@ else:
         RenderAssetRepository,
         load_asset_repository_snapshot,
     )
+    from skin_image_asset_probe import (  # type: ignore[import-not-found]
+        SkinImageAssetProbe,
+        SkinImageAssetProbeConfig,
+    )
     from skin_image_resolution import (  # type: ignore[import-not-found]
         PET_IMAGE_ASSET_KINDS,
         ClassicSkinImageSource,
-        PetImageAssetCheck,
         PetImageSource,
         SkinImageResolution,
         content_hash_keys_for_classic_skin_fallbacks,
-        is_transient_asset_failure,
         resolve_classic_skin_image_resources,
         source_asset_keys_for_classic_skin_fallbacks,
     )
@@ -529,6 +531,17 @@ BUILD_HTTP = BuildHttpClient(
     ),
     logger=logger,
 )
+SKIN_IMAGE_ASSET_PROBE = SkinImageAssetProbe(
+    SkinImageAssetProbeConfig(
+        base_url=PET_IMAGE_ASSET_BASE_URL,
+        timeout_seconds=PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS,
+        retry_attempts=HTTP_RETRY_ATTEMPTS,
+        retry_backoff_seconds=HTTP_RETRY_BACKOFF_SECONDS,
+        workers=PET_IMAGE_ASSET_VERIFY_WORKERS,
+    ),
+    request=BUILD_HTTP.request,
+    logger=logger,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -541,189 +554,6 @@ class ConfigPackageData:
     skin_item_tips: dict[int, str]
     soulmark_icons: list["SoulmarkIcon"]
     autocard_season_effects: list["AutocardSeasonEffect"]
-
-
-def _pet_image_asset_url(kind: str, resource_id: int) -> str:
-    if kind not in PET_IMAGE_ASSET_KINDS:
-        raise ValueError(f"unsupported pet image asset kind: {kind}")
-    base_url = PET_IMAGE_ASSET_BASE_URL.rstrip("/") + "/"
-    return urljoin(base_url, f"{kind}/{resource_id}.png")
-
-
-def _is_png_asset_content(content_type: str, header: bytes = b"") -> bool:
-    normalized_content_type = content_type.lower().split(";", maxsplit=1)[0]
-    return normalized_content_type == "image/png" or header.startswith(
-        b"\x89PNG\r\n\x1a\n"
-    )
-
-
-def _probe_pet_image_asset_range(
-    kind: str,
-    resource_id: int,
-    url: str,
-    *,
-    prior_error: str = "",
-) -> PetImageAssetCheck:
-    try:
-        request = BUILD_HTTP.request(
-            url,
-            method="GET",
-            headers={"Range": "bytes=0-15"},
-        )
-        with urlopen(request, timeout=PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS) as response:
-            content_type = response.headers.get_content_type()
-            content_length = _parse_content_length(response.headers.get("Content-Length"))
-            header = response.read(16)
-            available = response.status in (200, 206) and _is_png_asset_content(
-                content_type,
-                header,
-            )
-            return PetImageAssetCheck(
-                kind=kind,
-                resource_id=resource_id,
-                url=url,
-                available=available,
-                status=response.status,
-                content_type=content_type,
-                content_length=content_length,
-                error=(
-                    ""
-                    if available
-                    else prior_error
-                    or f"unexpected ranged response: {response.status} {content_type}"
-                ),
-            )
-    except HTTPError as error:
-        return PetImageAssetCheck(
-            kind=kind,
-            resource_id=resource_id,
-            url=url,
-            available=False,
-            status=error.code,
-            content_type=error.headers.get_content_type(),
-            content_length=_parse_content_length(error.headers.get("Content-Length")),
-            error="" if error.code == 404 else _short_error(error),
-        )
-    except (URLError, TimeoutError, OSError) as error:
-        return PetImageAssetCheck(
-            kind=kind,
-            resource_id=resource_id,
-            url=url,
-            available=False,
-            status=0,
-            content_type="",
-            content_length=None,
-            error=prior_error or _short_error(error),
-        )
-
-
-def _verify_pet_image_asset(
-    kind: str,
-    resource_id: int,
-) -> PetImageAssetCheck:
-    url = _pet_image_asset_url(kind, resource_id)
-    # The official static host serves reliable ranged GET responses but may
-    # silently stall HEAD requests. Probe one PNG header instead of turning a
-    # build into hundreds of 15-second HEAD timeouts.
-    attempts = max(1, HTTP_RETRY_ATTEMPTS)
-    prior_error = ""
-    for attempt in range(1, attempts + 1):
-        check = _probe_pet_image_asset_range(
-            kind,
-            resource_id,
-            url,
-            prior_error=prior_error,
-        )
-        if not is_transient_asset_failure(check):
-            return check
-        if attempt >= attempts:
-            return check
-
-        prior_error = check.error
-        delay = HTTP_RETRY_BACKOFF_SECONDS * attempt
-        logger.warning(
-            "Classic skin image probe failed (%s/%s): %s/%s (%s); retrying in %.1fs",
-            attempt,
-            attempts,
-            kind,
-            resource_id,
-            check.error or f"HTTP {check.status}",
-            delay,
-        )
-        time.sleep(delay)
-    raise AssertionError("unreachable")
-
-
-def _verify_pet_image_assets(
-    asset_keys: set[tuple[str, int]],
-) -> dict[tuple[str, int], PetImageAssetCheck]:
-    if not asset_keys:
-        return {}
-
-    logger.info(
-        "Validating classic skin image assets: %s image resources",
-        len(asset_keys),
-    )
-    checks: dict[tuple[str, int], PetImageAssetCheck] = {}
-    worker_count = min(PET_IMAGE_ASSET_VERIFY_WORKERS, len(asset_keys))
-    with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = {
-            executor.submit(_verify_pet_image_asset, kind, resource_id): (
-                kind,
-                resource_id,
-            )
-            for kind, resource_id in sorted(asset_keys)
-        }
-        for future in as_completed(futures):
-            kind, resource_id = futures[future]
-            try:
-                checks[(kind, resource_id)] = future.result()
-            except Exception as error:
-                checks[(kind, resource_id)] = PetImageAssetCheck(
-                    kind=kind,
-                    resource_id=resource_id,
-                    url=_pet_image_asset_url(kind, resource_id),
-                    available=False,
-                    status=0,
-                    content_type="",
-                    content_length=None,
-                    error=_short_error(error),
-                )
-    transient_failures = [
-        check
-        for check in checks.values()
-        if check.status == 0 or check.status >= 500
-    ]
-    if transient_failures:
-        sample = ", ".join(
-            f"{check.kind}/{check.resource_id} ({check.status}: {check.error})"
-            for check in transient_failures[:5]
-        )
-        logger.warning(
-            "Classic skin image asset verification still has transient failures; "
-            "affected image kinds will remain unverified: %s",
-            sample,
-        )
-    return checks
-
-
-def _download_pet_image_asset_hash(check: PetImageAssetCheck) -> str | None:
-    if not check.available:
-        return None
-    try:
-        with urlopen(
-            BUILD_HTTP.request(check.url, method="GET"),
-            timeout=PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS,
-        ) as response:
-            data = response.read()
-            if response.status != 200 or not _is_png_asset_content(
-                response.headers.get_content_type(),
-                data[:16],
-            ):
-                return None
-    except (HTTPError, URLError, TimeoutError, OSError):
-        return None
-    return hashlib.sha256(data).hexdigest()
 
 
 def _build_classic_skin_image_resolutions(
@@ -772,13 +602,13 @@ def _build_classic_skin_image_resolutions(
         for skin in skins
         for kind in PET_IMAGE_ASSET_KINDS
     }
-    checks = _verify_pet_image_assets(direct_keys)
+    checks = SKIN_IMAGE_ASSET_PROBE.verify_assets(direct_keys)
     source_keys = source_asset_keys_for_classic_skin_fallbacks(
         skins,
         pets,
         checks,
     )
-    checks.update(_verify_pet_image_assets(source_keys - checks.keys()))
+    checks.update(SKIN_IMAGE_ASSET_PROBE.verify_assets(source_keys - checks.keys()))
 
     hash_asset_keys = content_hash_keys_for_classic_skin_fallbacks(
         skins,
@@ -790,7 +620,8 @@ def _build_classic_skin_image_resolutions(
         for asset_key in hash_asset_keys
         for check in (checks[asset_key],)
         if check.available
-        and (asset_hash := _download_pet_image_asset_hash(check)) is not None
+        and (asset_hash := SKIN_IMAGE_ASSET_PROBE.download_asset_hash(check))
+        is not None
     }
     resolutions = resolve_classic_skin_image_resources(
         skins,

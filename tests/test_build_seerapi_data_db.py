@@ -37,6 +37,7 @@ import release_render_manifest_tables
 import release_soulmark_icon_tables
 import render_asset_manifest_build
 import render_asset_repository
+import skin_image_asset_probe
 import skin_image_resolution
 
 SPEC = importlib.util.spec_from_file_location("build_seerapi_data_db", SCRIPT_PATH)
@@ -739,15 +740,20 @@ def test_verify_pet_image_asset_retries_transient_failures(monkeypatch) -> None:
             _skin_asset_check("body", 1400538, available=True),
         ]
     )
-    monkeypatch.setattr(
-        builder,
-        "_probe_pet_image_asset_range",
-        lambda *args, **kwargs: next(attempts),
+    probe = skin_image_asset_probe.SkinImageAssetProbe(
+        skin_image_asset_probe.SkinImageAssetProbeConfig(
+            base_url="https://example.invalid/",
+            timeout_seconds=1,
+            retry_attempts=2,
+            retry_backoff_seconds=0,
+            workers=1,
+        ),
+        request=builder.BUILD_HTTP.request,
+        logger=builder.logger,
     )
-    monkeypatch.setattr(builder, "HTTP_RETRY_ATTEMPTS", 2)
-    monkeypatch.setattr(builder, "HTTP_RETRY_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(probe, "_probe_range", lambda *args, **kwargs: next(attempts))
 
-    check = builder._verify_pet_image_asset("body", 1400538)
+    check = probe.verify_asset("body", 1400538)
 
     assert check.available
     assert check.status == 200
