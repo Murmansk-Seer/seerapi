@@ -233,10 +233,13 @@ SOULMARK_ICON_RENDER_ISSUE_TABLE = "soulmark_icon_render_issue"
 RENDER_ASSET_MANIFEST_TABLE = "render_asset_manifest"
 SEERAPI_SCHEMA_CONTRACT_VERSION = "1"
 SEERAPI_SCHEMA_CONTRACT_VERSION_KEY = "ironsbot_schema_contract_version"
-RENDER_ASSET_MANIFEST_CONTRACT_VERSION = "1"
+RENDER_ASSET_MANIFEST_CONTRACT_VERSION = "2"
 RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY = "render_asset_manifest_contract_version"
 RENDER_ASSET_MANIFEST_REVISION_KEY = "render_asset_manifest_revision"
 RENDER_ASSET_MANIFEST_SCOPES_KEY = "render_asset_manifest_complete_scopes"
+RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY = (
+    "render_asset_manifest_asset_repository"
+)
 RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY = (
     "render_asset_manifest_asset_repository_revision"
 )
@@ -2583,6 +2586,40 @@ def _render_asset_manifest_revision(
     return digest.hexdigest()
 
 
+def _render_asset_manifest_metadata(
+    entries: tuple[RenderAssetManifestEntry, ...],
+    snapshot: AssetRepositorySnapshot | None,
+    *,
+    pet_info_scope_complete: bool,
+    new_content_standard_scope_complete: bool,
+) -> dict[str, str]:
+    """Publish the immutable source contract consumed by render adapters."""
+
+    return {
+        RENDER_ASSET_MANIFEST_REVISION_KEY: _render_asset_manifest_revision(entries),
+        RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: (
+            RENDER_ASSET_MANIFEST_CONTRACT_VERSION
+        ),
+        RENDER_ASSET_MANIFEST_SCOPES_KEY: json.dumps(
+            _complete_render_asset_scopes(
+                pet_info_scope_complete,
+                new_content_standard_scope_complete,
+            ),
+            separators=(",", ":"),
+        ),
+        RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY: (
+            RENDER_ASSET_REPOSITORY if snapshot is not None else ""
+        ),
+        RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY: (
+            snapshot.revision if snapshot is not None else ""
+        ),
+        "render_asset_manifest_count": str(len(entries)),
+        "render_asset_manifest_available_count": str(
+            sum(1 for entry in entries if entry.available)
+        ),
+    }
+
+
 def _replace_render_asset_manifest(
     conn: sqlite3.Connection,
     entries: tuple[RenderAssetManifestEntry, ...],
@@ -4266,27 +4303,13 @@ def _merge_ironsbot_tables(
             "effect_icon_png_render_issue_row_count": str(
                 len(soulmark_icon_render_issues)
             ),
-            "render_asset_manifest_revision": _render_asset_manifest_revision(
-                render_asset_manifest
-            ),
-            RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: (
-                RENDER_ASSET_MANIFEST_CONTRACT_VERSION
-            ),
-            RENDER_ASSET_MANIFEST_SCOPES_KEY: json.dumps(
-                _complete_render_asset_scopes(
-                    pet_info_render_scope_complete,
-                    new_content_standard_render_scope_complete,
+            **_render_asset_manifest_metadata(
+                render_asset_manifest,
+                asset_repository_snapshot,
+                pet_info_scope_complete=pet_info_render_scope_complete,
+                new_content_standard_scope_complete=(
+                    new_content_standard_render_scope_complete
                 ),
-                separators=(",", ":"),
-            ),
-            RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY: (
-                asset_repository_snapshot.revision
-                if asset_repository_snapshot is not None
-                else ""
-            ),
-            "render_asset_manifest_count": str(len(render_asset_manifest)),
-            "render_asset_manifest_available_count": str(
-                sum(1 for entry in render_asset_manifest if entry.available)
             ),
             "mintmark_quality_count": str(len(config_data.mintmark_quality)),
             "skin_store_price_count": str(len(config_data.skin_store_prices)),
