@@ -20,6 +20,7 @@ SCRIPT_ROOT = SCRIPT_PATH.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 import config_package_sources
+import effect_icon_build
 import effect_icon_flash_sources
 import effect_icon_png_renderer
 import effect_icon_source_paths
@@ -918,7 +919,7 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     fallback_inputs: list[set[int]] = []
 
     monkeypatch.setattr(
-        builder,
+        effect_icon_build,
         "load_unity_effect_icon_png_assets",
         lambda icon_ids, **_kwargs: effect_icon_unity_sources.UnityEffectIconPngLoad(
             package_version="20260807162107",
@@ -946,13 +947,13 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
         ),
     )
     monkeypatch.setattr(
-        builder,
+        effect_icon_build,
         "verify_effect_icon_assets",
         lambda icon_ids, **_kwargs: fallback_inputs.append(set(icon_ids))
         or {206: fallback_check},
     )
     monkeypatch.setattr(
-        builder,
+        effect_icon_build,
         "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
             206: builder.EffectIconPngRender(
@@ -966,7 +967,15 @@ def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
         },
     )
 
-    resolution = builder._resolve_effect_icon_png_assets({206, 307})
+    resolution = effect_icon_build.resolve_effect_icon_png_assets(
+        {206, 307},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=builder._fetch_package_manifest,
+        download_bytes=builder._download_bytes,
+        request=builder._request,
+        open_url=builder.urlopen,
+        logger=builder.logger,
+    )
 
     assert fallback_inputs == [{206}]
     assert resolution.png_renders[307].data == unity_png
@@ -1014,7 +1023,7 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
     unity_inputs: list[set[int]] = []
 
     monkeypatch.setattr(
-        builder,
+        effect_icon_build,
         "load_unity_effect_icon_png_assets",
         lambda icon_ids, **_kwargs: unity_inputs.append(set(icon_ids))
         or effect_icon_unity_sources.UnityEffectIconPngLoad(
@@ -1035,13 +1044,13 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
         ),
     )
     monkeypatch.setattr(
-        builder,
+        effect_icon_build,
         "verify_effect_icon_assets",
         lambda icon_ids, **_kwargs: swf_inputs.append(set(icon_ids))
         or {206: missing_flash_check, 307: flash_check},
     )
     monkeypatch.setattr(
-        builder,
+        effect_icon_build,
         "render_effect_icon_png_assets",
         lambda checks, **_kwargs: {
             206: builder.EffectIconPngRender(
@@ -1063,7 +1072,15 @@ def test_resolve_effect_icon_png_assets_prefers_flash_and_falls_back_to_unity(
         },
     )
 
-    resolution = builder._resolve_effect_icon_png_assets({206, 307})
+    resolution = effect_icon_build.resolve_effect_icon_png_assets(
+        {206, 307},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=builder._fetch_package_manifest,
+        download_bytes=builder._download_bytes,
+        request=builder._request,
+        open_url=builder.urlopen,
+        logger=builder.logger,
+    )
 
     assert swf_inputs == [{206, 307}]
     assert unity_inputs == [{206}]
@@ -1268,13 +1285,10 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     )
     monkeypatch.setattr(
         builder,
-        "verify_effect_icon_assets",
-        lambda icon_ids, **_kwargs: {icon_id: object() for icon_id in icon_ids},
-    )
-    monkeypatch.setattr(
-        builder,
-        "render_effect_icon_png_assets",
-        lambda checks, **_kwargs: {
+        "load_flash_effect_icon_png_assets",
+        lambda icon_ids, **_kwargs: (
+            {icon_id: object() for icon_id in icon_ids},
+            {
             icon_id: builder.EffectIconPngRender(
                 icon_id,
                 True,
@@ -1283,8 +1297,9 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
                 b"x",
                 "",
             )
-            for icon_id in checks
-        },
+            for icon_id in icon_ids
+            },
+        ),
     )
     monkeypatch.setattr(
         builder,
