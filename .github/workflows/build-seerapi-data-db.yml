@@ -442,7 +442,7 @@ jobs:
           fi
           if [ -s "${previous_db}" ]; then
             comparison_db="${previous_db}"
-            read -r expected_schema previous_schema current_cycle <<< "$(
+            read -r expected_schema previous_schema previous_version previous_cycle current_version current_cycle <<< "$(
               python - "${previous_db}" <<'PY'
           import importlib.util
           from pathlib import Path
@@ -460,31 +460,69 @@ jobs:
           with sqlite3.connect(sys.argv[1]) as connection:
               columns = module._table_columns(connection, module.RELEASE_TABLE)
               previous_schema = 1
-              if "schema_version" in columns:
+              previous_version = module._config_version(connection)
+              previous_cycle = module._weekly_cycle(previous_version)
+              if {"schema_version", "weekly_cycle"}.issubset(columns):
+                  row = connection.execute(
+                      f"SELECT schema_version, weekly_cycle FROM {module.RELEASE_TABLE} WHERE id = 1"
+                  ).fetchone()
+                  if row is not None:
+                      previous_schema = int(row[0])
+                      previous_cycle = str(row[1] or previous_cycle)
+              elif "schema_version" in columns:
                   row = connection.execute(
                       f"SELECT schema_version FROM {module.RELEASE_TABLE} WHERE id = 1"
                   ).fetchone()
                   if row is not None:
                       previous_schema = int(row[0])
           with sqlite3.connect("seerapi-data.sqlite") as connection:
-              current_cycle = module._weekly_cycle(module._config_version(connection))
-          print(module.SEMANTIC_SCHEMA_VERSION, previous_schema, current_cycle)
+              current_version = module._config_version(connection)
+              current_cycle = module._weekly_cycle(current_version)
+          print(
+              module.SEMANTIC_SCHEMA_VERSION,
+              previous_schema,
+              previous_version,
+              previous_cycle,
+              current_version,
+              current_cycle,
+          )
           PY
             )"
+            use_history_baseline=false
             if (( previous_schema < expected_schema )); then
+              use_history_baseline=true
+              echo "Previous release needs a semantic-schema migration baseline."
+            elif [[ "${previous_version}" == "${current_version}" && "${previous_cycle}" < "${current_cycle}" ]]; then
+              # A former builder treated the UTC ConfigPackage timestamp as a
+              # local calendar date.  Rebuilding against that same-version,
+              # old-cycle index would make this week's increment appear empty.
+              use_history_baseline=true
+              echo "Previous release has a same-version old weekly cycle; recovering from a prior-cycle baseline."
+            fi
+            if [[ "${use_history_baseline}" == true ]]; then
               history_json="${RUNNER_TEMP}/seerapi-data-history.json"
               gh release view seerapi-data-history \
                 --repo "${GITHUB_REPOSITORY}" --json assets > "${history_json}"
               history_asset="$(
                 python - "${history_json}" "${current_cycle}" <<'PY'
-          from datetime import datetime, timedelta
+          from datetime import datetime, timedelta, timezone
           import json
           from pathlib import Path
           import re
           import sys
+          from zoneinfo import ZoneInfo
 
           def weekly_cycle(version: str) -> str:
-              value = datetime.strptime(version[:8], "%Y%m%d").date()
+              digits = "".join(character for character in version if character.isdigit())
+              if len(digits) >= 14:
+                  value = (
+                      datetime.strptime(digits[:14], "%Y%m%d%H%M%S")
+                      .replace(tzinfo=timezone.utc)
+                      .astimezone(ZoneInfo("Asia/Shanghai"))
+                      .date()
+                  )
+              else:
+                  value = datetime.strptime(digits[:8], "%Y%m%d").date()
               friday = value - timedelta(days=(value.weekday() - 4) % 7)
               return friday.isoformat()
 
@@ -505,9 +543,9 @@ jobs:
                   --pattern "${history_asset}" \
                   --dir "${RUNNER_TEMP}" --clobber
                 comparison_db="${RUNNER_TEMP}/${history_asset}"
-                echo "Using ${history_asset} as the semantic-schema migration baseline."
+                echo "Using ${history_asset} as the prior-cycle comparison baseline."
               else
-                echo "No prior-cycle history asset found for semantic-schema migration."
+                echo "No prior-cycle history asset found for comparison baseline recovery."
               fi
             fi
             echo "PREVIOUS_SEERAPI_DATA_DB=${comparison_db}" >> "$GITHUB_ENV"
