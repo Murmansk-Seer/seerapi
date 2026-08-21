@@ -12,12 +12,13 @@ from __future__ import annotations
 import argparse
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
 import sqlite3
 from typing import Any
+from zoneinfo import ZoneInfo
 
 RELEASE_TABLE = 'new_content_release'
 ITEM_TABLE = 'new_content_item'
@@ -372,6 +373,18 @@ def _config_version(conn: sqlite3.Connection) -> str:
 
 def _version_date(version: str) -> date:
     digits = ''.join(char for char in version if char.isdigit())
+    if len(digits) >= 14:
+        try:
+            # ConfigPackage timestamps are UTC.  A Thursday UTC timestamp can
+            # already belong to Friday's weekly release in Shanghai.
+            return (
+                datetime.strptime(digits[:14], '%Y%m%d%H%M%S')
+                .replace(tzinfo=timezone.utc)
+                .astimezone(ZoneInfo('Asia/Shanghai'))
+                .date()
+            )
+        except ValueError:
+            pass
     if len(digits) >= 8:
         try:
             return datetime.strptime(digits[:8], '%Y%m%d').date()

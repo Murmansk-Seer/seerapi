@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
-
+from zoneinfo import ZoneInfo
 
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
@@ -18,7 +18,15 @@ def weekly_cycle(version: str) -> str | None:
     if len(digits) < 8:
         return None
     try:
-        value = datetime.strptime(digits[:8], "%Y%m%d").date()
+        if len(digits) >= 14:
+            value = (
+                datetime.strptime(digits[:14], "%Y%m%d%H%M%S")
+                .replace(tzinfo=timezone.utc)
+                .astimezone(ZoneInfo("Asia/Shanghai"))
+                .date()
+            )
+        else:
+            value = datetime.strptime(digits[:8], "%Y%m%d").date()
     except ValueError:
         return None
     friday = value - timedelta(days=(value.weekday() - 4) % 7)

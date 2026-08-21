@@ -154,6 +154,20 @@ def test_new_week_records_only_new_rows_and_zero_point_achievement(
     ]
 
 
+def test_utc_config_timestamp_uses_shanghai_week_boundary(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    # Both timestamps are Thursday in UTC, but 22:42 UTC is already Friday in
+    # Shanghai and must start the next weekly content release.
+    _create_database(previous_path, version='20260814224209', pet_ids=(1,))
+    _create_database(current_path, version='20260820224209', pet_ids=(1, 2))
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert state.weekly_cycle == '2026-08-21'
+    assert [(item.category, item.entity_id) for item in state.items] == [('pet', 2)]
+
+
 def test_same_version_rebuild_preserves_existing_index_and_removed_rows_drop(
     tmp_path: Path,
 ) -> None:
