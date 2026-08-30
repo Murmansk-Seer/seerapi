@@ -2524,6 +2524,8 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
                 'id': 1300694,
                 'name': '典狱长头盔',
                 'speed': 0,
+                'x_position': 76,
+                'y_position': 90,
                 'item': {
                     'id': 1300694,
                     'url': 'https://api.seerapi.com/v1/item/1300694',
