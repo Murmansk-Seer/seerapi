@@ -2422,6 +2422,18 @@ export type Equip = HashPartial & {
      * 部件速度移动加成，一般只有脚部部件提供
      */
     speed?: number | null;
+    /**
+     * X Position
+     *
+     * 部件在UI中的X坐标偏移
+     */
+    x_position?: number;
+    /**
+     * Y Position
+     *
+     * 部件在UI中的Y坐标偏移
+     */
+    y_position?: number;
     item: CommonResourceRef;
     /**
      * 部件效果，仅当该部件为能力加成部件时有效

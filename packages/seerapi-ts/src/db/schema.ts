@@ -812,6 +812,8 @@ export const equip = sqliteTable("equip", {
 	id: integer().primaryKey().references(() => item.id),
 	name: text().notNull(),
 	speed: real(),
+	xPosition: integer("x_position").notNull(),
+	yPosition: integer("y_position").notNull(),
 	partTypeId: integer("part_type_id").notNull().references(() => equipType.id),
 	suitId: integer("suit_id").references(() => suit.id),
 	bonusId: integer("bonus_id").references(() => equipBonus.id),
