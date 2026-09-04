@@ -1638,6 +1638,10 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
                     'id': 0,
                     'url': 'https://api.seerapi.com/v1/peak_expert_pool/0',
                 },
+                'peak_cost_pool': {
+                    'id': 35,
+                    'url': 'https://api.seerapi.com/v1/peak_cost_pool/35',
+                },
                 'advance': {
                     'id': 20,
                     'url': 'https://api.seerapi.com/v1/pet_advance/20',
@@ -2160,6 +2164,30 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
         ],
         tags=['巅峰圣战', '禁限池'],
         description='巅峰专家模式禁限池资源，该资源用于提供当前版本专家模式禁限池，该值的id等同于限制数量',
+    ),
+    M.PeakCostPool: APIComment(
+        name_en='peak_cost_pool',
+        name_cn='巅峰大师模式cost池',
+        examples=[
+            {
+                'id': 35,
+                'cost': 35,
+                'name': '35点',
+                'start_time': '2026-09-04T10:00:00+08:00',
+                'end_time': '2026-11-27T10:00:00+08:00',
+                'pet': [
+                    {'id': 5000, 'url': 'https://api.seerapi.com/v1/pet/5000'},
+                    {'id': 4800, 'url': 'https://api.seerapi.com/v1/pet/4800'},
+                    {'id': 4186, 'url': 'https://api.seerapi.com/v1/pet/4186'},
+                    {'id': 3550, 'url': 'https://api.seerapi.com/v1/pet/3550'},
+                    {'id': 4677, 'url': 'https://api.seerapi.com/v1/pet/4677'},
+                    {'id': 4554, 'url': 'https://api.seerapi.com/v1/pet/4554'},
+                ],
+                'hash': 'acd345e',
+            },
+        ],
+        tags=['巅峰圣战', 'cost池'],
+        description='该资源用于提供当前版本大师模式cost池，该值的id等同于竞技点点数',
     ),
     # 技能相关
     M.SkillEffectParam: APIComment(
