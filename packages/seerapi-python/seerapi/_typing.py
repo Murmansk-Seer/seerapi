@@ -87,6 +87,7 @@ ModelName: TypeAlias = Literal[
     'eid_effect',
     'peak_pool',
     'peak_expert_pool',
+    'peak_cost_pool',
     'peak_pool_vote',
     'pet_advance',
     'peak_season',

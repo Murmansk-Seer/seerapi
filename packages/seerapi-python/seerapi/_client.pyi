@@ -281,6 +281,10 @@ class SeerAPI:
     ) -> M.PeakExpertPool: ...
     @overload
     async def get(
+        self, resource_name: Literal['peak_cost_pool'], id: int
+    ) -> M.PeakCostPool: ...
+    @overload
+    async def get(
         self, resource_name: Literal['glossary_entry'], id: int
     ) -> M.GlossaryEntry: ...
     @overload
@@ -613,6 +617,10 @@ class SeerAPI:
     async def paginated_list(
         self, resource_name: Literal['peak_expert_pool'], page_info: PageInfo
     ) -> PagedResponse[M.PeakExpertPool]: ...
+    @overload
+    async def paginated_list(
+        self, resource_name: Literal['peak_cost_pool'], page_info: PageInfo
+    ) -> PagedResponse[M.PeakCostPool]: ...
     @overload
     async def paginated_list(
         self, resource_name: Literal['glossary_entry'], page_info: PageInfo
@@ -949,6 +957,10 @@ class SeerAPI:
     def list(
         self, resource_name: Literal['peak_expert_pool'], *, expand: bool = True
     ) -> AsyncGenerator[M.PeakExpertPool]: ...
+    @overload
+    def list(
+        self, resource_name: Literal['peak_cost_pool'], *, expand: bool = True
+    ) -> AsyncGenerator[M.PeakCostPool]: ...
     @overload
     def list(
         self, resource_name: Literal['peak_season'], *, expand: bool = True

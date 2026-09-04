@@ -4,6 +4,7 @@ from seerapi_models import PeakPoolVote, PetAdvance
 from seerapi_models.common import ResourceRef, SixAttributes
 from seerapi_models.element_type import TypeCombination
 from seerapi_models.items import SkillActivationItem
+from seerapi_models.peak_cost import PeakCostPool
 from seerapi_models.peak_pool import PeakExpertPool, PeakPool
 from seerapi_models.pet import (
     Pet,
@@ -18,6 +19,7 @@ from seerapi_models.pet import (
 )
 from seerapi_models.pet.pet import DiyStatsRange
 from seerapi_models.skill import Skill
+from solaris.analyze.analyzers.peak_cost import PeakCostAnalyzer
 from solaris.analyze.analyzers.peak_pool import PeakPoolAnalyzer
 from solaris.analyze.typing_ import AnalyzeResult, CsvTable
 from solaris.analyze.utils import CategoryMap, create_category_map
@@ -142,6 +144,11 @@ class PetAnalyzer(BasePetAnalyzer):
         id_to_peak_expert_pool_map = {
             pet_ref.id: k
             for k, v in self._get_input_data(PeakPoolAnalyzer, PeakExpertPool).items()
+            for pet_ref in v.pet
+        }
+        id_to_peak_cost_pool_map = {
+            pet_ref.id: k
+            for k, v in self._get_input_data(PeakCostAnalyzer, PeakCostPool).items()
             for pet_ref in v.pet
         }
         id_to_peak_pool_vote_map = {
@@ -337,6 +344,11 @@ class PetAnalyzer(BasePetAnalyzer):
                 pet_resource.peak_expert_pool = ResourceRef.from_model(
                     PeakExpertPool, id=expert_pool_id
                 )
+            if (peak_cost_pool_id := id_to_peak_cost_pool_map.get(pet_id)) is not None:
+                pet_resource.peak_cost_pool = ResourceRef.from_model(
+                    PeakCostPool, id=peak_cost_pool_id
+                )
+
             pet_resource.peak_pool_vote_id = id_to_peak_pool_vote_map.get(pet_id)
 
             pet_gender_map.add_element(pet_gender_id, pet_ref)

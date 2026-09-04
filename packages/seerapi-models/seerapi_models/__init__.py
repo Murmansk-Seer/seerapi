@@ -137,6 +137,7 @@ from .mintmark import (
 )
 from .nature import Nature, NatureAttrORM, NatureORM
 from .peak import PeakSeason, PeakSeasonORM
+from .peak_cost import PeakCostPool, PeakCostPoolORM
 from .peak_pool import (
     PeakExpertPool,
     PeakExpertPoolORM,
@@ -306,6 +307,8 @@ __all__ = [
     'NatureORM',
     'NicknameBackground',
     'NicknameBackgroundORM',
+    'PeakCostPool',
+    'PeakCostPoolORM',
     'PeakExpertPool',
     'PeakExpertPoolORM',
     'PeakPool',

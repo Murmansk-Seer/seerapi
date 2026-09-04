@@ -4850,6 +4850,85 @@ export type PeakSeasonListExpanded = {
 };
 
 /**
+ * 巅峰大师模式cost池资源
+ */
+export type PeakCostPool = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Cost
+     *
+     * 该池的消耗
+     */
+    cost: number;
+    /**
+     * Name
+     *
+     * 该池的名称
+     */
+    name: string;
+    /**
+     * Start Time
+     *
+     * 该池的开始时间
+     */
+    start_time: Date;
+    /**
+     * End Time
+     *
+     * 该池的结束时间
+     */
+    end_time: Date;
+    /**
+     * Pet
+     *
+     * 该池内的精灵
+     */
+    pet?: Array<CommonResourceRef>;
+};
+
+/**
+ * 巅峰大师模式cost池资源列表
+ */
+export type PeakCostPoolList = CommonApiResourceList;
+
+/**
+ * 巅峰大师模式cost池资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PeakCostPoolListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PeakCostPool>;
+};
+
+/**
  * 巅峰禁限池资源
  */
 export type PeakPool = HashPartial & {
@@ -5237,6 +5316,10 @@ export type Pet = HashPartial & {
      * 精灵所属巅峰池票选ID
      */
     peak_pool_vote_id?: number | null;
+    /**
+     * 精灵所属巅峰池票选
+     */
+    peak_cost_pool?: CommonResourceRef | null;
     /**
      * 精灵觉醒信息
      */
@@ -7024,6 +7107,10 @@ export type RootIndex = HashPartial & {
      */
     peak_season: string;
     /**
+     * peak_cost_pool Path
+     */
+    peak_cost_pool: string;
+    /**
      * peak_pool Path
      */
     peak_pool: string;
@@ -7126,6 +7213,11 @@ export type Id = number;
  * 资源名称
  */
 export type Name = string;
+
+/**
+ * 用于筛选资源的名称
+ */
+export type NameQuery = string;
 
 /**
  * 每页返回的最大结果数
@@ -10263,6 +10355,58 @@ export type GetPeakSeasonListResponses = {
 };
 
 export type GetPeakSeasonListResponse = GetPeakSeasonListResponses[keyof GetPeakSeasonListResponses];
+
+export type GetPeakCostPoolByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/peak_cost_pool/{id}';
+};
+
+export type GetPeakCostPoolByIdResponses = {
+    /**
+     * OK
+     */
+    200: PeakCostPool;
+};
+
+export type GetPeakCostPoolByIdResponse = GetPeakCostPoolByIdResponses[keyof GetPeakCostPoolByIdResponses];
+
+export type GetPeakCostPoolListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/peak_cost_pool/';
+};
+
+export type GetPeakCostPoolListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: PeakCostPoolList | PeakCostPoolListExpanded;
+};
+
+export type GetPeakCostPoolListResponse = GetPeakCostPoolListResponses[keyof GetPeakCostPoolListResponses];
 
 export type GetPeakPoolByIdData = {
     body?: never;

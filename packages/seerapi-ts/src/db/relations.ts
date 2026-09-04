@@ -22,6 +22,10 @@ export const relations = defineRelations(schema, (r) => ({
 		petDiyStatsRanges: r.many.petDiyStatsRange({
 			alias: "petDiyStatsRange_id_pet_id"
 		}),
+		peakCostPool: r.one.peakCostPool({
+			from: r.pet.peakCostPoolId,
+			to: r.peakCostPool.id
+		}),
 		peakPoolVote: r.one.peakPoolVote({
 			from: r.pet.peakPoolVoteId,
 			to: r.peakPoolVote.id
@@ -102,6 +106,9 @@ export const relations = defineRelations(schema, (r) => ({
 		pets: r.many.pet({
 			alias: "pet_diyStatsId_petDiyStatsRange_id"
 		}),
+	},
+	peakCostPool: {
+		pets: r.many.pet(),
 	},
 	peakPoolVote: {
 		pets: r.many.pet(),
