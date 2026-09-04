@@ -242,6 +242,7 @@ export const pet = sqliteTable("pet", {
 	peakPoolId: integer("peak_pool_id").references(() => peakPool.id),
 	peakExpertPoolId: integer("peak_expert_pool_id").references(() => peakExpertPool.id),
 	peakPoolVoteId: integer("peak_pool_vote_id").references(() => peakPoolVote.id),
+	peakCostPoolId: integer("peak_cost_pool_id").references(() => peakCostPool.id),
 });
 
 export const petClass = sqliteTable("pet_class", {
@@ -393,6 +394,14 @@ export const nature = sqliteTable("nature", {
 
 export const peakSeason = sqliteTable("peak_season", {
 	id: integer().primaryKey(),
+	startTime: numeric("start_time").notNull(),
+	endTime: numeric("end_time").notNull(),
+});
+
+export const peakCostPool = sqliteTable("peak_cost_pool", {
+	id: integer().primaryKey(),
+	cost: integer().notNull(),
+	name: text().notNull(),
 	startTime: numeric("start_time").notNull(),
 	endTime: numeric("end_time").notNull(),
 });
