@@ -46,6 +46,9 @@ class PeakCostAnalyzer(BaseDataSourceAnalyzer):
 
         for item in pvp_cost_data['item']:
             cost = item['cost']
+            if cost == 0:
+                continue
+
             start_time = parse_start_time(str(item['subkeyMonth']))
             peak_pool = PeakCostPool(
                 id=cost,
