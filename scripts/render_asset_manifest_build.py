@@ -140,8 +140,7 @@ def build_render_asset_manifest(
         *remote.new_content_standard_entries,
     )
     complete_scopes = complete_render_asset_scopes(
-        remote.pet_info_scope_complete,
-        remote.new_content_standard_scope_complete,
+        remote,
         config=config,
     )
     return RenderAssetManifestBuild(
@@ -449,17 +448,27 @@ def _build_effect_icon_entries(
 
 
 def complete_render_asset_scopes(
-    pet_info_complete: bool,
-    new_content_standard_complete: bool,
+    remote: RemoteAssetManifestBuild,
     *,
     config: RenderAssetManifestConfig,
 ) -> tuple[str, ...]:
+    """Prove renderer subsets without requiring unrelated pet materials."""
+
+    observed_kinds = {entry.asset_kind for entry in remote.pet_info_entries}
+    unavailable_kinds = {
+        entry.asset_kind for entry in remote.pet_info_entries if not entry.available
+    }
+    complete_kinds = observed_kinds - unavailable_kinds
     scopes: list[str] = []
-    if pet_info_complete:
-        scopes.extend(
-            (config.pet_info_scope, config.type_matchup_scope, config.peak_pool_scope)
-        )
-    if pet_info_complete and new_content_standard_complete:
+    if remote.pet_info_scope_complete:
+        scopes.append(config.pet_info_scope)
+    for scope, required_kinds in (
+        (config.type_matchup_scope, {'element_type'}),
+        (config.peak_pool_scope, {'pet_head', 'element_type'}),
+    ):
+        if required_kinds <= complete_kinds:
+            scopes.append(scope)
+    if remote.pet_info_scope_complete and remote.new_content_standard_scope_complete:
         scopes.append(config.new_content_standard_scope)
     return tuple(scopes)
 
