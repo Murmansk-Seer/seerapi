@@ -404,39 +404,74 @@ def _collect_remote_asset_manifest(
     )
 
 
-def test_pet_info_scope_proves_type_matchup_asset_subset() -> None:
-    assert render_asset_manifest_build.complete_render_asset_scopes(
-        True,
-        False,
-        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
-    ) == (
-        builder.PET_INFO_RENDER_ASSET_SCOPE,
-        builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
-        builder.PEAK_POOL_RENDER_ASSET_SCOPE,
+@pytest.mark.parametrize('standard_inventory', [False, True])
+@pytest.mark.parametrize(
+    ('missing', 'expected'),
+    [
+        (None, ('pet_info', 'type_matchup', 'peak_pool')),
+        ('pet/body/100', ('type_matchup', 'peak_pool')),
+        ('countermark/icon/8', ('type_matchup', 'peak_pool')),
+        ('pet/head/100', ('type_matchup',)),
+        ('pettype/1', ()),
+        ('pettype/prop', ()),
+        ('item/petitem/icon/9', ('pet_info', 'type_matchup', 'peak_pool')),
+        ('battleeffect/signbuff/10', ('pet_info', 'type_matchup', 'peak_pool')),
+        ('snapshot', ()),
+        ('inventory', ()),
+    ],
+)
+def test_renderer_scopes_follow_their_own_asset_families(
+    missing, expected, standard_inventory
+) -> None:
+    with sqlite3.connect(':memory:') as connection:
+        connection.executescript(
+            '''
+            CREATE TABLE pet (resource_id INTEGER NOT NULL);
+            CREATE TABLE element_type (id INTEGER NOT NULL);
+            CREATE TABLE mintmark (id INTEGER NOT NULL);
+            CREATE TABLE item (id INTEGER NOT NULL);
+            CREATE TABLE special_effect_status (status_id INTEGER NOT NULL);
+            INSERT INTO pet VALUES (100);
+            INSERT INTO element_type VALUES (1);
+            INSERT INTO mintmark VALUES (8);
+            INSERT INTO item VALUES (9);
+            INSERT INTO special_effect_status VALUES (10);
+            '''
+        )
+        if standard_inventory:
+            connection.executescript(
+                '''
+                CREATE TABLE suit (id INTEGER NOT NULL);
+                CREATE TABLE equip (id INTEGER NOT NULL);
+                CREATE TABLE title_part (id INTEGER NOT NULL);
+                CREATE TABLE skin_image_resolution (head_resource_id INTEGER NOT NULL);
+                '''
+            )
+            if 'pet_info' in expected:
+                expected = (*expected, 'new_content_standard')
+        if missing == 'inventory':
+            connection.execute('DROP TABLE element_type')
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
+            revision='a' * 40,
+            blobs_by_path={
+                f'newseer/assets/art/ui/assets/{path}.png': f'blob-{index}'
+                for index, path in enumerate((
+                    'pet/head/100', 'pet/body/100', 'pettype/1', 'pettype/prop',
+                    'countermark/icon/8', 'item/petitem/icon/9',
+                    'battleeffect/signbuff/10',
+                ))
+                if path != missing
+            },
+        ) if missing != 'snapshot' else None
+        remote = _collect_remote_asset_manifest(
+            connection, snapshot, release_revision='release-test',
+        )
+    result = render_asset_manifest_build.build_render_asset_manifest(
+        remote, {}, snapshot, release_revision='release-test',
+        effect_icon_source_version='test', config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
-    assert render_asset_manifest_build.complete_render_asset_scopes(
-        False,
-        False,
-        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
-    ) == ()
-
-
-def test_new_content_standard_scope_requires_pet_info_and_its_own_assets() -> None:
-    assert render_asset_manifest_build.complete_render_asset_scopes(
-        True,
-        True,
-        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
-    ) == (
-        builder.PET_INFO_RENDER_ASSET_SCOPE,
-        builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
-        builder.PEAK_POOL_RENDER_ASSET_SCOPE,
-        builder.NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE,
-    )
-    assert render_asset_manifest_build.complete_render_asset_scopes(
-        False,
-        True,
-        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
-    ) == ()
+    assert result.complete_scopes == expected
+    assert json.loads(result.metadata[builder.RENDER_ASSET_MANIFEST_SCOPES_KEY]) == list(expected)
 
 
 def test_copy_or_download_upstream_database_uses_verified_local_input(
@@ -1793,10 +1828,10 @@ def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> 
         blobs_by_path={},
     )
 
-    scopes = render_asset_manifest_build.complete_render_asset_scopes(
-        True,
-        False,
-        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    scopes = (
+        builder.PET_INFO_RENDER_ASSET_SCOPE,
+        builder.TYPE_MATCHUP_RENDER_ASSET_SCOPE,
+        builder.PEAK_POOL_RENDER_ASSET_SCOPE,
     )
     metadata = render_asset_manifest_build.render_asset_manifest_metadata(
         entries,
