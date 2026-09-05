@@ -85,6 +85,63 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
         conn.execute("ALTER TABLE mintmark ADD COLUMN rarity_id INTEGER NOT NULL DEFAULT 4")
 
 
+def _set_master_pool(path: Path, groups: dict[int, list[int]]) -> None:
+    with sqlite3.connect(path) as conn:
+        conn.execute('CREATE TABLE IF NOT EXISTS peak_master_pool (cost INTEGER, pet_ids_json TEXT)')
+        conn.execute('DELETE FROM peak_master_pool')
+        conn.executemany('INSERT INTO peak_master_pool VALUES (?, ?)', [
+            (cost, json.dumps(pets)) for cost, pets in groups.items()
+        ])
+
+
+def test_master_pool_first_observation_does_not_invent_weekly_additions(tmp_path: Path) -> None:
+    old, new = tmp_path / 'old.sqlite', tmp_path / 'new.sqlite'
+    _create_database(old, version='20260828100000', pet_ids=(1, 2))
+    _create_database(new, version='20260904100000', pet_ids=(1, 2))
+    _set_master_pool(new, {35: [1], 0: [2]})
+    state = indexer.build_release_state(new, old, 'sha')
+    assert not [item for item in state.items if item.category == 'peak_master_pool']
+    category = next(value for value in state.category_states if value.category == 'peak_master_pool')
+    assert not category.comparison_ready
+    assert category.reason == 'first_observation'
+
+
+def test_master_pool_cost_changes_additions_and_removals(tmp_path: Path) -> None:
+    old, new = tmp_path / 'old.sqlite', tmp_path / 'new.sqlite'
+    _create_database(old, version='20260828100000', pet_ids=(1, 2, 3))
+    _create_database(new, version='20260904100000', pet_ids=(1, 2, 3, 4))
+    _set_master_pool(old, {20: [1], 6: [2]})
+    _set_master_pool(new, {10: [1], 0: [3], 35: [4]})
+    state = indexer.build_release_state(new, old, 'sha')
+    changes = {item.entity_id: item.payload for item in state.items if item.category == 'peak_master_pool'}
+    assert changes == {
+        1: {'previous_limit': 20, 'current_limit': 10},
+        2: {'previous_limit': 6, 'current_limit': None},
+        3: {'previous_limit': None, 'current_limit': 0},
+        4: {'previous_limit': None, 'current_limit': 35},
+    }
+    indexer.write_release_state(new, state, None)
+    rebuilt = indexer.build_release_state(new, new, 'rebuild-sha')
+    assert [item for item in rebuilt.items if item.category == 'peak_master_pool'] == [
+        item for item in state.items if item.category == 'peak_master_pool'
+    ]
+
+
+def test_master_pool_weekly_accumulation_keeps_original_cost_and_drops_reverts(tmp_path: Path) -> None:
+    old, first, second = (tmp_path / name for name in ('old.sqlite', 'first.sqlite', 'second.sqlite'))
+    for path, version in ((old, '20260828100000'), (first, '20260904100000'), (second, '20260905100000')):
+        _create_database(path, version=version, pet_ids=(1, 2))
+    _set_master_pool(old, {20: [1, 2]})
+    _set_master_pool(first, {10: [1, 2]})
+    _set_master_pool(second, {6: [1], 20: [2]})
+    state = indexer.build_release_state(first, old, 'first')
+    indexer.write_release_state(first, state, None)
+    updated = indexer.build_release_state(second, first, 'second')
+    assert {item.entity_id: item.payload for item in updated.items if item.category == 'peak_master_pool'} == {
+        1: {'previous_limit': 20, 'current_limit': 6},
+    }
+
+
 def _add_equip_bonus(
     path: Path,
     *,

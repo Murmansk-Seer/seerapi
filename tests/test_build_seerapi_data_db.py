@@ -32,6 +32,39 @@ def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
     )
 
 
+def _master_pool_bytes(pets: str = '5000;4800') -> bytes:
+    def text(value: str) -> bytes:
+        encoded = value.encode('utf-8')
+        return struct.pack('<H', len(encoded)) + encoded
+    return (
+        struct.pack('<?iii', True, 1, 35, 1)
+        + text('35点') + text(pets)
+        + struct.pack('<ii', 1020260904, 20260904)
+        + text('2026_11_27 10:00:00')
+    )
+
+
+def test_master_pool_binary_schema_and_sqlite_roundtrip() -> None:
+    rows = builder._parse_master_pools(_master_pool_bytes())
+    assert rows == [{
+        'id': 1, 'cost': 35, 'name': '35点', 'pet_ids': [5000, 4800],
+        'subkey_month': 1020260904, 'subkey_total': 20260904,
+        'configured_time': '2026_11_27 10:00:00',
+    }]
+    with sqlite3.connect(':memory:') as conn:
+        builder._merge_master_pools(conn, rows)
+        cost, pets, period = conn.execute(
+            'SELECT cost, pet_ids_json, subkey_total FROM peak_master_pool'
+        ).fetchone()
+        assert (cost, json.loads(pets), period) == (35, [5000, 4800], 20260904)
+
+
+@pytest.mark.parametrize('payload', [b'\x00', _master_pool_bytes('5000;5000'), _master_pool_bytes() + b'x'])
+def test_master_pool_rejects_invalid_source(payload: bytes) -> None:
+    with pytest.raises(ValueError, match=r'[Mm]aster pool'):
+        builder._parse_master_pools(payload)
+
+
 def test_copy_or_download_upstream_database_uses_verified_local_input(
     monkeypatch, tmp_path: Path
 ) -> None:

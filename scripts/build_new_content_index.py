@@ -29,11 +29,12 @@ AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
 AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
 PEAK_POOL_CATEGORY = 'peak_pool'
 PEAK_EXPERT_POOL_CATEGORY = 'peak_expert_pool'
+PEAK_MASTER_POOL_CATEGORY = 'peak_master_pool'
 PEAK_POOL_FIELDS: dict[str, str] = {
     PEAK_POOL_CATEGORY: 'peak_pool_id',
     PEAK_EXPERT_POOL_CATEGORY: 'peak_expert_pool_id',
 }
-PEAK_POOL_CATEGORIES = frozenset(PEAK_POOL_FIELDS)
+PEAK_POOL_CATEGORIES = frozenset((*PEAK_POOL_FIELDS, PEAK_MASTER_POOL_CATEGORY))
 PET_VOLATILE_STATS = frozenset(
     {
         'peak_pool_id',
@@ -76,6 +77,7 @@ CONTENT_CATEGORIES = (
     'pet',
     PEAK_POOL_CATEGORY,
     PEAK_EXPERT_POOL_CATEGORY,
+    PEAK_MASTER_POOL_CATEGORY,
     'pet_skin',
     'skill',
     'mintmark',
@@ -92,6 +94,7 @@ CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
     'pet': ('pet',),
     PEAK_POOL_CATEGORY: ('pet', 'peak_pool'),
     PEAK_EXPERT_POOL_CATEGORY: ('pet', 'peak_pool'),
+    PEAK_MASTER_POOL_CATEGORY: ('pet', 'peak_master_pool'),
     'pet_skin': ('pet_skin',),
     'skill': ('skill',),
     'mintmark': ('mintmark',),
@@ -612,6 +615,11 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
     )
     pet_select = ', '.join(('id', 'name', *pet_columns))
     source_categories = _source_categories(conn)
+    master_costs = {}
+    if PEAK_MASTER_POOL_CATEGORY in source_categories:
+        for pool in _rows(conn, 'SELECT cost, pet_ids_json FROM peak_master_pool'):
+            for pet_id in json.loads(pool['pet_ids_json']):
+                master_costs[int(pet_id)] = int(pool['cost'])
     for row in _rows(conn, f'SELECT {pet_select} FROM pet'):
         entity_id = int(row['id'])
         items.append(
@@ -628,10 +636,12 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 },
             )
         )
-        for category, limit_field in PEAK_POOL_FIELDS.items():
+        pool_fields = {**PEAK_POOL_FIELDS, PEAK_MASTER_POOL_CATEGORY: None}
+        for category, limit_field in pool_fields.items():
             if category not in source_categories:
                 continue
-            raw_limit = row[limit_field]
+            raw_limit = (row[limit_field] if limit_field is not None
+                         else master_costs.get(entity_id))
             items.append(
                 ContentItem(
                     category,
@@ -1168,9 +1178,9 @@ def _peak_pool_modified_items(
         if item.category not in comparable_pool_categories:
             continue
         previous_item = previous_by_id.get((item.category, item.entity_id))
-        if previous_item is None:
+        if previous_item is None and item.category != PEAK_MASTER_POOL_CATEGORY:
             continue
-        previous_limit = previous_item.payload.get('limit')
+        previous_limit = previous_item.payload.get('limit') if previous_item else None
         current_limit = item.payload.get('limit')
         if previous_limit == current_limit:
             continue
@@ -1328,6 +1338,23 @@ def build_release_state(
                 )
             )
         items = _current_subset((*carried_items, *increment), current_items)
+        # Keep the start-of-week cost after multiple official adjustments.
+        master_origins = {
+            item.entity_id: item.payload.get('previous_limit')
+            for item in carried_items if item.category == PEAK_MASTER_POOL_CATEGORY
+        }
+        items = tuple(
+            replace(item, payload={
+                'previous_limit': master_origins[item.entity_id],
+                'current_limit': item.payload.get('current_limit'),
+            }) if item.category == PEAK_MASTER_POOL_CATEGORY and item.entity_id in master_origins
+            else item
+            for item in items
+        )
+        items = tuple(item for item in items if (
+            item.category != PEAK_MASTER_POOL_CATEGORY
+            or item.payload.get('previous_limit') != item.payload.get('current_limit')
+        ))
     else:
         items = increment
     return ReleaseState(
