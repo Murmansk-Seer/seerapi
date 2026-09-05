@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 import hashlib
 import io
 import json
@@ -63,6 +63,7 @@ SKIN_SHOP_BYTES_NAME = "skin_shop.bytes"
 ITEMS_TIP_BYTES_NAME = "itemsTip.bytes"
 EFFECT_ICON_BYTES_NAME = "effectIcon.bytes"
 AUTOCARD_SEASON_EFFECT_BYTES_NAME = "autocardSeasonEffect.bytes"
+MASTER_POOL_BYTES_NAME = "pvpCostMode_cost.bytes"
 EFFECT_ICON_ASSET_BASE_URL = os.environ.get(
     "IRONSBOT_DATA_EFFECT_ICON_ASSET_BASE_URL",
     "https://seer.61.com/resource/effectIcon/",
@@ -131,6 +132,7 @@ EFFECT_ICON_PNG_CACHE_DIR = Path(
 )
 EFFECT_ICON_PNG_MAX_DIMENSION = 1024
 CONFIG_TEXT_ASSETS = {
+    MASTER_POOL_BYTES_NAME,
     MINTMARK_BYTES_NAME,
     SKIN_STORE_POOL_BYTES_NAME,
     SKIN_SHOP_BYTES_NAME,
@@ -284,6 +286,7 @@ class ConfigPackageData:
     skin_item_tips: dict[int, str]
     soulmark_icons: list["SoulmarkIcon"]
     autocard_season_effects: list["AutocardSeasonEffect"]
+    master_pools: list[dict] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -3099,6 +3102,51 @@ def _render_effect_icon_png_cache_shard(
     return result
 
 
+def _parse_master_pools(data: bytes) -> list[dict]:
+    reader = BytesReader(data)
+    if not reader.read_bool():
+        raise ValueError("Master pool configuration is absent")
+    rows = []
+    seen = set()
+    for _ in range(reader.read_i32()):
+        cost = reader.read_i32()
+        group_id = reader.read_i32()
+        name = reader.read_text()
+        pets = [int(value) for value in reader.read_text().split(';') if value]
+        month = reader.read_i32()
+        total = reader.read_i32()
+        configured_time = reader.read_text()
+        if cost < 0 or group_id <= 0 or any(pet <= 0 or pet in seen for pet in pets):
+            raise ValueError("Invalid or duplicate master pool pet")
+        if len(pets) != len(set(pets)):
+            raise ValueError("Duplicate master pool pet")
+        seen.update(pets)
+        rows.append({
+            "id": group_id, "cost": cost, "name": name, "pet_ids": pets,
+            "subkey_month": month, "subkey_total": total,
+            "configured_time": configured_time,
+        })
+    if not rows or len({row['id'] for row in rows}) != len(rows):
+        raise ValueError("Empty or duplicate master pool groups")
+    if reader._pos != len(data):
+        raise ValueError("Unexpected master pool trailing bytes")
+    return rows
+
+
+def _merge_master_pools(conn: sqlite3.Connection, rows: list[dict]) -> None:
+    conn.execute('''CREATE TABLE IF NOT EXISTS peak_master_pool (
+        id INTEGER PRIMARY KEY, cost INTEGER NOT NULL, name TEXT NOT NULL,
+        pet_ids_json TEXT NOT NULL, subkey_month INTEGER NOT NULL,
+        subkey_total INTEGER NOT NULL, configured_time TEXT NOT NULL
+    )''')
+    conn.execute('DELETE FROM peak_master_pool')
+    conn.executemany('INSERT INTO peak_master_pool VALUES (?, ?, ?, ?, ?, ?, ?)', [
+        (row['id'], row['cost'], row['name'], json.dumps(row['pet_ids']),
+         row['subkey_month'], row['subkey_total'], row['configured_time'])
+        for row in rows
+    ])
+
+
 def _fetch_config_package_data() -> ConfigPackageData:
     base_url = CONFIG_PACKAGE_BASE_URL.rstrip("/") + "/"
     version, manifest = _fetch_package_manifest(base_url, PACKAGE_NAME)
@@ -3115,6 +3163,7 @@ def _fetch_config_package_data() -> ConfigPackageData:
     return ConfigPackageData(
         version=version,
         bundle_url=bundle_url,
+        master_pools=_parse_master_pools(assets[MASTER_POOL_BYTES_NAME]),
         mintmark_quality=_parse_mintmark_quality_bytes(assets[MINTMARK_BYTES_NAME]),
         skin_store_prices=_parse_skin_store_pool(assets[SKIN_STORE_POOL_BYTES_NAME]),
         skin_shop_prices=_parse_skin_shop(assets[SKIN_SHOP_BYTES_NAME]),
@@ -4073,6 +4122,7 @@ def _merge_ironsbot_tables(
     now = time.time()
     skin_image_resolutions = skin_image_resolutions or []
     with sqlite3.connect(db_path) as conn:
+        _merge_master_pools(conn, config_data.master_pools)
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {MINTMARK_QUALITY_TABLE} (
