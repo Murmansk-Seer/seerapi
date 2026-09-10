@@ -8,6 +8,7 @@
 - 💾 **自动缓存**：集成 HTTP 缓存机制，减少重复请求
 - 🎯 **类型安全**：完整的类型提示支持，提供良好的 IDE 智能提示
 - 📦 **分页支持**：内置分页处理，方便获取大量数据
+- 🔎 **名称搜索**：支持命名资源的名称子串搜索、自动翻页和完整名称精确查询
 - 🔄 **同步兼容**：提供 `async_to_sync` 装饰器，在同步代码中也能使用
 - 🖥️ **CLI 工具**：内置 `seerapi` 命令行，输出紧凑 JSON，适合 LLM 与脚本调用
 ## 安装
@@ -115,16 +116,17 @@ skill = await client.get('skill', id=100)
 equip = await client.get('equip', id=50)
 ```
 
-##### `list(resource_name, *, expand=True)`
+##### `list(resource_name, *, expand=True, name=None)`
 
-获取所有资源的异步生成器，自动处理分页。
+返回资源的异步迭代器，自动处理分页；传入 `name` 时仅遍历匹配结果，并在每页请求中保留搜索词。
 
 **参数：**
 - `resource_name` (str): 资源类型名称
-- `expand` (bool): 是否让 API 直接返回完整资源对象。默认为 `True`（每页一次请求）。仅需轻量引用时可设为 `False`（通过 N+1 请求获取完整数据）。
+- `expand` (bool): 是否让 API 直接返回完整资源对象。默认为 `True`（每页一次请求）
+- `name` (str | None): 名称子串过滤，仅命名资源支持字符串值；默认 `None` 不过滤
 
 **返回：**
-- `AsyncGenerator`: 异步生成器，用于遍历所有资源
+- `AsyncIterator`: 异步迭代器，用于遍历资源或搜索结果
 
 **示例：**
 
@@ -146,17 +148,18 @@ async for pet in client.list('pet'):
         break
 ```
 
-##### `paginated_list(resource_name, page_info)`
+##### `paginated_list(resource_name, page_info, *, name=None)`
 
 获取资源列表（手动分页控制）。
 
 **参数：**
 - `resource_name` (str): 资源类型名称
 - `page_info` (PageInfo): 分页信息对象，默认 `expand=True` 直接返回完整资源对象
+- `name` (str | None): 名称子串过滤，仅命名资源支持字符串值；默认 `None` 不过滤。手动翻页时需再次传入相同的 `name`
 
 **返回：**
 - `PagedResponse` 对象，包含：
-  - `count` (int): 总记录数
+  - `count` (int): 总记录数；提供 `name` 时为匹配记录数
   - `results` (AsyncGenerator): 异步生成器，用于遍历当前页结果
   - `next` (PageInfo | None): 下一页信息
   - `previous` (PageInfo | None): 上一页信息
@@ -188,9 +191,54 @@ if response.next:
     next_response = await client.paginated_list('pet', response.next)
 ```
 
+##### `search_by_name(resource_name, name, *, expand=True)`
+
+按名称子串搜索命名资源，等价于 `list(resource_name, name=name, expand=expand)`。
+返回 `AsyncIterator`，直接使用 `async for`，无需 `await`；自动翻页会持续保留搜索词。
+没有匹配项时迭代器为空。
+
+**参数：**
+
+- `resource_name`: 支持名称查询的资源名、模型类或 `ResourceRef`，例如 `'pet'`、`Pet` 或 `ResourceRef[Pet]`
+- `name` (str): 搜索子串
+- `expand` (bool): 默认为 `True`；设为 `False` 时仍返回完整模型实例，由客户端逐条获取
+
+**示例：**
+
+```python
+from seerapi_models import Pet
+
+# 自动翻页；返回类型可推断为 Pet
+async for pet in client.search_by_name(Pet, '布布'):
+    print(pet.id, pet.name)
+
+# 使用资源字符串与 list 的等价写法
+async for pet in client.list('pet', name='布布'):
+    print(pet.id, pet.name)
+
+# 手动翻页：PageInfo 仅保存分页信息，每次请求都需要 name
+page = await client.paginated_list('pet', PageInfo(limit=10), name='布布')
+async for pet in page.results:
+    print(pet.id, pet.name)
+if page.next is not None:
+    page = await client.paginated_list('pet', page.next, name='布布')
+```
+
+**命名资源的类型限制：**
+
+`search_by_name` 仅接受命名资源。`list` 和 `paginated_list` 的类型重载仅允许命名资源传入字符串 `name`，非命名资源只能省略该参数或传 `None`。限制同时覆盖资源字符串、模型类和资源引用；绕过类型检查后，无效搜索会在发送请求前抛出 `ValueError`（异步迭代器开始迭代时执行检查）。
+
+```python
+client.list('pet_class')                    # 普通列表查询合法
+client.list('pet_class', name='布布')        # 类型检查报错
+client.search_by_name('pet_class', '布布')   # 类型检查报错
+```
+
+名称搜索依赖服务端已支持列表端点的 `name` 查询参数。
+
 ##### `get_by_name(resource_name, name)`
 
-通过名称获取资源。该方法仅支持具有名称属性的资源类型。
+通过完整名称精确查询命名资源，返回同名资源的 ID → 模型字典。部分名称搜索使用 `search_by_name`；命名资源也包含通过别名字段支持名称查询的资源。
 
 **参数：**
 - `resource_name` (str): 资源类型名称（必须是支持按名称查询的资源类型）
@@ -213,7 +261,7 @@ if response.next:
 ```
 ### PageInfo 类
 
-用于指定分页参数。
+用于指定分页参数，不保存名称过滤条件。使用 `paginated_list` 手动翻页时，应将相同的 `name` 作为方法关键字参数再次传入。
 
 **属性：**
 - `offset` (int): 偏移量，默认为 0
@@ -327,7 +375,12 @@ seerapi list pet --offset 20 --limit 10
 seerapi list pet --no-expand
 seerapi list pet --fields id,name
 
-# 按名称获取（仅 supports_name_lookup=true 的资源）
+# 按名称子串搜索（仅 supports_name_lookup=true 的资源）
+seerapi list pet --name "布布" --limit 10 --fields id,name
+# next 非空时，使用其 offset/limit，并保留同一个 --name
+seerapi list pet --name "布布" --offset 10 --limit 10 --fields id,name
+
+# 按完整名称精确查询（仅 supports_name_lookup=true 的资源）
 seerapi get-by-name skill "虚妄幻境"
 
 # 安装 agent skill（目标目录因工具而异）
@@ -346,6 +399,8 @@ seerapi skill install --target ~/.cursor/skills
   "next": {"offset": 20, "limit": 20, "expand": true}
 }
 ```
+
+搜索时 `count` 为匹配总数；无匹配时 `count=0`、`results=[]`。`next` 只包含分页参数，翻页命令需要再次传入相同的 `--name`。非命名资源使用 `--name` 会返回 exit code 2。
 
 无效资源名返回 exit code 2，stderr 为 JSON 错误对象（含 `did_you_mean` 建议）。
 

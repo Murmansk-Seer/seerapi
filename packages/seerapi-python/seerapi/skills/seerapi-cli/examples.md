@@ -78,3 +78,17 @@ seerapi describe skill --scope name
 ```bash
 seerapi get pet 1 --pretty
 ```
+
+## 7. 按部分名称搜索
+
+先通过 `seerapi resources` 确认 `supports_name_lookup=true`：
+
+```bash
+seerapi list pet --name "布布" --limit 10 --fields id,name
+# 仅在 next 非空时，使用其 offset/limit，并保留同一搜索词：
+seerapi list pet --name "布布" --offset 10 --limit 10 --fields id,name
+```
+
+`--name` 是子串匹配，返回分页结果；没有匹配时 `count=0`、`results=[]`。
+完整名称精确查询使用 `seerapi get-by-name pet "布布种子"`。
+非命名资源使用普通 `list` 或按 ID 的 `get`，传 `--name` 会报参数错误。

@@ -10,11 +10,18 @@ from seerapi.cli.output import (
     write_json,
 )
 from seerapi.cli.runner import run_async, with_client
-from seerapi.cli.validation import is_valid_resource, unknown_resource_error
+from seerapi.cli.validation import (
+    is_named_resource,
+    is_valid_resource,
+    unknown_resource_error,
+)
 
 
 @click.command('list')
 @click.argument('resource')
+@click.option(
+    '--name', default=None, help='Search by name substring (named resources only).'
+)
 @click.option('--offset', default=0, type=int, show_default=True)
 @click.option('--limit', default=20, type=int, show_default=True)
 @click.option(
@@ -32,6 +39,7 @@ from seerapi.cli.validation import is_valid_resource, unknown_resource_error
 def list_cmd(
     ctx: CliContext,
     resource: str,
+    name: str | None,
     offset: int,
     limit: int,
     expand: bool,
@@ -41,11 +49,24 @@ def list_cmd(
     if not is_valid_resource(resource):
         write_error(unknown_resource_error(resource), exit_code=2)
 
+    if name is not None and not is_named_resource(resource):
+        write_error(
+            {
+                'error': 'resource does not support name search',
+                'resource': resource,
+                'hint': 'run seerapi resources and filter supports_name_lookup=true',
+            },
+            exit_code=2,
+        )
+
     field_list = [field.strip() for field in fields.split(',')] if fields else None
     page_info = PageInfo(offset=offset, limit=limit, expand=expand)
 
     async def _list(client):
-        paged = await client.paginated_list(resource, page_info)
+        if name is None:
+            paged = await client.paginated_list(resource, page_info)
+        else:
+            paged = await client.paginated_list(resource, page_info, name=name)
         results = [
             project_fields(item.model_dump(mode='json'), field_list)
             async for item in paged.results

@@ -33,13 +33,14 @@ seerapi skill install --target <your-agent-skills-dir>
 3. 按情况查询：
    - 已知 ID → `seerapi get <resource> <id> [--fields]`
    - 浏览列表 → `seerapi list <resource> --limit N [--fields]`
-   - 已知中文名且 `supports_name_lookup=true` → `seerapi get-by-name <resource> "<name>"`
+   - 只知道部分名称且 `supports_name_lookup=true` → `seerapi list <resource> --name "<子串>" --limit N [--fields]`
+   - 已知完整中文名且 `supports_name_lookup=true` → `seerapi get-by-name <resource> "<name>"`
 
 ## 硬性规则
 
 1. **禁止猜测** resource 名；不确定时先 `resources`，失败时读 stderr 的 `did_you_mean`
 2. `describe` 默认 `--scope item`（实例字段）；`--scope list` 只看分页结构；`--scope name` 仅 NamedModel
-3. `list` 默认单页 `limit=20`；禁止无上限翻页；用输出中的 `next` 翻页
+3. `list` 默认单页 `limit=20`；禁止无上限翻页；用输出中的 `next` 翻页，搜索时每页保留相同的 `--name`
 4. 大对象必须加 `--fields`；仅人类阅读时用 `--pretty`
 5. 中文名称加引号：`seerapi get-by-name skill "虚妄幻境"`
 
@@ -50,8 +51,8 @@ seerapi skill install --target <your-agent-skills-dir>
 | `resources` | 全部资源 + `supports_name_lookup` |
 | `describe <r> [--scope item\|list\|name] [--fields]` | JSON Schema |
 | `get <r> <id> [--fields]` | 单条 by ID |
-| `list <r> [--offset] [--limit] [--expand] [--fields]` | 单页列表 |
-| `get-by-name <r> <name>` | 按名称（返回 id→对象 字典） |
+| `list <r> [--offset] [--limit] [--expand] [--fields] [--name]` | 单页列表；`--name` 为名称子串搜索，仅命名资源 |
+| `get-by-name <r> <name>` | 按完整名称精确查询（返回 id→对象 字典） |
 | `skill [install\|path]` | 查看或安装 agent skill |
 
 全局选项：`--hostname` `--scheme` `--version-path` `--pretty`；环境变量 `SEERAPI_HOSTNAME` / `SEERAPI_SCHEME`。

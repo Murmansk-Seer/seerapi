@@ -1,5 +1,5 @@
 from collections.abc import AsyncGenerator, AsyncIterator
-from typing import cast
+from typing import cast, get_args
 from typing_extensions import Self
 
 from hishel.httpx import AsyncCacheClient
@@ -12,6 +12,7 @@ from seerapi._model_map import (
 )
 from seerapi._models import PagedResponse, PageInfo
 from seerapi._typing import (
+    NamedModelName,
     NamedResourceArg,
     ResourceArg,
     T_ModelInstance,
@@ -116,15 +117,24 @@ class SeerAPI:
         self,
         resource_name: ResourceArg[T_ModelInstance],
         page_info: PageInfo,
+        *,
+        name: str | None = None,
     ) -> PagedResponse[T_ModelInstance]:
+        """获取一页资源；name 仅用于命名资源，手动翻页时需再次传入。"""
         res_name = self._get_resource_name(resource_name)
         model_type = MODEL_MAP[res_name]
 
-        params: dict[str, int | bool] = {
+        if name is not None and res_name not in get_args(NamedModelName):
+            raise ValueError(f'Resource {res_name!r} does not support name search')
+
+        params: dict[str, int | bool | str] = {
             'offset': page_info.offset,
             'limit': page_info.limit,
             'expand': page_info.expand,
         }
+
+        if name is not None:
+            params['name'] = name
 
         if page_info.expand:
 
@@ -168,19 +178,23 @@ class SeerAPI:
         resource_name: ResourceArg[T_ModelInstance],
         *,
         expand: bool = True,
+        name: str | None = None,
     ) -> AsyncIterator[T_ModelInstance]:
-        """获取所有资源的异步生成器，自动处理分页"""
-        return self._list_gen(resource_name, expand=expand)
+        """获取资源的异步迭代器，自动翻页；name 仅用于命名资源的子串搜索。"""
+        return self._list_gen(resource_name, expand=expand, name=name)
 
     async def _list_gen(
         self,
         resource_name: ResourceArg[T_ModelInstance],
         *,
         expand: bool = True,
+        name: str | None = None,
     ) -> AsyncIterator[T_ModelInstance]:
         page_info = PageInfo(offset=0, limit=10, expand=expand)
         while True:
-            paged_response = await self.paginated_list(resource_name, page_info)
+            paged_response = await self.paginated_list(
+                resource_name, page_info, name=name
+            )
 
             async for item in paged_response.results:
                 yield item
@@ -189,6 +203,16 @@ class SeerAPI:
                 break
 
             page_info = paged_response.next
+
+    def search_by_name(
+        self,
+        resource_name: NamedResourceArg[T_NamedModelInstance],
+        name: str,
+        *,
+        expand: bool = True,
+    ) -> AsyncIterator[T_NamedModelInstance]:
+        """按名称子串搜索命名资源，返回自动翻页的异步迭代器。"""
+        return self._list_gen(resource_name, expand=expand, name=name)
 
     async def get_by_name(
         self, resource_name: NamedResourceArg[T_NamedModelInstance], name: str

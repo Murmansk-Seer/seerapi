@@ -17,7 +17,7 @@ from seerapi_models.build_model import BaseResModel
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = PACKAGE_ROOT / 'seerapi'
 HEADER = '# 由 scripts/generate_client.py 自动生成，请勿手动修改。\n'
-RESOURCE_METHODS = {'get', 'paginated_list', 'list', 'get_by_name'}
+RESOURCE_METHODS = {'get', 'paginated_list', 'list', 'get_by_name', 'search_by_name'}
 
 
 @dataclass(frozen=True)
@@ -125,30 +125,52 @@ def stub_function(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
 
 
 def render_overloads(method: str, resources: list[Resource]) -> str:
-    named = method == 'get_by_name'
+    named = method in {'get_by_name', 'search_by_name'}
+    filtered = method in {'list', 'paginated_list'}
     variable = 'T_NamedModelInstance' if named else 'T_ModelInstance'
     variants = [
-        (f'Literal[{resource.name!r}]', f'M.{resource.export}', False)
+        (f'Literal[{resource.name!r}]', f'M.{resource.export}', False, resource.named)
         for resource in resources
         if not named or resource.named
     ]
+    if filtered:
+        variants.extend(
+            [
+                ('type[T_NamedModelInstance]', 'T_NamedModelInstance', False, True),
+                (
+                    'ResourceRef[T_NamedModelInstance]',
+                    'T_NamedModelInstance',
+                    True,
+                    True,
+                ),
+            ]
+        )
     variants.extend(
         [
-            (f'type[{variable}]', variable, False),
-            (f'ResourceRef[{variable}]', variable, True),
+            (f'type[{variable}]', variable, False, named),
+            (f'ResourceRef[{variable}]', variable, True, named),
         ]
     )
     signatures = []
-    for argument, result, reference in variants:
+    for argument, result, reference, supports_name in variants:
         if method == 'get':
             params = 'id: int | None = None' if reference else 'id: int'
         elif method == 'paginated_list':
             params, result = 'page_info: PageInfo', f'PagedResponse[{result}]'
         elif method == 'list':
             params, result = '*, expand: bool = True', f'AsyncIterator[{result}]'
+        elif method == 'search_by_name':
+            params, result = (
+                'name: str, *, expand: bool = True',
+                f'AsyncIterator[{result}]',
+            )
         else:
             params, result = 'name: str', f'NamedData[{result}]'
-        prefix = '' if method == 'list' else 'async '
+        if filtered:
+            name_type = 'str | None' if supports_name else 'None'
+            params += ', *, ' if method == 'paginated_list' else ', '
+            params += f'name: {name_type} = None'
+        prefix = '' if method in {'list', 'search_by_name'} else 'async '
         signatures.append(
             f'@overload\n{prefix}def {method}('
             f'self, resource_name: {argument}, {params}) -> {result}: ...'
