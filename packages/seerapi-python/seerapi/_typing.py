@@ -1,171 +1,240 @@
+# 由 scripts/generate_client.py 自动生成，请勿手动修改。
 from typing import Literal, TypeAlias, TypeVar
 
 import seerapi_models as M
 from seerapi_models.build_model import BaseResModel
 from seerapi_models.common import ResourceRef
 
-# 所有可用的命名模型路径名称
 NamedModelName: TypeAlias = Literal[
-    'activity',
+    'ability_mintmark',
     'achievement',
     'achievement_branch',
     'achievement_category',
     'achievement_type',
+    'activity',
     'autocard',
     'autocard_cardtype',
     'autocard_element_type',
-    'autocard_spellcard',
+    'autocard_field',
     'autocard_petcard',
     'autocard_role',
-    'autocard_field',
-    'title',
+    'autocard_spellcard',
+    'avatar_frame',
+    'avatar_head',
     'battle_effect',
     'battle_effect_type',
-    'sign',
-    'field_effect',
-    'resistance_category',
-    'pet_effect',
-    'pet_effect_group',
-    'pet_variation',
-    'energy_bead',
-    'equip',
-    'suit',
-    'equip_type',
-    'soulmark_tag',
     'element_type',
     'element_type_combination',
-    'item',
-    'item_category',
+    'emoji',
+    'energy_bead',
+    'equip',
+    'equip_type',
+    'error_code',
+    'field_effect',
     'gem',
     'gem_category',
-    'skill_activation_item',
-    'skill_stone',
-    'skill_stone_category',
+    'gem_gen1',
+    'gem_gen2',
+    'glossary_entry',
+    'homepage_background',
+    'item',
+    'item_category',
     'mintmark',
-    'ability_mintmark',
-    'skill_mintmark',
-    'universal_mintmark',
     'mintmark_class',
     'mintmark_type',
+    'namecard_background',
+    'nature',
+    'nickname_background',
+    'peak_cost_pool',
     'pet',
+    'pet_archive_story_book',
+    'pet_effect',
+    'pet_effect_group',
+    'pet_encyclopedia_entry',
     'pet_gender',
-    'pet_vipbuff',
     'pet_mount_type',
     'pet_skin',
     'pet_skin_series',
     'pet_skin_series_sub_type',
-    'pet_archive_story_book',
-    'pet_encyclopedia_entry',
-    'nature',
+    'pet_variation',
+    'pet_vipbuff',
+    'resistance_category',
+    'sign',
     'skill',
-    'skill_hide_effect',
+    'skill_activation_item',
     'skill_category',
     'skill_effect_type_tag',
+    'skill_hide_effect',
+    'skill_mintmark',
+    'skill_stone',
+    'skill_stone_category',
     'soulmark',
-    'glossary_entry',
-    'error_code',
-    'avatar_head',
-    'avatar_frame',
-    'namecard_background',
-    'nickname_background',
-    'homepage_background',
-    'emoji',
+    'soulmark_tag',
+    'suit',
+    'title',
+    'universal_mintmark',
 ]
-
-# 所有可用的模型路径名称
 ModelName: TypeAlias = Literal[
-    NamedModelName,
+    'ability_mintmark',
+    'achievement',
+    'achievement_branch',
+    'achievement_category',
+    'achievement_type',
+    'activity',
     'activity_type',
-    'equip_effective_occasion',
-    'gem_generation_category',
-    'mintmark_rarity',
-    'pet_class',
-    'pet_skin_category',
-    'pet_archive_story_entry',
-    'skill_effect_type',
-    'skill_effect_param',
-    'eid_effect',
-    'peak_pool',
-    'peak_expert_pool',
-    'peak_cost_pool',
-    'peak_pool_vote',
-    'pet_advance',
-    'peak_season',
-    'field_effect_type',
+    'autocard',
+    'autocard_cardtype',
+    'autocard_element_type',
+    'autocard_field',
+    'autocard_petcard',
+    'autocard_role',
+    'autocard_spellcard',
+    'avatar_frame',
+    'avatar_head',
+    'battle_effect',
+    'battle_effect_type',
     'buff',
     'buff_type',
+    'eid_effect',
+    'element_type',
+    'element_type_combination',
+    'emoji',
+    'energy_bead',
+    'equip',
+    'equip_effective_occasion',
+    'equip_type',
+    'error_code',
+    'field_effect',
+    'field_effect_type',
+    'gem',
+    'gem_category',
+    'gem_gen1',
+    'gem_gen2',
+    'gem_generation_category',
+    'glossary_entry',
+    'homepage_background',
+    'item',
+    'item_category',
+    'mintmark',
+    'mintmark_class',
+    'mintmark_rarity',
+    'mintmark_type',
+    'namecard_background',
+    'nature',
+    'nickname_background',
+    'peak_cost_pool',
+    'peak_expert_pool',
+    'peak_pool',
+    'peak_pool_vote',
+    'peak_season',
+    'pet',
+    'pet_advance',
+    'pet_archive_story_book',
+    'pet_archive_story_entry',
+    'pet_class',
+    'pet_effect',
+    'pet_effect_group',
+    'pet_encyclopedia_entry',
+    'pet_gender',
+    'pet_mount_type',
+    'pet_skin',
+    'pet_skin_category',
+    'pet_skin_series',
+    'pet_skin_series_sub_type',
+    'pet_variation',
+    'pet_vipbuff',
+    'resistance_category',
+    'sign',
+    'skill',
+    'skill_activation_item',
+    'skill_category',
+    'skill_effect_param',
+    'skill_effect_type',
+    'skill_effect_type_tag',
+    'skill_hide_effect',
+    'skill_mintmark',
+    'skill_stone',
+    'skill_stone_category',
+    'soulmark',
+    'soulmark_tag',
+    'suit',
+    'suit_bonus',
+    'title',
+    'universal_mintmark',
 ]
-
 ModelInstance: TypeAlias = BaseResModel
 NamedModelInstance: TypeAlias = (
-    M.Activity
+    M.AbilityMintmark
     | M.Achievement
     | M.AchievementBranch
     | M.AchievementCategory
     | M.AchievementType
+    | M.Activity
     | M.Autocard
     | M.AutocardCardType
     | M.AutocardElementType
-    | M.SpellAutocard
+    | M.AutocardField
     | M.PetAutocard
-    | M.Title
+    | M.AutocardRole
+    | M.SpellAutocard
+    | M.AvatarFrame
+    | M.AvatarHead
     | M.BattleEffect
     | M.BattleEffectCategory
-    | M.Sign
-    | M.FieldEffect
-    | M.ResistanceCategory
-    | M.PetEffect
-    | M.PetEffectGroup
-    | M.VariationEffect
-    | M.EnergyBead
-    | M.Equip
-    | M.Suit
-    | M.EquipType
-    | M.SoulmarkTagCategory
     | M.ElementType
     | M.TypeCombination
-    | M.Item
-    | M.ItemCategory
+    | M.Emoji
+    | M.EnergyBead
+    | M.Equip
+    | M.EquipType
+    | M.ErrorCode
+    | M.FieldEffect
     | M.Gem
     | M.GemCategory
-    | M.SkillActivationItem
-    | M.SkillStone
-    | M.SkillStoneCategory
-    | M.Soulmark
+    | M.GemGen1
+    | M.GemGen2
+    | M.GlossaryEntry
+    | M.HomepageBackground
+    | M.Item
+    | M.ItemCategory
     | M.Mintmark
-    | M.AbilityMintmark
-    | M.SkillMintmark
-    | M.UniversalMintmark
     | M.MintmarkClassCategory
     | M.MintmarkTypeCategory
+    | M.NamecardBackground
+    | M.Nature
+    | M.NicknameBackground
+    | M.PeakCostPool
     | M.Pet
+    | M.PetArchiveStoryBook
+    | M.PetEffect
+    | M.PetEffectGroup
+    | M.PetEncyclopediaEntry
     | M.PetGenderCategory
-    | M.PetVipBuffCategory
     | M.PetMountTypeCategory
     | M.PetSkin
     | M.PetSkinSeries
     | M.PetSkinSeriesSubType
-    | M.PetArchiveStoryBook
-    | M.PetEncyclopediaEntry
-    | M.Nature
+    | M.VariationEffect
+    | M.PetVipBuffCategory
+    | M.ResistanceCategory
+    | M.Sign
     | M.Skill
-    | M.SkillHideEffect
+    | M.SkillActivationItem
     | M.SkillCategory
     | M.SkillEffectTypeTag
-    | M.GlossaryEntry
-    | M.AvatarHead
-    | M.AvatarFrame
-    | M.NamecardBackground
-    | M.NicknameBackground
-    | M.HomepageBackground
-    | M.Emoji
-    | M.ErrorCode
+    | M.SkillHideEffect
+    | M.SkillMintmark
+    | M.SkillStone
+    | M.SkillStoneCategory
+    | M.Soulmark
+    | M.SoulmarkTagCategory
+    | M.Suit
+    | M.Title
+    | M.UniversalMintmark
 )
 ModelType: TypeAlias = type[ModelInstance]
-
 T_ModelInstance = TypeVar('T_ModelInstance', bound=ModelInstance)
 T_NamedModelInstance = TypeVar('T_NamedModelInstance', bound=NamedModelInstance)
-
 ResourceArg: TypeAlias = (
     ModelName | type[T_ModelInstance] | ResourceRef[T_ModelInstance]
 )
