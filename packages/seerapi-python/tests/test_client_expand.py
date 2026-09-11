@@ -185,6 +185,43 @@ def test_list_expand_true_propagates_through_pages(
     asyncio.run(run())
 
 
+def test_list_name_filter_propagates_through_pages(
+    error_code_item: dict[str, object],
+) -> None:
+    requests: list[httpx.Request] = []
+    page_one = {
+        'count': 2,
+        'next': 'https://api.seerapi.com/v1/error_code/?offset=1&limit=1',
+        'previous': None,
+        'first': None,
+        'last': None,
+        'results': [{**error_code_item, 'id': 1}],
+    }
+    page_two = {
+        'count': 2,
+        'next': None,
+        'previous': None,
+        'first': None,
+        'last': None,
+        'results': [{**error_code_item, 'id': 2, 'name': 'second_test'}],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        assert request.url.params.get('name') == 'test'
+        offset = int(request.url.params['offset'])
+        return httpx.Response(200, json=page_one if offset == 0 else page_two)
+
+    async def run() -> None:
+        client = _make_client(httpx.MockTransport(handler))
+        names = [item.name async for item in client.list('error_code', name='test')]
+        await client.aclose()
+        assert names == ['test_error', 'second_test']
+        assert len(requests) == 2
+
+    asyncio.run(run())
+
+
 def test_list_is_async_generator() -> None:
     client = SeerAPI()
     gen = client.list('error_code')

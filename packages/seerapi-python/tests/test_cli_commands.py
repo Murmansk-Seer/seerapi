@@ -239,6 +239,24 @@ def test_list_resource(
     assert payload['next'] == {'offset': 20, 'limit': 20, 'expand': True}
 
 
+def test_list_resource_with_name_filter(
+    runner: CliRunner,
+    list_ref_response: dict[str, object],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith('/error_code/')
+        assert request.url.params['name'] == 'test'
+        return httpx.Response(200, json=list_ref_response)
+
+    result = _invoke(
+        runner,
+        ['list', 'error_code', '--name', 'test'],
+        httpx.MockTransport(handler),
+    )
+    assert result.exit_code == 0
+    assert json.loads(result.output)['results'][0]['name'] == 'test_error'
+
+
 def test_get_by_name(
     runner: CliRunner,
     error_code_item: dict[str, object],
