@@ -11,7 +11,7 @@
 新增、删除模型，修改资源名、名称字段或客户端方法签名后，在仓库根目录运行：
 
 ```sh
-uv run --package seerapi python packages/seerapi-python/scripts/generate_client.py
+uv run --group dev python packages/seerapi-python/scripts/generate_client.py
 ```
 
 脚本会直接更新上面的三份文件。查看改动后，把它们和相关代码一起提交即可。请修改模型或生成脚本，再重新生成，不要直接改这三份文件。
@@ -19,7 +19,7 @@ uv run --package seerapi python packages/seerapi-python/scripts/generate_client.
 只想确认文件有没有更新，可以加上 `--check`：
 
 ```sh
-uv run --package seerapi python packages/seerapi-python/scripts/generate_client.py --check
+uv run --group dev python packages/seerapi-python/scripts/generate_client.py --check
 ```
 
 没有输出表示文件已是最新；如果有文件缺失或需要更新，脚本会列出路径并以状态码 1 退出，不会改写文件。

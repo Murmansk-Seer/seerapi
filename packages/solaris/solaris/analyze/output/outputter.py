@@ -96,13 +96,13 @@ def _create_index_model(name: str, data: dict[str, Any]) -> type[BaseModel]:
 def _generate_api_resource_list(data: DataMap[TResModelRequiredId]) -> ApiResourceList:
     refs: list[NamedResourceRef] = []
     for i in data.values():
+        _type = type(i)
+        is_named = is_named_model(_type)
         refs.append(
             NamedResourceRef.from_res_name(
                 id=i.id,
                 resource_name=i.resource_name(),
-                name=getattr(i, field_name)
-                if (field_name := get_primary_name_field(type(i)))
-                else None,
+                name=getattr(i, get_name_fields(_type)[0]) if is_named else None,
             )
         )
 
@@ -174,11 +174,6 @@ def get_name_fields(model: type) -> list[str]:
     默认值为 `['name']`
     """
     return getattr(model, '__name_fields__', ['name'])
-
-
-def get_primary_name_field(model: type) -> str:
-    """获取模型的主要名称字段名（第一个）"""
-    return get_name_fields(model)[0]
 
 
 def is_named_model(model: type) -> bool:
