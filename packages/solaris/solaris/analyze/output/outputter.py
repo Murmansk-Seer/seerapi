@@ -96,11 +96,13 @@ def _create_index_model(name: str, data: dict[str, Any]) -> type[BaseModel]:
 def _generate_api_resource_list(data: DataMap[TResModelRequiredId]) -> ApiResourceList:
     refs: list[NamedResourceRef] = []
     for i in data.values():
+        _type = type(i)
+        is_named = is_named_model(_type)
         refs.append(
             NamedResourceRef.from_res_name(
                 id=i.id,
                 resource_name=i.resource_name(),
-                name=getattr(i, 'name', None),
+                name=getattr(i, get_name_fields(_type)[0]) if is_named else None,
             )
         )
 
@@ -172,11 +174,6 @@ def get_name_fields(model: type) -> list[str]:
     默认值为 `['name']`
     """
     return getattr(model, '__name_fields__', ['name'])
-
-
-def get_primary_name_field(model: type) -> str:
-    """获取模型的主要名称字段名（第一个）"""
-    return get_name_fields(model)[0]
 
 
 def is_named_model(model: type) -> bool:
@@ -469,6 +466,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
         comment: APIComment,
         *,
         resource_name: str,
+        is_named_resource: bool = False,
         schema: JSONObject,
         expanded_schema: JSONObject | None = None,
     ) -> None:
@@ -517,13 +515,16 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                 expanded_schema_ref = self._list_expanded_ref_str(resource_name)
                 title = f'{comment.name_cn}资源列表'
                 operation_id = f'get_{resource_name}_list'
+                parameters: list[Reference | Parameter] = [
+                    builder.create_ref(Parameter, name='offset'),
+                    builder.create_ref(Parameter, name='limit'),
+                    builder.create_ref(Parameter, name='expand'),
+                ]
+                if is_named_resource:
+                    parameters.append(builder.create_ref(Parameter, name='name_query'))
                 path_item = PathItem(
                     get=Operation(
-                        parameters=[
-                            builder.create_ref(Parameter, name='offset'),
-                            builder.create_ref(Parameter, name='limit'),
-                            builder.create_ref(Parameter, name='expand'),
-                        ],
+                        parameters=parameters,
                         responses=builder.create_paginated_responses(
                             schema_ref, expanded_schema_ref
                         ),
@@ -570,15 +571,17 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                 res_model, schema_generator=self.shrink_generator
             )
             schema = self._merge_hash_partial_schema(schema)
+            is_named_resource = output_named_data and is_named_model(res_model)
             self._add_path_to_openapi(
                 'id',
                 comment,
                 resource_name=resource_name,
                 schema=schema,
+                is_named_resource=is_named_resource,
             )
 
             # 生成名称映射 schema
-            if output_named_data and is_named_model(res_model):
+            if is_named_resource:
                 named_schema = _generate_named_data_oas_schema(
                     build_ref_string(Schema, name=resource_name),
                 )
@@ -588,6 +591,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                     comment,
                     resource_name=resource_name,
                     schema=named_schema,
+                    is_named_resource=is_named_resource,
                 )
 
             # 生成 ApiResourceList schema
@@ -597,6 +601,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                 'paginated',
                 comment,
                 resource_name=resource_name,
+                is_named_resource=is_named_resource,
                 schema=cast(JSONObject, api_resource_list_schema),
                 expanded_schema=cast(JSONObject, expanded_list_schema),
             )

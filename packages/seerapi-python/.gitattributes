@@ -1,0 +1,4 @@
+# 固定生成文件的换行符，避免 Git 转换后导致 generate_client.py --check 报错。
+seerapi/_client.pyi text eol=lf
+seerapi/_model_map.py text eol=lf
+seerapi/_typing.py text eol=lf
