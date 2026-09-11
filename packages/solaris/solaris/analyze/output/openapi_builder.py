@@ -109,6 +109,13 @@ class OpenAPIBuilder:
                 description='资源名称',
                 schema=Schema(type=DataType.STRING),
             ),
+            'name_query': Parameter(
+                name='name_query',
+                required=False,
+                param_in='query',  # type: ignore
+                description='用于筛选资源的名称',
+                schema=Schema(type=DataType.STRING, default=''),
+            ),
             'limit': Parameter(
                 name='limit',
                 required=False,
