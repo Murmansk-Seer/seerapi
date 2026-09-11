@@ -587,7 +587,13 @@ jobs:
             echo "No API data entity revision was found before ${asset_updated_at}."
             exit 0
           fi
-          source_base="$(git -C "${history_dir}" rev-parse "${source_head}^")"
+          source_base="$(
+            git -C "${history_dir}" log --first-parent -1 \
+              --format=%H --grep='^Auto update config ' "${source_head}^"
+          )"
+          if [ -z "${source_base}" ]; then
+            source_base="$(git -C "${history_dir}" rev-parse "${source_head}^")"
+          fi
           python scripts/build_source_history_additions.py \
             --repository "${history_dir}" \
             --base "${source_base}" \
