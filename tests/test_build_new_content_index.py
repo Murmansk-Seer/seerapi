@@ -768,6 +768,39 @@ def test_same_week_accumulates_incremental_rows(tmp_path: Path) -> None:
     ]
 
 
+def test_same_week_added_skill_stays_added_after_field_correction(
+    tmp_path: Path,
+) -> None:
+    prior_raw = tmp_path / 'prior-raw.sqlite'
+    first_path = tmp_path / 'first.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(prior_raw, version='20260724090000', pet_ids=(1,))
+    _create_database(first_path, version='20260731090000', pet_ids=(1,))
+    with sqlite3.connect(first_path) as conn:
+        conn.execute(
+            "INSERT INTO skill VALUES (9001, '本周新增技能', '命中率 95')"
+        )
+    first = indexer.build_release_state(first_path, prior_raw, 'first-sha')
+    indexer.write_release_state(first_path, first, None)
+
+    _create_database(current_path, version='20260731100000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute(
+            "INSERT INTO skill VALUES (9001, '本周新增技能', '命中率 100')"
+        )
+
+    state = indexer.build_release_state(current_path, first_path, 'second-sha')
+
+    skill = next(
+        item
+        for item in state.items
+        if item.category == 'skill' and item.entity_id == 9001
+    )
+    assert skill.change_kind == 'added'
+    assert skill.payload['info'] == '命中率 100'
+    assert 'change_summary' not in skill.payload
+
+
 def test_existing_entity_content_changes_are_marked_modified(tmp_path: Path) -> None:
     previous_path = tmp_path / 'previous.sqlite'
     current_path = tmp_path / 'current.sqlite'

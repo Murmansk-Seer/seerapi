@@ -1221,9 +1221,16 @@ def _current_subset(
     candidates: Iterable[ContentItem], current: tuple[ContentItem, ...]
 ) -> tuple[ContentItem, ...]:
     current_by_id = {(item.category, item.entity_id): item for item in current}
-    candidate_by_key = {
-        (item.category, item.entity_id): item for item in candidates
-    }
+    candidate_by_key: dict[tuple[str, int], ContentItem] = {}
+    for item in candidates:
+        key = (item.category, item.entity_id)
+        existing = candidate_by_key.get(key)
+        # An item first observed during this weekly cycle remains an addition
+        # even when a later publication corrects one of its fields.
+        if existing is None or existing.change_kind != 'added':
+            candidate_by_key[key] = item
+        elif item.change_kind == 'added':
+            candidate_by_key[key] = item
     return tuple(
         sorted(
             (
