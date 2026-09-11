@@ -29,6 +29,11 @@ on:
         description: "Verify every effect icon source before rebuilding the cache"
         required: false
         default: false
+      rebuild_weekly_index:
+        type: boolean
+        description: "Rebuild this week's new-content index from the prior-cycle snapshot"
+        required: false
+        default: false
 
 concurrency:
   group: seerapi-data-build
@@ -428,6 +433,7 @@ jobs:
       - name: Download previous published database
         env:
           GH_TOKEN: ${{ github.token }}
+          REBUILD_WEEKLY_INDEX: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_weekly_index == true }}
         run: |
           set -euo pipefail
           previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
@@ -489,7 +495,10 @@ jobs:
           PY
             )"
             use_history_baseline=false
-            if (( previous_schema < expected_schema )); then
+            if [[ "${REBUILD_WEEKLY_INDEX}" == true ]]; then
+              use_history_baseline=true
+              echo "Manual weekly-index rebuild requested; recovering from a prior-cycle baseline."
+            elif (( previous_schema < expected_schema )); then
               use_history_baseline=true
               echo "Previous release needs a semantic-schema migration baseline."
             elif [[ "${previous_version}" == "${current_version}" && "${previous_cycle}" < "${current_cycle}" ]]; then
