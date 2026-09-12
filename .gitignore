@@ -29,6 +29,7 @@ node_modules/
 Thumbs.db
 
 # Output
+/tmp/
 packages/solaris/output/
 seerapi-data.sqlite
 seerapi-data.sqlite.sha256
