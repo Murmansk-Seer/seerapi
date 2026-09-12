@@ -342,6 +342,7 @@ RENDER_ASSET_MANIFEST_CONFIG = RenderAssetManifestConfig(
     type_matchup_scope=TYPE_MATCHUP_RENDER_ASSET_SCOPE,
     peak_pool_scope=PEAK_POOL_RENDER_ASSET_SCOPE,
     new_content_standard_scope=NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE,
+    skin_body_scope="skin_body",
     special_effect_status_table=SPECIAL_EFFECT_STATUS_TABLE,
     skin_image_resolution_table=SKIN_IMAGE_RESOLUTION_TABLE,
 )
