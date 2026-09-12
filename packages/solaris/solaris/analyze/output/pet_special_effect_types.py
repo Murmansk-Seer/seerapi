@@ -26,6 +26,13 @@ def normalize_special_effect_text(value: str | None) -> str:
 
 
 @dataclass(frozen=True, slots=True)
+class EffectDescriptionCandidate:
+    id: int
+    glossary_id: int | None
+    description: str
+
+
+@dataclass(frozen=True, slots=True)
 class StatusCandidate:
     """One official status definition that may provide an effect icon."""
 
