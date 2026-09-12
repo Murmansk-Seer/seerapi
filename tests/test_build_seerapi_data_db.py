@@ -325,7 +325,9 @@ def test_flash_effect_icon_adapter_accepts_ranged_swf_when_head_is_not_supported
 
 
 def _effect_icon_render_config(**changes):
-    return builder.replace(builder.EFFECT_ICON_BUILD_CONFIG, **changes)
+    # Subprocess render tests stub execution, but still validate tool paths.
+    values = {"java_command": sys.executable, "ffdec_jar": Path(__file__), **changes}
+    return builder.replace(builder.EFFECT_ICON_BUILD_CONFIG, **values)
 
 
 def _create_special_effect_source_tables(database: Path) -> None:
@@ -1394,6 +1396,71 @@ def test_render_effect_icon_assets_uses_complete_cache_without_ffdec(tmp_path) -
     assert renders[1644].data == _test_png()
 
 
+@pytest.mark.parametrize("missing_tool", ["java", "jar"])
+@pytest.mark.parametrize("unity_available", [False, True])
+def test_missing_renderer_keeps_cached_flash_and_falls_back_per_icon(
+    monkeypatch, tmp_path, missing_tool, unity_available
+) -> None:
+    cached_id, missing_id = 1644, 1645
+    png = _test_png()
+    check = effect_icon_build_types.EffectIconAssetCheck(
+        cached_id, "https://example.test/cached.swf", True, 200,
+        "application/x-shockwave-flash", 123, "",
+    )
+    missing_check = replace(check, icon_id=missing_id, url="https://example.test/missing.swf")
+    config = _effect_icon_render_config(
+        cache_dir=tmp_path, prefer_flash=True, png_require_cached=True,
+        ffdec_jar=tmp_path / "missing.jar",
+    )
+    monkeypatch.setattr(
+        effect_icon_png_renderer.shutil, "which",
+        lambda _command: None if missing_tool == "java" else "java",
+    )
+    effect_icon_png_renderer.save_effect_icon_png_cache(
+        cached_id, png, check, config=config, logger=builder.logger,
+    )
+    monkeypatch.setattr(
+        effect_icon_build, "verify_effect_icon_assets",
+        lambda *_args, **_kwargs: {cached_id: check, missing_id: missing_check},
+    )
+    unity_requests = []
+
+    def unity_load(ids, **kwargs):
+        unity_requests.append(ids)
+        assert ids == {missing_id}
+        return effect_icon_build_types.UnityEffectIconPngLoad(
+            package_version="test", total_manifest_icon_count=1, sources={},
+            asset_checks={missing_id: replace(missing_check, content_type="image/png")},
+            png_renders={missing_id: effect_icon_build_types.EffectIconPngRender(
+                missing_id, unity_available, "image/png", len(png) if unity_available else None,
+                png if unity_available else None, "" if unity_available else "missing",
+            )},
+        )
+
+    monkeypatch.setattr(effect_icon_build, "load_unity_effect_icon_png_assets", unity_load)
+
+    def resolve():
+        return effect_icon_build.resolve_effect_icon_png_assets(
+            {cached_id, missing_id}, config=config,
+            fetch_package_manifest=lambda *_: (_ for _ in ()).throw(AssertionError),
+            download_bytes=lambda *_: (_ for _ in ()).throw(AssertionError),
+            request=builder.BUILD_HTTP.request,
+            open_url=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError),
+            logger=builder.logger,
+        )
+
+    if unity_available:
+        result = resolve()
+        assert result.png_renders[cached_id].data == png
+        assert result.asset_checks[cached_id] == check
+        assert result.flash_png_available_count == 1
+        assert result.unity_fallback_icon_count == 1
+    else:
+        with pytest.raises(ValueError, match="Missing resolved effect icon PNGs: 1645"):
+            resolve()
+    assert unity_requests == [{missing_id}]
+
+
 def test_effect_icon_cache_is_invalidated_when_source_size_changes(
     monkeypatch,
     tmp_path,
@@ -2297,8 +2364,8 @@ def test_render_effect_icon_png_uses_original_swf_sprite_export(monkeypatch) -> 
 
     monkeypatch.setattr(effect_icon_png_renderer.subprocess, "run", fake_run)
     config = _effect_icon_render_config(
-        java_command="java",
-        ffdec_jar=Path("ffdec.jar"),
+        java_command=sys.executable,
+        ffdec_jar=Path(__file__),
         render_zoom=6,
     )
 
@@ -2353,7 +2420,7 @@ def test_render_effect_icon_png_falls_back_to_shape_export(monkeypatch) -> None:
     render = effect_icon_png_renderer._render_effect_icon_png(
         1644,
         check,
-        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        config=_effect_icon_render_config(),
         download_effect_icon=lambda _check: b"FWS",
         logger=builder.logger,
     )
@@ -2396,7 +2463,7 @@ def test_render_effect_icon_png_retries_transient_verification_failure(
     render = effect_icon_png_renderer._render_effect_icon_png(
         806,
         check,
-        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        config=_effect_icon_render_config(),
         download_effect_icon=fake_download,
         logger=builder.logger,
     )
@@ -2443,7 +2510,7 @@ def test_render_effect_icon_png_rejects_transparent_ffdec_output(monkeypatch) ->
     render = effect_icon_png_renderer._render_effect_icon_png(
         1644,
         check,
-        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        config=_effect_icon_render_config(),
         download_effect_icon=lambda _check: b"FWS",
         logger=builder.logger,
     )
@@ -2490,7 +2557,7 @@ def test_render_effect_icon_png_preserves_exported_canvas_and_alpha(
     render = effect_icon_png_renderer._render_effect_icon_png(
         613,
         check,
-        config=builder.EFFECT_ICON_BUILD_CONFIG,
+        config=_effect_icon_render_config(),
         download_effect_icon=lambda _check: b"FWS",
         logger=builder.logger,
     )
