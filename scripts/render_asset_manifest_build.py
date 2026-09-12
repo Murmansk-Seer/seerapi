@@ -42,6 +42,7 @@ class RenderAssetManifestConfig:
     type_matchup_scope: str
     peak_pool_scope: str
     new_content_standard_scope: str
+    skin_body_scope: str
     special_effect_status_table: str
     skin_image_resolution_table: str
 
@@ -76,6 +77,8 @@ class RemoteAssetManifestBuild:
     new_content_standard_entries: tuple[RenderAssetManifestEntry, ...]
     pet_info_scope_complete: bool
     new_content_standard_scope_complete: bool
+    skin_body_entries: tuple[RenderAssetManifestEntry, ...]
+    skin_body_scope_complete: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,11 +114,24 @@ def collect_remote_asset_manifest(
         release_revision=release_revision,
         config=config,
     )
+    skin_body_entries, skin_body_scope_complete = _build_skin_body_manifest(
+        conn,
+        snapshot,
+        release_revision=release_revision,
+        config=config,
+    )
+    existing = {(entry.asset_kind, entry.asset_key) for entry in pet_info_entries}
     return RemoteAssetManifestBuild(
         pet_info_entries=pet_info_entries,
         new_content_standard_entries=new_content_standard_entries,
         pet_info_scope_complete=pet_info_scope_complete,
         new_content_standard_scope_complete=new_content_standard_scope_complete,
+        skin_body_entries=tuple(
+            entry
+            for entry in skin_body_entries
+            if (entry.asset_kind, entry.asset_key) not in existing
+        ),
+        skin_body_scope_complete=skin_body_scope_complete,
     )
 
 
@@ -138,6 +154,7 @@ def build_render_asset_manifest(
         ),
         *remote.pet_info_entries,
         *remote.new_content_standard_entries,
+        *remote.skin_body_entries,
     )
     complete_scopes = complete_render_asset_scopes(
         remote,
@@ -352,6 +369,40 @@ def _new_content_standard_requests(
     return tuple(sorted(requests, key=lambda item: (item.asset_kind, item.asset_key)))
 
 
+def _build_skin_body_manifest(
+    conn: sqlite3.Connection,
+    snapshot: AssetRepositorySnapshot | None,
+    *,
+    release_revision: str,
+    config: RenderAssetManifestConfig,
+) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
+    if snapshot is None:
+        return (), False
+    table = config.skin_image_resolution_table
+    ids = _select_positive_ids(conn, table, 'body_resource_id')
+    if not ids:
+        return (), False
+    unresolved = conn.execute(
+        f'SELECT COUNT(*) FROM {table} '
+        'WHERE body_resource_id IS NULL OR body_resource_id <= 0'
+    ).fetchone()[0]
+    entries, complete = _resolve_requests(
+        tuple(
+            _request(
+                'pet_body',
+                str(resource_id),
+                (f'newseer/assets/art/ui/assets/pet/body/{resource_id}.png',),
+                required=True,
+            )
+            for resource_id in ids
+        ),
+        snapshot,
+        release_revision=release_revision,
+        config=config,
+    )
+    return entries, complete and not unresolved
+
+
 def _select_positive_ids(
     conn: sqlite3.Connection,
     table: str,
@@ -470,6 +521,8 @@ def complete_render_asset_scopes(
             scopes.append(scope)
     if remote.pet_info_scope_complete and remote.new_content_standard_scope_complete:
         scopes.append(config.new_content_standard_scope)
+    if remote.skin_body_scope_complete:
+        scopes.append(config.skin_body_scope)
     return tuple(scopes)
 
 

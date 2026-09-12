@@ -1,3 +1,4 @@
+from dataclasses import replace
 import importlib.util
 import io
 import json
@@ -1747,6 +1748,8 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
             new_content_standard_entries=(),
             pet_info_scope_complete=False,
             new_content_standard_scope_complete=False,
+            skin_body_entries=(),
+            skin_body_scope_complete=False,
         ),
         {18: b"png", 19: None},
         None,
@@ -1918,6 +1921,87 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
     assert by_identity[("item", "9")].available is True
     assert by_identity[("sign_buff", "10")].available is False
     assert "#blob:item" in by_identity[("item", "9")].source
+
+
+@pytest.mark.parametrize(
+    'case', ['complete', 'missing', 'unresolved', 'empty', 'absent', 'head_missing']
+)
+def test_skin_body_manifest_is_independent_and_deduplicated(case: str) -> None:
+    with sqlite3.connect(':memory:') as connection:
+        connection.executescript("""
+            CREATE TABLE pet (resource_id INTEGER);
+            CREATE TABLE element_type (id INTEGER);
+            CREATE TABLE mintmark (id INTEGER);
+            CREATE TABLE item (id INTEGER);
+            CREATE TABLE special_effect_status (status_id INTEGER);
+            INSERT INTO pet VALUES (100);
+            INSERT INTO element_type VALUES (1);
+            INSERT INTO mintmark VALUES (8);
+        """)
+        if case != 'absent':
+            connection.execute(
+                'CREATE TABLE skin_image_resolution (body_resource_id INTEGER)'
+            )
+            if case != 'empty':
+                connection.executemany(
+                    'INSERT INTO skin_image_resolution VALUES (?)',
+                    [(100,), (101,), (101,)] + ([(0,)] if case == 'unresolved' else []),
+                )
+        paths = {
+            'pet/head/100': 'head',
+            'pet/body/100': 'base',
+            'pet/body/101': 'skin',
+            'pettype/1': 'type',
+            'pettype/prop': 'prop',
+            'countermark/icon/8': 'mark',
+        }
+        if case == 'missing':
+            del paths['pet/body/101']
+        if case == 'head_missing':
+            del paths['pet/head/100']
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
+            revision='a' * 40,
+            blobs_by_path={
+                f'newseer/assets/art/ui/assets/{path}.png': blob
+                for path, blob in paths.items()
+            },
+        )
+        remote = _collect_remote_asset_manifest(
+            connection, snapshot, release_revision='release'
+        )
+    config = builder.RENDER_ASSET_MANIFEST_CONFIG
+    scopes = render_asset_manifest_build.complete_render_asset_scopes(
+        remote, config=config
+    )
+    assert ('skin_body' in scopes) == (case in {'complete', 'head_missing'})
+    assert 'type_matchup' in scopes
+    assert ('peak_pool' in scopes) == (case != 'head_missing')
+    result = render_asset_manifest_build.build_render_asset_manifest(
+        remote,
+        {},
+        snapshot,
+        release_revision='release',
+        effect_icon_source_version='test',
+        config=config,
+    )
+    identities = [(entry.asset_kind, entry.asset_key) for entry in result.entries]
+    assert len(identities) == len(set(identities))
+    assert identities.count(('pet_body', '100')) == 1
+    if case not in {'absent', 'empty'}:
+        body = next(
+            entry
+            for entry in result.entries
+            if (entry.asset_kind, entry.asset_key) == ('pet_body', '101')
+        )
+        assert body.available == (case != 'missing')
+        if body.available:
+            assert '#blob:skin' in body.source
+            changed = replace(
+                body, source=body.source.replace('#blob:skin', '#blob:new')
+            )
+            assert render_asset_manifest_build.render_asset_manifest_revision(
+                (body,)
+            ) != render_asset_manifest_build.render_asset_manifest_revision((changed,))
 
 
 def test_parse_git_tree_blobs_reads_only_blob_entries() -> None:
