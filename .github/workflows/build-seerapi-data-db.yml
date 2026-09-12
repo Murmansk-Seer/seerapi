@@ -525,6 +525,11 @@ jobs:
           fi
           python scripts/render_flash_mount_images.py "${args[@]}"
 
+      - name: Validate final release contract
+        run: |
+          set -e
+          python scripts/release_contract.py --database seerapi-data.sqlite
+
       - name: Stage versioned historical data snapshot
         id: history_snapshot
         run: |
