@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 from difflib import SequenceMatcher
+from functools import cache
 import re
 import sqlite3
 
@@ -387,6 +388,23 @@ def _select_text_candidates(
     return []
 
 
+def _skill_description_references(
+    skill_name: str,
+    descriptions: dict[str, list[EffectDescriptionCandidate]],
+) -> tuple[tuple[str, EffectDescriptionCandidate], ...]:
+    if not skill_name:
+        return ()
+    pattern = re.compile(
+        rf"(?:[\"“「『《【]{re.escape(skill_name)}[\"”」』》】]|技能[：:\s]*{re.escape(skill_name)}(?=[，。；、\s]|$))"
+    )
+    return tuple(
+        (name, candidate)
+        for name, candidates in descriptions.items()
+        for candidate in candidates
+        if skill_name in candidate.description and pattern.search(candidate.description)
+    )
+
+
 def _add_text_effects(
     connection: sqlite3.Connection,
     facts: SpecialEffectFactAccumulator,
@@ -397,6 +415,14 @@ def _add_text_effects(
     official_names = frozenset(effect_descriptions)
     if not official_names:
         return
+
+    @cache
+    def skill_references(
+        name: str,
+    ) -> tuple[tuple[str, EffectDescriptionCandidate], ...]:
+        # Shared skills recur across pets and text fields; retain only this build's evidence.
+        return _skill_description_references(name, effect_descriptions)
+
     established: dict[tuple[int, str], list[SpecialEffectFact]] = defaultdict(list)
     for fact in facts.facts:
         established[fact.pet_id, fact.name].append(fact)
@@ -449,28 +475,19 @@ def _add_text_effects(
                         skill_name,
                     ),
                 )
-        for name, candidates in effect_descriptions.items():
-            for candidate in candidates:
-                if (
-                    skill_name
-                    and skill_name in candidate.description
-                    and re.search(
-                        rf"(?:[\"“「『《【]{re.escape(skill_name)}[\"”」』》】]|技能[：:\s]*{re.escape(skill_name)}(?=[，。；、\s]|$))",
-                        candidate.description,
-                    )
-                ):
-                    facts.add(
-                        pet_id=pet_id,
-                        name=name,
-                        description=candidate.description,
-                        glossary_id=candidate.glossary_id,
-                        source=EffectSource(
-                            "skill",
-                            skill_id,
-                            "effect_description_skill_name",
-                            skill_name,
-                        ),
-                    )
+        for name, candidate in skill_references(skill_name):
+            facts.add(
+                pet_id=pet_id,
+                name=name,
+                description=candidate.description,
+                glossary_id=candidate.glossary_id,
+                source=EffectSource(
+                    "skill",
+                    skill_id,
+                    "effect_description_skill_name",
+                    skill_name,
+                ),
+            )
     for pet_id, soulmark_id, context in _soulmark_texts(connection):
         for name in sorted(set(name_pattern.findall(context))):
             for candidate in candidates_for(pet_id, name, context):

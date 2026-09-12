@@ -4,6 +4,7 @@ import sqlite3
 
 import pytest
 
+from solaris.analyze.output import pet_special_effect_resolution as resolution
 from solaris.analyze.output.pet_special_effect_facts import (
     replace_pet_special_effect_facts,
 )
@@ -182,6 +183,41 @@ def test_duplicate_text_candidates_require_description_evidence(
         row[0]
         for row in connection.execute("SELECT glossary_id FROM pet_special_effect")
     ] == expected
+
+
+def test_skill_reference_scan_is_shared_only_within_one_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _connection()
+    connection.executemany("INSERT INTO pet VALUES (?, 'test')", [(1,), (2,)])
+    connection.execute(
+        "INSERT INTO glossary_entry VALUES (10, '同名', '技能「吸取」触发')"
+    )
+    connection.execute(
+        "INSERT INTO effect_description VALUES (10, '同名', '技能「吸取」触发')"
+    )
+    connection.execute("INSERT INTO skill VALUES (100, '吸取', '造成伤害', NULL)")
+    connection.executemany("INSERT INTO skillinpetorm VALUES (?, 100)", [(1,), (2,)])
+    original = resolution._skill_description_references
+    calls: list[str] = []
+
+    def scan(name, descriptions):
+        calls.append(name)
+        return original(name, descriptions)
+
+    monkeypatch.setattr(resolution, "_skill_description_references", scan)
+    replace_pet_special_effect_facts(connection, now=1)
+    assert calls == ["吸取"]
+    assert connection.execute(
+        "SELECT pet_id FROM pet_special_effect ORDER BY pet_id"
+    ).fetchall() == [(1,), (2,)]
+
+    connection.execute("UPDATE effect_description SET description='吸取对手300点体力'")
+    replace_pet_special_effect_facts(connection, now=2)
+    assert calls == ["吸取", "吸取"]
+    assert connection.execute("SELECT COUNT(*) FROM pet_special_effect").fetchone() == (
+        0,
+    )
 
 
 def test_builds_linked_effect_facts_with_source_provenance() -> None:
