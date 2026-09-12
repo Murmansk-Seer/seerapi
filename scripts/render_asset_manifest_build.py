@@ -379,13 +379,23 @@ def _build_skin_body_manifest(
     if snapshot is None:
         return (), False
     table = config.skin_image_resolution_table
-    ids = _select_positive_ids(conn, table, 'body_resource_id')
+    try:
+        # Match the consumer: a resolved body overrides the catalogue fallback.
+        rows = conn.execute(
+            'SELECT CASE WHEN r.body_resource_id > 0 THEN r.body_resource_id '
+            'ELSE s.resource_id END FROM pet_skin s '
+            f'LEFT JOIN {table} r ON r.skin_id = s.id '
+            'UNION '
+            f'SELECT r.body_resource_id FROM {table} r '
+            'WHERE NOT EXISTS (SELECT 1 FROM pet_skin s WHERE s.id = r.skin_id)'
+        ).fetchall()
+    except sqlite3.OperationalError:
+        logger.warning('Skin body catalogue or resolution inventory is unavailable')
+        return (), False
+    ids = sorted({int(row[0]) for row in rows if row[0] is not None and row[0] > 0})
     if not ids:
         return (), False
-    unresolved = conn.execute(
-        f'SELECT COUNT(*) FROM {table} '
-        'WHERE body_resource_id IS NULL OR body_resource_id <= 0'
-    ).fetchone()[0]
+    unresolved = any(row[0] is None or row[0] <= 0 for row in rows)
     entries, complete = _resolve_requests(
         tuple(
             _request(

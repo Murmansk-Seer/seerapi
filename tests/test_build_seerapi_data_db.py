@@ -1934,18 +1934,20 @@ def test_skin_body_manifest_is_independent_and_deduplicated(case: str) -> None:
             CREATE TABLE mintmark (id INTEGER);
             CREATE TABLE item (id INTEGER);
             CREATE TABLE special_effect_status (status_id INTEGER);
+            CREATE TABLE pet_skin (id INTEGER, resource_id INTEGER);
             INSERT INTO pet VALUES (100);
             INSERT INTO element_type VALUES (1);
             INSERT INTO mintmark VALUES (8);
         """)
         if case != 'absent':
             connection.execute(
-                'CREATE TABLE skin_image_resolution (body_resource_id INTEGER)'
+                'CREATE TABLE skin_image_resolution (skin_id INTEGER, body_resource_id INTEGER)'
             )
             if case != 'empty':
                 connection.executemany(
-                    'INSERT INTO skin_image_resolution VALUES (?)',
-                    [(100,), (101,), (101,)] + ([(0,)] if case == 'unresolved' else []),
+                    'INSERT INTO skin_image_resolution VALUES (?, ?)',
+                    [(1, 100), (2, 101), (3, 101)]
+                    + ([(4, 0)] if case == 'unresolved' else []),
                 )
         paths = {
             'pet/head/100': 'head',
@@ -2002,6 +2004,54 @@ def test_skin_body_manifest_is_independent_and_deduplicated(case: str) -> None:
             assert render_asset_manifest_build.render_asset_manifest_revision(
                 (body,)
             ) != render_asset_manifest_build.render_asset_manifest_revision((changed,))
+
+
+@pytest.mark.parametrize('missing', [False, True])
+def test_skin_body_manifest_covers_catalogue_fallbacks(missing: bool) -> None:
+    with sqlite3.connect(':memory:') as connection:
+        connection.executescript('''
+            CREATE TABLE pet_skin (id INTEGER PRIMARY KEY, resource_id INTEGER);
+            CREATE TABLE skin_image_resolution (skin_id INTEGER, body_resource_id INTEGER);
+            INSERT INTO pet_skin VALUES (1, 100), (2, 200), (3, 300), (4, 300);
+            INSERT INTO skin_image_resolution VALUES (1, 101), (3, 0), (5, 400);
+        ''')
+        bodies = (101, 300, 400) if missing else (101, 200, 300, 400)
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
+            revision='b' * 40,
+            blobs_by_path={
+                f'newseer/assets/art/ui/assets/pet/body/{body}.png': str(body)
+                for body in bodies
+            },
+        )
+        entries, complete = render_asset_manifest_build._build_skin_body_manifest(
+            connection,
+            snapshot,
+            release_revision='release',
+            config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+        )
+    assert [entry.asset_key for entry in entries] == ['101', '200', '300', '400']
+    assert complete is not missing
+    assert [entry.asset_key for entry in entries if not entry.available] == (
+        ['200'] if missing else []
+    )
+
+
+def test_skin_body_manifest_requires_catalogue_schema() -> None:
+    with sqlite3.connect(':memory:') as connection:
+        connection.executescript('''
+            CREATE TABLE skin_image_resolution (skin_id INTEGER, body_resource_id INTEGER);
+            INSERT INTO skin_image_resolution VALUES (1, 100);
+        ''')
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
+            revision='b' * 40,
+            blobs_by_path={'newseer/assets/art/ui/assets/pet/body/100.png': 'body'},
+        )
+        assert render_asset_manifest_build._build_skin_body_manifest(
+            connection,
+            snapshot,
+            release_revision='release',
+            config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+        ) == ((), False)
 
 
 def test_parse_git_tree_blobs_reads_only_blob_entries() -> None:
