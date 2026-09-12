@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
+
 from solaris.analyze.output.pet_special_effect_facts import (
     replace_pet_special_effect_facts,
 )
@@ -84,6 +86,102 @@ def _connection() -> sqlite3.Connection:
         """
     )
     return connection
+
+
+@pytest.mark.parametrize("linked", [False, True])
+def test_duplicate_effect_names_use_direct_glossary_or_record_ambiguity(
+    linked: bool,
+) -> None:
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (4525, '二郎神')")
+    candidates = [
+        (223, "法天象地", "孙悟空必定致命一击"),
+        (224, "法天象地", "二郎神吸取300体力"),
+    ]
+    connection.executemany("INSERT INTO glossary_entry VALUES (?, ?, ?)", candidates)
+    connection.executemany(
+        "INSERT INTO effect_description VALUES (?, ?, ?)", candidates
+    )
+    if linked:
+        connection.execute("INSERT INTO petglossaryentrylink VALUES (4525, 224)")
+    for soulmark_id, description in [
+        (1739, "触发法天象地"),
+        (1939, "升级后触发法天象地"),
+    ]:
+        connection.execute(
+            "INSERT INTO soulmark VALUES (?, ?, '', '', 0, 0, NULL)",
+            (soulmark_id, description),
+        )
+        connection.execute(
+            "INSERT INTO petsoulmarklink VALUES (4525, ?)", (soulmark_id,)
+        )
+    replace_pet_special_effect_facts(connection, now=1)
+    rows = connection.execute(
+        "SELECT glossary_id FROM pet_special_effect WHERE pet_id=4525"
+    ).fetchall()
+    assert rows == ([(224,)] if linked else [])
+    issues = connection.execute(
+        "SELECT candidate_id, context FROM pet_special_effect_issue WHERE reason='ambiguous_text_effect_name' ORDER BY candidate_id"
+    ).fetchall()
+    if linked:
+        assert not issues
+        sources = connection.execute(
+            "SELECT source_id FROM pet_special_effect_source WHERE source_kind='soulmark' ORDER BY source_id"
+        ).fetchall()
+        assert sources == [(1739,), (1939,)]
+    else:
+        assert [row[0] for row in issues] == [223, 224]
+        assert all(
+            "触发法天象地" in row[1] and "升级后触发法天象地" in row[1]
+            for row in issues
+        )
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_skill_reference_considers_later_duplicate_description(explicit: bool) -> None:
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (1, 'test')")
+    description = "使用技能「吸取」后触发效果" if explicit else "吸取对手300点体力"
+    candidates = [(10, "同名", "其他技能"), (11, "同名", description)]
+    connection.executemany("INSERT INTO glossary_entry VALUES (?, ?, ?)", candidates)
+    connection.executemany(
+        "INSERT INTO effect_description VALUES (?, ?, ?)", candidates
+    )
+    connection.execute("INSERT INTO skill VALUES (100, '吸取', '造成伤害', NULL)")
+    connection.execute("INSERT INTO skillinpetorm VALUES (1, 100)")
+    replace_pet_special_effect_facts(connection, now=1)
+    assert connection.execute(
+        "SELECT glossary_id FROM pet_special_effect"
+    ).fetchall() == ([(11,)] if explicit else [])
+
+
+@pytest.mark.parametrize(
+    ("descriptions", "context", "expected"),
+    [
+        (("必定致命一击", "吸取300点体力"), "同名：吸取300点体力", [11]),
+        (("相同描述", "相同描述"), "触发同名", [10]),
+        (("...", "吸取300点体力"), "触发同名", []),
+    ],
+)
+def test_duplicate_text_candidates_require_description_evidence(
+    descriptions: tuple[str, str], context: str, expected: list[int]
+) -> None:
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (1, 'test')")
+    candidates = [(10 + i, "同名", text) for i, text in enumerate(descriptions)]
+    connection.executemany("INSERT INTO glossary_entry VALUES (?, ?, ?)", candidates)
+    connection.executemany(
+        "INSERT INTO effect_description VALUES (?, ?, ?)", candidates
+    )
+    connection.execute(
+        "INSERT INTO soulmark VALUES (1, ?, '', '', 0, 0, NULL)", (context,)
+    )
+    connection.execute("INSERT INTO petsoulmarklink VALUES (1, 1)")
+    replace_pet_special_effect_facts(connection, now=1)
+    assert [
+        row[0]
+        for row in connection.execute("SELECT glossary_id FROM pet_special_effect")
+    ] == expected
 
 
 def test_builds_linked_effect_facts_with_source_provenance() -> None:

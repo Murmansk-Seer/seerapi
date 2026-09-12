@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 import sqlite3
 
@@ -144,20 +145,22 @@ def _replace_special_effect_tables(
         """,
         source_rows,
     )
-    issue_rows = sorted(
-        {
-            (
-                issue.pet_id,
-                issue.effect_name,
-                issue.candidate_kind,
-                issue.candidate_id,
-                issue.reason,
-                issue.context,
-                now,
-            )
-            for issue in issues
-        }
-    )
+    contexts: dict[tuple[int, str, str, int, str], set[str]] = defaultdict(set)
+    for issue in issues:
+        key = (
+            issue.pet_id,
+            issue.effect_name,
+            issue.candidate_kind,
+            issue.candidate_id,
+            issue.reason,
+        )
+        values = contexts[key]
+        if issue.context:
+            values.add(issue.context)
+    issue_rows = [
+        (*key, "\n\n".join(sorted(values)) or None, now)
+        for key, values in sorted(contexts.items())
+    ]
     connection.executemany(
         """
         INSERT INTO pet_special_effect_issue

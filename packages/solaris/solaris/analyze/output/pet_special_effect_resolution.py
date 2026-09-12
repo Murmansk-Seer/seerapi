@@ -9,8 +9,10 @@ import re
 import sqlite3
 
 from .pet_special_effect_types import (
+    EffectDescriptionCandidate,
     EffectResolutionIssue,
     EffectSource,
+    SpecialEffectFact,
     SpecialEffectFactAccumulator,
     StatusCandidate,
     normalize_special_effect_text,
@@ -129,8 +131,8 @@ def _load_statuses(
 def _effect_descriptions(
     connection: sqlite3.Connection,
     glossaries: dict[int, tuple[str, str]],
-) -> dict[str, tuple[int | None, str]]:
-    descriptions: dict[str, tuple[int | None, str]] = {}
+) -> dict[str, list[EffectDescriptionCandidate]]:
+    descriptions: dict[str, list[EffectDescriptionCandidate]] = defaultdict(list)
     for effect_id, name, description in connection.execute(
         "SELECT effect_id, name, description FROM effect_description ORDER BY effect_id"
     ):
@@ -144,8 +146,10 @@ def _effect_descriptions(
             if glossary is not None and glossary[0] == clean_name
             else None
         )
-        descriptions.setdefault(clean_name, (glossary_id, clean_description))
-    return descriptions
+        descriptions[clean_name].append(
+            EffectDescriptionCandidate(int(effect_id), glossary_id, clean_description)
+        )
+    return dict(descriptions)
 
 
 def _append_issue(
@@ -223,8 +227,7 @@ def _choose_status(
     if len(candidates) == 1:
         return candidates[0], "unique_status_name"
     normalized = {
-        normalize_special_effect_text(candidate.description)
-        for candidate in candidates
+        normalize_special_effect_text(candidate.description) for candidate in candidates
     }
     if len(normalized) == 1 and "" not in normalized:
         return min(candidates, key=lambda candidate: candidate.id), (
@@ -346,16 +349,77 @@ def _soulmark_texts(
             yield int(pet_id), int(soulmark_id), context
 
 
+def _select_text_candidates(
+    candidates: list[EffectDescriptionCandidate],
+    established: list[SpecialEffectFact],
+    context: str,
+) -> list[EffectDescriptionCandidate]:
+    if established:
+        return [
+            candidate
+            for candidate in candidates
+            if any(
+                (
+                    candidate.glossary_id is not None
+                    and candidate.glossary_id == fact.glossary_id
+                )
+                or normalize_special_effect_text(candidate.description)
+                == normalize_special_effect_text(fact.description)
+                for fact in established
+            )
+        ]
+    if len(candidates) == 1:
+        return candidates
+    normalized_context = normalize_special_effect_text(context)
+    exact = [
+        candidate
+        for candidate in candidates
+        if normalize_special_effect_text(candidate.description)
+        and normalize_special_effect_text(candidate.description) in normalized_context
+    ]
+    if len(exact) == 1:
+        return exact
+    descriptions = {
+        normalize_special_effect_text(candidate.description) for candidate in candidates
+    }
+    if len(descriptions) == 1 and "" not in descriptions:
+        return [min(candidates, key=lambda candidate: candidate.id)]
+    return []
+
+
 def _add_text_effects(
     connection: sqlite3.Connection,
     facts: SpecialEffectFactAccumulator,
     statuses_by_name: dict[str, list[StatusCandidate]],
-    effect_descriptions: dict[str, tuple[int | None, str]],
+    effect_descriptions: dict[str, list[EffectDescriptionCandidate]],
     issues: list[EffectResolutionIssue],
 ) -> None:
     official_names = frozenset(effect_descriptions)
     if not official_names:
         return
+    established: dict[tuple[int, str], list[SpecialEffectFact]] = defaultdict(list)
+    for fact in facts.facts:
+        established[fact.pet_id, fact.name].append(fact)
+
+    def candidates_for(
+        pet_id: int, name: str, context: str
+    ) -> list[EffectDescriptionCandidate]:
+        candidates = effect_descriptions[name]
+        selected = _select_text_candidates(
+            candidates, established.get((pet_id, name), []), context
+        )
+        if not selected:
+            _append_issue(
+                issues,
+                pet_id=pet_id,
+                effect_name=name,
+                candidate_kind="effect_description",
+                candidates=(candidate.id for candidate in candidates),
+                reason="ambiguous_text_effect_name",
+                context=context,
+            )
+        return selected
+
     name_pattern = re.compile(
         "|".join(
             re.escape(name) for name in sorted(official_names, key=len, reverse=True)
@@ -370,49 +434,53 @@ def _add_text_effects(
         }
         matched.update(highlighted_names)
         for name in sorted(matched):
-            glossary_id, description = effect_descriptions[name]
-            facts.add(
-                pet_id=pet_id,
-                name=name,
-                description=description,
-                glossary_id=glossary_id,
-                source=EffectSource(
-                    "skill",
-                    skill_id,
-                    "skill_highlight_exact"
-                    if name in highlighted_names
-                    else "text_exact_name",
-                    skill_name,
-                ),
-            )
-        for name, (glossary_id, description) in effect_descriptions.items():
-            if skill_name and skill_name in description:
+            for candidate in candidates_for(pet_id, name, text):
                 facts.add(
                     pet_id=pet_id,
                     name=name,
-                    description=description,
-                    glossary_id=glossary_id,
+                    description=candidate.description,
+                    glossary_id=candidate.glossary_id,
                     source=EffectSource(
                         "skill",
                         skill_id,
-                        "effect_description_skill_name",
+                        "skill_highlight_exact"
+                        if name in highlighted_names
+                        else "text_exact_name",
                         skill_name,
                     ),
                 )
+        for name, candidates in effect_descriptions.items():
+            for candidate in candidates:
+                if (
+                    skill_name
+                    and skill_name in candidate.description
+                    and re.search(
+                        rf"(?:[\"“「『《【]{re.escape(skill_name)}[\"”」』》】]|技能[：:\s]*{re.escape(skill_name)}(?=[，。；、\s]|$))",
+                        candidate.description,
+                    )
+                ):
+                    facts.add(
+                        pet_id=pet_id,
+                        name=name,
+                        description=candidate.description,
+                        glossary_id=candidate.glossary_id,
+                        source=EffectSource(
+                            "skill",
+                            skill_id,
+                            "effect_description_skill_name",
+                            skill_name,
+                        ),
+                    )
     for pet_id, soulmark_id, context in _soulmark_texts(connection):
         for name in sorted(set(name_pattern.findall(context))):
-            glossary_id, description = effect_descriptions[name]
-            facts.add(
-                pet_id=pet_id,
-                name=name,
-                description=description,
-                glossary_id=glossary_id,
-                source=EffectSource(
-                    "soulmark",
-                    soulmark_id,
-                    "text_exact_name",
-                ),
-            )
+            for candidate in candidates_for(pet_id, name, context):
+                facts.add(
+                    pet_id=pet_id,
+                    name=name,
+                    description=candidate.description,
+                    glossary_id=candidate.glossary_id,
+                    source=EffectSource("soulmark", soulmark_id, "text_exact_name"),
+                )
         for name in _highlighted_terms(context, STATUS_HIGHLIGHT_COLORS):
             candidates = statuses_by_name.get(name, [])
             status, rule = (
