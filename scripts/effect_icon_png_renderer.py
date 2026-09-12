@@ -324,6 +324,10 @@ def _render_effect_icon_png(
             error=check.error or "SWF asset unavailable",
         )
     try:
+        if shutil.which(config.java_command) is None:
+            raise FileNotFoundError(f"Java command not found: {config.java_command}")
+        if not config.ffdec_jar.is_file():
+            raise FileNotFoundError(f"FFDec jar not found: {config.ffdec_jar}")
         swf_data = download_effect_icon(check)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -394,25 +398,6 @@ def render_effect_icon_png_assets(
 
     if not checks:
         return {}
-    renderable_checks = [
-        check for check in checks.values() if check.available or check.status == 0
-    ]
-    uncached_renderable_checks = [
-        check
-        for check in renderable_checks
-        if load_effect_icon_png_cache(
-            check.icon_id,
-            check,
-            config=config,
-            logger=logger,
-        )
-        is None
-    ]
-    if config.png_render_enabled and uncached_renderable_checks:
-        if shutil.which(config.java_command) is None:
-            raise FileNotFoundError(f"Java command not found: {config.java_command}")
-        if not config.ffdec_jar.is_file():
-            raise FileNotFoundError(f"FFDec jar not found: {config.ffdec_jar}")
     logger.info("Rendering official effect icon PNGs: %s unique icons", len(checks))
     renders: dict[int, EffectIconPngRender] = {}
     worker_count = min(config.render_workers, len(checks))

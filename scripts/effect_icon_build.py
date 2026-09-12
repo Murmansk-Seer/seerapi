@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from dataclasses import replace
 from functools import partial
 import logging
 from urllib.error import HTTPError, URLError
@@ -17,12 +17,16 @@ if __package__:
         UnityEffectIconPngLoad,
     )
     from .effect_icon_flash_sources import (
+        BuildRequest,
+        OpenUrl,
         download_effect_icon_asset,
         verify_effect_icon_assets,
     )
     from .effect_icon_png_renderer import render_effect_icon_png_assets
     from .effect_icon_source_paths import effect_icon_asset_url
     from .effect_icon_unity_sources import (
+        DownloadBytes,
+        FetchPackageManifest,
         load_unity_effect_icon_png_assets,
         missing_unity_effect_icon_png_load,
     )
@@ -35,6 +39,8 @@ else:
         UnityEffectIconPngLoad,
     )
     from effect_icon_flash_sources import (  # type: ignore[import-not-found]
+        BuildRequest,
+        OpenUrl,
         download_effect_icon_asset,
         verify_effect_icon_assets,
     )
@@ -45,15 +51,11 @@ else:
         effect_icon_asset_url,
     )
     from effect_icon_unity_sources import (  # type: ignore[import-not-found]
+        DownloadBytes,
+        FetchPackageManifest,
         load_unity_effect_icon_png_assets,
         missing_unity_effect_icon_png_load,
     )
-
-
-BuildRequest = Callable[..., object]
-OpenUrl = Callable[..., object]
-FetchPackageManifest = Callable[..., object]
-DownloadBytes = Callable[[str], bytes]
 
 
 def _short_error(error: Exception | str) -> str:
@@ -185,11 +187,15 @@ def resolve_effect_icon_png_assets(
     if not icon_ids:
         return _empty_resolution(prefer_flash=config.prefer_flash)
 
+    # Per-source misses are resolved by fallback; enforce completeness only on
+    # the combined result, without discarding successful cached PNGs.
+    source_config = replace(config, png_require_cached=False)
+
     if config.prefer_flash:
         try:
             flash_checks, flash_renders = load_flash_effect_icon_png_assets(
                 icon_ids,
-                config=config,
+                config=source_config,
                 request=request,
                 open_url=open_url,
                 logger=logger,
@@ -232,7 +238,7 @@ def resolve_effect_icon_png_assets(
             for icon_id in flash_missing_ids
             if unity_load.png_renders[icon_id].available
         }
-        return EffectIconPngResolution(
+        resolution = EffectIconPngResolution(
             asset_checks=asset_checks,
             png_renders=png_renders,
             preferred_source="flash",
@@ -247,6 +253,7 @@ def resolve_effect_icon_png_assets(
             unity_fallback_icon_count=len(unity_available_ids),
             swf_fallback_icon_count=0,
         )
+        return _validate_resolution(resolution, config=config)
 
     unity_load = _load_unity_or_missing(
         icon_ids,
@@ -262,21 +269,19 @@ def resolve_effect_icon_png_assets(
     if unity_missing_ids:
         flash_checks, flash_renders = load_flash_effect_icon_png_assets(
             unity_missing_ids,
-            config=config,
+            config=source_config,
             request=request,
             open_url=open_url,
             logger=logger,
-            require_any=not any(
-                render.available for render in unity_load.png_renders.values()
-            ),
+            require_any=False,
         )
     else:
         flash_checks, flash_renders = {}, {}
     flash_missing_ids = {
         icon_id for icon_id in unity_missing_ids if not flash_renders[icon_id].available
     }
-    asset_checks: dict[int, EffectIconAssetCheck] = {}
-    png_renders: dict[int, EffectIconPngRender] = {}
+    asset_checks = {}
+    png_renders = {}
     for icon_id in icon_ids:
         unity_render = unity_load.png_renders[icon_id]
         flash_render = flash_renders.get(icon_id)
@@ -286,7 +291,7 @@ def resolve_effect_icon_png_assets(
         else:
             asset_checks[icon_id] = flash_checks[icon_id]
             png_renders[icon_id] = flash_render
-    return EffectIconPngResolution(
+    resolution = EffectIconPngResolution(
         asset_checks=asset_checks,
         png_renders=png_renders,
         preferred_source="unity",
@@ -301,3 +306,22 @@ def resolve_effect_icon_png_assets(
         unity_fallback_icon_count=0,
         swf_fallback_icon_count=len(unity_missing_ids),
     )
+    return _validate_resolution(resolution, config=config)
+
+
+def _validate_resolution(
+    resolution: EffectIconPngResolution, *, config: EffectIconBuildConfig
+) -> EffectIconPngResolution:
+    if config.png_require_cached:
+        missing = sorted(
+            icon_id for icon_id, check in resolution.asset_checks.items()
+            if (check.available or check.status == 0)
+            and not resolution.png_renders[icon_id].available
+        )
+        if missing:
+            preview = ", ".join(map(str, missing[:10]))
+            raise ValueError(
+                "Missing resolved effect icon PNGs: " + preview
+                + (" ..." if len(missing) > 10 else "")
+            )
+    return resolution
