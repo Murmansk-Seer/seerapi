@@ -1,4 +1,4 @@
-﻿"""Read the current SeerAPI SQLite snapshot into normalized content items."""
+"""Read the current SeerAPI SQLite snapshot into normalized content items."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from typing import Any
 from new_content_index_models import (
     AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
     AUTOCARD_SANCTUARY_EFFECT_TABLE,
+    PEAK_POOL_FIELDS,
     ContentItem,
 )
 
@@ -233,10 +234,12 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         'peak_expert_pool_id',
         'peak_pool_vote_id',
     )
+    available_pet_columns = _table_columns(conn, 'pet')
     pet_columns = tuple(
-        column for column in pet_columns if column in _table_columns(conn, 'pet')
+        column for column in pet_columns if column in available_pet_columns
     )
     pet_select = ', '.join(('id', 'name', *pet_columns))
+    has_peak_pool_table = _has_table(conn, 'peak_pool')
     for row in _rows(conn, f'SELECT {pet_select} FROM pet'):
         entity_id = int(row['id'])
         items.append(
@@ -253,6 +256,20 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 },
             )
         )
+        if has_peak_pool_table:
+            for category, field in PEAK_POOL_FIELDS.items():
+                if field not in available_pet_columns:
+                    continue
+                raw_limit = row[field]
+                items.append(
+                    ContentItem(
+                        category,
+                        entity_id,
+                        str(row['name']),
+                        entity_id,
+                        {'limit': None if raw_limit is None else int(raw_limit)},
+                    )
+                )
 
     if _has_table(conn, 'skill'):
         skill_fields = tuple(
@@ -390,9 +407,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         category = 'mount' if part_type == 6 else 'equip'
         entity_id = int(row['id'])
         payload = {
-            field: int(row[field] or 0)
-            for field in equip_fields
-            if field != 'bonus_id'
+            field: int(row[field] or 0) for field in equip_fields if field != 'bonus_id'
         }
         if 'bonus_id' in row.keys() and row['bonus_id'] is not None:
             payload['bonus'] = equip_bonus_payloads.get(int(row['bonus_id']), {})
@@ -426,12 +441,12 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
     if _has_table(conn, 'autocard_role'):
         for row in _rows(
             conn,
-            '''
+            """
             SELECT role.id, role.name, raw.raw_json
             FROM autocard_role AS role
             JOIN autocard_role_raw AS raw ON raw.role_id = role.id
             ORDER BY role.id
-            ''',
+            """,
         ):
             entity_id = int(row['id'])
             try:
@@ -451,7 +466,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
     if _has_table(conn, AUTOCARD_SANCTUARY_EFFECT_TABLE):
         for row in _rows(
             conn,
-            f'''
+            f"""
             SELECT
                 effect.id,
                 effect.sanctuary_id,
@@ -477,7 +492,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
             LEFT JOIN pet
                 ON pet.id = base.pic_id
             ORDER BY effect.sanctuary_id, effect.unlock_round, effect.stage, effect.id
-            ''',
+            """,
         ):
             entity_id = int(row['id'])
             items.append(
@@ -506,5 +521,3 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
             )
 
     return tuple(sorted(items, key=lambda item: (item.category, item.entity_id)))
-
-

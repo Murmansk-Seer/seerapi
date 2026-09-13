@@ -7,55 +7,66 @@ import hashlib
 import json
 from typing import Any
 
-AUTOCARD_SANCTUARY_EFFECT_CATEGORY = "autocard_sanctuary_effect"
-AUTOCARD_SANCTUARY_EFFECT_TABLE = "autocard_season_effect"
+AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
+AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
+PEAK_POOL_CATEGORY = 'peak_pool'
+PEAK_EXPERT_POOL_CATEGORY = 'peak_expert_pool'
+PEAK_POOL_FIELDS: dict[str, str] = {
+    PEAK_POOL_CATEGORY: 'peak_pool_id',
+    PEAK_EXPERT_POOL_CATEGORY: 'peak_expert_pool_id',
+}
+PEAK_POOL_CATEGORIES = frozenset(PEAK_POOL_FIELDS)
 PET_VOLATILE_STATS = frozenset(
     {
-        "peak_pool_id",
-        "peak_expert_pool_id",
-        "peak_pool_vote_id",
+        'peak_pool_id',
+        'peak_expert_pool_id',
+        'peak_pool_vote_id',
     }
 )
 PET_SKILL_RELATION_FIELDS = (
-    "id",
-    "learning_level",
-    "is_special",
-    "is_advanced",
-    "is_fifth",
+    'id',
+    'learning_level',
+    'is_special',
+    'is_advanced',
+    'is_fifth',
 )
-SEMANTIC_SCHEMA_VERSION = 3
+SEMANTIC_SCHEMA_VERSION = 4
 SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
-    2: frozenset({"pet", "skill", "equip", "mount"}),
-    3: frozenset({"mintmark"}),
+    2: frozenset({'pet', 'skill', 'equip', 'mount'}),
+    3: frozenset({'mintmark'}),
 }
 SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
-    2: frozenset({"pet", "equip", "mount"}),
-    3: frozenset({"mintmark"}),
+    2: frozenset({'pet', 'equip', 'mount'}),
+    3: frozenset({'mintmark'}),
 }
 CONTENT_CATEGORIES = (
-    "achievement",
-    "pet",
-    "pet_skin",
-    "skill",
-    "mintmark",
-    "suit",
-    "equip",
-    "mount",
-    "autocard_card",
-    "autocard_role",
+    'achievement',
+    'pet',
+    PEAK_POOL_CATEGORY,
+    PEAK_EXPERT_POOL_CATEGORY,
+    'pet_skin',
+    'skill',
+    'mintmark',
+    'suit',
+    'equip',
+    'mount',
+    'autocard_card',
+    'autocard_role',
     AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
 )
 CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
-    "achievement": ("achievement",),
-    "pet": ("pet",),
-    "pet_skin": ("pet_skin",),
-    "skill": ("skill",),
-    "mintmark": ("mintmark",),
-    "suit": ("suit",),
-    "equip": ("equip",),
-    "mount": ("equip",),
-    "autocard_card": ("autocard_card",),
-    "autocard_role": ("autocard_role",),
+    'achievement': ('achievement',),
+    'pet': ('pet',),
+    PEAK_POOL_CATEGORY: ('pet', 'peak_pool'),
+    PEAK_EXPERT_POOL_CATEGORY: ('pet', 'peak_pool'),
+    'pet_skin': ('pet_skin',),
+    'skill': ('skill',),
+    'mintmark': ('mintmark',),
+    'suit': ('suit',),
+    'equip': ('equip',),
+    'mount': ('equip',),
+    'autocard_card': ('autocard_card',),
+    'autocard_role': ('autocard_role',),
     AUTOCARD_SANCTUARY_EFFECT_CATEGORY: (AUTOCARD_SANCTUARY_EFFECT_TABLE,),
 }
 
@@ -67,7 +78,7 @@ class ContentItem:
     name: str
     sort_value: int
     payload: dict[str, Any]
-    change_kind: str = "added"
+    change_kind: str = 'added'
 
     @property
     def payload_json(self) -> str:
@@ -77,17 +88,19 @@ class ContentItem:
     def semantic_key(self) -> str:
         """Return a stable fallback for an upstream item whose numeric ID changed."""
         payload = dict(self.payload)
-        if self.category == "pet_skin":
-            payload = {key: value for key, value in payload.items() if key != "pet_name"}
-        elif self.category == "pet":
-            if isinstance(stats := payload.get("stats"), dict):
-                payload["stats"] = {
+        if self.category == 'pet_skin':
+            payload = {
+                key: value for key, value in payload.items() if key != 'pet_name'
+            }
+        elif self.category == 'pet':
+            if isinstance(stats := payload.get('stats'), dict):
+                payload['stats'] = {
                     key: value
                     for key, value in stats.items()
                     if key not in PET_VOLATILE_STATS
                 }
-            if isinstance(skills := payload.get("skills"), list):
-                payload["skills"] = [
+            if isinstance(skills := payload.get('skills'), list):
+                payload['skills'] = [
                     {
                         field: skill[field]
                         for field in PET_SKILL_RELATION_FIELDS
@@ -96,19 +109,19 @@ class ContentItem:
                     for skill in skills
                     if isinstance(skill, dict)
                 ]
-        elif self.category == "skill":
-            payload.pop("pets", None)
-        elif self.category == "mintmark":
-            payload.pop("rarity_id", None)
+        elif self.category == 'skill':
+            payload.pop('pets', None)
+        elif self.category == 'mintmark':
+            payload.pop('rarity_id', None)
         return json.dumps(
-            {"category": self.category, "name": self.name, "payload": payload},
+            {'category': self.category, 'name': self.name, 'payload': payload},
             ensure_ascii=False,
             sort_keys=True,
         )
 
     @property
     def semantic_digest(self) -> str:
-        return hashlib.sha256(self.semantic_key.encode("utf-8")).hexdigest()
+        return hashlib.sha256(self.semantic_key.encode('utf-8')).hexdigest()
 
     def with_change_kind(self, change_kind: str) -> ContentItem:
         return replace(self, change_kind=change_kind)
