@@ -571,6 +571,36 @@ def _parse_cli_args() -> argparse.Namespace:
     return arguments
 
 
+def _release_effect_icon_ids() -> set[int]:
+    return {
+        item.icon_id
+        for item in _release_source_loader().fetch_config_package_data().soulmark_icons
+    }
+
+
+def _swf_fallback_effect_icon_ids(icon_ids: set[int]) -> tuple[int, ...]:
+    return unity_effect_icon_swf_fallback_icon_ids(
+        icon_ids,
+        config=_effect_icon_source_config(),
+        fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
+            base_url,
+            package_name,
+            parse_manifest=parse_package_manifest,
+        ),
+        logger=logger,
+    )
+
+
+def _export_effect_icon_cache(icon_ids: list[int] | tuple[int, ...], output_dir: Path) -> int:
+    return export_effect_icon_png_cache_shard(
+        icon_ids,
+        output_dir,
+        cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
+        config=EFFECT_ICON_BUILD_CONFIG,
+        logger=logger,
+    )
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     arguments = _parse_cli_args()
@@ -597,22 +627,8 @@ def main() -> None:
             shard_index=arguments.plan_effect_icon_shard,
             shard_count=arguments.effect_icon_shard_count,
             output_dir=arguments.export_effect_icon_cache_shard,
-            fetch_icon_ids=lambda: {
-                item.icon_id
-                for item in _release_source_loader()
-                .fetch_config_package_data()
-                .soulmark_icons
-            },
-            find_fallback_icon_ids=lambda icon_ids: unity_effect_icon_swf_fallback_icon_ids(
-                icon_ids,
-                config=_effect_icon_source_config(),
-                fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
-                    base_url,
-                    package_name,
-                    parse_manifest=parse_package_manifest,
-                ),
-                logger=logger,
-            ),
+            fetch_icon_ids=_release_effect_icon_ids,
+            find_fallback_icon_ids=_swf_fallback_effect_icon_ids,
             inspect_icons=lambda icon_ids: load_flash_effect_icon_png_assets(
                 icon_ids,
                 config=inspect_config,
@@ -621,13 +637,7 @@ def main() -> None:
                 logger=logger,
                 require_any=False,
             ),
-            export_cache=lambda icon_ids, output_dir: export_effect_icon_png_cache_shard(
-                icon_ids,
-                output_dir,
-                cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
-                config=EFFECT_ICON_BUILD_CONFIG,
-                logger=logger,
-            ),
+            export_cache=_export_effect_icon_cache,
             logger=logger,
         )
         write_effect_icon_cache_shard_plan(
@@ -641,22 +651,8 @@ def main() -> None:
             shard_count=arguments.effect_icon_shard_count,
             output_dir=arguments.export_effect_icon_cache_shard,
             repair_icon_ids=arguments.effect_icon_repair_ids,
-            fetch_icon_ids=lambda: {
-                item.icon_id
-                for item in _release_source_loader()
-                .fetch_config_package_data()
-                .soulmark_icons
-            },
-            find_fallback_icon_ids=lambda icon_ids: unity_effect_icon_swf_fallback_icon_ids(
-                icon_ids,
-                config=_effect_icon_source_config(),
-                fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
-                    base_url,
-                    package_name,
-                    parse_manifest=parse_package_manifest,
-                ),
-                logger=logger,
-            ),
+            fetch_icon_ids=_release_effect_icon_ids,
+            find_fallback_icon_ids=_swf_fallback_effect_icon_ids,
             render_icons=lambda icon_ids: load_flash_effect_icon_png_assets(
                 icon_ids,
                 config=EFFECT_ICON_BUILD_CONFIG,
@@ -665,13 +661,7 @@ def main() -> None:
                 logger=logger,
                 require_any=False,
             )[1],
-            export_cache=lambda icon_ids, output_dir: export_effect_icon_png_cache_shard(
-                icon_ids,
-                output_dir,
-                cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
-                config=EFFECT_ICON_BUILD_CONFIG,
-                logger=logger,
-            ),
+            export_cache=_export_effect_icon_cache,
             logger=logger,
         )
         logger.info(
