@@ -2103,6 +2103,52 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
     assert "#blob:item" in by_identity[("item", "9")].source
 
 
+def test_optional_battle_effect_assets_use_the_release_snapshot() -> None:
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute("CREATE TABLE battle_effect (id INTEGER NOT NULL)")
+        connection.executemany(
+            "INSERT INTO battle_effect VALUES (?)",
+            [(1,), (2,)],
+        )
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
+            revision="a" * 40,
+            blobs_by_path={
+                "newseer/assets/art/ui/assets/battleeffect/abnormal/1.png": (
+                    "effect-1"
+                ),
+            },
+        )
+
+        remote = _collect_remote_asset_manifest(
+            connection,
+            snapshot,
+            release_revision="release-1",
+        )
+
+    by_key = {entry.asset_key: entry for entry in remote.supplemental_entries}
+    assert set(by_key) == {"1", "2"}
+    assert by_key["1"].available is True
+    assert "#blob:effect-1" in by_key["1"].source
+    assert by_key["2"].available is False
+
+    published = render_asset_manifest_build.build_render_asset_manifest(
+        remote,
+        {},
+        {"default": snapshot},
+        release_revision="release-1",
+        effect_icon_source_version="test",
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    )
+    assert published.complete_scopes == ()
+    assert {
+        (entry.asset_kind, entry.asset_key, entry.available)
+        for entry in published.entries
+    } == {
+        ("battle_effect", "1", True),
+        ("battle_effect", "2", False),
+    }
+
+
 @pytest.mark.parametrize(
     'case', ['complete', 'missing', 'unresolved', 'empty', 'absent', 'head_missing']
 )
