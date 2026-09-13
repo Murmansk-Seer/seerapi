@@ -113,12 +113,11 @@ def _mount_ids_requiring_generated_assets(
     connection: sqlite3.Connection,
     mount_ids: set[int],
 ) -> set[int]:
+    if not _table_exists(connection, "render_asset_manifest"):
+        raise ValueError("current render asset manifest is missing")
     default_prefix = _default_repository_source_prefix(connection)
-    if default_prefix is None or not _table_exists(
-        connection,
-        "render_asset_manifest",
-    ):
-        return mount_ids
+    if default_prefix is None:
+        raise ValueError("current render asset repository metadata is missing")
     unity_mount_ids = {
         int(asset_key)
         for asset_key, source in connection.execute(
