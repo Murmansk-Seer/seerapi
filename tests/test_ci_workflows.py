@@ -21,3 +21,10 @@ def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     )
     assert "uses: actions/cache@v4" in action
     assert "sha256sum --check" in action
+    plan_position = workflow.index("id: effect_icon_cache_plan")
+    matrix_ffdec_position = workflow.index("uses: ./.github/actions/setup-ffdec")
+    assert plan_position < matrix_ffdec_position
+    assert workflow.count(
+        "if: steps.effect_icon_cache_plan.outputs.needs_render == 'true'"
+    ) == 2
+    assert "--plan-effect-icon-shard ${{ matrix.shard }}" in workflow

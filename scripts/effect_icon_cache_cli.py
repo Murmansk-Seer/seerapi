@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import argparse
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 import logging
 from pathlib import Path
 import shutil
@@ -30,6 +32,122 @@ else:
         effect_icon_png_cache_metadata_path,
         effect_icon_png_cache_path,
         save_effect_icon_png_cache,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class EffectIconCacheShardPlan:
+    icon_ids: tuple[int, ...]
+    cached_count: int
+    repair_icon_ids: tuple[int, ...]
+
+    @property
+    def needs_render(self) -> bool:
+        return bool(self.repair_icon_ids)
+
+
+def add_effect_icon_cache_cli_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--seed-effect-icon-cache",
+        type=Path,
+        metavar="DATABASE",
+        help="restore matching effect icon PNGs from a previous IronsBot SQLite database",
+    )
+    parser.add_argument(
+        "--render-effect-icon-shard",
+        type=int,
+        metavar="INDEX",
+        help="render one zero-based effect icon cache shard instead of building SQLite",
+    )
+    parser.add_argument(
+        "--plan-effect-icon-shard",
+        type=int,
+        metavar="INDEX",
+        help="inspect one zero-based effect icon cache shard without invoking FFDec",
+    )
+    parser.add_argument(
+        "--effect-icon-shard-count",
+        type=int,
+        default=1,
+        metavar="COUNT",
+        help="total shard count used with an effect icon shard operation",
+    )
+    parser.add_argument(
+        "--export-effect-icon-cache-shard",
+        type=Path,
+        metavar="DIRECTORY",
+        help="output directory for the rendered shard cache",
+    )
+    parser.add_argument(
+        "--effect-icon-shard-plan-output",
+        type=Path,
+        metavar="FILE",
+        help="write GitHub-output-compatible shard plan values",
+    )
+
+
+def validate_effect_icon_cache_cli_arguments(
+    parser: argparse.ArgumentParser,
+    arguments: argparse.Namespace,
+) -> None:
+    shard_operations = sum(
+        operation is not None
+        for operation in (
+            arguments.render_effect_icon_shard,
+            arguments.plan_effect_icon_shard,
+        )
+    )
+    if shard_operations > 1:
+        parser.error(
+            "--plan-effect-icon-shard and --render-effect-icon-shard are mutually exclusive"
+        )
+    if shard_operations == 0:
+        if (
+            arguments.effect_icon_shard_count != 1
+            or arguments.export_effect_icon_cache_shard is not None
+            or arguments.effect_icon_shard_plan_output is not None
+        ):
+            parser.error(
+                "effect icon shard options require --plan-effect-icon-shard "
+                "or --render-effect-icon-shard"
+            )
+        return
+    if arguments.export_effect_icon_cache_shard is None:
+        parser.error(
+            "effect icon shard operations require --export-effect-icon-cache-shard"
+        )
+    if (
+        arguments.plan_effect_icon_shard is not None
+        and arguments.effect_icon_shard_plan_output is None
+    ):
+        parser.error(
+            "--plan-effect-icon-shard requires --effect-icon-shard-plan-output"
+        )
+    if (
+        arguments.render_effect_icon_shard is not None
+        and arguments.effect_icon_shard_plan_output is not None
+    ):
+        parser.error(
+            "--effect-icon-shard-plan-output requires --plan-effect-icon-shard"
+        )
+
+
+def write_effect_icon_cache_shard_plan(
+    plan: EffectIconCacheShardPlan,
+    output_path: Path,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        "\n".join(
+            (
+                f"needs_render={str(plan.needs_render).lower()}",
+                f"icon_count={len(plan.icon_ids)}",
+                f"cached_count={plan.cached_count}",
+                f"repair_count={len(plan.repair_icon_ids)}",
+                "",
+            )
+        ),
+        encoding="utf-8",
     )
 
 
@@ -144,14 +262,11 @@ def render_effect_icon_png_cache_shard(
     logger: logging.Logger,
 ) -> tuple[int, int]:
     """Render and export one validated SWF-fallback icon cache shard."""
-    if shard_count <= 0:
-        raise ValueError("Effect icon shard count must be positive")
-    if shard_index < 0 or shard_index >= shard_count:
-        raise ValueError(
-            f"Effect icon shard index must be in 0..{shard_count - 1}"
-        )
-    fallback_icon_ids = list(find_fallback_icon_ids(fetch_icon_ids()))
-    shard_icon_ids = fallback_icon_ids[shard_index::shard_count]
+    shard_icon_ids = _effect_icon_cache_shard_ids(
+        shard_index=shard_index,
+        shard_count=shard_count,
+        icon_ids=find_fallback_icon_ids(fetch_icon_ids()),
+    )
     logger.info(
         "Rendering SWF fallback effect icon cache shard %s/%s: %s icons",
         shard_index + 1,
@@ -163,6 +278,83 @@ def render_effect_icon_png_cache_shard(
     return len(shard_icon_ids), sum(
         1 for render in renders.values() if render.available
     )
+
+
+def plan_effect_icon_png_cache_shard(
+    *,
+    shard_index: int,
+    shard_count: int,
+    output_dir: Path,
+    fetch_icon_ids: Callable[[], set[int]],
+    find_fallback_icon_ids: Callable[[set[int]], Sequence[int]],
+    inspect_icons: Callable[
+        [set[int]],
+        tuple[
+            Mapping[int, EffectIconAssetCheck],
+            Mapping[int, EffectIconPngRender],
+        ],
+    ],
+    export_cache: Callable[[Sequence[int], Path], int],
+    logger: logging.Logger,
+) -> EffectIconCacheShardPlan:
+    """Inspect one shard and report only cache entries that require repair."""
+
+    shard_icon_ids = _effect_icon_cache_shard_ids(
+        shard_index=shard_index,
+        shard_count=shard_count,
+        icon_ids=find_fallback_icon_ids(fetch_icon_ids()),
+    )
+    checks, renders = inspect_icons(set(shard_icon_ids))
+    repair_icon_ids = tuple(
+        icon_id
+        for icon_id in shard_icon_ids
+        if _effect_icon_requires_repair(
+            checks.get(icon_id),
+            renders.get(icon_id),
+        )
+    )
+    export_cache(shard_icon_ids, output_dir)
+    cached_count = sum(
+        bool(render is not None and render.available)
+        for render in (renders.get(icon_id) for icon_id in shard_icon_ids)
+    )
+    logger.info(
+        "Effect icon cache shard %s/%s: %s icons, %s cached, %s need repair",
+        shard_index + 1,
+        shard_count,
+        len(shard_icon_ids),
+        cached_count,
+        len(repair_icon_ids),
+    )
+    return EffectIconCacheShardPlan(
+        icon_ids=shard_icon_ids,
+        cached_count=cached_count,
+        repair_icon_ids=repair_icon_ids,
+    )
+
+
+def _effect_icon_cache_shard_ids(
+    *,
+    shard_index: int,
+    shard_count: int,
+    icon_ids: Sequence[int],
+) -> tuple[int, ...]:
+    if shard_count <= 0:
+        raise ValueError("Effect icon shard count must be positive")
+    if shard_index < 0 or shard_index >= shard_count:
+        raise ValueError(
+            f"Effect icon shard index must be in 0..{shard_count - 1}"
+        )
+    return tuple(icon_ids[shard_index::shard_count])
+
+
+def _effect_icon_requires_repair(
+    check: EffectIconAssetCheck | None,
+    render: EffectIconPngRender | None,
+) -> bool:
+    if check is None or render is None:
+        return True
+    return (check.available or check.status == 0) and not render.available
 
 
 def _short_error(error: Exception | str) -> str:

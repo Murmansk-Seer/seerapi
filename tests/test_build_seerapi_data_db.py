@@ -1720,6 +1720,67 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     assert (icon_count, available_count) == (1, 1)
 
 
+def test_plan_effect_icon_cache_shard_only_repairs_retryable_missing_pngs(
+    tmp_path,
+) -> None:
+    available_check = effect_icon_build_types.EffectIconAssetCheck(
+        100, "https://example/100.swf", True, 200, "application/x-shockwave-flash", 10, ""
+    )
+    missing_check = effect_icon_build_types.EffectIconAssetCheck(
+        101, "https://example/101.swf", False, 404, "text/html", None, ""
+    )
+    transient_check = effect_icon_build_types.EffectIconAssetCheck(
+        102, "https://example/102.swf", False, 0, "", None, "timed out"
+    )
+    uncached_check = effect_icon_build_types.EffectIconAssetCheck(
+        103,
+        "https://example/103.swf",
+        True,
+        200,
+        "application/x-shockwave-flash",
+        10,
+        "",
+    )
+    cached_render = effect_icon_build_types.EffectIconPngRender(
+        100, True, "image/png", 1, b"x", ""
+    )
+    def unavailable_render(icon_id: int) -> effect_icon_build_types.EffectIconPngRender:
+        return effect_icon_build_types.EffectIconPngRender(
+            icon_id, False, "", None, None, "not cached"
+        )
+    exported: list[int] = []
+
+    plan = effect_icon_cache_cli.plan_effect_icon_png_cache_shard(
+        shard_index=0,
+        shard_count=1,
+        output_dir=tmp_path,
+        fetch_icon_ids=lambda: {100, 101, 102, 103},
+        find_fallback_icon_ids=lambda icon_ids: sorted(icon_ids),
+        inspect_icons=lambda _icon_ids: (
+            {
+                100: available_check,
+                101: missing_check,
+                102: transient_check,
+                103: uncached_check,
+            },
+            {
+                100: cached_render,
+                101: unavailable_render(101),
+                102: unavailable_render(102),
+                103: unavailable_render(103),
+            },
+        ),
+        export_cache=lambda icon_ids, _output_dir: exported.extend(icon_ids) or 1,
+        logger=builder.logger,
+    )
+
+    assert plan.icon_ids == (100, 101, 102, 103)
+    assert plan.cached_count == 1
+    assert plan.repair_icon_ids == (102, 103)
+    assert plan.needs_render is True
+    assert exported == [100, 101, 102, 103]
+
+
 def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
     monkeypatch.setattr(builder, "EFFECT_ICON_PREFER_FLASH", True)
 

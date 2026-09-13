@@ -30,9 +30,13 @@ if __package__:
         EffectIconBuildConfig,
     )
     from .effect_icon_cache_cli import (
+        add_effect_icon_cache_cli_arguments,
         export_effect_icon_png_cache_shard,
+        plan_effect_icon_png_cache_shard,
         render_effect_icon_png_cache_shard,
         seed_effect_icon_png_cache_from_database,
+        validate_effect_icon_cache_cli_arguments,
+        write_effect_icon_cache_shard_plan,
     )
     from .effect_icon_source_paths import (
         effect_icon_asset_url as _effect_icon_asset_url,
@@ -90,9 +94,13 @@ else:
         EffectIconBuildConfig,
     )
     from effect_icon_cache_cli import (  # type: ignore[import-not-found]
+        add_effect_icon_cache_cli_arguments,
         export_effect_icon_png_cache_shard,
+        plan_effect_icon_png_cache_shard,
         render_effect_icon_png_cache_shard,
         seed_effect_icon_png_cache_from_database,
+        validate_effect_icon_cache_cli_arguments,
+        write_effect_icon_cache_shard_plan,
     )
     from effect_icon_source_paths import (  # type: ignore[import-not-found]
         effect_icon_asset_url as _effect_icon_asset_url,
@@ -557,45 +565,9 @@ def _release_publication_context() -> ReleasePublicationContext:
 
 def _parse_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--seed-effect-icon-cache",
-        type=Path,
-        metavar="DATABASE",
-        help="restore matching effect icon PNGs from a previous IronsBot SQLite database",
-    )
-    parser.add_argument(
-        "--render-effect-icon-shard",
-        type=int,
-        metavar="INDEX",
-        help="render one zero-based effect icon cache shard instead of building SQLite",
-    )
-    parser.add_argument(
-        "--effect-icon-shard-count",
-        type=int,
-        default=1,
-        metavar="COUNT",
-        help="total shard count used with --render-effect-icon-shard",
-    )
-    parser.add_argument(
-        "--export-effect-icon-cache-shard",
-        type=Path,
-        metavar="DIRECTORY",
-        help="output directory for the rendered shard cache",
-    )
+    add_effect_icon_cache_cli_arguments(parser)
     arguments = parser.parse_args()
-    if arguments.render_effect_icon_shard is None:
-        if (
-            arguments.effect_icon_shard_count != 1
-            or arguments.export_effect_icon_cache_shard is not None
-        ):
-            parser.error(
-                "--effect-icon-shard-count and --export-effect-icon-cache-shard "
-                "require --render-effect-icon-shard"
-            )
-    elif arguments.export_effect_icon_cache_shard is None:
-        parser.error(
-            "--render-effect-icon-shard requires --export-effect-icon-cache-shard"
-        )
+    validate_effect_icon_cache_cli_arguments(parser, arguments)
     return arguments
 
 
@@ -613,6 +585,54 @@ def main() -> None:
                 config=EFFECT_ICON_BUILD_CONFIG,
             ),
             logger=logger,
+        )
+        return
+    if arguments.plan_effect_icon_shard is not None:
+        inspect_config = replace(
+            EFFECT_ICON_BUILD_CONFIG,
+            png_render_enabled=False,
+            png_require_cached=False,
+        )
+        plan = plan_effect_icon_png_cache_shard(
+            shard_index=arguments.plan_effect_icon_shard,
+            shard_count=arguments.effect_icon_shard_count,
+            output_dir=arguments.export_effect_icon_cache_shard,
+            fetch_icon_ids=lambda: {
+                item.icon_id
+                for item in _release_source_loader()
+                .fetch_config_package_data()
+                .soulmark_icons
+            },
+            find_fallback_icon_ids=lambda icon_ids: unity_effect_icon_swf_fallback_icon_ids(
+                icon_ids,
+                config=_effect_icon_source_config(),
+                fetch_package_manifest=lambda base_url, package_name: BUILD_HTTP.fetch_package_manifest(
+                    base_url,
+                    package_name,
+                    parse_manifest=parse_package_manifest,
+                ),
+                logger=logger,
+            ),
+            inspect_icons=lambda icon_ids: load_flash_effect_icon_png_assets(
+                icon_ids,
+                config=inspect_config,
+                request=BUILD_HTTP.request,
+                open_url=urlopen,
+                logger=logger,
+                require_any=False,
+            ),
+            export_cache=lambda icon_ids, output_dir: export_effect_icon_png_cache_shard(
+                icon_ids,
+                output_dir,
+                cache_version=EFFECT_ICON_PNG_CACHE_VERSION,
+                config=EFFECT_ICON_BUILD_CONFIG,
+                logger=logger,
+            ),
+            logger=logger,
+        )
+        write_effect_icon_cache_shard_plan(
+            plan,
+            arguments.effect_icon_shard_plan_output,
         )
         return
     if arguments.render_effect_icon_shard is not None:

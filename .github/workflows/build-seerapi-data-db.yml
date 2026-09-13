@@ -220,9 +220,6 @@ jobs:
       - name: Install parser dependency
         run: python -m pip install UnityPy Pillow
 
-      - name: Setup FFDec SWF renderer
-        uses: ./.github/actions/setup-ffdec
-
       - name: Restore previously published icon PNGs
         run: |
           mkdir -p .cache/effect-icon-png .previous
@@ -244,7 +241,24 @@ jobs:
             echo "No previous SeerAPI data release available; rendering the full icon cache."
           fi
 
+      - name: Plan effect icon PNG repairs
+        id: effect_icon_cache_plan
+        env:
+          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+        run: |
+          python scripts/build_seerapi_data_db.py \
+            --plan-effect-icon-shard ${{ matrix.shard }} \
+            --effect-icon-shard-count 16 \
+            --export-effect-icon-cache-shard .artifacts/effect-icon-cache \
+            --effect-icon-shard-plan-output "$GITHUB_OUTPUT"
+
+      - name: Setup FFDec SWF renderer
+        if: steps.effect_icon_cache_plan.outputs.needs_render == 'true'
+        uses: ./.github/actions/setup-ffdec
+
       - name: Render missing effect icon PNGs
+        if: steps.effect_icon_cache_plan.outputs.needs_render == 'true'
         env:
           IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
@@ -260,6 +274,10 @@ jobs:
             --render-effect-icon-shard ${{ matrix.shard }} \
             --effect-icon-shard-count 16 \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache
+
+      - name: Ensure effect icon cache artifact exists
+        run: |
+          mkdir -p .artifacts/effect-icon-cache
           printf 'empty effect icon cache\n' > .artifacts/effect-icon-cache/EMPTY
 
       - name: Upload rendered icon PNG cache
