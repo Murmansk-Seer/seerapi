@@ -111,7 +111,7 @@ class ReleasePublicationInput:
 class ReleasePublicationContext:
     """Narrow adapters and immutable settings needed by publication."""
 
-    load_asset_repository_snapshot: Callable[[], Any]
+    load_asset_repository_snapshots: Callable[[], Mapping[str, Any]]
     resolve_effect_icons: Callable[[set[int]], Any]
     render_asset_manifest_config: Any
     effect_icon_cache_version: str
@@ -155,7 +155,7 @@ def publish_release_tables(
 ) -> None:
     """Publish all IronsBot extension tables from already loaded release facts."""
     now = time.time()
-    asset_repository_snapshot = context.load_asset_repository_snapshot()
+    asset_repository_snapshots = context.load_asset_repository_snapshots()
     with sqlite3.connect(db_path) as conn:
         replace_config_package_tables(
             conn,
@@ -172,7 +172,7 @@ def publish_release_tables(
         )
         remote_asset_manifest = collect_remote_asset_manifest(
             conn,
-            asset_repository_snapshot,
+            asset_repository_snapshots,
             release_revision=release.config_data.version,
             config=context.render_asset_manifest_config,
         )
@@ -194,7 +194,7 @@ def publish_release_tables(
                 for icon_id, render in png_renders.items()
                 if icon_id in asset_checks
             },
-            asset_repository_snapshot,
+            asset_repository_snapshots,
             release_revision=release.config_data.version,
             effect_icon_source_version=context.effect_icon_cache_version,
             config=context.render_asset_manifest_config,

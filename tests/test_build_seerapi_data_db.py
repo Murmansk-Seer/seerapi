@@ -401,7 +401,7 @@ def _collect_remote_asset_manifest(
 ) -> render_asset_manifest_build.RemoteAssetManifestBuild:
     return render_asset_manifest_build.collect_remote_asset_manifest(
         connection,
-        snapshot,
+        {"default": snapshot} if snapshot is not None else {},
         release_revision=release_revision,
         config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
@@ -470,7 +470,10 @@ def test_renderer_scopes_follow_their_own_asset_families(
             connection, snapshot, release_revision='release-test',
         )
     result = render_asset_manifest_build.build_render_asset_manifest(
-        remote, {}, snapshot, release_revision='release-test',
+        remote,
+        {},
+        {"default": snapshot} if snapshot is not None else {},
+        release_revision='release-test',
         effect_icon_source_version='test', config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
     assert result.complete_scopes == expected
@@ -1819,7 +1822,7 @@ def test_effect_icon_render_asset_manifest_is_hashed_and_release_versioned(
             skin_body_scope_complete=False,
         ),
         {18: b"png", 19: None},
-        None,
+        {},
         release_revision="config-20260806",
         effect_icon_source_version=builder.EFFECT_ICON_PNG_CACHE_VERSION,
         config=builder.RENDER_ASSET_MANIFEST_CONFIG,
@@ -1905,7 +1908,7 @@ def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> 
     )
     metadata = render_asset_manifest_build.render_asset_manifest_metadata(
         entries,
-        snapshot,
+        {"default": snapshot},
         complete_scopes=scopes,
         config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
@@ -1914,32 +1917,33 @@ def test_render_asset_manifest_metadata_publishes_immutable_asset_snapshot() -> 
         builder.RENDER_ASSET_MANIFEST_REVISION_KEY: (
             render_asset_manifest_build.render_asset_manifest_revision(entries)
         ),
-        builder.RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: "2",
+        builder.RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY: "3",
         builder.RENDER_ASSET_MANIFEST_SCOPES_KEY: (
             '["pet_info","type_matchup","peak_pool"]'
         ),
-        builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY: (
-            "Murmansk-Seer/seer-unity-assets"
+        builder.RENDER_ASSET_MANIFEST_REPOSITORIES_KEY: (
+            json.dumps(
+                {
+                    "default": {
+                        "repository": "Murmansk-Seer/seer-unity-assets",
+                        "revision": "a" * 40,
+                    }
+                },
+                separators=(",", ":"),
+            )
         ),
-        builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY: "a" * 40,
         "render_asset_manifest_count": "1",
         "render_asset_manifest_available_count": "1",
     }
 
     unavailable = render_asset_manifest_build.render_asset_manifest_metadata(
         entries,
-        None,
+        {},
         complete_scopes=(),
         config=builder.RENDER_ASSET_MANIFEST_CONFIG,
     )
 
-    assert unavailable[builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY] == ""
-    assert (
-        unavailable[
-            builder.RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY
-        ]
-        == ""
-    )
+    assert unavailable[builder.RENDER_ASSET_MANIFEST_REPOSITORIES_KEY] == "{}"
 
 
 def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
@@ -2048,7 +2052,7 @@ def test_skin_body_manifest_is_independent_and_deduplicated(case: str) -> None:
     result = render_asset_manifest_build.build_render_asset_manifest(
         remote,
         {},
-        snapshot,
+        {"default": snapshot} if snapshot is not None else {},
         release_revision='release',
         effect_icon_source_version='test',
         config=config,
@@ -2092,7 +2096,7 @@ def test_skin_body_manifest_covers_catalogue_fallbacks(missing: bool) -> None:
         )
         entries, complete = render_asset_manifest_build._build_skin_body_manifest(
             connection,
-            snapshot,
+            {"default": snapshot},
             release_revision='release',
             config=builder.RENDER_ASSET_MANIFEST_CONFIG,
         )
@@ -2115,7 +2119,7 @@ def test_skin_body_manifest_requires_catalogue_schema() -> None:
         )
         assert render_asset_manifest_build._build_skin_body_manifest(
             connection,
-            snapshot,
+            {"default": snapshot},
             release_revision='release',
             config=builder.RENDER_ASSET_MANIFEST_CONFIG,
         ) == ((), False)
@@ -2162,6 +2166,7 @@ def test_render_asset_repository_snapshot_reads_complete_rest_tree() -> None:
     assert snapshot == render_asset_repository.AssetRepositorySnapshot(
         revision="a",
         blobs_by_path={"assets/pet.png": "pet"},
+        repository="example/assets",
     )
 
 
