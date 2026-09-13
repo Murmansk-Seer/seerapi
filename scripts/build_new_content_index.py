@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Build the weekly new-content index embedded in the IronsBot data SQLite.
 
 The rolling GitHub release keeps only the latest database.  This script runs
@@ -17,6 +17,7 @@ import sqlite3
 
 from new_content_index_models import (
     CONTENT_CATEGORIES,
+    PEAK_POOL_CATEGORIES,
     SEMANTIC_SCHEMA_VERSION,
     CategoryState,
     ContentItem,
@@ -24,6 +25,10 @@ from new_content_index_models import (
     SourceHistoryAddition,
     SourceSnapshotItem,
     semantic_migration_prune_categories,
+)
+from new_content_index_pool_changes import (
+    build_peak_pool_changes,
+    merge_weekly_peak_pool_changes,
 )
 from new_content_index_release import (
     _config_version,
@@ -37,7 +42,9 @@ from new_content_index_snapshot import (
 )
 
 
-def load_source_history_additions(path: Path | None) -> tuple[SourceHistoryAddition, ...]:
+def load_source_history_additions(
+    path: Path | None,
+) -> tuple[SourceHistoryAddition, ...]:
     """Load Git-confirmed additions without treating source-file edits as changes.
 
     The API data repository records both real content additions and broad schema
@@ -74,7 +81,8 @@ def load_source_history_additions(path: Path | None) -> tuple[SourceHistoryAddit
 
 
 def _new_items(
-    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
+    current: tuple[ContentItem, ...],
+    previous: tuple[SourceSnapshotItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {(item.category, item.entity_id) for item in previous}
@@ -83,13 +91,15 @@ def _new_items(
         item.with_change_kind('added')
         for item in current
         if item.category in comparable_categories
+        and item.category not in PEAK_POOL_CATEGORIES
         and (item.category, item.entity_id) not in previous_by_id
         and item.semantic_digest not in previous_semantic
     )
 
 
 def _modified_items(
-    current: tuple[ContentItem, ...], previous: tuple[SourceSnapshotItem, ...],
+    current: tuple[ContentItem, ...],
+    previous: tuple[SourceSnapshotItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {
@@ -101,6 +111,7 @@ def _modified_items(
         if (previous_item := previous_by_id.get((item.category, item.entity_id)))
         is not None
         and item.category in comparable_categories
+        and item.category not in PEAK_POOL_CATEGORIES
         and item.semantic_digest != previous_item
     )
 
@@ -129,14 +140,16 @@ def _current_subset(
     candidates: Iterable[ContentItem], current: tuple[ContentItem, ...]
 ) -> tuple[ContentItem, ...]:
     current_by_id = {(item.category, item.entity_id): item for item in current}
-    change_kinds = {
-        (item.category, item.entity_id): item.change_kind for item in candidates
-    }
+    candidate_by_key = {(item.category, item.entity_id): item for item in candidates}
     return tuple(
         sorted(
             (
-                current_by_id[key].with_change_kind(change_kind)
-                for key, change_kind in change_kinds.items()
+                (
+                    candidate
+                    if candidate.category in PEAK_POOL_CATEGORIES
+                    else current_by_id[key].with_change_kind(candidate.change_kind)
+                )
+                for key, candidate in candidate_by_key.items()
                 if key in current_by_id
             ),
             key=lambda item: (item.category, item.entity_id),
@@ -192,12 +205,25 @@ def build_release_state(
     comparable_categories = {
         state.category for state in category_states if state.comparison_ready
     }
+    previous_peak_pool_items: tuple[ContentItem, ...] = ()
+    if previous_path is not None and previous_path.is_file():
+        with sqlite3.connect(previous_path) as conn:
+            previous_peak_pool_items = tuple(
+                item
+                for item in load_current_items(conn)
+                if item.category in PEAK_POOL_CATEGORIES
+            )
     increment = _current_subset(
         (
             *_new_items(current_items, previous.source_items, comparable_categories),
             *_modified_items(
                 current_items,
                 previous.source_items,
+                comparable_categories,
+            ),
+            *build_peak_pool_changes(
+                current_items,
+                previous_peak_pool_items,
                 comparable_categories,
             ),
             *_source_history_items(current_items, source_history_additions),
@@ -218,7 +244,14 @@ def build_release_state(
                     and item.category in migration_prune_categories
                 )
             )
+        increment = merge_weekly_peak_pool_changes(carried_items, increment)
         items = _current_subset((*carried_items, *increment), current_items)
+        items = tuple(
+            item
+            for item in items
+            if item.category not in PEAK_POOL_CATEGORIES
+            or item.payload.get('previous_limit') != item.payload.get('current_limit')
+        )
     else:
         items = increment
     return ReleaseState(
