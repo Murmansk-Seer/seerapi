@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: MIT
-"""Render Flash-only mount SWFs into PNG fallbacks for the runtime database."""
+"""Render Flash-only mount SWFs into publishable PNG assets."""
 
 from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-import hashlib
 import io
 import logging
 import os
@@ -13,7 +12,6 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import tempfile
-import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -57,27 +55,6 @@ def _source_url(mount_id: int) -> str:
     return f"{FLASH_MOUNT_ASSET_BASE_URL.rstrip('/')}/{mount_id}.swf"
 
 
-def _ensure_tables(connection: sqlite3.Connection) -> None:
-    connection.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS flash_mount_image (
-            mount_id INTEGER PRIMARY KEY,
-            png_data BLOB NOT NULL,
-            source_url TEXT NOT NULL,
-            source_sha256 TEXT NOT NULL,
-            updated_at REAL NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS flash_mount_image_pending (
-            mount_id INTEGER PRIMARY KEY,
-            source_url TEXT NOT NULL,
-            last_checked_at REAL NOT NULL,
-            last_error TEXT NOT NULL
-        );
-        """
-    )
-
-
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
     return (
         connection.execute(
@@ -88,8 +65,8 @@ def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
     )
 
 
-def _copy_previous_state(
-    connection: sqlite3.Connection,
+def _extract_previous_images(
+    output_dir: Path,
     previous_database: Path | None,
 ) -> None:
     if previous_database is None or not previous_database.is_file():
@@ -97,51 +74,18 @@ def _copy_previous_state(
     with sqlite3.connect(previous_database) as previous:
         if _table_exists(previous, "flash_mount_image"):
             rows = previous.execute(
-                """
-                SELECT mount_id, png_data, source_url, source_sha256, updated_at
-                FROM flash_mount_image
-                """
+                "SELECT mount_id, png_data FROM flash_mount_image"
             ).fetchall()
-            connection.executemany(
-                """
-                INSERT OR IGNORE INTO flash_mount_image (
-                    mount_id, png_data, source_url, source_sha256, updated_at
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                rows,
-            )
-        if _table_exists(previous, "flash_mount_image_pending"):
-            rows = previous.execute(
-                """
-                SELECT mount_id, source_url, last_checked_at, last_error
-                FROM flash_mount_image_pending
-                """
-            ).fetchall()
-            connection.executemany(
-                """
-                INSERT OR IGNORE INTO flash_mount_image_pending (
-                    mount_id, source_url, last_checked_at, last_error
-                ) VALUES (?, ?, ?, ?)
-                """,
-                rows,
-            )
-    connection.execute(
-        """
-        DELETE FROM flash_mount_image_pending
-        WHERE mount_id IN (SELECT mount_id FROM flash_mount_image)
-        """
-    )
+            for mount_id, png_data in rows:
+                path = output_dir / f"{int(mount_id)}.png"
+                if not path.exists():
+                    path.write_bytes(bytes(png_data))
 
 
-def _candidate_mount_ids(connection: sqlite3.Connection) -> tuple[int, ...]:
-    pending_ids = {
-        int(row[0])
-        for row in connection.execute(
-            "SELECT mount_id FROM flash_mount_image_pending"
-        )
-    }
+def _mount_ids(connection: sqlite3.Connection) -> tuple[int, ...]:
+    mount_ids: set[int] = set()
     if _table_exists(connection, "equip"):
-        pending_ids.update(
+        mount_ids.update(
             int(row[0])
             for row in connection.execute(
                 "SELECT id FROM equip WHERE part_type_id = 6"
@@ -151,7 +95,7 @@ def _candidate_mount_ids(connection: sqlite3.Connection) -> tuple[int, ...]:
     # receive a fallback even if a transient source build has not populated
     # the normal equipment table yet.
     if _table_exists(connection, "new_content_item"):
-        pending_ids.update(
+        mount_ids.update(
             int(row[0])
             for row in connection.execute(
                 """
@@ -161,11 +105,13 @@ def _candidate_mount_ids(connection: sqlite3.Connection) -> tuple[int, ...]:
                 """
             )
         )
-    existing_ids = {
-        int(row[0])
-        for row in connection.execute("SELECT mount_id FROM flash_mount_image")
-    }
-    return tuple(sorted(mount_id for mount_id in pending_ids if mount_id not in existing_ids))
+    return tuple(sorted(mount_ids))
+
+
+def _prune_retired_images(output_dir: Path, mount_ids: set[int]) -> None:
+    for path in output_dir.glob("*.png"):
+        if path.stem.isdigit() and int(path.stem) not in mount_ids:
+            path.unlink()
 
 
 def _download_swf(url: str) -> bytes:
@@ -258,39 +204,28 @@ def _render_swf_to_png(swf_data: bytes, mount_id: int) -> bytes:
         return _normalize_png(_select_item_sprite_png(output_dir))
 
 
-def _record_pending(
-    connection: sqlite3.Connection,
-    mount_id: int,
-    source_url: str,
-    error: Exception,
-) -> None:
-    connection.execute(
-        """
-        INSERT INTO flash_mount_image_pending (
-            mount_id, source_url, last_checked_at, last_error
-        ) VALUES (?, ?, ?, ?)
-        ON CONFLICT(mount_id) DO UPDATE SET
-            source_url = excluded.source_url,
-            last_checked_at = excluded.last_checked_at,
-            last_error = excluded.last_error
-        """,
-        (mount_id, source_url, time.time(), str(error)[:500]),
-    )
-
-
 def refresh_mount_images(
     database: Path,
     *,
+    output_dir: Path,
     previous_database: Path | None = None,
+    pending_output: Path | None = None,
 ) -> RefreshResult:
-    """Carry previous PNGs forward and retry new or pending Flash mount assets."""
+    """Reuse published PNGs and render assets not already present."""
 
     attempted = 0
     rendered = 0
+    pending_ids: list[int] = []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    _extract_previous_images(output_dir, previous_database)
     with sqlite3.connect(database) as connection:
-        _ensure_tables(connection)
-        _copy_previous_state(connection, previous_database)
-        candidates = _candidate_mount_ids(connection)
+        mount_ids = set(_mount_ids(connection))
+        _prune_retired_images(output_dir, mount_ids)
+        candidates = tuple(
+            mount_id
+            for mount_id in sorted(mount_ids)
+            if not (output_dir / f"{mount_id}.png").is_file()
+        )
         for mount_id in candidates:
             attempted += 1
             source_url = _source_url(mount_id)
@@ -305,55 +240,48 @@ def refresh_mount_images(
                 subprocess.SubprocessError,
                 ValueError,
             ) as error:
-                logger.info("Flash mount fallback unavailable for %s: %s", mount_id, error)
-                _record_pending(connection, mount_id, source_url, error)
+                logger.info("Flash mount asset unavailable for %s: %s", mount_id, error)
+                pending_ids.append(mount_id)
                 continue
-            connection.execute(
-                """
-                INSERT INTO flash_mount_image (
-                    mount_id, png_data, source_url, source_sha256, updated_at
-                ) VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(mount_id) DO UPDATE SET
-                    png_data = excluded.png_data,
-                    source_url = excluded.source_url,
-                    source_sha256 = excluded.source_sha256,
-                    updated_at = excluded.updated_at
-                """,
-                (
-                    mount_id,
-                    png_data,
-                    source_url,
-                    hashlib.sha256(swf_data).hexdigest(),
-                    time.time(),
-                ),
-            )
-            connection.execute(
-                "DELETE FROM flash_mount_image_pending WHERE mount_id = ?",
-                (mount_id,),
-            )
+            (output_dir / f"{mount_id}.png").write_bytes(png_data)
             rendered += 1
-        pending = int(
-            connection.execute("SELECT count(*) FROM flash_mount_image_pending")
-            .fetchone()[0]
+        connection.execute("DROP TABLE IF EXISTS flash_mount_image")
+        connection.execute("DROP TABLE IF EXISTS flash_mount_image_pending")
+    if pending_output is not None:
+        pending_output.parent.mkdir(parents=True, exist_ok=True)
+        pending_output.write_text(
+            "".join(f"{mount_id}\n" for mount_id in pending_ids),
+            encoding="utf-8",
         )
-    return RefreshResult(attempted=attempted, rendered=rendered, pending=pending)
+    return RefreshResult(
+        attempted=attempted,
+        rendered=rendered,
+        pending=len(pending_ids),
+    )
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Render pending Flash mount assets into PNG fallback rows."
+        description="Render Flash mount assets into a publishable PNG directory."
     )
     parser.add_argument("--database", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--previous", type=Path)
+    parser.add_argument("--pending-output", type=Path)
     return parser.parse_args()
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = _parse_args()
-    result = refresh_mount_images(args.database, previous_database=args.previous)
+    result = refresh_mount_images(
+        args.database,
+        output_dir=args.output_dir,
+        previous_database=args.previous,
+        pending_output=args.pending_output,
+    )
     logger.info(
-        "Flash mount fallback: attempted=%s rendered=%s pending=%s",
+        "Flash mount assets: attempted=%s rendered=%s pending=%s",
         result.attempted,
         result.rendered,
         result.pending,

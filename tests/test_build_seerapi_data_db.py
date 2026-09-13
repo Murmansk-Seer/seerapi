@@ -445,7 +445,7 @@ def test_renderer_scopes_follow_their_own_asset_families(
             connection.executescript(
                 '''
                 CREATE TABLE suit (id INTEGER NOT NULL);
-                CREATE TABLE equip (id INTEGER NOT NULL);
+                CREATE TABLE equip (id INTEGER NOT NULL, part_type_id INTEGER NOT NULL);
                 CREATE TABLE title_part (id INTEGER NOT NULL);
                 CREATE TABLE skin_image_resolution (head_resource_id INTEGER NOT NULL);
                 '''
@@ -2125,6 +2125,55 @@ def test_skin_body_manifest_requires_catalogue_schema() -> None:
         ) == ((), False)
 
 
+def test_equipment_manifest_routes_mounts_to_generated_repository() -> None:
+    with sqlite3.connect(":memory:") as connection:
+        connection.executescript(
+            """
+            CREATE TABLE equip (id INTEGER NOT NULL, part_type_id INTEGER NOT NULL);
+            INSERT INTO equip VALUES (12, 0), (1301170, 6);
+            """
+        )
+
+        assert render_asset_manifest_build._select_equipment_asset_ids(connection) == (
+            (12,),
+            (1301170,),
+        )
+
+
+def test_mount_manifest_uses_typed_repository_override() -> None:
+    default = render_asset_repository.AssetRepositorySnapshot(
+        repository="example/default-assets",
+        revision="a" * 40,
+        blobs_by_path={},
+    )
+    mounts = render_asset_repository.AssetRepositorySnapshot(
+        repository="example/generated-assets",
+        revision="b" * 40,
+        blobs_by_path={"mount/1301170.png": "blob"},
+        sha256_by_path={"mount/1301170.png": "content-sha"},
+    )
+
+    entries, complete = render_asset_manifest_build._resolve_requests(
+        (
+            render_asset_manifest_build.RemoteRenderAssetRequest(
+                asset_kind="mount",
+                asset_key="1301170",
+                candidate_paths=("mount/1301170.png",),
+                required=True,
+            ),
+        ),
+        {"default": default, "mount": mounts},
+        release_revision="release",
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    )
+
+    assert complete is True
+    assert entries[0].source.startswith(
+        f"example/generated-assets@{'b' * 40}:mount/1301170.png"
+    )
+    assert entries[0].sha256 == "content-sha"
+
+
 def test_parse_git_tree_blobs_reads_only_blob_entries() -> None:
     tree = "\n".join(
         (
@@ -2263,12 +2312,12 @@ def test_new_content_standard_remote_asset_manifest_requires_all_assets(
         connection.executescript(
             """
             CREATE TABLE suit (id INTEGER NOT NULL);
-            CREATE TABLE equip (id INTEGER NOT NULL);
+            CREATE TABLE equip (id INTEGER NOT NULL, part_type_id INTEGER NOT NULL);
             CREATE TABLE title_part (id INTEGER NOT NULL);
             CREATE TABLE pet (resource_id INTEGER NOT NULL);
             CREATE TABLE skin_image_resolution (head_resource_id INTEGER NOT NULL);
             INSERT INTO suit VALUES (11);
-            INSERT INTO equip VALUES (12);
+            INSERT INTO equip VALUES (12, 0);
             INSERT INTO title_part VALUES (13);
             INSERT INTO pet VALUES (100);
             INSERT INTO skin_image_resolution VALUES (100), (101);
@@ -2308,12 +2357,12 @@ def test_new_content_standard_remote_asset_manifest_stays_incomplete_when_missin
         connection.executescript(
             """
             CREATE TABLE suit (id INTEGER NOT NULL);
-            CREATE TABLE equip (id INTEGER NOT NULL);
+            CREATE TABLE equip (id INTEGER NOT NULL, part_type_id INTEGER NOT NULL);
             CREATE TABLE title_part (id INTEGER NOT NULL);
             CREATE TABLE pet (resource_id INTEGER NOT NULL);
             CREATE TABLE skin_image_resolution (head_resource_id INTEGER NOT NULL);
             INSERT INTO suit VALUES (11);
-            INSERT INTO equip VALUES (12);
+            INSERT INTO equip VALUES (12, 0);
             INSERT INTO title_part VALUES (13);
             INSERT INTO pet VALUES (100);
             INSERT INTO skin_image_resolution VALUES (100);

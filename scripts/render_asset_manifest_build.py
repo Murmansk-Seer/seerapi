@@ -312,7 +312,7 @@ def _new_content_standard_requests(
 ) -> tuple[RemoteRenderAssetRequest, ...] | None:
     domains = (
         _select_positive_ids(conn, 'suit', 'id'),
-        _select_positive_ids(conn, 'equip', 'id'),
+        _select_equipment_asset_ids(conn),
         _select_positive_ids(conn, 'title_part', 'id'),
         _select_positive_ids(conn, 'pet', 'resource_id'),
         _select_positive_ids(
@@ -321,9 +321,15 @@ def _new_content_standard_requests(
     )
     if any(values is None for values in domains):
         return None
-    suit_ids, equip_ids, title_ids, pet_resource_ids, skin_head_resource_ids = domains
+    (
+        suit_ids,
+        equipment_asset_ids,
+        title_ids,
+        pet_resource_ids,
+        skin_head_resource_ids,
+    ) = domains
     assert suit_ids is not None
-    assert equip_ids is not None
+    assert equipment_asset_ids is not None
     assert title_ids is not None
     assert pet_resource_ids is not None
     assert skin_head_resource_ids is not None
@@ -337,12 +343,22 @@ def _new_content_standard_requests(
                 required=True,
             )
         )
+    equip_ids, mount_ids = equipment_asset_ids
     for equip_id in equip_ids:
         requests.append(
             _request(
                 'equip',
                 str(equip_id),
                 (f'newseer/assets/art/ui/assets/item/cloth/prev/{equip_id}.png',),
+                required=True,
+            )
+        )
+    for mount_id in mount_ids:
+        requests.append(
+            _request(
+                'mount',
+                str(mount_id),
+                (f'mount/{mount_id}.png',),
                 required=True,
             )
         )
@@ -431,6 +447,22 @@ def _select_positive_ids(
     return tuple(int(row[0]) for row in rows)
 
 
+def _select_equipment_asset_ids(
+    conn: sqlite3.Connection,
+) -> tuple[tuple[int, ...], tuple[int, ...]] | None:
+    try:
+        rows = conn.execute(
+            'SELECT DISTINCT id, part_type_id FROM equip '
+            'WHERE id > 0 ORDER BY id'
+        ).fetchall()
+    except sqlite3.OperationalError:
+        logger.warning('Render asset inventory cannot read equip part types')
+        return None
+    equips = tuple(int(row[0]) for row in rows if int(row[1]) != 6)
+    mounts = tuple(int(row[0]) for row in rows if int(row[1]) == 6)
+    return equips, mounts
+
+
 def _request(
     asset_kind: str,
     asset_key: str,
@@ -493,7 +525,11 @@ def _resolve_requests(
             RenderAssetManifestEntry(
                 asset_kind=request.asset_kind,
                 asset_key=request.asset_key,
-                sha256='',
+                sha256=(
+                    snapshot.sha256_by_path.get(matched_path, '')
+                    if matched_path is not None
+                    else ''
+                ),
                 release_revision=release_revision,
                 available=available,
                 source=source,
