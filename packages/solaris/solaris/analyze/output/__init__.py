@@ -1,11 +1,10 @@
+from .data_outputter import DBOutputter, JsonOutputter
 from .json_format import (
     JsonOutputFormat,
     json_format_names,
     resolve_json_format,
 )
 from .outputter import (
-    DBOutputter,
-    JsonOutputter,
     OpenAPISchemaOutputter,
     SchemaOutputter,
 )

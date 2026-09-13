@@ -1,49 +1,33 @@
-from collections import defaultdict
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import Sequence
 import inspect
 from pathlib import Path
 from typing import (
     Any,
     Literal,
     Protocol,
-    TypeAlias,
     TypeVar,
     cast,
-    overload,
 )
 
 from openapi_pydantic import Operation, Parameter, PathItem, Reference, Schema
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
 from tqdm import tqdm
 
 from seerapi_models.build_model import BaseResModel
-from seerapi_models.common import (
-    ApiResourceList,
-    BaseGeneralModel,
-    NamedData,
-    NamedResourceRef,
-    ResourceRef,
-)
+from seerapi_models.common import ApiResourceList, BaseGeneralModel
 from seerapi_models.metadata import ApiMetadata
-from solaris.analyze.typing_ import (
-    AnalyzeResult,
-    JsonFormat,
-    NameGenerator,
-    TResModelRequiredId,
-)
 from solaris.analyze.utils import to_json
 from solaris.typing import JSONObject
 from solaris.utils import join_url
 
-from .db import DBManager
-from .json_format import resolve_json_format
 from .openapi_builder import (
     OpenAPIBuilder,
     build_ref_string,
     create_model_name_string,
 )
 from .openapi_comments import APIComment, get_api_comment
+from .output_helpers import create_index_model, is_named_model
 from .schema_generate import (
     JsonSchemaGenerator,
     OpenAPISchemaGenerator,
@@ -52,7 +36,6 @@ from .schema_generate import (
     create_extra_schema,
     create_generator,
 )
-from .sharding import DEFAULT_MAX_SHARD_BYTES
 
 
 class HashPartial(BaseGeneralModel):
@@ -65,46 +48,6 @@ class HashPartial(BaseGeneralModel):
     @classmethod
     def schema_path(cls) -> str:
         return 'analyzer_custom/hash_partial/'
-
-
-DataMap: TypeAlias = Mapping[int, TResModelRequiredId]
-
-
-def _calc_hash(data: str | bytes) -> str:
-    import anycrc
-
-    crc32 = anycrc.Model('CRC32')
-    if isinstance(data, str):
-        data = data.encode('utf-8')
-
-    hash_value = crc32.calc(data)
-    return format(hash_value, 'x')
-
-
-def _create_index_model(name: str, data: dict[str, Any]) -> type[BaseModel]:
-    from pydantic import Field, create_model
-
-    return create_model(
-        name,
-        **{
-            k: (str, Field(field_title_generator=lambda k, __: f'{k} Path'))
-            for k in data.keys()
-        },  # type: ignore
-    )
-
-
-def _generate_api_resource_list(data: DataMap[TResModelRequiredId]) -> ApiResourceList:
-    refs: list[NamedResourceRef] = []
-    for i in data.values():
-        refs.append(
-            NamedResourceRef.from_res_name(
-                id=i.id,
-                resource_name=i.resource_name(),
-                name=getattr(i, 'name', None),
-            )
-        )
-
-    return ApiResourceList(count=len(refs), results=refs)
 
 
 def _api_resource_list_pagination_properties() -> dict[str, JSONObject]:
@@ -163,32 +106,6 @@ def _generate_named_data_oas_schema(resource_ref_path: str):
 
 
 _GT = TypeVar('_GT', bound=GenerateJsonSchema)
-
-
-def get_name_fields(model: type) -> list[str]:
-    """获取模型中用于表示名称的字段名列表
-
-    查找模型定义的 ``__name_fields__`` 属性，
-    默认值为 `['name']`
-    """
-    return getattr(model, '__name_fields__', ['name'])
-
-
-def get_primary_name_field(model: type) -> str:
-    """获取模型的主要名称字段名（第一个）"""
-    return get_name_fields(model)[0]
-
-
-def is_named_model(model: type) -> bool:
-    return any(field in model.model_fields for field in get_name_fields(model))
-
-
-class DataOutputterProtocol(Protocol):
-    """输出器协议"""
-
-    def run(self, results: Sequence[AnalyzeResult]):
-        """执行输出流程"""
-        pass
 
 
 class SchemaOutputterProtocol(Protocol):
@@ -334,7 +251,7 @@ class SchemaOutputter(SchemaOutputterProtocol):
         )
         schemas['metadata.json'] = self._merge_to_schema(metadata_schema, hash_schema)
 
-        index_model = _create_index_model('Index', index_data)
+        index_model = create_index_model('Index', index_data)
         index_schema = model_json_schema(index_model)
         schemas['index.json'] = self._merge_to_schema(index_schema, hash_schema)
 
@@ -613,7 +530,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
             index_data[res_model.resource_name()] = ''
 
         if index_data:
-            index_model = _create_index_model('Index', index_data)
+            index_model = create_index_model('Index', index_data)
             index_schema = model_json_schema(index_model)
             index_schema = self._merge_hash_partial_schema(index_schema)
             self.openapi_builder.add_ref(index_schema, name='root_index')
@@ -621,330 +538,3 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
         openapi = self.openapi_builder.build()
         with open(self.output_filepath, 'w', encoding='utf-8') as f:
             f.write(openapi.model_dump_json(by_alias=True, exclude_none=True, indent=2))
-
-
-class JsonOutputter(DataOutputterProtocol):
-    """负责将分析结果输出为 JSON 文件的类"""
-
-    def __init__(
-        self,
-        *,
-        metadata: ApiMetadata,
-        base_output_dir: str | Path = '.',
-        data_output_dir: str | Path,
-        base_data_url: str | None = None,
-        shard_max_bytes: int = DEFAULT_MAX_SHARD_BYTES,
-    ) -> None:
-        """初始化 JSON 输出器
-
-        Args:
-                metadata: API 元数据
-                base_output_dir: 基础输出目录
-                data_output_dir: 数据输出目录（相对于版本目录）
-                base_data_url: 数据基础 URL（可选）
-                shard_max_bytes: sharded 子模式单文件字节上限
-        """
-        self.metadata = metadata
-        self.shard_max_bytes = shard_max_bytes
-
-        # 计算 URL
-        version = metadata.api_version
-        base_url = metadata.api_url
-        self.data_url = base_data_url or join_url(
-            base_url, version, str(data_output_dir)
-        )
-
-        # 设置全局资源 URL
-        ResourceRef.base_data_url = self.data_url
-
-        # 计算输出目录
-        self.data_output_dir = Path().joinpath(
-            base_output_dir,
-            version,
-            data_output_dir,
-        )
-
-        # 创建输出目录
-        self.data_output_dir.mkdir(parents=True, exist_ok=True)
-        self.json_compact = False
-
-    def _dump_data(
-        self,
-        data: Any,
-        path: Path | str,
-        *,
-        compact: bool | None = None,
-    ) -> str:
-        if isinstance(data, BaseModel):
-            payload: MutableMapping[str, Any] = data.model_dump(by_alias=True)
-        elif isinstance(data, MutableMapping):
-            # 浅拷贝，避免向 result.data 等共享 dict 注入 hash 污染后续输出
-            payload = dict(data)
-        else:
-            raise ValueError(f'Invalid data type: {type(data)}')
-
-        if compact is None:
-            compact = self.json_compact
-        indent = None if compact else 2
-
-        file_hash = _calc_hash(to_json(payload, indent=None))
-        payload['hash'] = file_hash
-
-        path = self.data_output_dir.joinpath(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(to_json(payload, indent=indent))
-        return file_hash
-
-    def _output_merged_json(
-        self,
-        resource_name: str,
-        data: Any,
-    ) -> None:
-        """输出合并模式的 ID 映射 JSON（`{resource_name}/id.json`）
-
-        Args:
-                resource_name: 资源名称
-                data: 要输出的数据
-        """
-        self._dump_data(data, Path(resource_name) / 'id.json')
-
-    def _output_merged_named_json(
-        self,
-        name_data: Mapping[str, NamedData[TResModelRequiredId]],
-        resource_name: str,
-    ) -> None:
-        """输出合并模式的名称映射 JSON（`{resource_name}/name.json`）
-
-        Args:
-                name_data: 名称到数据的映射表
-                resource_name: 资源名称
-        """
-        self._dump_data(name_data, Path(resource_name) / 'name.json')
-
-    def _generate_name_data(
-        self,
-        data: DataMap[TResModelRequiredId],
-        *,
-        name_generator: NameGenerator,
-    ) -> Mapping[str, NamedData[TResModelRequiredId]]:
-        """生成名称到数据的映射表
-
-        Args:
-                data: 分析结果数据
-        """
-        name_data: defaultdict[str, NamedData[TResModelRequiredId]] = defaultdict(
-            lambda: NamedData(data={})
-        )
-        for id, model in data.items():
-            if name := name_generator(model):
-                name_data[name.strip()].data[id] = model
-
-        return name_data
-
-    def _output_named_json(
-        self,
-        name_data: Mapping[str, NamedData[TResModelRequiredId]],
-        resource_name: str,
-    ) -> None:
-        """以名称作为 key，将数据输出为 JSON 文件
-
-        Args:
-                name_data: 名称到数据的映射表
-                resource_name: 资源名称
-        """
-        # 批量输出数据文件
-        for name, res_data in name_data.items():
-            res_path = Path(resource_name).joinpath(name, 'index.json')
-            self._dump_data(res_data, res_path)
-
-    def _output_individual_json(
-        self,
-        data: DataMap[TResModelRequiredId],
-        resource_name: str,
-    ) -> None:
-        """输出按 ID 分散的 JSON 数据
-
-        将数据按资源 ID 分散到不同的文件中，每个资源 ID 对应一个独立的 JSON 文件。
-        同时输出 API 资源列表。
-
-        Args:
-                data: 分析出的数据，键为资源 ID，值为资源模型实例
-                resource_name: 资源名称，用于构建输出路径
-        """
-        # 输出 ApiResourceList
-        self._output_api_resource_list(data, resource_name)
-
-        # 批量输出数据文件
-        for res_id, res_data in data.items():
-            res_path = Path(resource_name).joinpath(str(res_id), 'index.json')
-            self._dump_data(res_data, res_path)
-
-    def _output_api_resource_list(
-        self,
-        data: DataMap[TResModelRequiredId],
-        resource_name: str,
-    ) -> None:
-        """输出 ApiResourceList
-
-        Args:
-                data: 分析结果数据
-                resource_name: 资源名称
-        """
-        api_resource_list = _generate_api_resource_list(data)
-        self._dump_data(
-            api_resource_list,
-            Path(resource_name) / 'index.json',
-        )
-
-    def _process_single_result(
-        self,
-        result: AnalyzeResult[TResModelRequiredId],
-        *,
-        json_format: JsonFormat,
-        output_name_data: bool,
-    ) -> tuple[str, str] | None:
-        """处理单个分析结果
-
-        Args:
-                result: 分析结果
-                json_format: JSON 输出子模式（split / merged）
-                output_name_data: 是否输出名称映射
-        Returns:
-                如果需要输出，返回 (resource_name, resource_url)，否则返回 None
-        """
-        # 检查是否需要输出到 JSON
-        if result.output_mode not in ('json', 'all'):
-            return None
-
-        model = result.model
-        resource_name = model.resource_name()
-        data = result.data
-
-        fmt_cls = resolve_json_format(json_format)
-        fmt_cls.write_resource(
-            self,
-            resource_name=resource_name,
-            model=model,
-            data=data,
-            output_named_data=output_name_data,
-        )
-
-        return resource_name, join_url(self.data_url, resource_name)
-
-    def _output_metadata(self) -> None:
-        """输出 metadata 文件"""
-        self._dump_data(self.metadata, 'metadata.json')
-
-    def _output_root_index(self, index_data: dict[str, str]) -> None:
-        """输出根目录的 index.json
-
-        Args:
-                index_data: 索引数据
-        """
-        self._dump_data(index_data, 'index.json')
-
-    def run(
-        self,
-        results: Sequence[AnalyzeResult],
-        *,
-        json_format: JsonFormat = 'split',
-        output_named_data: bool = False,
-    ) -> None:
-        """执行 JSON 输出流程
-
-        Args:
-                results: 分析结果序列
-                json_format: JSON 输出子模式（split / merged）
-                output_named_data: 是否输出名称映射
-        """
-        self.json_compact = json_format == 'sharded'
-
-        # 处理所有结果
-        root_index_data: dict[str, str] = {}
-        for result in (pbar_result := tqdm(results, leave=False)):
-            resource_name = result.model.resource_name()
-            pbar_result.set_description(
-                f'正在输出 JSON 数据 | 输出{resource_name}',
-                refresh=True,
-            )
-
-            # 处理单个结果
-            result_info = self._process_single_result(
-                result,
-                json_format=json_format,
-                output_name_data=output_named_data,
-            )
-            if result_info is not None:
-                resource_name, resource_url = result_info
-                root_index_data[resource_name] = resource_url
-
-        # 输出 metadata
-        self._output_metadata()
-
-        # 输出根目录 index
-        self._output_root_index(root_index_data)
-
-
-class DBOutputter(DataOutputterProtocol):
-    """负责将分析结果输出到数据库的类"""
-
-    @overload
-    def __init__(self, metadata: ApiMetadata, *, db_manager: DBManager) -> None: ...
-
-    @overload
-    def __init__(
-        self,
-        metadata: ApiMetadata,
-        *,
-        db_url: str,
-        echo: bool = False,
-        **kwargs,
-    ) -> None: ...
-
-    def __init__(self, metadata: ApiMetadata, **kwargs) -> None:
-        self.metadata = metadata
-        if 'db_manager' in kwargs:
-            self.db_manager = kwargs['db_manager']
-        elif 'db_url' in kwargs and 'echo' in kwargs:
-            self.db_manager = DBManager(**kwargs)
-        else:
-            raise ValueError('Invalid arguments')
-
-    def init(self) -> None:
-        if not self.db_manager.initialized:
-            self.db_manager.init()
-
-    @property
-    def initialized(self) -> bool:
-        return self.db_manager.initialized
-
-    def run(self, results: Sequence[AnalyzeResult]) -> None:
-        """执行数据库输出流程
-
-        Args:
-                results: 分析结果序列
-        """
-        if not self.initialized:
-            raise RuntimeError('Database not initialized')
-
-        for result in (pbar_result := tqdm(results, leave=False)):
-            name = result.model.resource_name()
-            pbar_result.set_description(
-                f'正在输出数据库数据 | 输出{name}',
-                refresh=True,
-            )
-            data = result.data
-            output_mode = result.output_mode
-
-            if output_mode not in ('db', 'all'):
-                continue
-
-            with self.db_manager.get_session() as session:
-                from .db import write_result_to_db
-
-                write_result_to_db(session, data)
-
-        # 保存元数据
-        with self.db_manager.get_session() as session:
-            session.add(self.metadata.to_orm())
-            session.commit()

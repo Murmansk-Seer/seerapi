@@ -9,7 +9,7 @@ from seerapi_models.common import NamedData
 from solaris.analyze.typing_ import TResModelRequiredId
 
 if TYPE_CHECKING:
-    from .outputter import JsonOutputter
+    from .data_outputter import JsonOutputter
 
 _JSON_FORMATS: dict[str, type[JsonOutputFormat]] = {}
 
@@ -63,7 +63,7 @@ def _collect_name_data(
     model: type[BaseResModel],
     data: Mapping[int, TResModelRequiredId],
 ) -> dict[str, NamedData[TResModelRequiredId]]:
-    from .outputter import get_name_fields
+    from .output_helpers import get_name_fields
 
     merged_name_data: dict[str, NamedData[TResModelRequiredId]] = {}
     for name_field in get_name_fields(model):
@@ -87,7 +87,7 @@ def _write_named_data(
     output_named_data: bool,
     merged: bool,
 ) -> None:
-    from .outputter import is_named_model
+    from .output_helpers import is_named_model
 
     if not output_named_data or not is_named_model(model):
         return
