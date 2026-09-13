@@ -1649,29 +1649,11 @@ def test_seed_effect_icon_cache_rejects_previous_renderer_version(
     ).exists()
 
 
-def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
+def test_render_effect_icon_cache_shard_consumes_planned_id_snapshot(
     monkeypatch,
     tmp_path,
 ) -> None:
-    config_data = type(
-        "ConfigData",
-        (),
-        {
-            "soulmark_icons": [
-                config_package_sources.SoulmarkIcon(1, 1, 1, 100),
-                config_package_sources.SoulmarkIcon(2, 2, 2, 101),
-                config_package_sources.SoulmarkIcon(3, 3, 3, 102),
-                config_package_sources.SoulmarkIcon(4, 4, 4, 103),
-            ]
-        },
-    )()
     captured: dict[str, list[int]] = {}
-    monkeypatch.setattr(
-        builder,
-        "unity_effect_icon_swf_fallback_icon_ids",
-        lambda icon_ids, **_kwargs: captured.setdefault("fallback_input", sorted(icon_ids))
-        and [100, 101, 102, 103],
-    )
     monkeypatch.setattr(
         builder,
         "load_flash_effect_icon_png_assets",
@@ -1697,14 +1679,8 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
         shard_index=0,
         shard_count=2,
         output_dir=tmp_path,
+        shard_icon_ids=[100, 102],
         repair_icon_ids=[102],
-        fetch_icon_ids=lambda: {item.icon_id for item in config_data.soulmark_icons},
-        find_fallback_icon_ids=lambda icon_ids: builder.unity_effect_icon_swf_fallback_icon_ids(
-            icon_ids,
-            config=builder._effect_icon_source_config(),
-            fetch_package_manifest=_fetch_package_manifest,
-            logger=builder.logger,
-        ),
         render_icons=lambda icon_ids: builder.load_flash_effect_icon_png_assets(
             icon_ids,
             config=builder.EFFECT_ICON_BUILD_CONFIG,
@@ -1719,7 +1695,6 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
         logger=builder.logger,
     )
 
-    assert captured["fallback_input"] == [100, 101, 102, 103]
     assert captured["icon_ids"] == [100, 102]
     assert captured["render_ids"] == [102]
     assert (icon_count, available_count) == (1, 1)
@@ -1749,6 +1724,7 @@ def test_plan_effect_icon_cache_shard_only_repairs_retryable_missing_pngs(
     cached_render = effect_icon_build_types.EffectIconPngRender(
         100, True, "image/png", 1, b"x", ""
     )
+
     def unavailable_render(icon_id: int) -> effect_icon_build_types.EffectIconPngRender:
         return effect_icon_build_types.EffectIconPngRender(
             icon_id, False, "", None, None, "not cached"
@@ -1791,6 +1767,7 @@ def test_plan_effect_icon_cache_shard_only_repairs_retryable_missing_pngs(
         "icon_count=4",
         "cached_count=1",
         "repair_count=2",
+        "shard_icon_ids=100,101,102,103",
         "repair_icon_ids=102,103",
     ]
 

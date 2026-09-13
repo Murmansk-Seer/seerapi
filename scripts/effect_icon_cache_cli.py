@@ -90,6 +90,12 @@ def add_effect_icon_cache_cli_arguments(parser: argparse.ArgumentParser) -> None
         metavar="ID,ID,...",
         help="ordered icon IDs selected by the shard plan for rendering",
     )
+    parser.add_argument(
+        "--effect-icon-shard-ids",
+        type=_parse_effect_icon_ids,
+        metavar="ID,ID,...",
+        help="ordered full shard ID snapshot selected by the shard plan",
+    )
 
 
 def validate_effect_icon_cache_cli_arguments(
@@ -113,6 +119,7 @@ def validate_effect_icon_cache_cli_arguments(
             or arguments.export_effect_icon_cache_shard is not None
             or arguments.effect_icon_shard_plan_output is not None
             or arguments.effect_icon_repair_ids is not None
+            or arguments.effect_icon_shard_ids is not None
         ):
             parser.error(
                 "effect icon shard options require --plan-effect-icon-shard "
@@ -139,14 +146,25 @@ def validate_effect_icon_cache_cli_arguments(
         )
     if (
         arguments.render_effect_icon_shard is not None
-        and arguments.effect_icon_repair_ids is None
+        and (
+            arguments.effect_icon_repair_ids is None
+            or arguments.effect_icon_shard_ids is None
+        )
     ):
-        parser.error("--render-effect-icon-shard requires --effect-icon-repair-ids")
+        parser.error(
+            "--render-effect-icon-shard requires --effect-icon-shard-ids "
+            "and --effect-icon-repair-ids"
+        )
     if (
         arguments.plan_effect_icon_shard is not None
-        and arguments.effect_icon_repair_ids is not None
+        and (
+            arguments.effect_icon_repair_ids is not None
+            or arguments.effect_icon_shard_ids is not None
+        )
     ):
-        parser.error("--effect-icon-repair-ids requires --render-effect-icon-shard")
+        parser.error(
+            "effect icon ID snapshots require --render-effect-icon-shard"
+        )
 
 
 def write_effect_icon_cache_shard_plan(
@@ -161,6 +179,7 @@ def write_effect_icon_cache_shard_plan(
                 f"icon_count={len(plan.icon_ids)}",
                 f"cached_count={plan.cached_count}",
                 f"repair_count={len(plan.repair_icon_ids)}",
+                "shard_icon_ids=" + ",".join(map(str, plan.icon_ids)),
                 "repair_icon_ids=" + ",".join(map(str, plan.repair_icon_ids)),
                 "",
             )
@@ -273,19 +292,16 @@ def render_effect_icon_png_cache_shard(
     shard_index: int,
     shard_count: int,
     output_dir: Path,
+    shard_icon_ids: Sequence[int],
     repair_icon_ids: Sequence[int],
-    fetch_icon_ids: Callable[[], set[int]],
-    find_fallback_icon_ids: Callable[[set[int]], Sequence[int]],
     render_icons: Callable[[set[int]], Mapping[int, EffectIconPngRender]],
     export_cache: Callable[[Sequence[int], Path], int],
     logger: logging.Logger,
 ) -> tuple[int, int]:
     """Render and export one validated SWF-fallback icon cache shard."""
-    shard_icon_ids = _effect_icon_cache_shard_ids(
-        shard_index=shard_index,
-        shard_count=shard_count,
-        icon_ids=find_fallback_icon_ids(fetch_icon_ids()),
-    )
+    _validate_effect_icon_shard_index(shard_index, shard_count)
+    if len(set(shard_icon_ids)) != len(shard_icon_ids):
+        raise ValueError("Effect icon shard IDs must be unique")
     selected_icon_ids = _select_effect_icon_repairs(
         shard_icon_ids=shard_icon_ids,
         repair_icon_ids=repair_icon_ids,
@@ -363,13 +379,17 @@ def _effect_icon_cache_shard_ids(
     shard_count: int,
     icon_ids: Sequence[int],
 ) -> tuple[int, ...]:
+    _validate_effect_icon_shard_index(shard_index, shard_count)
+    return tuple(icon_ids[shard_index::shard_count])
+
+
+def _validate_effect_icon_shard_index(shard_index: int, shard_count: int) -> None:
     if shard_count <= 0:
         raise ValueError("Effect icon shard count must be positive")
     if shard_index < 0 or shard_index >= shard_count:
         raise ValueError(
             f"Effect icon shard index must be in 0..{shard_count - 1}"
         )
-    return tuple(icon_ids[shard_index::shard_count])
 
 
 def _effect_icon_requires_repair(

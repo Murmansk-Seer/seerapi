@@ -650,9 +650,8 @@ def main() -> None:
             shard_index=arguments.render_effect_icon_shard,
             shard_count=arguments.effect_icon_shard_count,
             output_dir=arguments.export_effect_icon_cache_shard,
+            shard_icon_ids=arguments.effect_icon_shard_ids,
             repair_icon_ids=arguments.effect_icon_repair_ids,
-            fetch_icon_ids=_release_effect_icon_ids,
-            find_fallback_icon_ids=_swf_fallback_effect_icon_ids,
             render_icons=lambda icon_ids: load_flash_effect_icon_png_assets(
                 icon_ids,
                 config=EFFECT_ICON_BUILD_CONFIG,
