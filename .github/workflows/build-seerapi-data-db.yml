@@ -13,7 +13,9 @@ on:
       - "scripts/build_new_content_index.py"
       - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
+      - "scripts/finalize_render_asset_manifest.py"
       - "scripts/render_asset_manifest_build.py"
+      - "scripts/render_asset_repository.py"
       - ".github/workflows/build-seerapi-data-db.yml"
   schedule:
     - cron: "5,35 * * * *"
@@ -513,17 +515,55 @@ jobs:
           python scripts/build_new_content_index.py "${args[@]}" \
             --github-output "$GITHUB_OUTPUT"
 
-      - name: Render Flash mount fallback images
+      - name: Render and publish Flash mount images
+        id: mount_assets
         env:
           PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
           IRONSBOT_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
         run: |
-          set -e
-          args=(--database seerapi-data.sqlite)
+          set -euo pipefail
+          assets_dir="${RUNNER_TEMP}/generated-render-assets"
+          if git ls-remote --exit-code --heads origin generated-render-assets >/dev/null 2>&1; then
+            git fetch origin generated-render-assets
+            git worktree add --detach "${assets_dir}" FETCH_HEAD
+            git -C "${assets_dir}" switch -C generated-render-assets
+          else
+            git worktree add --detach "${assets_dir}"
+            git -C "${assets_dir}" switch --orphan generated-render-assets
+            git -C "${assets_dir}" rm -rf . || true
+            printf '%s\n' '# Generated IronsBot render assets' > "${assets_dir}/README.md"
+          fi
+          mkdir -p "${assets_dir}/mount"
+          pending_file="${RUNNER_TEMP}/flash-mount-image-pending-ids"
+          args=(
+            --database seerapi-data.sqlite
+            --output-dir "${assets_dir}/mount"
+            --pending-output "${pending_file}"
+          )
           if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
             args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
           fi
           python scripts/render_flash_mount_images.py "${args[@]}"
+
+          git -C "${assets_dir}" config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C "${assets_dir}" config user.name "github-actions[bot]"
+          git -C "${assets_dir}" add README.md mount
+          if ! git -C "${assets_dir}" diff --cached --quiet; then
+            git -C "${assets_dir}" commit -m "Publish generated mount images"
+          fi
+          git -C "${assets_dir}" push origin HEAD:generated-render-assets
+          revision="$(git -C "${assets_dir}" rev-parse HEAD)"
+          echo "directory=${assets_dir}/mount" >> "$GITHUB_OUTPUT"
+          echo "revision=${revision}" >> "$GITHUB_OUTPUT"
+          echo "FLASH_MOUNT_PENDING_FILE=${pending_file}" >> "$GITHUB_ENV"
+
+      - name: Finalize immutable render asset manifest
+        run: |
+          python scripts/finalize_render_asset_manifest.py \
+            --database seerapi-data.sqlite \
+            --mount-directory "${{ steps.mount_assets.outputs.directory }}" \
+            --mount-repository "${GITHUB_REPOSITORY}" \
+            --mount-revision "${{ steps.mount_assets.outputs.revision }}"
 
       - name: Validate final release contract
         run: |
@@ -732,27 +772,7 @@ jobs:
           printf '%s\n' "${{ needs.plan.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_version }}" > .build-state/config-package-version
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_manifest_sha }}" > .build-state/config-package-manifest-sha256
-          python - <<'PY'
-          import sqlite3
-          from pathlib import Path
-
-          output_path = Path('.build-state/flash-mount-image-pending-ids')
-          with sqlite3.connect('seerapi-data.sqlite') as connection:
-              has_pending_table = connection.execute(
-                  "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'flash_mount_image_pending'"
-              ).fetchone()
-              rows = (
-                  connection.execute(
-                      'SELECT mount_id FROM flash_mount_image_pending ORDER BY mount_id'
-                  ).fetchall()
-                  if has_pending_table
-                  else ()
-              )
-          output_path.write_text(
-              ''.join(f'{int(mount_id)}\n' for mount_id, in rows),
-              encoding='utf-8',
-          )
-          PY
+          cp "${FLASH_MOUNT_PENDING_FILE}" .build-state/flash-mount-image-pending-ids
           git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/flash-mount-image-pending-ids
           if ! git diff --cached --quiet; then
             git commit -m "Record SeerAPI data source checksums"

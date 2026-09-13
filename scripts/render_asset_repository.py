@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import logging
 from pathlib import Path
@@ -21,6 +21,7 @@ class AssetRepositorySnapshot:
     revision: str
     blobs_by_path: dict[str, str]
     repository: str = "Murmansk-Seer/seer-unity-assets"
+    sha256_by_path: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

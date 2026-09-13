@@ -9,9 +9,9 @@ import json
 from pathlib import Path
 import sqlite3
 
-import seerapi_models  # noqa: F401
 from sqlmodel import SQLModel
 
+import seerapi_models  # noqa: F401
 
 SCHEMA_CONTRACT_VERSION = '1'
 SCHEMA_CONTRACT_VERSION_KEY = 'ironsbot_schema_contract_version'
@@ -33,8 +33,6 @@ GENERATED_RELEASE_TABLES = frozenset(
         'effect_description',
         'field_effect',
         'field_effect_type',
-        'flash_mount_image',
-        'flash_mount_image_pending',
         'ironsbot_metadata',
         'item_exchange_price',
         'mintmark_quality',
@@ -147,7 +145,9 @@ def main() -> None:
     tables = finalize_release_contract(args.database)
     with sqlite3.connect(args.database) as connection:
         fingerprint = schema_fingerprint(connection, tables)
-    print(f'Final release contract validated: {len(tables)} tables, {fingerprint=}')
+    print(  # noqa: T201 - CLI validation result
+        f'Final release contract validated: {len(tables)} tables, {fingerprint=}'
+    )
 
 
 if __name__ == '__main__':
