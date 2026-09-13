@@ -6,6 +6,8 @@ from pathlib import Path
 import sqlite3
 import sys
 
+import pytest
+
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[1]
     / "scripts"
@@ -201,6 +203,19 @@ def test_generated_manifest_fact_does_not_prune_its_own_asset(tmp_path: Path) ->
 
     assert result == renderer.RefreshResult(attempted=0, rendered=0, pending=0)
     assert (output_dir / "7.png").read_bytes() == b"generated-png"
+
+
+def test_current_manifest_metadata_is_required(tmp_path: Path) -> None:
+    database = tmp_path / "current.sqlite"
+    _database(database, (7,))
+    with sqlite3.connect(database) as connection:
+        connection.execute("DELETE FROM ironsbot_metadata")
+
+    with pytest.raises(
+        ValueError,
+        match="current render asset repository metadata is missing",
+    ):
+        renderer.refresh_mount_images(database, output_dir=tmp_path / "mount")
 
 
 def test_retired_mount_assets_are_pruned(tmp_path: Path) -> None:
