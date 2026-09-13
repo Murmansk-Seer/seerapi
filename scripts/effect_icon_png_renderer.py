@@ -436,6 +436,7 @@ def render_effect_icon_png_assets(
                     len(futures),
                     available_count,
                 )
+    renders = dict(sorted(renders.items()))
     available_count = sum(1 for render in renders.values() if render.available)
     if config.png_require_cached:
         missing_icon_ids = [
