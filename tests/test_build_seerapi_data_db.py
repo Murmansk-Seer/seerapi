@@ -2273,6 +2273,10 @@ def test_mount_manifest_uses_typed_repository_override() -> None:
                         "newseer/assets/art/ui/assets/item/cloth/prev/1301170.png",
                     ),
                     render_asset_manifest_build.RemoteRenderAssetCandidate(
+                        "default",
+                        "newseer/assets/art/ui/assets/item/cloth/icon/1301170.png",
+                    ),
+                    render_asset_manifest_build.RemoteRenderAssetCandidate(
                         "mount", "mount/1301170.png"
                     ),
                 ),
@@ -2314,6 +2318,10 @@ def test_mount_manifest_prefers_existing_unity_asset() -> None:
                         "default", unity_path
                     ),
                     render_asset_manifest_build.RemoteRenderAssetCandidate(
+                        "default",
+                        "newseer/assets/art/ui/assets/item/cloth/icon/1301170.png",
+                    ),
+                    render_asset_manifest_build.RemoteRenderAssetCandidate(
                         "mount", "mount/1301170.png"
                     ),
                 ),
@@ -2329,6 +2337,53 @@ def test_mount_manifest_prefers_existing_unity_asset() -> None:
     mount = next(entry for entry in entries if entry.asset_kind == "mount")
     assert mount.source.startswith(
         f"example/default-assets@{'a' * 40}:{unity_path}#blob:unity-blob"
+    )
+
+
+def test_mount_manifest_uses_unity_icon_before_generated_asset() -> None:
+    icon_path = "newseer/assets/art/ui/assets/item/cloth/icon/1300081.png"
+    default = render_asset_repository.AssetRepositorySnapshot(
+        repository="example/default-assets",
+        revision="a" * 40,
+        blobs_by_path={icon_path: "icon-blob"},
+    )
+    mounts = render_asset_repository.AssetRepositorySnapshot(
+        repository="example/generated-assets",
+        revision="b" * 40,
+        blobs_by_path={"mount/1300081.png": "generated-blob"},
+    )
+
+    requests = render_asset_manifest_build._new_content_standard_requests
+    with sqlite3.connect(":memory:") as connection:
+        connection.executescript(
+            """
+            CREATE TABLE suit (id INTEGER);
+            CREATE TABLE equip (id INTEGER, part_type_id INTEGER);
+            CREATE TABLE title_part (id INTEGER);
+            CREATE TABLE pet (resource_id INTEGER);
+            CREATE TABLE skin_image_resolution (head_resource_id INTEGER);
+            INSERT INTO equip VALUES (1300081, 6);
+            """
+        )
+        mount_request = next(
+            request
+            for request in requests(
+                connection,
+                config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+            )
+            if request.asset_kind == "mount"
+        )
+
+    entries, complete = render_asset_manifest_build._resolve_requests(
+        (mount_request,),
+        {"default": default, "mount": mounts},
+        release_revision="release",
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    )
+
+    assert complete is True
+    assert entries[0].source.startswith(
+        f"example/default-assets@{'a' * 40}:{icon_path}#blob:icon-blob"
     )
 
 
