@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import io
+import json
 import logging
 import os
 from pathlib import Path
@@ -106,6 +107,52 @@ def _mount_ids(connection: sqlite3.Connection) -> tuple[int, ...]:
             )
         )
     return tuple(sorted(mount_ids))
+
+
+def _mount_ids_requiring_generated_assets(
+    connection: sqlite3.Connection,
+    mount_ids: set[int],
+) -> set[int]:
+    default_prefix = _default_repository_source_prefix(connection)
+    if default_prefix is None or not _table_exists(
+        connection,
+        "render_asset_manifest",
+    ):
+        return mount_ids
+    unity_mount_ids = {
+        int(asset_key)
+        for asset_key, source in connection.execute(
+            """
+            SELECT asset_key, source
+            FROM render_asset_manifest
+            WHERE asset_kind = 'mount' AND available = 1
+            """
+        )
+        if str(asset_key).isdigit() and str(source).startswith(default_prefix)
+    }
+    return mount_ids - unity_mount_ids
+
+
+def _default_repository_source_prefix(
+    connection: sqlite3.Connection,
+) -> str | None:
+    if not _table_exists(connection, "ironsbot_metadata"):
+        return None
+    row = connection.execute(
+        "SELECT value FROM ironsbot_metadata "
+        "WHERE key = 'render_asset_manifest_repositories'",
+    ).fetchone()
+    if row is None:
+        return None
+    try:
+        default = json.loads(str(row[0]))["default"]
+        repository = str(default["repository"])
+        revision = str(default["revision"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not repository or not revision:
+        return None
+    return f"{repository}@{revision}:"
 
 
 def _prune_retired_images(output_dir: Path, mount_ids: set[int]) -> None:
@@ -220,10 +267,14 @@ def refresh_mount_images(
     _extract_previous_images(output_dir, previous_database)
     with sqlite3.connect(database) as connection:
         mount_ids = set(_mount_ids(connection))
-        _prune_retired_images(output_dir, mount_ids)
+        generated_mount_ids = _mount_ids_requiring_generated_assets(
+            connection,
+            mount_ids,
+        )
+        _prune_retired_images(output_dir, generated_mount_ids)
         candidates = tuple(
             mount_id
-            for mount_id in sorted(mount_ids)
+            for mount_id in sorted(generated_mount_ids)
             if not (output_dir / f"{mount_id}.png").is_file()
         )
         for mount_id in candidates:

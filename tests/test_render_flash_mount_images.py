@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sqlite3
 import sys
@@ -23,6 +24,7 @@ def _database(
     mount_ids: tuple[int, ...] = (),
     *,
     indexed_mount_ids: tuple[int, ...] = (),
+    unity_mount_ids: tuple[int, ...] = (),
 ) -> None:
     with sqlite3.connect(path) as connection:
         connection.execute(
@@ -50,6 +52,49 @@ def _database(
             INSERT INTO new_content_item VALUES ('mount', ?, '', ?, '{}', 'added')
             """,
             ((mount_id, mount_id) for mount_id in indexed_mount_ids),
+        )
+        connection.execute(
+            """
+            CREATE TABLE render_asset_manifest (
+                asset_kind TEXT NOT NULL,
+                asset_key TEXT NOT NULL,
+                available INTEGER NOT NULL,
+                source TEXT NOT NULL
+            )
+            """
+        )
+        repository = "example/unity-assets"
+        revision = "a" * 40
+        connection.executemany(
+            "INSERT INTO render_asset_manifest VALUES ('mount', ?, 1, ?)",
+            (
+                (
+                    str(mount_id),
+                    f"{repository}@{revision}:equip/{mount_id}.png#blob:abc",
+                )
+                for mount_id in unity_mount_ids
+            ),
+        )
+        connection.execute(
+            "CREATE TABLE ironsbot_metadata (key TEXT PRIMARY KEY, value TEXT)",
+        )
+        connection.execute(
+            "INSERT INTO ironsbot_metadata VALUES "
+            "('render_asset_manifest_repositories', ?)",
+            (
+                json.dumps(
+                    {
+                        "default": {
+                            "repository": repository,
+                            "revision": revision,
+                        },
+                        "mount": {
+                            "repository": "example/generated-assets",
+                            "revision": "b" * 40,
+                        },
+                    }
+                ),
+            ),
         )
 
 
@@ -112,6 +157,50 @@ def test_previous_flash_mount_rows_are_carried_forward(tmp_path: Path) -> None:
 
     assert result == renderer.RefreshResult(attempted=0, rendered=0, pending=0)
     assert (output_dir / "7.png").read_bytes() == b"previous-png"
+
+
+def test_unity_mounts_are_removed_from_generated_asset_branch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    database = tmp_path / "current.sqlite"
+    output_dir = tmp_path / "mount"
+    output_dir.mkdir()
+    (output_dir / "7.png").write_bytes(b"redundant-generated-png")
+    _database(database, (7, 8), unity_mount_ids=(7,))
+    requested: list[str] = []
+
+    def download(url: str) -> bytes:
+        requested.append(url)
+        return b"CWS-mount"
+
+    monkeypatch.setattr(renderer, "_download_swf", download)
+    monkeypatch.setattr(renderer, "_render_swf_to_png", lambda _data, _id: b"png")
+
+    result = renderer.refresh_mount_images(database, output_dir=output_dir)
+
+    assert result == renderer.RefreshResult(attempted=1, rendered=1, pending=0)
+    assert requested == [renderer._source_url(8)]
+    assert not (output_dir / "7.png").exists()
+    assert (output_dir / "8.png").read_bytes() == b"png"
+
+
+def test_generated_manifest_fact_does_not_prune_its_own_asset(tmp_path: Path) -> None:
+    database = tmp_path / "current.sqlite"
+    output_dir = tmp_path / "mount"
+    output_dir.mkdir()
+    (output_dir / "7.png").write_bytes(b"generated-png")
+    _database(database, (7,))
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO render_asset_manifest VALUES ('mount', '7', 1, ?)",
+            (f"example/generated-assets@{'b' * 40}:mount/7.png#blob:def",),
+        )
+
+    result = renderer.refresh_mount_images(database, output_dir=output_dir)
+
+    assert result == renderer.RefreshResult(attempted=0, rendered=0, pending=0)
+    assert (output_dir / "7.png").read_bytes() == b"generated-png"
 
 
 def test_retired_mount_assets_are_pruned(tmp_path: Path) -> None:
