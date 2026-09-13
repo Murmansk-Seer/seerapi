@@ -17,6 +17,13 @@ import logging
 import sqlite3
 
 if __package__:
+    from .autocard_asset_manifest import collect_autocard_asset_requests
+else:
+    from autocard_asset_manifest import (  # type: ignore[import-not-found]
+        collect_autocard_asset_requests,
+    )
+
+if __package__:
     from .render_asset_repository import AssetRepositorySnapshot
 else:
     from render_asset_repository import (
@@ -127,11 +134,19 @@ def collect_remote_asset_manifest(
         release_revision=release_revision,
         config=config,
     )
-    supplemental_entries = _build_battle_effect_manifest(
-        conn,
-        snapshots,
-        release_revision=release_revision,
-        config=config,
+    supplemental_entries = (
+        *_build_battle_effect_manifest(
+            conn,
+            snapshots,
+            release_revision=release_revision,
+            config=config,
+        ),
+        *_build_autocard_manifest(
+            conn,
+            snapshots,
+            release_revision=release_revision,
+            config=config,
+        ),
     )
     existing = {(entry.asset_kind, entry.asset_key) for entry in pet_info_entries}
     return RemoteAssetManifestBuild(
@@ -486,6 +501,49 @@ def _build_battle_effect_manifest(
         config=config,
     )
     return entries
+
+
+def _build_autocard_manifest(
+    conn: sqlite3.Connection,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
+    *,
+    release_revision: str,
+    config: RenderAssetManifestConfig,
+) -> tuple[RenderAssetManifestEntry, ...]:
+    """Publish card artwork as optional facts from the same asset snapshot."""
+
+    if 'default' not in snapshots:
+        return ()
+    requests = _autocard_asset_requests(conn)
+    if requests is None:
+        return ()
+    entries, _complete = _resolve_requests(
+        requests,
+        snapshots,
+        release_revision=release_revision,
+        config=config,
+    )
+    return entries
+
+
+def _autocard_asset_requests(
+    conn: sqlite3.Connection,
+) -> tuple[RemoteRenderAssetRequest, ...] | None:
+    try:
+        specs = collect_autocard_asset_requests(conn)
+    except sqlite3.Error:
+        return None
+    if specs is None:
+        return None
+    return tuple(
+        _request(
+            spec.asset_kind,
+            spec.asset_key,
+            (spec.path,),
+            required=False,
+        )
+        for spec in specs
+    )
 
 
 def _select_positive_ids(
