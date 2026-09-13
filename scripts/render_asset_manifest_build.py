@@ -371,6 +371,10 @@ def _new_content_standard_requests(
                         'default',
                         f'newseer/assets/art/ui/assets/item/cloth/prev/{mount_id}.png',
                     ),
+                    RemoteRenderAssetCandidate(
+                        'default',
+                        f'newseer/assets/art/ui/assets/item/cloth/icon/{mount_id}.png',
+                    ),
                     RemoteRenderAssetCandidate('mount', f'mount/{mount_id}.png'),
                 ),
                 required=True,
