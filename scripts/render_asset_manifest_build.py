@@ -85,6 +85,7 @@ class RemoteAssetManifestBuild:
     new_content_standard_scope_complete: bool
     skin_body_entries: tuple[RenderAssetManifestEntry, ...]
     skin_body_scope_complete: bool
+    supplemental_entries: tuple[RenderAssetManifestEntry, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +127,12 @@ def collect_remote_asset_manifest(
         release_revision=release_revision,
         config=config,
     )
+    supplemental_entries = _build_battle_effect_manifest(
+        conn,
+        snapshots,
+        release_revision=release_revision,
+        config=config,
+    )
     existing = {(entry.asset_kind, entry.asset_key) for entry in pet_info_entries}
     return RemoteAssetManifestBuild(
         pet_info_entries=pet_info_entries,
@@ -138,6 +145,7 @@ def collect_remote_asset_manifest(
             if (entry.asset_kind, entry.asset_key) not in existing
         ),
         skin_body_scope_complete=skin_body_scope_complete,
+        supplemental_entries=supplemental_entries,
     )
 
 
@@ -161,6 +169,7 @@ def build_render_asset_manifest(
         *remote.pet_info_entries,
         *remote.new_content_standard_entries,
         *remote.skin_body_entries,
+        *remote.supplemental_entries,
     )
     complete_scopes = complete_render_asset_scopes(
         remote,
@@ -443,6 +452,40 @@ def _build_skin_body_manifest(
         config=config,
     )
     return entries, complete and not unresolved
+
+
+def _build_battle_effect_manifest(
+    conn: sqlite3.Connection,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
+    *,
+    release_revision: str,
+    config: RenderAssetManifestConfig,
+) -> tuple[RenderAssetManifestEntry, ...]:
+    """Record query illustrations without changing renderer scope completeness."""
+
+    if 'default' not in snapshots:
+        return ()
+    effect_ids = _select_positive_ids(conn, 'battle_effect', 'id')
+    if effect_ids is None:
+        return ()
+    entries, _complete = _resolve_requests(
+        tuple(
+            _request(
+                'battle_effect',
+                str(effect_id),
+                (
+                    'newseer/assets/art/ui/assets/battleeffect/abnormal/'
+                    f'{effect_id}.png',
+                ),
+                required=False,
+            )
+            for effect_id in effect_ids
+        ),
+        snapshots,
+        release_revision=release_revision,
+        config=config,
+    )
+    return entries
 
 
 def _select_positive_ids(
