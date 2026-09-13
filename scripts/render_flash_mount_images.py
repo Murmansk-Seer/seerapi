@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+from http import HTTPStatus
 import io
 import json
 import logging
@@ -178,6 +179,35 @@ def _download_swf(url: str) -> bytes:
     if not data.startswith((b"FWS", b"CWS", b"ZWS")) and "shockwave-flash" not in content_type:
         raise ValueError("Flash mount asset is not an SWF")
     return data
+
+
+def mount_renderer_required(plan: MountImagePlan) -> bool:
+    """Return false only when every missing SWF is definitively unavailable."""
+
+    for mount_id in plan.candidate_ids:
+        try:
+            _download_swf(_source_url(mount_id))
+        except HTTPError as error:
+            if error.code == HTTPStatus.NOT_FOUND:
+                continue
+            logger.info(
+                "Flash mount source probe was inconclusive for %s: %s",
+                mount_id,
+                error,
+            )
+            return True
+        except ValueError:
+            continue
+        except (URLError, OSError) as error:
+            logger.info(
+                "Flash mount source probe was inconclusive for %s: %s",
+                mount_id,
+                error,
+            )
+            return True
+        else:
+            return True
+    return False
 
 
 def _visible_pixel_count(data: bytes) -> int:
@@ -361,10 +391,11 @@ def main() -> None:
             output_dir=args.output_dir,
             previous_database=args.previous,
         )
+        renderer_required = mount_renderer_required(plan)
         args.github_output.write_text(
             "\n".join(
                 (
-                    f"needs_render={str(plan.needs_render).lower()}",
+                    f"needs_render={str(renderer_required).lower()}",
                     f"mount_count={len(plan.mount_ids)}",
                     f"candidate_count={len(plan.candidate_ids)}",
                     "",
@@ -373,9 +404,10 @@ def main() -> None:
             encoding="utf-8",
         )
         logger.info(
-            "Flash mount asset plan: mounts=%s candidates=%s",
+            "Flash mount asset plan: mounts=%s candidates=%s renderer_required=%s",
             len(plan.mount_ids),
             len(plan.candidate_ids),
+            renderer_required,
         )
         return
     result = refresh_mount_images(
