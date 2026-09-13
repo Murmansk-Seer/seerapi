@@ -398,7 +398,7 @@ def render_effect_icon_png_assets(
 
     if not checks:
         return {}
-    logger.info("Rendering official effect icon PNGs: %s unique icons", len(checks))
+    logger.info("Resolving official effect icon PNGs: %s unique icons", len(checks))
     renders: dict[int, EffectIconPngRender] = {}
     worker_count = min(config.render_workers, len(checks))
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -431,7 +431,7 @@ def render_effect_icon_png_assets(
                     1 for render in renders.values() if render.available
                 )
                 logger.info(
-                    "Effect icon PNG render progress: %s/%s completed, %s available",
+                    "Effect icon PNG resolution progress: %s/%s completed, %s available",
                     completed_count,
                     len(futures),
                     available_count,
@@ -460,7 +460,7 @@ def render_effect_icon_png_assets(
             + (f": {first_errors}" if first_errors else "")
         )
     logger.info(
-        "Rendered official effect icon PNGs: %s/%s available",
+        "Resolved official effect icon PNGs: %s/%s available",
         available_count,
         len(renders),
     )

@@ -1366,7 +1366,10 @@ def test_render_effect_icon_png_uses_cached_png(monkeypatch, tmp_path) -> None:
     assert render.data == png_data
 
 
-def test_render_effect_icon_assets_uses_complete_cache_without_ffdec(tmp_path) -> None:
+def test_render_effect_icon_assets_uses_complete_cache_without_ffdec(
+    tmp_path, caplog
+) -> None:
+    caplog.set_level("INFO")
     check = effect_icon_build_types.EffectIconAssetCheck(
         icon_id=1644,
         url="https://example.test/1644.swf",
@@ -1398,6 +1401,9 @@ def test_render_effect_icon_assets_uses_complete_cache_without_ffdec(tmp_path) -
 
     assert renders[1644].available is True
     assert renders[1644].data == _test_png()
+    assert "Resolving official effect icon PNGs: 1 unique icons" in caplog.text
+    assert "Resolved official effect icon PNGs: 1/1 available" in caplog.text
+    assert "Rendering official effect icon PNGs" not in caplog.text
 
 
 def test_parallel_effect_icon_renders_return_in_icon_id_order(
