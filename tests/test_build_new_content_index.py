@@ -37,9 +37,14 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
                 id INTEGER PRIMARY KEY, count INTEGER NOT NULL,
                 start_time TEXT NOT NULL, end_time TEXT NOT NULL
             );
+            CREATE TABLE peak_cost_pool (
+                id INTEGER PRIMARY KEY, cost INTEGER NOT NULL,
+                name TEXT NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL
+            );
             CREATE TABLE pet (
                 id INTEGER PRIMARY KEY, name TEXT,
-                peak_pool_id INTEGER, peak_expert_pool_id INTEGER
+                peak_pool_id INTEGER, peak_expert_pool_id INTEGER,
+                peak_cost_pool_id INTEGER
             );
             CREATE TABLE skill (id INTEGER PRIMARY KEY, name TEXT, info TEXT);
             CREATE TABLE pet_skin (
@@ -67,7 +72,7 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
             "INSERT INTO title_part VALUES (177, '不动明王护法', '', '', 6086031)"
         )
         conn.executemany(
-            'INSERT INTO pet VALUES (?, ?, NULL, NULL)',
+            'INSERT INTO pet VALUES (?, ?, NULL, NULL, NULL)',
             [(item, f'精灵{item}') for item in pet_ids],
         )
         conn.executemany(
@@ -76,6 +81,14 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
                 (0, 0, '2026-07-17 10:00:00', '2026-08-14 10:00:00'),
                 (2, 2, '2026-07-17 10:00:00', '2026-08-14 10:00:00'),
                 (3, 3, '2026-07-17 10:00:00', '2026-08-14 10:00:00'),
+            ),
+        )
+        conn.executemany(
+            'INSERT INTO peak_cost_pool VALUES (?, ?, ?, ?, ?)',
+            (
+                (6, 6, '6点', '2026-07-17 10:00:00', '2026-08-14 10:00:00'),
+                (20, 20, '20点', '2026-07-17 10:00:00', '2026-08-14 10:00:00'),
+                (35, 35, '35点', '2026-07-17 10:00:00', '2026-08-14 10:00:00'),
             ),
         )
         conn.execute("INSERT INTO skill VALUES (9000, '基础技能', '基础效果')")
@@ -384,6 +397,94 @@ def test_same_week_pool_changes_keep_origin_and_drop_reverts(tmp_path: Path) -> 
     assert changes == {
         1: {'previous_limit': 3, 'current_limit': 0},
     }
+
+
+def test_master_pool_uses_existing_pet_cost_relation(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260828100000', pet_ids=(1, 2, 3))
+    _create_database(current_path, version='20260904100000', pet_ids=(1, 2, 3, 4))
+    with sqlite3.connect(previous_path) as conn:
+        conn.executemany(
+            'UPDATE pet SET peak_cost_pool_id = ? WHERE id = ?',
+            ((20, 1), (6, 2)),
+        )
+    with sqlite3.connect(current_path) as conn:
+        conn.executemany(
+            'UPDATE pet SET peak_cost_pool_id = ? WHERE id = ?',
+            ((6, 1), (None, 2), (35, 3), (20, 4)),
+        )
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    changes = {
+        item.entity_id: item.payload
+        for item in state.items
+        if item.category == 'peak_master_pool'
+    }
+    assert changes == {
+        1: {'previous_limit': 20, 'current_limit': 6},
+        2: {'previous_limit': 6, 'current_limit': None},
+        3: {'previous_limit': None, 'current_limit': 35},
+        4: {'previous_limit': None, 'current_limit': 20},
+    }
+
+
+def test_master_pool_first_observation_does_not_invent_changes(tmp_path: Path) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260828100000', pet_ids=(1,))
+    _create_database(current_path, version='20260904100000', pet_ids=(1,))
+    with sqlite3.connect(previous_path) as conn:
+        conn.execute('DROP TABLE peak_cost_pool')
+    with sqlite3.connect(current_path) as conn:
+        conn.execute('UPDATE pet SET peak_cost_pool_id = 35 WHERE id = 1')
+
+    state = indexer.build_release_state(current_path, previous_path, 'current-sha')
+
+    assert not [item for item in state.items if item.category == 'peak_master_pool']
+    category_state = next(
+        state for state in state.category_states if state.category == 'peak_master_pool'
+    )
+    assert (category_state.comparison_ready, category_state.reason) == (
+        False,
+        'first_observation',
+    )
+
+
+def test_master_pool_same_week_keeps_origin_and_drops_reverts(tmp_path: Path) -> None:
+    baseline_path = tmp_path / 'baseline.sqlite'
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(baseline_path, version='20260828100000', pet_ids=(1, 2))
+    _create_database(previous_path, version='20260904100000', pet_ids=(1, 2))
+    _create_database(current_path, version='20260905100000', pet_ids=(1, 2))
+    with sqlite3.connect(baseline_path) as conn:
+        conn.executemany(
+            'UPDATE pet SET peak_cost_pool_id = ? WHERE id = ?',
+            ((20, 1), (20, 2)),
+        )
+    with sqlite3.connect(previous_path) as conn:
+        conn.executemany(
+            'UPDATE pet SET peak_cost_pool_id = ? WHERE id = ?',
+            ((10, 1), (10, 2)),
+        )
+    first = indexer.build_release_state(previous_path, baseline_path, 'first-sha')
+    indexer.write_release_state(previous_path, first, None)
+    with sqlite3.connect(current_path) as conn:
+        conn.executemany(
+            'UPDATE pet SET peak_cost_pool_id = ? WHERE id = ?',
+            ((6, 1), (20, 2)),
+        )
+
+    state = indexer.build_release_state(current_path, previous_path, 'second-sha')
+
+    changes = {
+        item.entity_id: item.payload
+        for item in state.items
+        if item.category == 'peak_master_pool'
+    }
+    assert changes == {1: {'previous_limit': 20, 'current_limit': 6}}
 
 
 def test_skill_semantic_digest_ignores_linked_pet_list() -> None:
