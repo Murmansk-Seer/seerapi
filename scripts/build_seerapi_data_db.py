@@ -640,6 +640,7 @@ def main() -> None:
             shard_index=arguments.render_effect_icon_shard,
             shard_count=arguments.effect_icon_shard_count,
             output_dir=arguments.export_effect_icon_cache_shard,
+            repair_icon_ids=arguments.effect_icon_repair_ids,
             fetch_icon_ids=lambda: {
                 item.icon_id
                 for item in _release_source_loader()

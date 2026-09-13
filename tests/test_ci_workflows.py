@@ -28,3 +28,4 @@ def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
         "if: steps.effect_icon_cache_plan.outputs.needs_render == 'true'"
     ) == 2
     assert "--plan-effect-icon-shard ${{ matrix.shard }}" in workflow
+    assert "steps.effect_icon_cache_plan.outputs.repair_icon_ids" in workflow

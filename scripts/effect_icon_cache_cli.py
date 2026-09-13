@@ -84,6 +84,12 @@ def add_effect_icon_cache_cli_arguments(parser: argparse.ArgumentParser) -> None
         metavar="FILE",
         help="write GitHub-output-compatible shard plan values",
     )
+    parser.add_argument(
+        "--effect-icon-repair-ids",
+        type=_parse_effect_icon_ids,
+        metavar="ID,ID,...",
+        help="ordered icon IDs selected by the shard plan for rendering",
+    )
 
 
 def validate_effect_icon_cache_cli_arguments(
@@ -106,6 +112,7 @@ def validate_effect_icon_cache_cli_arguments(
             arguments.effect_icon_shard_count != 1
             or arguments.export_effect_icon_cache_shard is not None
             or arguments.effect_icon_shard_plan_output is not None
+            or arguments.effect_icon_repair_ids is not None
         ):
             parser.error(
                 "effect icon shard options require --plan-effect-icon-shard "
@@ -130,6 +137,16 @@ def validate_effect_icon_cache_cli_arguments(
         parser.error(
             "--effect-icon-shard-plan-output requires --plan-effect-icon-shard"
         )
+    if (
+        arguments.render_effect_icon_shard is not None
+        and arguments.effect_icon_repair_ids is None
+    ):
+        parser.error("--render-effect-icon-shard requires --effect-icon-repair-ids")
+    if (
+        arguments.plan_effect_icon_shard is not None
+        and arguments.effect_icon_repair_ids is not None
+    ):
+        parser.error("--effect-icon-repair-ids requires --render-effect-icon-shard")
 
 
 def write_effect_icon_cache_shard_plan(
@@ -144,6 +161,7 @@ def write_effect_icon_cache_shard_plan(
                 f"icon_count={len(plan.icon_ids)}",
                 f"cached_count={plan.cached_count}",
                 f"repair_count={len(plan.repair_icon_ids)}",
+                "repair_icon_ids=" + ",".join(map(str, plan.repair_icon_ids)),
                 "",
             )
         ),
@@ -255,6 +273,7 @@ def render_effect_icon_png_cache_shard(
     shard_index: int,
     shard_count: int,
     output_dir: Path,
+    repair_icon_ids: Sequence[int],
     fetch_icon_ids: Callable[[], set[int]],
     find_fallback_icon_ids: Callable[[set[int]], Sequence[int]],
     render_icons: Callable[[set[int]], Mapping[int, EffectIconPngRender]],
@@ -267,15 +286,20 @@ def render_effect_icon_png_cache_shard(
         shard_count=shard_count,
         icon_ids=find_fallback_icon_ids(fetch_icon_ids()),
     )
+    selected_icon_ids = _select_effect_icon_repairs(
+        shard_icon_ids=shard_icon_ids,
+        repair_icon_ids=repair_icon_ids,
+    )
     logger.info(
-        "Rendering SWF fallback effect icon cache shard %s/%s: %s icons",
+        "Rendering SWF fallback effect icon cache shard %s/%s: %s of %s icons",
         shard_index + 1,
         shard_count,
+        len(selected_icon_ids),
         len(shard_icon_ids),
     )
-    renders = render_icons(set(shard_icon_ids))
+    renders = render_icons(set(selected_icon_ids))
     export_cache(shard_icon_ids, output_dir)
-    return len(shard_icon_ids), sum(
+    return len(selected_icon_ids), sum(
         1 for render in renders.values() if render.available
     )
 
@@ -355,6 +379,35 @@ def _effect_icon_requires_repair(
     if check is None or render is None:
         return True
     return (check.available or check.status == 0) and not render.available
+
+
+def _select_effect_icon_repairs(
+    *,
+    shard_icon_ids: Sequence[int],
+    repair_icon_ids: Sequence[int],
+) -> tuple[int, ...]:
+    repair_id_set = set(repair_icon_ids)
+    if len(repair_id_set) != len(repair_icon_ids):
+        raise ValueError("Effect icon repair IDs must be unique")
+    unknown_icon_ids = repair_id_set.difference(shard_icon_ids)
+    if unknown_icon_ids:
+        unknown = ", ".join(map(str, sorted(unknown_icon_ids)))
+        raise ValueError(f"Effect icon repair IDs are outside the shard: {unknown}")
+    return tuple(icon_id for icon_id in shard_icon_ids if icon_id in repair_id_set)
+
+
+def _parse_effect_icon_ids(value: str) -> tuple[int, ...]:
+    try:
+        icon_ids = tuple(int(item) for item in value.split(",") if item)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("effect icon IDs must be integers") from error
+    if not icon_ids:
+        raise argparse.ArgumentTypeError("at least one effect icon ID is required")
+    if any(icon_id <= 0 for icon_id in icon_ids):
+        raise argparse.ArgumentTypeError("effect icon IDs must be positive")
+    if len(set(icon_ids)) != len(icon_ids):
+        raise argparse.ArgumentTypeError("effect icon IDs must be unique")
+    return icon_ids
 
 
 def _short_error(error: Exception | str) -> str:

@@ -273,6 +273,7 @@ jobs:
           python scripts/build_seerapi_data_db.py \
             --render-effect-icon-shard ${{ matrix.shard }} \
             --effect-icon-shard-count 16 \
+            --effect-icon-repair-ids "${{ steps.effect_icon_cache_plan.outputs.repair_icon_ids }}" \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache
 
       - name: Ensure effect icon cache artifact exists

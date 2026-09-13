@@ -1670,30 +1670,34 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
         builder,
         "unity_effect_icon_swf_fallback_icon_ids",
         lambda icon_ids, **_kwargs: captured.setdefault("fallback_input", sorted(icon_ids))
-        and [100, 102, 103],
+        and [100, 101, 102, 103],
     )
     monkeypatch.setattr(
         builder,
         "load_flash_effect_icon_png_assets",
-        lambda icon_ids, **_kwargs: (
+        lambda icon_ids, **_kwargs: captured.setdefault(
+            "render_ids", sorted(icon_ids)
+        )
+        and (
             {icon_id: object() for icon_id in icon_ids},
             {
-            icon_id: effect_icon_build_types.EffectIconPngRender(
-                icon_id,
-                True,
-                "image/png",
-                1,
-                b"x",
-                "",
-            )
-            for icon_id in icon_ids
+                icon_id: effect_icon_build_types.EffectIconPngRender(
+                    icon_id,
+                    True,
+                    "image/png",
+                    1,
+                    b"x",
+                    "",
+                )
+                for icon_id in icon_ids
             },
         ),
     )
     icon_count, available_count = effect_icon_cache_cli.render_effect_icon_png_cache_shard(
-        shard_index=1,
+        shard_index=0,
         shard_count=2,
         output_dir=tmp_path,
+        repair_icon_ids=[102],
         fetch_icon_ids=lambda: {item.icon_id for item in config_data.soulmark_icons},
         find_fallback_icon_ids=lambda icon_ids: builder.unity_effect_icon_swf_fallback_icon_ids(
             icon_ids,
@@ -1716,7 +1720,8 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
     )
 
     assert captured["fallback_input"] == [100, 101, 102, 103]
-    assert captured["icon_ids"] == [102]
+    assert captured["icon_ids"] == [100, 102]
+    assert captured["render_ids"] == [102]
     assert (icon_count, available_count) == (1, 1)
 
 
@@ -1779,6 +1784,15 @@ def test_plan_effect_icon_cache_shard_only_repairs_retryable_missing_pngs(
     assert plan.repair_icon_ids == (102, 103)
     assert plan.needs_render is True
     assert exported == [100, 101, 102, 103]
+    plan_output = tmp_path / "github-output"
+    effect_icon_cache_cli.write_effect_icon_cache_shard_plan(plan, plan_output)
+    assert plan_output.read_text(encoding="utf-8").splitlines() == [
+        "needs_render=true",
+        "icon_count=4",
+        "cached_count=1",
+        "repair_count=2",
+        "repair_icon_ids=102,103",
+    ]
 
 
 def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
