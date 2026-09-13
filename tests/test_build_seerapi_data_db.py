@@ -1649,58 +1649,38 @@ def test_seed_effect_icon_cache_rejects_previous_renderer_version(
     ).exists()
 
 
-def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
+def test_render_effect_icon_cache_shard_consumes_planned_id_snapshot(
     monkeypatch,
     tmp_path,
 ) -> None:
-    config_data = type(
-        "ConfigData",
-        (),
-        {
-            "soulmark_icons": [
-                config_package_sources.SoulmarkIcon(1, 1, 1, 100),
-                config_package_sources.SoulmarkIcon(2, 2, 2, 101),
-                config_package_sources.SoulmarkIcon(3, 3, 3, 102),
-                config_package_sources.SoulmarkIcon(4, 4, 4, 103),
-            ]
-        },
-    )()
     captured: dict[str, list[int]] = {}
     monkeypatch.setattr(
         builder,
-        "unity_effect_icon_swf_fallback_icon_ids",
-        lambda icon_ids, **_kwargs: captured.setdefault("fallback_input", sorted(icon_ids))
-        and [100, 102, 103],
-    )
-    monkeypatch.setattr(
-        builder,
         "load_flash_effect_icon_png_assets",
-        lambda icon_ids, **_kwargs: (
+        lambda icon_ids, **_kwargs: captured.setdefault(
+            "render_ids", sorted(icon_ids)
+        )
+        and (
             {icon_id: object() for icon_id in icon_ids},
             {
-            icon_id: effect_icon_build_types.EffectIconPngRender(
-                icon_id,
-                True,
-                "image/png",
-                1,
-                b"x",
-                "",
-            )
-            for icon_id in icon_ids
+                icon_id: effect_icon_build_types.EffectIconPngRender(
+                    icon_id,
+                    True,
+                    "image/png",
+                    1,
+                    b"x",
+                    "",
+                )
+                for icon_id in icon_ids
             },
         ),
     )
     icon_count, available_count = effect_icon_cache_cli.render_effect_icon_png_cache_shard(
-        shard_index=1,
+        shard_index=0,
         shard_count=2,
         output_dir=tmp_path,
-        fetch_icon_ids=lambda: {item.icon_id for item in config_data.soulmark_icons},
-        find_fallback_icon_ids=lambda icon_ids: builder.unity_effect_icon_swf_fallback_icon_ids(
-            icon_ids,
-            config=builder._effect_icon_source_config(),
-            fetch_package_manifest=_fetch_package_manifest,
-            logger=builder.logger,
-        ),
+        shard_icon_ids=[100, 102],
+        repair_icon_ids=[102],
         render_icons=lambda icon_ids: builder.load_flash_effect_icon_png_assets(
             icon_ids,
             config=builder.EFFECT_ICON_BUILD_CONFIG,
@@ -1715,9 +1695,81 @@ def test_render_effect_icon_cache_shard_uses_unity_missing_partition(
         logger=builder.logger,
     )
 
-    assert captured["fallback_input"] == [100, 101, 102, 103]
-    assert captured["icon_ids"] == [102]
+    assert captured["icon_ids"] == [100, 102]
+    assert captured["render_ids"] == [102]
     assert (icon_count, available_count) == (1, 1)
+
+
+def test_plan_effect_icon_cache_shard_only_repairs_retryable_missing_pngs(
+    tmp_path,
+) -> None:
+    available_check = effect_icon_build_types.EffectIconAssetCheck(
+        100, "https://example/100.swf", True, 200, "application/x-shockwave-flash", 10, ""
+    )
+    missing_check = effect_icon_build_types.EffectIconAssetCheck(
+        101, "https://example/101.swf", False, 404, "text/html", None, ""
+    )
+    transient_check = effect_icon_build_types.EffectIconAssetCheck(
+        102, "https://example/102.swf", False, 0, "", None, "timed out"
+    )
+    uncached_check = effect_icon_build_types.EffectIconAssetCheck(
+        103,
+        "https://example/103.swf",
+        True,
+        200,
+        "application/x-shockwave-flash",
+        10,
+        "",
+    )
+    cached_render = effect_icon_build_types.EffectIconPngRender(
+        100, True, "image/png", 1, b"x", ""
+    )
+
+    def unavailable_render(icon_id: int) -> effect_icon_build_types.EffectIconPngRender:
+        return effect_icon_build_types.EffectIconPngRender(
+            icon_id, False, "", None, None, "not cached"
+        )
+    exported: list[int] = []
+
+    plan = effect_icon_cache_cli.plan_effect_icon_png_cache_shard(
+        shard_index=0,
+        shard_count=1,
+        output_dir=tmp_path,
+        fetch_icon_ids=lambda: {100, 101, 102, 103},
+        find_fallback_icon_ids=lambda icon_ids: sorted(icon_ids),
+        inspect_icons=lambda _icon_ids: (
+            {
+                100: available_check,
+                101: missing_check,
+                102: transient_check,
+                103: uncached_check,
+            },
+            {
+                100: cached_render,
+                101: unavailable_render(101),
+                102: unavailable_render(102),
+                103: unavailable_render(103),
+            },
+        ),
+        export_cache=lambda icon_ids, _output_dir: exported.extend(icon_ids) or 1,
+        logger=builder.logger,
+    )
+
+    assert plan.icon_ids == (100, 101, 102, 103)
+    assert plan.cached_count == 1
+    assert plan.repair_icon_ids == (102, 103)
+    assert plan.needs_render is True
+    assert exported == [100, 101, 102, 103]
+    plan_output = tmp_path / "github-output"
+    effect_icon_cache_cli.write_effect_icon_cache_shard_plan(plan, plan_output)
+    assert plan_output.read_text(encoding="utf-8").splitlines() == [
+        "needs_render=true",
+        "icon_count=4",
+        "cached_count=1",
+        "repair_count=2",
+        "shard_icon_ids=100,101,102,103",
+        "repair_icon_ids=102,103",
+    ]
 
 
 def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
