@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 import struct
 import sys
+from threading import Event
 from types import SimpleNamespace
 from typing import Any
 from urllib.error import HTTPError
@@ -1397,6 +1398,56 @@ def test_render_effect_icon_assets_uses_complete_cache_without_ffdec(tmp_path) -
 
     assert renders[1644].available is True
     assert renders[1644].data == _test_png()
+
+
+def test_parallel_effect_icon_renders_return_in_icon_id_order(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    first_started = Event()
+    release_first = Event()
+    calls: list[int] = []
+
+    def render(icon_id, _check, **_kwargs):
+        calls.append(icon_id)
+        if icon_id == 1:
+            first_started.set()
+            assert release_first.wait(1)
+        else:
+            assert first_started.wait(1)
+            release_first.set()
+        return effect_icon_build_types.EffectIconPngRender(
+            icon_id=icon_id,
+            available=True,
+            content_type="image/png",
+            content_length=3,
+            data=b"png",
+            error="",
+        )
+
+    monkeypatch.setattr(effect_icon_png_renderer, "_render_effect_icon_png", render)
+    checks = {
+        icon_id: effect_icon_build_types.EffectIconAssetCheck(
+            icon_id=icon_id,
+            url=f"https://example.test/{icon_id}.swf",
+            available=True,
+            status=200,
+            content_type="application/x-shockwave-flash",
+            content_length=123,
+            error="",
+        )
+        for icon_id in (2, 1)
+    }
+
+    renders = effect_icon_png_renderer.render_effect_icon_png_assets(
+        checks,
+        config=_effect_icon_render_config(cache_dir=tmp_path, render_workers=2),
+        download_effect_icon=lambda _check: b"unused",
+        logger=builder.logger,
+    )
+
+    assert sorted(calls) == [1, 2]
+    assert tuple(renders) == (1, 2)
 
 
 @pytest.mark.parametrize("missing_tool", ["java", "jar"])
