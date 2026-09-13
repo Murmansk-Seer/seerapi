@@ -315,9 +315,6 @@ jobs:
       - name: Install parser dependency
         run: python -m pip install UnityPy Pillow
 
-      - name: Setup FFDec SWF renderer
-        uses: ./.github/actions/setup-ffdec
-
       - name: Download rendered icon PNG cache
         uses: actions/download-artifact@v4
         with:
@@ -349,13 +346,10 @@ jobs:
           IRONSBOT_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
           IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
           IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
-          # Asset availability can change between the incremental render job and
-          # this build. Cached PNGs are reused; only newly available misses are
-          # rendered here as a bounded backstop.
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
+          # Shard jobs own all Flash rendering. The release build consumes their
+          # immutable cache and fails rather than introducing a second renderer.
+          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
+          IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
         run: python scripts/build_seerapi_data_db.py
 
       - name: Download previous published database
@@ -508,11 +502,8 @@ jobs:
           python scripts/build_new_content_index.py "${args[@]}" \
             --github-output "$GITHUB_OUTPUT"
 
-      - name: Render and publish Flash mount images
-        id: mount_assets
-        env:
-          PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
-          IRONSBOT_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+      - name: Prepare generated mount asset workspace
+        id: mount_workspace
         run: |
           set -euo pipefail
           assets_dir="${RUNNER_TEMP}/generated-render-assets"
@@ -527,28 +518,59 @@ jobs:
             printf '%s\n' '# Generated IronsBot render assets' > "${assets_dir}/README.md"
           fi
           mkdir -p "${assets_dir}/mount"
-          pending_file="${RUNNER_TEMP}/flash-mount-image-pending-ids"
+          echo "root=${assets_dir}" >> "$GITHUB_OUTPUT"
+          echo "directory=${assets_dir}/mount" >> "$GITHUB_OUTPUT"
+          echo "pending_file=${RUNNER_TEMP}/flash-mount-image-pending-ids" >> "$GITHUB_OUTPUT"
+
+      - name: Plan Flash mount image repairs
+        id: mount_plan
+        env:
+          PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
+        run: |
+          set -euo pipefail
           args=(
             --database seerapi-data.sqlite
-            --output-dir "${assets_dir}/mount"
-            --pending-output "${pending_file}"
+            --output-dir "${{ steps.mount_workspace.outputs.directory }}"
+            --github-output "$GITHUB_OUTPUT"
           )
           if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
             args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
           fi
           python scripts/render_flash_mount_images.py "${args[@]}"
 
-          git -C "${assets_dir}" config user.email "github-actions[bot]@users.noreply.github.com"
-          git -C "${assets_dir}" config user.name "github-actions[bot]"
-          git -C "${assets_dir}" add README.md mount
-          if ! git -C "${assets_dir}" diff --cached --quiet; then
-            git -C "${assets_dir}" commit -m "Publish generated mount images"
+      - name: Setup FFDec SWF renderer
+        if: steps.mount_plan.outputs.needs_render == 'true'
+        uses: ./.github/actions/setup-ffdec
+
+      - name: Render and publish Flash mount images
+        id: mount_assets
+        env:
+          PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
+          IRONSBOT_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+        run: |
+          set -euo pipefail
+          args=(
+            --database seerapi-data.sqlite
+            --output-dir "${{ steps.mount_workspace.outputs.directory }}"
+            --pending-output "${{ steps.mount_workspace.outputs.pending_file }}"
+          )
+          if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
+            args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
           fi
-          git -C "${assets_dir}" push origin HEAD:generated-render-assets
-          revision="$(git -C "${assets_dir}" rev-parse HEAD)"
-          echo "directory=${assets_dir}/mount" >> "$GITHUB_OUTPUT"
+          python scripts/render_flash_mount_images.py "${args[@]}"
+
+          assets_root="${{ steps.mount_workspace.outputs.root }}"
+          git -C "${assets_root}" config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C "${assets_root}" config user.name "github-actions[bot]"
+          git -C "${assets_root}" add README.md mount
+          if ! git -C "${assets_root}" diff --cached --quiet; then
+            git -C "${assets_root}" commit -m "Publish generated mount images"
+          fi
+          git -C "${assets_root}" push origin HEAD:generated-render-assets
+          revision="$(git -C "${assets_root}" rev-parse HEAD)"
+          echo "directory=${{ steps.mount_workspace.outputs.directory }}" >> "$GITHUB_OUTPUT"
           echo "revision=${revision}" >> "$GITHUB_OUTPUT"
-          echo "FLASH_MOUNT_PENDING_FILE=${pending_file}" >> "$GITHUB_ENV"
+          echo "FLASH_MOUNT_PENDING_FILE=${{ steps.mount_workspace.outputs.pending_file }}" >> "$GITHUB_ENV"
 
       - name: Finalize immutable render asset manifest
         run: |

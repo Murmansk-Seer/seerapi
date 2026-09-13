@@ -161,6 +161,41 @@ def test_previous_flash_mount_rows_are_carried_forward(tmp_path: Path) -> None:
     assert (output_dir / "7.png").read_bytes() == b"previous-png"
 
 
+def test_mount_plan_identifies_only_uncached_generated_assets(tmp_path: Path) -> None:
+    database = tmp_path / "current.sqlite"
+    output_dir = tmp_path / "mount"
+    output_dir.mkdir()
+    (output_dir / "8.png").write_bytes(b"cached-generated-png")
+    (output_dir / "99.png").write_bytes(b"retired-png")
+    _database(database, (7, 8, 9), unity_mount_ids=(7,))
+
+    plan = renderer.plan_mount_images(database, output_dir=output_dir)
+
+    assert plan == renderer.MountImagePlan(
+        mount_ids=(8, 9),
+        candidate_ids=(9,),
+    )
+    assert plan.needs_render is True
+    assert not (output_dir / "7.png").exists()
+    assert not (output_dir / "99.png").exists()
+    assert (output_dir / "8.png").read_bytes() == b"cached-generated-png"
+
+
+def test_mount_plan_skips_renderer_when_generated_assets_are_complete(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "current.sqlite"
+    output_dir = tmp_path / "mount"
+    output_dir.mkdir()
+    (output_dir / "8.png").write_bytes(b"cached-generated-png")
+    _database(database, (7, 8), unity_mount_ids=(7,))
+
+    plan = renderer.plan_mount_images(database, output_dir=output_dir)
+
+    assert plan.candidate_ids == ()
+    assert plan.needs_render is False
+
+
 def test_unity_mounts_are_removed_from_generated_asset_branch(
     tmp_path: Path,
     monkeypatch,

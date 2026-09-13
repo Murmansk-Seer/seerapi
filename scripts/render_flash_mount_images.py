@@ -52,6 +52,16 @@ class RefreshResult:
     pending: int
 
 
+@dataclass(frozen=True, slots=True)
+class MountImagePlan:
+    mount_ids: tuple[int, ...]
+    candidate_ids: tuple[int, ...]
+
+    @property
+    def needs_render(self) -> bool:
+        return bool(self.candidate_ids)
+
+
 def _source_url(mount_id: int) -> str:
     return f"{FLASH_MOUNT_ASSET_BASE_URL.rstrip('/')}/{mount_id}.swf"
 
@@ -262,39 +272,31 @@ def refresh_mount_images(
     attempted = 0
     rendered = 0
     pending_ids: list[int] = []
-    output_dir.mkdir(parents=True, exist_ok=True)
-    _extract_previous_images(output_dir, previous_database)
+    plan = plan_mount_images(
+        database,
+        output_dir=output_dir,
+        previous_database=previous_database,
+    )
+    for mount_id in plan.candidate_ids:
+        attempted += 1
+        source_url = _source_url(mount_id)
+        try:
+            swf_data = _download_swf(source_url)
+            png_data = _render_swf_to_png(swf_data, mount_id)
+        except (
+            HTTPError,
+            URLError,
+            OSError,
+            RuntimeError,
+            subprocess.SubprocessError,
+            ValueError,
+        ) as error:
+            logger.info("Flash mount asset unavailable for %s: %s", mount_id, error)
+            pending_ids.append(mount_id)
+            continue
+        (output_dir / f"{mount_id}.png").write_bytes(png_data)
+        rendered += 1
     with sqlite3.connect(database) as connection:
-        mount_ids = set(_mount_ids(connection))
-        generated_mount_ids = _mount_ids_requiring_generated_assets(
-            connection,
-            mount_ids,
-        )
-        _prune_retired_images(output_dir, generated_mount_ids)
-        candidates = tuple(
-            mount_id
-            for mount_id in sorted(generated_mount_ids)
-            if not (output_dir / f"{mount_id}.png").is_file()
-        )
-        for mount_id in candidates:
-            attempted += 1
-            source_url = _source_url(mount_id)
-            try:
-                swf_data = _download_swf(source_url)
-                png_data = _render_swf_to_png(swf_data, mount_id)
-            except (
-                HTTPError,
-                URLError,
-                OSError,
-                RuntimeError,
-                subprocess.SubprocessError,
-                ValueError,
-            ) as error:
-                logger.info("Flash mount asset unavailable for %s: %s", mount_id, error)
-                pending_ids.append(mount_id)
-                continue
-            (output_dir / f"{mount_id}.png").write_bytes(png_data)
-            rendered += 1
         connection.execute("DROP TABLE IF EXISTS flash_mount_image")
         connection.execute("DROP TABLE IF EXISTS flash_mount_image_pending")
     if pending_output is not None:
@@ -310,6 +312,34 @@ def refresh_mount_images(
     )
 
 
+def plan_mount_images(
+    database: Path,
+    *,
+    output_dir: Path,
+    previous_database: Path | None = None,
+) -> MountImagePlan:
+    """Prepare reusable images and identify the exact FFDec workload."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    _extract_previous_images(output_dir, previous_database)
+    with sqlite3.connect(database) as connection:
+        mount_ids = set(_mount_ids(connection))
+        generated_mount_ids = _mount_ids_requiring_generated_assets(
+            connection,
+            mount_ids,
+        )
+        _prune_retired_images(output_dir, generated_mount_ids)
+        candidates = tuple(
+            mount_id
+            for mount_id in sorted(generated_mount_ids)
+            if not (output_dir / f"{mount_id}.png").is_file()
+        )
+    return MountImagePlan(
+        mount_ids=tuple(sorted(generated_mount_ids)),
+        candidate_ids=candidates,
+    )
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Render Flash mount assets into a publishable PNG directory."
@@ -318,12 +348,36 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--previous", type=Path)
     parser.add_argument("--pending-output", type=Path)
+    parser.add_argument("--github-output", type=Path)
     return parser.parse_args()
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = _parse_args()
+    if args.github_output is not None:
+        plan = plan_mount_images(
+            args.database,
+            output_dir=args.output_dir,
+            previous_database=args.previous,
+        )
+        args.github_output.write_text(
+            "\n".join(
+                (
+                    f"needs_render={str(plan.needs_render).lower()}",
+                    f"mount_count={len(plan.mount_ids)}",
+                    f"candidate_count={len(plan.candidate_ids)}",
+                    "",
+                )
+            ),
+            encoding="utf-8",
+        )
+        logger.info(
+            "Flash mount asset plan: mounts=%s candidates=%s",
+            len(plan.mount_ids),
+            len(plan.candidate_ids),
+        )
+        return
     result = refresh_mount_images(
         args.database,
         output_dir=args.output_dir,
