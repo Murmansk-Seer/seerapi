@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sqlite3
 import sys
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -159,6 +160,82 @@ def test_previous_flash_mount_rows_are_carried_forward(tmp_path: Path) -> None:
 
     assert result == renderer.RefreshResult(attempted=0, rendered=0, pending=0)
     assert (output_dir / "7.png").read_bytes() == b"previous-png"
+
+
+def test_mount_plan_identifies_only_uncached_generated_assets(tmp_path: Path) -> None:
+    database = tmp_path / "current.sqlite"
+    output_dir = tmp_path / "mount"
+    output_dir.mkdir()
+    (output_dir / "8.png").write_bytes(b"cached-generated-png")
+    (output_dir / "99.png").write_bytes(b"retired-png")
+    _database(database, (7, 8, 9), unity_mount_ids=(7,))
+
+    plan = renderer.plan_mount_images(database, output_dir=output_dir)
+
+    assert plan == renderer.MountImagePlan(
+        mount_ids=(8, 9),
+        candidate_ids=(9,),
+    )
+    assert plan.needs_render is True
+    assert not (output_dir / "7.png").exists()
+    assert not (output_dir / "99.png").exists()
+    assert (output_dir / "8.png").read_bytes() == b"cached-generated-png"
+
+
+def test_mount_plan_skips_renderer_when_generated_assets_are_complete(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "current.sqlite"
+    output_dir = tmp_path / "mount"
+    output_dir.mkdir()
+    (output_dir / "8.png").write_bytes(b"cached-generated-png")
+    _database(database, (7, 8), unity_mount_ids=(7,))
+
+    plan = renderer.plan_mount_images(database, output_dir=output_dir)
+
+    assert plan.candidate_ids == ()
+    assert plan.needs_render is False
+
+
+def test_renderer_preflight_skips_ffdec_when_all_swfs_are_missing(monkeypatch) -> None:
+    plan = renderer.MountImagePlan(mount_ids=(7, 8), candidate_ids=(7, 8))
+    requested: list[str] = []
+
+    def missing(url: str) -> bytes:
+        requested.append(url)
+        raise HTTPError(url, 404, "Not Found", None, None)
+
+    monkeypatch.setattr(renderer, "_download_swf", missing)
+
+    assert not renderer.mount_renderer_required(plan)
+    assert requested == [renderer._source_url(7), renderer._source_url(8)]
+
+
+def test_renderer_preflight_stops_after_finding_an_available_swf(monkeypatch) -> None:
+    plan = renderer.MountImagePlan(mount_ids=(7, 8, 9), candidate_ids=(7, 8, 9))
+    requested: list[str] = []
+
+    def download(url: str) -> bytes:
+        requested.append(url)
+        if url.endswith("/7.swf"):
+            raise HTTPError(url, 404, "Not Found", None, None)
+        return b"CWS-mount"
+
+    monkeypatch.setattr(renderer, "_download_swf", download)
+
+    assert renderer.mount_renderer_required(plan)
+    assert requested == [renderer._source_url(7), renderer._source_url(8)]
+
+
+def test_renderer_preflight_keeps_ffdec_on_transient_failure(monkeypatch) -> None:
+    plan = renderer.MountImagePlan(mount_ids=(7,), candidate_ids=(7,))
+    monkeypatch.setattr(
+        renderer,
+        "_download_swf",
+        lambda _url: (_ for _ in ()).throw(URLError("temporary failure")),
+    )
+
+    assert renderer.mount_renderer_required(plan)
 
 
 def test_unity_mounts_are_removed_from_generated_asset_branch(
