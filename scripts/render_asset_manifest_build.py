@@ -31,13 +31,11 @@ logger = logging.getLogger(__name__)
 class RenderAssetManifestConfig:
     """Static names and paths that define one published manifest contract."""
 
-    asset_repository_name: str
     manifest_contract_version: str
     manifest_contract_version_key: str
     manifest_revision_key: str
     manifest_scopes_key: str
-    manifest_asset_repository_key: str
-    manifest_asset_repository_revision_key: str
+    manifest_repositories_key: str
     pet_info_scope: str
     type_matchup_scope: str
     peak_pool_scope: str
@@ -92,7 +90,7 @@ class RenderAssetManifestBuild:
 
 def collect_remote_asset_manifest(
     conn: sqlite3.Connection,
-    snapshot: AssetRepositorySnapshot | None,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
     *,
     release_revision: str,
     config: RenderAssetManifestConfig,
@@ -101,7 +99,7 @@ def collect_remote_asset_manifest(
 
     pet_info_entries, pet_info_scope_complete = _build_pet_info_manifest(
         conn,
-        snapshot,
+        snapshots,
         release_revision=release_revision,
         config=config,
     )
@@ -110,13 +108,13 @@ def collect_remote_asset_manifest(
         new_content_standard_scope_complete,
     ) = _build_new_content_standard_manifest(
         conn,
-        snapshot,
+        snapshots,
         release_revision=release_revision,
         config=config,
     )
     skin_body_entries, skin_body_scope_complete = _build_skin_body_manifest(
         conn,
-        snapshot,
+        snapshots,
         release_revision=release_revision,
         config=config,
     )
@@ -138,7 +136,7 @@ def collect_remote_asset_manifest(
 def build_render_asset_manifest(
     remote: RemoteAssetManifestBuild,
     effect_icon_pngs: Mapping[int, bytes | None],
-    snapshot: AssetRepositorySnapshot | None,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
     *,
     release_revision: str,
     effect_icon_source_version: str,
@@ -165,7 +163,7 @@ def build_render_asset_manifest(
         complete_scopes=complete_scopes,
         metadata=render_asset_manifest_metadata(
             entries,
-            snapshot,
+            snapshots,
             complete_scopes=complete_scopes,
             config=config,
         ),
@@ -174,19 +172,19 @@ def build_render_asset_manifest(
 
 def _build_pet_info_manifest(
     conn: sqlite3.Connection,
-    snapshot: AssetRepositorySnapshot | None,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
     *,
     release_revision: str,
     config: RenderAssetManifestConfig,
 ) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
-    if snapshot is None:
+    if 'default' not in snapshots:
         return (), False
     requests = _pet_info_requests(conn, config=config)
     if requests is None:
         return (), False
     entries, complete = _resolve_requests(
         requests,
-        snapshot,
+        snapshots,
         release_revision=release_revision,
         config=config,
     )
@@ -200,19 +198,19 @@ def _build_pet_info_manifest(
 
 def _build_new_content_standard_manifest(
     conn: sqlite3.Connection,
-    snapshot: AssetRepositorySnapshot | None,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
     *,
     release_revision: str,
     config: RenderAssetManifestConfig,
 ) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
-    if snapshot is None:
+    if 'default' not in snapshots:
         return (), False
     requests = _new_content_standard_requests(conn, config=config)
     if requests is None:
         return (), False
     return _resolve_requests(
         requests,
-        snapshot,
+        snapshots,
         release_revision=release_revision,
         config=config,
     )
@@ -371,12 +369,12 @@ def _new_content_standard_requests(
 
 def _build_skin_body_manifest(
     conn: sqlite3.Connection,
-    snapshot: AssetRepositorySnapshot | None,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
     *,
     release_revision: str,
     config: RenderAssetManifestConfig,
 ) -> tuple[tuple[RenderAssetManifestEntry, ...], bool]:
-    if snapshot is None:
+    if 'default' not in snapshots:
         return (), False
     table = config.skin_image_resolution_table
     try:
@@ -406,7 +404,7 @@ def _build_skin_body_manifest(
             )
             for resource_id in ids
         ),
-        snapshot,
+        snapshots,
         release_revision=release_revision,
         config=config,
     )
@@ -450,7 +448,7 @@ def _request(
 
 def _resolve_requests(
     requests: tuple[RemoteRenderAssetRequest, ...],
-    snapshot: AssetRepositorySnapshot,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
     *,
     release_revision: str,
     config: RenderAssetManifestConfig,
@@ -458,6 +456,21 @@ def _resolve_requests(
     entries: list[RenderAssetManifestEntry] = []
     complete = True
     for request in requests:
+        snapshot = snapshots.get(request.asset_kind, snapshots.get('default'))
+        if snapshot is None:
+            entries.append(
+                RenderAssetManifestEntry(
+                    asset_kind=request.asset_kind,
+                    asset_key=request.asset_key,
+                    sha256='',
+                    release_revision=release_revision,
+                    available=False,
+                    source='missing-repository:' + '|'.join(request.candidate_paths),
+                )
+            )
+            if request.required:
+                complete = False
+            continue
         matched_path = next(
             (
                 path
@@ -470,10 +483,10 @@ def _resolve_requests(
         if request.required and not available:
             complete = False
         source = (
-            f'{config.asset_repository_name}@{snapshot.revision}:'
+            f'{snapshot.repository}@{snapshot.revision}:'
             f'{matched_path}#blob:{snapshot.blobs_by_path[matched_path]}'
             if matched_path is not None
-            else f'{config.asset_repository_name}@{snapshot.revision}:missing:'
+            else f'{snapshot.repository}@{snapshot.revision}:missing:'
             + '|'.join(request.candidate_paths)
         )
         entries.append(
@@ -538,7 +551,7 @@ def complete_render_asset_scopes(
 
 def render_asset_manifest_metadata(
     entries: tuple[RenderAssetManifestEntry, ...],
-    snapshot: AssetRepositorySnapshot | None,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
     *,
     complete_scopes: tuple[str, ...],
     config: RenderAssetManifestConfig,
@@ -547,11 +560,15 @@ def render_asset_manifest_metadata(
         config.manifest_revision_key: render_asset_manifest_revision(entries),
         config.manifest_contract_version_key: config.manifest_contract_version,
         config.manifest_scopes_key: json.dumps(complete_scopes, separators=(',', ':')),
-        config.manifest_asset_repository_key: (
-            config.asset_repository_name if snapshot is not None else ''
-        ),
-        config.manifest_asset_repository_revision_key: (
-            snapshot.revision if snapshot is not None else ''
+        config.manifest_repositories_key: json.dumps(
+            {
+                kind: {
+                    'repository': snapshot.repository,
+                    'revision': snapshot.revision,
+                }
+                for kind, snapshot in sorted(snapshots.items())
+            },
+            separators=(',', ':'),
         ),
         'render_asset_manifest_count': str(len(entries)),
         'render_asset_manifest_available_count': str(

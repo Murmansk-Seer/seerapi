@@ -20,6 +20,7 @@ class AssetRepositorySnapshot:
 
     revision: str
     blobs_by_path: dict[str, str]
+    repository: str = "Murmansk-Seer/seer-unity-assets"
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +78,11 @@ def load_asset_repository_snapshot(
             error,
         )
         return _load_asset_repository_snapshot_from_git(repository, logger=logger)
-    return AssetRepositorySnapshot(revision=revision, blobs_by_path=blobs_by_path)
+    return AssetRepositorySnapshot(
+        repository=repository.name,
+        revision=revision,
+        blobs_by_path=blobs_by_path,
+    )
 
 
 def _load_asset_repository_snapshot_from_git(
@@ -133,7 +138,11 @@ def _load_asset_repository_snapshot_from_git(
     except ValueError as error:
         logger.warning("Git render asset tree is malformed: %s", error)
         return None
-    return AssetRepositorySnapshot(revision=revision, blobs_by_path=blobs_by_path)
+    return AssetRepositorySnapshot(
+        repository=repository.name,
+        revision=revision,
+        blobs_by_path=blobs_by_path,
+    )
 
 
 def parse_git_tree_blobs(tree: str) -> dict[str, str]:

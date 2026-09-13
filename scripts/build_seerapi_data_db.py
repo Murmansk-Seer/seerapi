@@ -288,16 +288,11 @@ CONFIG_TEXT_ASSETS = {
 }
 SEERAPI_SCHEMA_CONTRACT_VERSION = "1"
 SEERAPI_SCHEMA_CONTRACT_VERSION_KEY = "ironsbot_schema_contract_version"
-RENDER_ASSET_MANIFEST_CONTRACT_VERSION = "2"
+RENDER_ASSET_MANIFEST_CONTRACT_VERSION = "3"
 RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY = "render_asset_manifest_contract_version"
 RENDER_ASSET_MANIFEST_REVISION_KEY = "render_asset_manifest_revision"
 RENDER_ASSET_MANIFEST_SCOPES_KEY = "render_asset_manifest_complete_scopes"
-RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY = (
-    "render_asset_manifest_asset_repository"
-)
-RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY = (
-    "render_asset_manifest_asset_repository_revision"
-)
+RENDER_ASSET_MANIFEST_REPOSITORIES_KEY = "render_asset_manifest_repositories"
 PET_INFO_RENDER_ASSET_SCOPE = "pet_info"
 TYPE_MATCHUP_RENDER_ASSET_SCOPE = "type_matchup"
 PEAK_POOL_RENDER_ASSET_SCOPE = "peak_pool"
@@ -329,15 +324,11 @@ RENDER_ASSET_REPOSITORY_CONFIG = RenderAssetRepository(
     tree_url_template=RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE,
 )
 RENDER_ASSET_MANIFEST_CONFIG = RenderAssetManifestConfig(
-    asset_repository_name=RENDER_ASSET_REPOSITORY,
     manifest_contract_version=RENDER_ASSET_MANIFEST_CONTRACT_VERSION,
     manifest_contract_version_key=RENDER_ASSET_MANIFEST_CONTRACT_VERSION_KEY,
     manifest_revision_key=RENDER_ASSET_MANIFEST_REVISION_KEY,
     manifest_scopes_key=RENDER_ASSET_MANIFEST_SCOPES_KEY,
-    manifest_asset_repository_key=RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_KEY,
-    manifest_asset_repository_revision_key=(
-        RENDER_ASSET_MANIFEST_ASSET_REPOSITORY_REVISION_KEY
-    ),
+    manifest_repositories_key=RENDER_ASSET_MANIFEST_REPOSITORIES_KEY,
     pet_info_scope=PET_INFO_RENDER_ASSET_SCOPE,
     type_matchup_scope=TYPE_MATCHUP_RENDER_ASSET_SCOPE,
     peak_pool_scope=PEAK_POOL_RENDER_ASSET_SCOPE,
@@ -507,11 +498,17 @@ def _quick_check(path: Path) -> None:
 
 def _release_publication_context() -> ReleasePublicationContext:
     return ReleasePublicationContext(
-        load_asset_repository_snapshot=lambda: load_asset_repository_snapshot(
-            RENDER_ASSET_REPOSITORY_CONFIG,
-            BUILD_HTTP.download_bytes,
-            logger=logger,
-        ),
+        load_asset_repository_snapshots=lambda: {
+            "default": snapshot
+            for snapshot in (
+                load_asset_repository_snapshot(
+                    RENDER_ASSET_REPOSITORY_CONFIG,
+                    BUILD_HTTP.download_bytes,
+                    logger=logger,
+                ),
+            )
+            if snapshot is not None
+        },
         resolve_effect_icons=lambda icon_ids: resolve_effect_icon_png_assets(
             icon_ids,
             config=_effect_icon_source_config(),
