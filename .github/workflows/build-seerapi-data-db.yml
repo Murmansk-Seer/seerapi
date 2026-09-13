@@ -16,6 +16,7 @@ on:
       - "scripts/finalize_render_asset_manifest.py"
       - "scripts/render_asset_manifest_build.py"
       - "scripts/render_asset_repository.py"
+      - ".github/actions/setup-ffdec/action.yml"
       - ".github/workflows/build-seerapi-data-db.yml"
   schedule:
     - cron: "5,35 * * * *"
@@ -216,25 +217,11 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "21"
-
       - name: Install parser dependency
         run: python -m pip install UnityPy Pillow
 
-      - name: Install FFDec SWF renderer
-        run: |
-          curl -fsSL \
-            -o /tmp/ffdec.zip \
-            https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.2.1/ffdec_26.2.1.zip
-          echo "0333b56998a55bd83f4e0deb678a811fcdc45607582b4f5dd438309c8c3ad5ce  /tmp/ffdec.zip" \
-            | sha256sum --check
-          sudo mkdir -p /opt/ffdec
-          sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
-          test -f /opt/ffdec/ffdec.jar
+      - name: Setup FFDec SWF renderer
+        uses: ./.github/actions/setup-ffdec
 
       - name: Restore previously published icon PNGs
         run: |
@@ -305,25 +292,11 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "21"
-
       - name: Install parser dependency
         run: python -m pip install UnityPy Pillow
 
-      - name: Install FFDec SWF renderer
-        run: |
-          curl -fsSL \
-            -o /tmp/ffdec.zip \
-            https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.2.1/ffdec_26.2.1.zip
-          echo "0333b56998a55bd83f4e0deb678a811fcdc45607582b4f5dd438309c8c3ad5ce  /tmp/ffdec.zip" \
-            | sha256sum --check
-          sudo mkdir -p /opt/ffdec
-          sudo unzip -q /tmp/ffdec.zip -d /opt/ffdec
-          test -f /opt/ffdec/ffdec.jar
+      - name: Setup FFDec SWF renderer
+        uses: ./.github/actions/setup-ffdec
 
       - name: Download rendered icon PNG cache
         uses: actions/download-artifact@v4

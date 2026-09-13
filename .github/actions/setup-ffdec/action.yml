@@ -1,0 +1,50 @@
+name: Setup FFDec
+description: Install the pinned Java runtime and cached FFDec renderer
+
+inputs:
+  version:
+    description: Pinned FFDec release version
+    required: false
+    default: "26.2.1"
+  sha256:
+    description: SHA-256 of the pinned FFDec release archive
+    required: false
+    default: "0333b56998a55bd83f4e0deb678a811fcdc45607582b4f5dd438309c8c3ad5ce"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "21"
+
+    - name: Restore FFDec archive
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/ffdec-cache
+        key: ffdec-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}-${{ inputs.sha256 }}
+
+    - name: Install FFDec SWF renderer
+      shell: bash
+      env:
+        FFDEC_VERSION: ${{ inputs.version }}
+        FFDEC_SHA256: ${{ inputs.sha256 }}
+      run: |
+        set -euo pipefail
+        cache_dir="${RUNNER_TEMP}/ffdec-cache"
+        archive="${cache_dir}/ffdec.zip"
+        mkdir -p "${cache_dir}"
+        if [ -f "${archive}" ] && ! printf '%s  %s\n' "${FFDEC_SHA256}" "${archive}" | sha256sum --check; then
+          rm -f "${archive}"
+        fi
+        if [ ! -f "${archive}" ]; then
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 \
+            -o "${archive}" \
+            "https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version${FFDEC_VERSION}/ffdec_${FFDEC_VERSION}.zip"
+        fi
+        printf '%s  %s\n' "${FFDEC_SHA256}" "${archive}" | sha256sum --check
+        sudo mkdir -p /opt/ffdec
+        sudo unzip -q -o "${archive}" -d /opt/ffdec
+        test -f /opt/ffdec/ffdec.jar
