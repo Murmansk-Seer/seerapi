@@ -94,6 +94,7 @@ def test_finalize_manifest_publishes_mount_fact_without_sqlite_blob(
     mount_dir = tmp_path / "mount"
     mount_dir.mkdir()
     (mount_dir / "7.png").write_bytes(b"png")
+    (mount_dir / "8.png").write_bytes(b"generated-but-lower-priority")
     repositories = json.dumps(
         {
             "default": {
@@ -112,7 +113,7 @@ def test_finalize_manifest_publishes_mount_fact_without_sqlite_blob(
             CREATE TABLE special_effect_status (status_id INTEGER);
             CREATE TABLE suit (id INTEGER);
             CREATE TABLE equip (id INTEGER, part_type_id INTEGER);
-            INSERT INTO equip VALUES (7, 6);
+            INSERT INTO equip VALUES (7, 6), (8, 6);
             CREATE TABLE title_part (id INTEGER);
             CREATE TABLE skin_image_resolution (
                 skin_id INTEGER, head_resource_id INTEGER, body_resource_id INTEGER
@@ -131,10 +132,21 @@ def test_finalize_manifest_publishes_mount_fact_without_sqlite_blob(
             );
             """
         )
-        connection.execute(
-            "INSERT INTO render_asset_manifest VALUES "
-            "('pet_head', '1', '', 'release', 1, ?, 0)",
-            (f"example/assets@{'a' * 40}:pet/1.png#blob:abc",),
+        connection.executemany(
+            "INSERT INTO render_asset_manifest VALUES (?, ?, '', 'release', 1, ?, 0)",
+            (
+                (
+                    "pet_head",
+                    "1",
+                    f"example/assets@{'a' * 40}:pet/1.png#blob:abc",
+                ),
+                (
+                    "mount",
+                    "8",
+                    f"example/assets@{'a' * 40}:"
+                    "newseer/assets/art/ui/assets/item/cloth/prev/8.png#blob:unity",
+                ),
+            ),
         )
         connection.executemany(
             "INSERT INTO ironsbot_metadata VALUES (?, ?)",
@@ -160,6 +172,10 @@ def test_finalize_manifest_publishes_mount_fact_without_sqlite_blob(
             "SELECT sha256, available, source FROM render_asset_manifest "
             "WHERE asset_kind = 'mount' AND asset_key = '7'"
         ).fetchone()
+        unity_mount = connection.execute(
+            "SELECT available, source FROM render_asset_manifest "
+            "WHERE asset_kind = 'mount' AND asset_key = '8'"
+        ).fetchone()
         published_repositories = connection.execute(
             "SELECT value FROM ironsbot_metadata "
             "WHERE key = 'render_asset_manifest_repositories'"
@@ -168,5 +184,10 @@ def test_finalize_manifest_publishes_mount_fact_without_sqlite_blob(
     assert mount[0] == finalizer.hashlib.sha256(b"png").hexdigest()
     assert mount[1] == 1
     assert str(mount[2]).startswith(f"example/seerapi@{'b' * 40}:mount/7.png")
+    assert unity_mount == (
+        1,
+        f"example/assets@{'a' * 40}:"
+        "newseer/assets/art/ui/assets/item/cloth/prev/8.png#blob:unity",
+    )
     assert published_repositories is not None
     assert json.loads(published_repositories[0])["mount"]["revision"] == "b" * 40

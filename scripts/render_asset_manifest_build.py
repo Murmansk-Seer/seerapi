@@ -58,12 +58,20 @@ class RenderAssetManifestEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class RemoteRenderAssetCandidate:
+    """One immutable repository/path candidate, in lookup order."""
+
+    repository_kind: str
+    path: str
+
+
+@dataclass(frozen=True, slots=True)
 class RemoteRenderAssetRequest:
     """One renderer input resolved from a published repository tree."""
 
     asset_kind: str
     asset_key: str
-    candidate_paths: tuple[str, ...]
+    candidates: tuple[RemoteRenderAssetCandidate, ...]
     required: bool
 
 
@@ -355,10 +363,16 @@ def _new_content_standard_requests(
         )
     for mount_id in mount_ids:
         requests.append(
-            _request(
-                'mount',
-                str(mount_id),
-                (f'mount/{mount_id}.png',),
+            RemoteRenderAssetRequest(
+                asset_kind='mount',
+                asset_key=str(mount_id),
+                candidates=(
+                    RemoteRenderAssetCandidate(
+                        'default',
+                        f'newseer/assets/art/ui/assets/item/cloth/prev/{mount_id}.png',
+                    ),
+                    RemoteRenderAssetCandidate('mount', f'mount/{mount_id}.png'),
+                ),
                 required=True,
             )
         )
@@ -452,8 +466,7 @@ def _select_equipment_asset_ids(
 ) -> tuple[tuple[int, ...], tuple[int, ...]] | None:
     try:
         rows = conn.execute(
-            'SELECT DISTINCT id, part_type_id FROM equip '
-            'WHERE id > 0 ORDER BY id'
+            'SELECT DISTINCT id, part_type_id FROM equip WHERE id > 0 ORDER BY id'
         ).fetchall()
     except sqlite3.OperationalError:
         logger.warning('Render asset inventory cannot read equip part types')
@@ -473,7 +486,9 @@ def _request(
     return RemoteRenderAssetRequest(
         asset_kind=asset_kind,
         asset_key=asset_key,
-        candidate_paths=candidate_paths,
+        candidates=tuple(
+            RemoteRenderAssetCandidate(asset_kind, path) for path in candidate_paths
+        ),
         required=required,
     )
 
@@ -488,8 +503,37 @@ def _resolve_requests(
     entries: list[RenderAssetManifestEntry] = []
     complete = True
     for request in requests:
-        snapshot = snapshots.get(request.asset_kind, snapshots.get('default'))
-        if snapshot is None:
+
+        def snapshot_for(repository_kind: str) -> AssetRepositorySnapshot | None:
+            return snapshots.get(repository_kind, snapshots.get('default'))
+
+        available_candidate = next(
+            (
+                (candidate, snapshot)
+                for candidate in request.candidates
+                if (snapshot := snapshot_for(candidate.repository_kind)) is not None
+                and candidate.path in snapshot.blobs_by_path
+            ),
+            None,
+        )
+        if available_candidate is None:
+            declared_candidates = tuple(
+                (candidate, snapshot_for(candidate.repository_kind))
+                for candidate in request.candidates
+                if snapshot_for(candidate.repository_kind) is not None
+            )
+            candidate_text = '|'.join(
+                f'{candidate.repository_kind}:{candidate.path}'
+                for candidate in request.candidates
+            )
+            source = (
+                'missing-repository:' + candidate_text
+                if not declared_candidates
+                else (
+                    f'{declared_candidates[0][1].repository}@'
+                    f'{declared_candidates[0][1].revision}:missing:{candidate_text}'
+                )
+            )
             entries.append(
                 RenderAssetManifestEntry(
                     asset_kind=request.asset_kind,
@@ -497,29 +541,17 @@ def _resolve_requests(
                     sha256='',
                     release_revision=release_revision,
                     available=False,
-                    source='missing-repository:' + '|'.join(request.candidate_paths),
+                    source=source,
                 )
             )
             if request.required:
                 complete = False
             continue
-        matched_path = next(
-            (
-                path
-                for path in request.candidate_paths
-                if path in snapshot.blobs_by_path
-            ),
-            None,
-        )
-        available = matched_path is not None
-        if request.required and not available:
-            complete = False
+        candidate, snapshot = available_candidate
+        matched_path = candidate.path
         source = (
             f'{snapshot.repository}@{snapshot.revision}:'
             f'{matched_path}#blob:{snapshot.blobs_by_path[matched_path]}'
-            if matched_path is not None
-            else f'{snapshot.repository}@{snapshot.revision}:missing:'
-            + '|'.join(request.candidate_paths)
         )
         entries.append(
             RenderAssetManifestEntry(
@@ -531,7 +563,7 @@ def _resolve_requests(
                     else ''
                 ),
                 release_revision=release_revision,
-                available=available,
+                available=True,
                 source=source,
             )
         )

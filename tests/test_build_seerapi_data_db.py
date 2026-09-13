@@ -2158,7 +2158,15 @@ def test_mount_manifest_uses_typed_repository_override() -> None:
             render_asset_manifest_build.RemoteRenderAssetRequest(
                 asset_kind="mount",
                 asset_key="1301170",
-                candidate_paths=("mount/1301170.png",),
+                candidates=(
+                    render_asset_manifest_build.RemoteRenderAssetCandidate(
+                        "default",
+                        "newseer/assets/art/ui/assets/item/cloth/prev/1301170.png",
+                    ),
+                    render_asset_manifest_build.RemoteRenderAssetCandidate(
+                        "mount", "mount/1301170.png"
+                    ),
+                ),
                 required=True,
             ),
         ),
@@ -2172,6 +2180,47 @@ def test_mount_manifest_uses_typed_repository_override() -> None:
         f"example/generated-assets@{'b' * 40}:mount/1301170.png"
     )
     assert entries[0].sha256 == "content-sha"
+
+
+def test_mount_manifest_prefers_existing_unity_asset() -> None:
+    unity_path = "newseer/assets/art/ui/assets/item/cloth/prev/1301170.png"
+    default = render_asset_repository.AssetRepositorySnapshot(
+        repository="example/default-assets",
+        revision="a" * 40,
+        blobs_by_path={unity_path: "unity-blob"},
+    )
+    mounts = render_asset_repository.AssetRepositorySnapshot(
+        repository="example/generated-assets",
+        revision="b" * 40,
+        blobs_by_path={"mount/1301170.png": "generated-blob"},
+    )
+
+    entries, complete = render_asset_manifest_build._resolve_requests(
+        (
+            render_asset_manifest_build.RemoteRenderAssetRequest(
+                asset_kind="mount",
+                asset_key="1301170",
+                candidates=(
+                    render_asset_manifest_build.RemoteRenderAssetCandidate(
+                        "default", unity_path
+                    ),
+                    render_asset_manifest_build.RemoteRenderAssetCandidate(
+                        "mount", "mount/1301170.png"
+                    ),
+                ),
+                required=True,
+            ),
+        ),
+        {"default": default, "mount": mounts},
+        release_revision="release",
+        config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+    )
+
+    assert complete is True
+    mount = next(entry for entry in entries if entry.asset_kind == "mount")
+    assert mount.source.startswith(
+        f"example/default-assets@{'a' * 40}:{unity_path}#blob:unity-blob"
+    )
 
 
 def test_parse_git_tree_blobs_reads_only_blob_entries() -> None:
