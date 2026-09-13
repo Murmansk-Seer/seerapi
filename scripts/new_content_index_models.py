@@ -11,15 +11,24 @@ AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
 AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
 PEAK_POOL_CATEGORY = 'peak_pool'
 PEAK_EXPERT_POOL_CATEGORY = 'peak_expert_pool'
+PEAK_MASTER_POOL_CATEGORY = 'peak_master_pool'
 PEAK_POOL_FIELDS: dict[str, str] = {
     PEAK_POOL_CATEGORY: 'peak_pool_id',
     PEAK_EXPERT_POOL_CATEGORY: 'peak_expert_pool_id',
+    PEAK_MASTER_POOL_CATEGORY: 'peak_cost_pool_id',
+}
+PEAK_POOL_SOURCE_TABLES: dict[str, str] = {
+    PEAK_POOL_CATEGORY: 'peak_pool',
+    PEAK_EXPERT_POOL_CATEGORY: 'peak_pool',
+    PEAK_MASTER_POOL_CATEGORY: 'peak_cost_pool',
 }
 PEAK_POOL_CATEGORIES = frozenset(PEAK_POOL_FIELDS)
+PEAK_POOL_MISSING_IS_UNLIMITED = frozenset({PEAK_MASTER_POOL_CATEGORY})
 PET_VOLATILE_STATS = frozenset(
     {
         'peak_pool_id',
         'peak_expert_pool_id',
+        'peak_cost_pool_id',
         'peak_pool_vote_id',
     }
 )
@@ -44,6 +53,7 @@ CONTENT_CATEGORIES = (
     'pet',
     PEAK_POOL_CATEGORY,
     PEAK_EXPERT_POOL_CATEGORY,
+    PEAK_MASTER_POOL_CATEGORY,
     'pet_skin',
     'skill',
     'mintmark',
@@ -57,8 +67,10 @@ CONTENT_CATEGORIES = (
 CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
     'achievement': ('achievement',),
     'pet': ('pet',),
-    PEAK_POOL_CATEGORY: ('pet', 'peak_pool'),
-    PEAK_EXPERT_POOL_CATEGORY: ('pet', 'peak_pool'),
+    **{
+        category: ('pet', table)
+        for category, table in PEAK_POOL_SOURCE_TABLES.items()
+    },
     'pet_skin': ('pet_skin',),
     'skill': ('skill',),
     'mintmark': ('mintmark',),

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from new_content_index_models import PEAK_POOL_CATEGORIES, ContentItem
+from new_content_index_models import (
+    PEAK_POOL_CATEGORIES,
+    PEAK_POOL_MISSING_IS_UNLIMITED,
+    ContentItem,
+)
 
 
 def build_peak_pool_changes(
@@ -23,9 +27,9 @@ def build_peak_pool_changes(
         if item.category not in comparable:
             continue
         previous_item = previous_by_key.get((item.category, item.entity_id))
-        if previous_item is None:
+        if previous_item is None and item.category not in PEAK_POOL_MISSING_IS_UNLIMITED:
             continue
-        previous_limit = previous_item.payload.get('limit')
+        previous_limit = previous_item.payload.get('limit') if previous_item else None
         current_limit = item.payload.get('limit')
         if previous_limit == current_limit:
             continue

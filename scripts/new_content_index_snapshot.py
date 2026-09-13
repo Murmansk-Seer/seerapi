@@ -11,6 +11,7 @@ from new_content_index_models import (
     AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
     AUTOCARD_SANCTUARY_EFFECT_TABLE,
     PEAK_POOL_FIELDS,
+    PEAK_POOL_SOURCE_TABLES,
     ContentItem,
 )
 
@@ -232,6 +233,7 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         'diy_stats_id',
         'peak_pool_id',
         'peak_expert_pool_id',
+        'peak_cost_pool_id',
         'peak_pool_vote_id',
     )
     available_pet_columns = _table_columns(conn, 'pet')
@@ -239,7 +241,6 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
         column for column in pet_columns if column in available_pet_columns
     )
     pet_select = ', '.join(('id', 'name', *pet_columns))
-    has_peak_pool_table = _has_table(conn, 'peak_pool')
     for row in _rows(conn, f'SELECT {pet_select} FROM pet'):
         entity_id = int(row['id'])
         items.append(
@@ -256,20 +257,22 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                 },
             )
         )
-        if has_peak_pool_table:
-            for category, field in PEAK_POOL_FIELDS.items():
-                if field not in available_pet_columns:
-                    continue
-                raw_limit = row[field]
-                items.append(
-                    ContentItem(
-                        category,
-                        entity_id,
-                        str(row['name']),
-                        entity_id,
-                        {'limit': None if raw_limit is None else int(raw_limit)},
-                    )
+        for category, field in PEAK_POOL_FIELDS.items():
+            if (
+                not _has_table(conn, PEAK_POOL_SOURCE_TABLES[category])
+                or field not in available_pet_columns
+            ):
+                continue
+            raw_limit = row[field]
+            items.append(
+                ContentItem(
+                    category,
+                    entity_id,
+                    str(row['name']),
+                    entity_id,
+                    {'limit': None if raw_limit is None else int(raw_limit)},
                 )
+            )
 
     if _has_table(conn, 'skill'):
         skill_fields = tuple(
