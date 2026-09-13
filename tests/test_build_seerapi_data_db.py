@@ -2149,6 +2149,51 @@ def test_optional_battle_effect_assets_use_the_release_snapshot() -> None:
     }
 
 
+def test_optional_autocard_assets_use_the_release_snapshot() -> None:
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute(
+            "CREATE TABLE autocard_card (id INTEGER, raw_json TEXT NOT NULL)"
+        )
+        connection.executemany(
+            "INSERT INTO autocard_card VALUES (?, ?)",
+            [
+                (101, '{"picID": 7}'),
+                (20001, '{"picID": 8}'),
+                (10101, '{"picID": 7}'),
+            ],
+        )
+        connection.execute(
+            "CREATE TABLE autocard_role (id INTEGER, pic_id INTEGER)"
+        )
+        connection.execute("INSERT INTO autocard_role VALUES (3, 9)")
+        snapshot = render_asset_repository.AssetRepositorySnapshot(
+            revision="a" * 40,
+            blobs_by_path={
+                "newseer/assets/art/autocard/texture/cards/card_7.png": "card-7",
+                "newseer/assets/art/autocard/texture/roles/card/role_9.png": "role-9",
+            },
+        )
+
+        remote = _collect_remote_asset_manifest(
+            connection,
+            snapshot,
+            release_revision="release-1",
+        )
+
+    by_identity = {
+        (entry.asset_kind, entry.asset_key): entry
+        for entry in remote.supplemental_entries
+    }
+    assert set(by_identity) == {
+        ("autocard_card", "card_7"),
+        ("autocard_card", "card_20001"),
+        ("autocard_role", "role_9"),
+    }
+    assert by_identity[("autocard_card", "card_7")].available is True
+    assert by_identity[("autocard_card", "card_20001")].available is False
+    assert by_identity[("autocard_role", "role_9")].available is True
+
+
 @pytest.mark.parametrize(
     'case', ['complete', 'missing', 'unresolved', 'empty', 'absent', 'head_missing']
 )
