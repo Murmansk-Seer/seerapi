@@ -12,7 +12,7 @@ from solaris.analyze.typing_ import TResModelRequiredId
 from solaris.analyze.utils import to_json
 
 if TYPE_CHECKING:
-    from .outputter import JsonOutputter
+    from .data_outputter import JsonOutputter
 
 SHARD_BYTES_OVERHEAD = 4096
 DEFAULT_MAX_SHARD_BYTES = 1_048_576
@@ -20,7 +20,7 @@ SHARDED_FORMAT_VERSION = 'sharded-v1'
 
 
 def _calc_hash(data: str | bytes) -> str:
-    from .outputter import _calc_hash as calc
+    from .output_helpers import calc_hash as calc
 
     return calc(data)
 
@@ -128,7 +128,7 @@ def build_name_to_ids_map(
     model: type[BaseResModel],
 ) -> dict[str, list[int]]:
     """构建 name → id 列表映射（与 ``NamedData`` 一致，同名可对应多个 id）。"""
-    from .outputter import get_name_fields
+    from .output_helpers import get_name_fields
 
     by_name: dict[str, list[int]] = {}
     for name_field in get_name_fields(model):
@@ -215,7 +215,7 @@ def write_sharded_resource(
     max_shard_bytes: int,
 ) -> None:
     """输出 serverless 分片布局（id 分片 + id-index + 可选 name-index）。"""
-    from .outputter import is_named_model
+    from .output_helpers import is_named_model
 
     items = [
         (str(res_id), serialize_record_with_hash(record))
