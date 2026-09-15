@@ -153,7 +153,7 @@ def publish_release_tables(
     release: ReleasePublicationInput,
     context: ReleasePublicationContext,
 ) -> None:
-    """Publish all IronsBot extension tables from already loaded release facts."""
+    """Publish all SeerAPI extension tables from already loaded release facts."""
     now = time.time()
     asset_repository_snapshots = context.load_asset_repository_snapshots()
     with sqlite3.connect(db_path) as conn:

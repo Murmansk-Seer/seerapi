@@ -1,7 +1,7 @@
 ﻿# SPDX-License-Identifier: MIT
 """Build the published SeerAPI runtime SQLite database.
 
-IronsBot downloads this database as its main data source. The upstream SeerAPI
+Consumers download this database as their main data source. The upstream SeerAPI
 database is used as build input here; runtime extension fields are merged into
 the final SQLite file before it is published.
 """

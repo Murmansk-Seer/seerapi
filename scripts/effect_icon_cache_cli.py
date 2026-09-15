@@ -51,7 +51,7 @@ def add_effect_icon_cache_cli_arguments(parser: argparse.ArgumentParser) -> None
         "--seed-effect-icon-cache",
         type=Path,
         metavar="DATABASE",
-        help="restore matching effect icon PNGs from a previous IronsBot SQLite database",
+        help="restore matching effect icon PNGs from a previous SeerAPI SQLite database",
     )
     parser.add_argument(
         "--render-effect-icon-shard",
@@ -199,7 +199,7 @@ def seed_effect_icon_png_cache_from_database(
 ) -> int:
     """Seed the current renderer cache from compatible published PNG rows."""
     if not db_path.is_file():
-        logger.info("No previous IronsBot database to seed effect icon PNG cache")
+        logger.info("No previous SeerAPI database to seed effect icon PNG cache")
         return 0
     try:
         with sqlite3.connect(db_path) as conn:
@@ -256,7 +256,7 @@ def seed_effect_icon_png_cache_from_database(
         ):
             seeded_count += 1
     logger.info(
-        "Seeded %s effect icon PNGs from previous IronsBot database", seeded_count
+        "Seeded %s effect icon PNGs from previous SeerAPI database", seeded_count
     )
     return seeded_count
 

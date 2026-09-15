@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the weekly new-content index embedded in the IronsBot data SQLite.
+"""Build the weekly new-content index embedded in the SeerAPI data SQLite.
 
 The rolling GitHub release keeps only the latest database.  This script runs
 before that release is overwritten, compares the newly-built database with the

@@ -13,6 +13,14 @@ def test_data_build_runs_for_release_contract_changes() -> None:
     assert '- "scripts/release_*.py"' in workflow
 
 
+def test_data_build_has_no_legacy_release_fallback() -> None:
+    workflow = DATA_BUILD_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "name: Build SeerAPI Data DB" in workflow
+    assert "ironsbot-data-latest" not in workflow
+    assert "ironsbot-data.sqlite" not in workflow
+
+
 def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     workflow = DATA_BUILD_WORKFLOW.read_text(encoding="utf-8")
     action = FFDEC_ACTION.read_text(encoding="utf-8")
