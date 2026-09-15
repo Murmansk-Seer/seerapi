@@ -206,7 +206,7 @@ def seed_effect_icon_png_cache_from_database(
             metadata_row = conn.execute(
                 """
                 SELECT value
-                FROM ironsbot_metadata
+                FROM seerapi_metadata
                 WHERE key = 'effect_icon_png_cache_version'
                 """
             ).fetchone()

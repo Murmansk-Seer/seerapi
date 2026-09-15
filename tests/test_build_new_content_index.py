@@ -30,7 +30,7 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
     with sqlite3.connect(path) as conn:
         conn.executescript(
             """
-            CREATE TABLE ironsbot_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE seerapi_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE achievement (
                 id INTEGER PRIMARY KEY, name TEXT, point INTEGER, desc TEXT, is_hide INTEGER
             );
@@ -67,7 +67,7 @@ def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> N
             """
         )
         conn.execute(
-            "INSERT INTO ironsbot_metadata (key, value) VALUES ('config_package_version', ?)",
+            "INSERT INTO seerapi_metadata (key, value) VALUES ('config_package_version', ?)",
             (version,),
         )
         conn.execute(

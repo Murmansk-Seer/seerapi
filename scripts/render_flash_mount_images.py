@@ -146,10 +146,10 @@ def _mount_ids_requiring_generated_assets(
 def _default_repository_source_prefix(
     connection: sqlite3.Connection,
 ) -> str | None:
-    if not _table_exists(connection, "ironsbot_metadata"):
+    if not _table_exists(connection, "seerapi_metadata"):
         return None
     row = connection.execute(
-        "SELECT value FROM ironsbot_metadata "
+        "SELECT value FROM seerapi_metadata "
         "WHERE key = 'render_asset_manifest_repositories'",
     ).fetchone()
     if row is None:

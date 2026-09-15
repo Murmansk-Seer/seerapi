@@ -13,10 +13,10 @@ from sqlmodel import SQLModel
 
 import seerapi_models  # noqa: F401
 
-SCHEMA_CONTRACT_VERSION = '1'
-SCHEMA_CONTRACT_VERSION_KEY = 'ironsbot_schema_contract_version'
-SCHEMA_TABLES_KEY = 'ironsbot_schema_tables'
-SCHEMA_FINGERPRINT_KEY = 'ironsbot_schema_fingerprint'
+SCHEMA_CONTRACT_VERSION = '2'
+SCHEMA_CONTRACT_VERSION_KEY = 'seerapi_schema_contract_version'
+SCHEMA_TABLES_KEY = 'seerapi_schema_tables'
+SCHEMA_FINGERPRINT_KEY = 'seerapi_schema_fingerprint'
 
 # These tables are produced outside SQLModel: parsed ConfigPackage facts and
 # post-build release indexes. Keep this list at the producer boundary so
@@ -33,7 +33,7 @@ GENERATED_RELEASE_TABLES = frozenset(
         'effect_description',
         'field_effect',
         'field_effect_type',
-        'ironsbot_metadata',
+        'seerapi_metadata',
         'item_exchange_price',
         'mintmark_quality',
         'new_content_category_state',
@@ -59,7 +59,7 @@ GENERATED_RELEASE_TABLES = frozenset(
 
 
 def required_release_tables() -> frozenset[str]:
-    """Return the complete producer-owned schema required by contract v1."""
+    """Return the complete producer-owned schema required by contract v2."""
 
     return frozenset(SQLModel.metadata.tables) | GENERATED_RELEASE_TABLES
 
@@ -112,7 +112,7 @@ def finalize_release_contract(database: Path) -> tuple[str, ...]:
         if missing:
             raise ValueError(f'release is missing required tables: {", ".join(missing)}')
         version = connection.execute(
-            'SELECT value FROM ironsbot_metadata WHERE key = ?',
+            'SELECT value FROM seerapi_metadata WHERE key = ?',
             (SCHEMA_CONTRACT_VERSION_KEY,),
         ).fetchone()
         if version != (SCHEMA_CONTRACT_VERSION,):
@@ -128,7 +128,7 @@ def finalize_release_contract(database: Path) -> tuple[str, ...]:
         )
         connection.executemany(
             """
-            INSERT INTO ironsbot_metadata (key, value)
+            INSERT INTO seerapi_metadata (key, value)
             VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value
             """,

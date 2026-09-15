@@ -1,4 +1,4 @@
-﻿"""Read and write the persisted weekly new-content release state."""
+"""Read and write the persisted weekly new-content release state."""
 
 from __future__ import annotations
 
@@ -27,10 +27,10 @@ CATEGORY_STATE_TABLE = 'new_content_category_state'
 
 
 def _metadata_value(conn: sqlite3.Connection, key: str) -> str | None:
-    if not _has_table(conn, 'ironsbot_metadata'):
+    if not _has_table(conn, 'seerapi_metadata'):
         return None
     row = conn.execute(
-        'SELECT value FROM ironsbot_metadata WHERE key = ?', (key,)
+        'SELECT value FROM seerapi_metadata WHERE key = ?', (key,)
     ).fetchone()
     return str(row[0]) if row else None
 

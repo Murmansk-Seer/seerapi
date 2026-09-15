@@ -79,10 +79,10 @@ def _database(
             ),
         )
         connection.execute(
-            "CREATE TABLE ironsbot_metadata (key TEXT PRIMARY KEY, value TEXT)",
+            "CREATE TABLE seerapi_metadata (key TEXT PRIMARY KEY, value TEXT)",
         )
         connection.execute(
-            "INSERT INTO ironsbot_metadata VALUES "
+            "INSERT INTO seerapi_metadata VALUES "
             "('render_asset_manifest_repositories', ?)",
             (
                 json.dumps(
@@ -286,7 +286,7 @@ def test_current_manifest_metadata_is_required(tmp_path: Path) -> None:
     database = tmp_path / "current.sqlite"
     _database(database, (7,))
     with sqlite3.connect(database) as connection:
-        connection.execute("DELETE FROM ironsbot_metadata")
+        connection.execute("DELETE FROM seerapi_metadata")
 
     with pytest.raises(
         ValueError,

@@ -78,9 +78,9 @@ def _seed_effect_icon_cache(database_path: Path) -> int:
 
 
 def test_published_schema_contract_metadata_is_explicit() -> None:
-    assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION == "1"
+    assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION == "2"
     assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION_KEY == (
-        "ironsbot_schema_contract_version"
+        "seerapi_schema_contract_version"
     )
 
 
@@ -1572,9 +1572,9 @@ def test_seed_effect_icon_cache_uses_matching_renderer_version(
     icon_id = 1644
     database_path = tmp_path / "previous.sqlite"
     with sqlite3.connect(database_path) as connection:
-        connection.execute("CREATE TABLE ironsbot_metadata (key TEXT, value TEXT)")
+        connection.execute("CREATE TABLE seerapi_metadata (key TEXT, value TEXT)")
         connection.execute(
-            "INSERT INTO ironsbot_metadata VALUES (?, ?)",
+            "INSERT INTO seerapi_metadata VALUES (?, ?)",
             ("effect_icon_png_cache_version", builder.EFFECT_ICON_PNG_CACHE_VERSION),
         )
         connection.execute(
@@ -1622,9 +1622,9 @@ def test_seed_effect_icon_cache_rejects_previous_renderer_version(
 ) -> None:
     database_path = tmp_path / "previous.sqlite"
     with sqlite3.connect(database_path) as connection:
-        connection.execute("CREATE TABLE ironsbot_metadata (key TEXT, value TEXT)")
+        connection.execute("CREATE TABLE seerapi_metadata (key TEXT, value TEXT)")
         connection.execute(
-            "INSERT INTO ironsbot_metadata VALUES (?, ?)",
+            "INSERT INTO seerapi_metadata VALUES (?, ?)",
             ("effect_icon_png_cache_version", "effect-icon-png-legacy"),
         )
         connection.execute(
