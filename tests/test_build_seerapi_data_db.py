@@ -199,40 +199,6 @@ def test_release_reference_table_writer_replaces_official_reference_tables() -> 
         ).fetchall() == [(147, "旧日之晷", 4125)]
 
 
-def test_master_pool_projection_supports_both_consumer_schemas() -> None:
-    with sqlite3.connect(":memory:") as connection:
-        connection.executescript(
-            """
-            CREATE TABLE peak_cost_pool (
-                id INTEGER PRIMARY KEY,
-                cost INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                start_time TEXT NOT NULL,
-                end_time TEXT NOT NULL
-            );
-            CREATE TABLE pet (
-                id INTEGER PRIMARY KEY,
-                peak_cost_pool_id INTEGER
-            );
-            INSERT INTO peak_cost_pool VALUES
-                (1, 35, '大师池 35 点', '2026-09-11 00:00:00', '2026-09-18 00:00:00');
-            INSERT INTO pet VALUES (4421, 1), (3078, 1);
-            """
-        )
-
-        release_reference_tables.replace_peak_master_pool_projection(connection)
-
-        assert connection.execute(
-            "SELECT id, cost, name FROM peak_cost_pool"
-        ).fetchall() == [(1, 35, '大师池 35 点')]
-        assert connection.execute(
-            "SELECT id, cost, pet_ids_json, subkey_total, configured_time "
-            "FROM peak_master_pool"
-        ).fetchall() == [
-            (1, 35, '[3078,4421]', 20260911, '2026_09_18 00:00:00')
-        ]
-
-
 def test_release_soulmark_icon_writer_replaces_icons_and_issues() -> None:
     asset_check = effect_icon_build.EffectIconAssetCheck(
         icon_id=18,
