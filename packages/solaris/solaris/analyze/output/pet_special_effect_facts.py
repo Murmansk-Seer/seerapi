@@ -130,7 +130,7 @@ def _replace_special_effect_tables(
                 source.kind,
                 source.id,
                 source.rule,
-                source.detail or "",
+                source.detail or '',
             ),
         )
     ]
@@ -158,7 +158,7 @@ def _replace_special_effect_tables(
         if issue.context:
             values.add(issue.context)
     issue_rows = [
-        (*key, "\n\n".join(sorted(values)) or None, now)
+        (*key, '\n\n'.join(sorted(values)) or None, now)
         for key, values in sorted(contexts.items())
     ]
     connection.executemany(
@@ -195,4 +195,4 @@ def replace_pet_special_effect_facts(
     )
 
 
-__all__ = ["PetSpecialEffectBuildSummary", "replace_pet_special_effect_facts"]
+__all__ = ['PetSpecialEffectBuildSummary', 'replace_pet_special_effect_facts']

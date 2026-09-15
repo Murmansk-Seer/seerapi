@@ -20,14 +20,14 @@ from .pet_special_effect_types import (
 )
 
 HIDDEN_SKILL_ID = 19002
-RED_EFFECT_COLOR = "#f35555"
-STATUS_HIGHLIGHT_COLORS = frozenset({"#f35555", "#57c975"})
-GLOSSARY_ID_SUFFIX = re.compile(r"\(\d+\)$")
-NUMBER_PATTERN = re.compile(r"\d+(?:\.\d+)?%?")
+RED_EFFECT_COLOR = '#f35555'
+STATUS_HIGHLIGHT_COLORS = frozenset({'#f35555', '#57c975'})
+GLOSSARY_ID_SUFFIX = re.compile(r'\(\d+\)$')
+NUMBER_PATTERN = re.compile(r'\d+(?:\.\d+)?%?')
 COLOR_TOKEN = re.compile(
-    r"\[color=(#[0-9a-fA-F]{6})\]|\[/color\]|\[sprite name=\w+\]|([^\[]+|\[)"
+    r'\[color=(#[0-9a-fA-F]{6})\]|\[/color\]|\[sprite name=\w+\]|([^\[]+|\[)'
 )
-EFFECT_SEPARATORS = re.compile(r"[\s、，,；;]+")
+EFFECT_SEPARATORS = re.compile(r'[\s、，,；;]+')
 
 
 def _description_score(candidate: str | None, context: str | None) -> float:
@@ -37,8 +37,8 @@ def _description_score(candidate: str | None, context: str | None) -> float:
         return 0.0
     if normalized_candidate in normalized_context:
         return 2.0
-    candidate_numbers = set(NUMBER_PATTERN.findall(candidate or ""))
-    context_numbers = set(NUMBER_PATTERN.findall(context or ""))
+    candidate_numbers = set(NUMBER_PATTERN.findall(candidate or ''))
+    context_numbers = set(NUMBER_PATTERN.findall(context or ''))
     numeric_score = (
         len(candidate_numbers & context_numbers) / len(candidate_numbers)
         if candidate_numbers
@@ -54,22 +54,22 @@ def _highlighted_terms(value: str | None, colors: Iterable[str]) -> list[str]:
     expected = {color.casefold() for color in colors}
     stack: list[str] = []
     terms: list[str] = []
-    for match in COLOR_TOKEN.finditer(value or ""):
+    for match in COLOR_TOKEN.finditer(value or ''):
         color, plain = match.group(1), match.group(2)
         if color is not None:
             stack.append(color.casefold())
-        elif match.group(0) == "[/color]":
+        elif match.group(0) == '[/color]':
             if stack:
                 stack.pop()
         elif plain is not None and expected.intersection(stack):
-            term = GLOSSARY_ID_SUFFIX.sub("", plain.strip())
+            term = GLOSSARY_ID_SUFFIX.sub('', plain.strip())
             if term and term not in terms:
                 terms.append(term)
     return terms
 
 
 def _split_official_names(value: str, names: frozenset[str]) -> list[str]:
-    compact = EFFECT_SEPARATORS.sub("", value.strip())
+    compact = EFFECT_SEPARATORS.sub('', value.strip())
     if not compact:
         return []
     ordered_names = tuple(
@@ -94,12 +94,12 @@ def _load_glossaries(
     by_id: dict[int, tuple[str, str]] = {}
     by_name: dict[str, list[tuple[int, str]]] = defaultdict(list)
     for glossary_id, name, description in connection.execute(
-        "SELECT id, name, desc FROM glossary_entry ORDER BY id"
+        'SELECT id, name, desc FROM glossary_entry ORDER BY id'
     ):
-        clean_name = str(name or "").strip()
+        clean_name = str(name or '').strip()
         if not clean_name:
             continue
-        clean_description = str(description or "").strip()
+        clean_description = str(description or '').strip()
         by_id[int(glossary_id)] = (clean_name, clean_description)
         by_name[clean_name].append((int(glossary_id), clean_description))
     return by_id, dict(by_name)
@@ -116,13 +116,13 @@ def _load_statuses(
         ORDER BY status_id, name
         """
     ):
-        clean_name = str(name or "").strip()
+        clean_name = str(name or '').strip()
         if clean_name:
             by_name[clean_name].append(
                 StatusCandidate(
                     id=int(status_id),
                     name=clean_name,
-                    description=str(description or "").strip(),
+                    description=str(description or '').strip(),
                     show_monster_id=int(show_monster_id or 0),
                 )
             )
@@ -135,10 +135,10 @@ def _effect_descriptions(
 ) -> dict[str, list[EffectDescriptionCandidate]]:
     descriptions: dict[str, list[EffectDescriptionCandidate]] = defaultdict(list)
     for effect_id, name, description in connection.execute(
-        "SELECT effect_id, name, description FROM effect_description ORDER BY effect_id"
+        'SELECT effect_id, name, description FROM effect_description ORDER BY effect_id'
     ):
-        clean_name = str(name or "").strip()
-        clean_description = str(description or "").strip()
+        clean_name = str(name or '').strip()
+        clean_description = str(description or '').strip()
         if not clean_name or not clean_description:
             continue
         glossary = glossaries.get(int(effect_id))
@@ -190,9 +190,9 @@ def _resolve_glossary_candidates(
                 fact,
                 candidates[0][0],
                 EffectSource(
-                    "glossary",
+                    'glossary',
                     candidates[0][0],
-                    "exact_status_description",
+                    'exact_status_description',
                 ),
             )
             continue
@@ -207,16 +207,16 @@ def _resolve_glossary_candidates(
             facts.resolve_glossary(
                 fact,
                 exact[0],
-                EffectSource("glossary", exact[0], "exact_status_description"),
+                EffectSource('glossary', exact[0], 'exact_status_description'),
             )
         elif candidates:
             _append_issue(
                 issues,
                 pet_id=fact.pet_id,
                 effect_name=fact.name,
-                candidate_kind="glossary",
+                candidate_kind='glossary',
                 candidates=(candidate[0] for candidate in candidates),
-                reason="ambiguous_glossary_name",
+                reason='ambiguous_glossary_name',
                 context=fact.description,
             )
 
@@ -226,13 +226,13 @@ def _choose_status(
     context: str,
 ) -> tuple[StatusCandidate | None, str | None]:
     if len(candidates) == 1:
-        return candidates[0], "unique_status_name"
+        return candidates[0], 'unique_status_name'
     normalized = {
         normalize_special_effect_text(candidate.description) for candidate in candidates
     }
-    if len(normalized) == 1 and "" not in normalized:
+    if len(normalized) == 1 and '' not in normalized:
         return min(candidates, key=lambda candidate: candidate.id), (
-            "same_description_lowest_status_id"
+            'same_description_lowest_status_id'
         )
     ranked = sorted(
         ((_description_score(item.description, context), item) for item in candidates),
@@ -242,7 +242,7 @@ def _choose_status(
     best_score, best = ranked[0]
     next_score = ranked[1][0] if len(ranked) > 1 else 0.0
     if best_score >= 0.25 and best_score > next_score + 0.03:
-        return best, "status_description_similarity"
+        return best, 'status_description_similarity'
     return None, None
 
 
@@ -262,12 +262,12 @@ def _add_direct_sources(
         facts.add(
             pet_id=int(pet_id),
             name=str(name),
-            description=str(description or ""),
+            description=str(description or ''),
             glossary_id=int(glossary_id),
             source=EffectSource(
-                "pet_glossary",
+                'pet_glossary',
                 int(glossary_id),
-                "direct_pet_glossary",
+                'direct_pet_glossary',
             ),
         )
     for candidates in statuses_by_name.values():
@@ -280,9 +280,9 @@ def _add_direct_sources(
                 description=status.description,
                 status_id=status.id,
                 source=EffectSource(
-                    "status",
+                    'status',
                     status.id,
-                    "direct_status_show_monster",
+                    'direct_status_show_monster',
                 ),
             )
 
@@ -337,12 +337,12 @@ def _soulmark_texts(
         ORDER BY link.pet_id, soulmark.id
         """
     ):
-        context = "\n".join(
+        context = '\n'.join(
             value.strip()
             for value in (
-                str(desc or ""),
-                str(analyze_desc or ""),
-                str(adjustment or ""),
+                str(desc or ''),
+                str(analyze_desc or ''),
+                str(adjustment or ''),
             )
             if value and value.strip()
         )
@@ -383,7 +383,7 @@ def _select_text_candidates(
     descriptions = {
         normalize_special_effect_text(candidate.description) for candidate in candidates
     }
-    if len(descriptions) == 1 and "" not in descriptions:
+    if len(descriptions) == 1 and '' not in descriptions:
         return [min(candidates, key=lambda candidate: candidate.id)]
     return []
 
@@ -395,7 +395,7 @@ def _skill_description_references(
     if not skill_name:
         return ()
     pattern = re.compile(
-        rf"(?:[\"“「『《【]{re.escape(skill_name)}[\"”」』》】]|技能[：:\s]*{re.escape(skill_name)}(?=[，。；、\s]|$))"
+        rf'(?:[\"“「『《【]{re.escape(skill_name)}[\"”」』》】]|技能[：:\s]*{re.escape(skill_name)}(?=[，。；、\s]|$))'
     )
     return tuple(
         (name, candidate)
@@ -439,15 +439,15 @@ def _add_text_effects(
                 issues,
                 pet_id=pet_id,
                 effect_name=name,
-                candidate_kind="effect_description",
+                candidate_kind='effect_description',
                 candidates=(candidate.id for candidate in candidates),
-                reason="ambiguous_text_effect_name",
+                reason='ambiguous_text_effect_name',
                 context=context,
             )
         return selected
 
     name_pattern = re.compile(
-        "|".join(
+        '|'.join(
             re.escape(name) for name in sorted(official_names, key=len, reverse=True)
         )
     )
@@ -467,11 +467,11 @@ def _add_text_effects(
                     description=candidate.description,
                     glossary_id=candidate.glossary_id,
                     source=EffectSource(
-                        "skill",
+                        'skill',
                         skill_id,
-                        "skill_highlight_exact"
+                        'skill_highlight_exact'
                         if name in highlighted_names
-                        else "text_exact_name",
+                        else 'text_exact_name',
                         skill_name,
                     ),
                 )
@@ -482,9 +482,9 @@ def _add_text_effects(
                 description=candidate.description,
                 glossary_id=candidate.glossary_id,
                 source=EffectSource(
-                    "skill",
+                    'skill',
                     skill_id,
-                    "effect_description_skill_name",
+                    'effect_description_skill_name',
                     skill_name,
                 ),
             )
@@ -496,7 +496,7 @@ def _add_text_effects(
                     name=name,
                     description=candidate.description,
                     glossary_id=candidate.glossary_id,
-                    source=EffectSource("soulmark", soulmark_id, "text_exact_name"),
+                    source=EffectSource('soulmark', soulmark_id, 'text_exact_name'),
                 )
         for name in _highlighted_terms(context, STATUS_HIGHLIGHT_COLORS):
             candidates = statuses_by_name.get(name, [])
@@ -509,9 +509,9 @@ def _add_text_effects(
                         issues,
                         pet_id=pet_id,
                         effect_name=name,
-                        candidate_kind="status",
+                        candidate_kind='status',
                         candidates=(candidate.id for candidate in candidates),
-                        reason="ambiguous_soulmark_highlight_status",
+                        reason='ambiguous_soulmark_highlight_status',
                         context=context,
                     )
                 continue
@@ -521,9 +521,9 @@ def _add_text_effects(
                 description=status.description,
                 status_id=status.id,
                 source=EffectSource(
-                    "soulmark",
+                    'soulmark',
                     soulmark_id,
-                    rule or "soulmark_highlight_status",
+                    rule or 'soulmark_highlight_status',
                 ),
             )
 
@@ -539,15 +539,15 @@ def _attach_named_statuses(
         candidates = statuses_by_name.get(fact.name, [])
         if not candidates:
             continue
-        status, rule = _choose_status(candidates, fact.description or "")
+        status, rule = _choose_status(candidates, fact.description or '')
         if status is None:
             _append_issue(
                 issues,
                 pet_id=fact.pet_id,
                 effect_name=fact.name,
-                candidate_kind="status",
+                candidate_kind='status',
                 candidates=(candidate.id for candidate in candidates),
-                reason="ambiguous_named_status",
+                reason='ambiguous_named_status',
                 context=fact.description,
             )
             continue
@@ -558,9 +558,9 @@ def _attach_named_statuses(
             glossary_id=fact.glossary_id,
             status_id=status.id,
             source=EffectSource(
-                "status",
+                'status',
                 status.id,
-                rule or "unique_status_name",
+                rule or 'unique_status_name',
             ),
         )
 
@@ -578,7 +578,7 @@ def _add_linked_glossaries(
     if not parent_pairs:
         return
     parent_ids = sorted({glossary_id for _pet_id, glossary_id in parent_pairs})
-    placeholders = ", ".join("?" for _ in parent_ids)
+    placeholders = ', '.join('?' for _ in parent_ids)
     links = connection.execute(
         f"""
         SELECT source_id, target_id
@@ -602,9 +602,9 @@ def _add_linked_glossaries(
                 description=target[1],
                 glossary_id=int(target_id),
                 source=EffectSource(
-                    "glossary_link",
+                    'glossary_link',
                     int(parent_id),
-                    "glossary_link",
+                    'glossary_link',
                 ),
             )
 
@@ -630,4 +630,4 @@ def collect_pet_special_effect_facts(
     return facts, issues
 
 
-__all__ = ["collect_pet_special_effect_facts"]
+__all__ = ['collect_pet_special_effect_facts']

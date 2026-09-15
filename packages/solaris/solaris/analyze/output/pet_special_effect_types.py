@@ -6,23 +6,23 @@ from dataclasses import dataclass, field
 import re
 
 RULE_PRIORITY = {
-    "direct_pet_glossary": 0,
-    "direct_status_show_monster": 1,
-    "glossary_link": 2,
-    "skill_highlight_exact": 3,
-    "soulmark_highlight_status": 4,
-    "text_exact_name": 5,
-    "effect_description_skill_name": 6,
-    "unique_status_name": 7,
-    "exact_status_description": 8,
-    "status_description_similarity": 9,
-    "same_description_lowest_status_id": 10,
+    'direct_pet_glossary': 0,
+    'direct_status_show_monster': 1,
+    'glossary_link': 2,
+    'skill_highlight_exact': 3,
+    'soulmark_highlight_status': 4,
+    'text_exact_name': 5,
+    'effect_description_skill_name': 6,
+    'unique_status_name': 7,
+    'exact_status_description': 8,
+    'status_description_similarity': 9,
+    'same_description_lowest_status_id': 10,
 }
 
 
 def normalize_special_effect_text(value: str | None) -> str:
     """Normalize user-facing text for deterministic identity comparisons."""
-    return re.sub(r"[\W_]+", "", value or "").casefold()
+    return re.sub(r'[\W_]+', '', value or '').casefold()
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,10 +85,10 @@ class SpecialEffectFact:
     @property
     def sort_kind(self) -> str:
         if self.glossary_id is not None:
-            return "glossary"
+            return 'glossary'
         if self.status_id is not None:
-            return "status"
-        return "unresolved"
+            return 'status'
+        return 'unresolved'
 
 
 class SpecialEffectFactAccumulator:
@@ -116,7 +116,7 @@ class SpecialEffectFactAccumulator:
     ) -> SpecialEffectFact:
         clean_name = name.strip()
         if not clean_name:
-            raise ValueError("special effect name must not be empty")
+            raise ValueError('special effect name must not be empty')
         text_key = (
             pet_id,
             normalize_special_effect_text(clean_name),
@@ -131,7 +131,7 @@ class SpecialEffectFactAccumulator:
         if fact is None:
             fact = SpecialEffectFact(
                 pet_id=pet_id,
-                effect_key=text_key[1] or f"unnamed-{len(self._facts) + 1}",
+                effect_key=text_key[1] or f'unnamed-{len(self._facts) + 1}',
                 name=clean_name,
                 description=description.strip() if description else None,
                 glossary_id=None,
@@ -182,7 +182,7 @@ class SpecialEffectFactAccumulator:
                 self._merge(other, fact)
                 fact = other
             fact.glossary_id = glossary_id
-            fact.effect_key = f"g:{glossary_id}"
+            fact.effect_key = f'g:{glossary_id}'
             self._by_glossary[(fact.pet_id, glossary_id)] = fact
         if status_id is not None:
             other = self._by_status.get((fact.pet_id, status_id))
@@ -191,7 +191,7 @@ class SpecialEffectFactAccumulator:
             fact.status_id = status_id
             self._by_status[(fact.pet_id, status_id)] = fact
             if fact.glossary_id is None:
-                fact.effect_key = f"s:{status_id}"
+                fact.effect_key = f's:{status_id}'
         return fact
 
     def _merge(
@@ -205,7 +205,7 @@ class SpecialEffectFactAccumulator:
             target.description = duplicate.description
         if duplicate.glossary_id is not None:
             target.glossary_id = duplicate.glossary_id
-            target.effect_key = f"g:{duplicate.glossary_id}"
+            target.effect_key = f'g:{duplicate.glossary_id}'
             self._by_glossary[(target.pet_id, duplicate.glossary_id)] = target
         if target.status_id is None and duplicate.status_id is not None:
             target.status_id = duplicate.status_id
@@ -226,11 +226,11 @@ class SpecialEffectFactAccumulator:
 
 
 __all__ = [
-    "RULE_PRIORITY",
-    "EffectResolutionIssue",
-    "EffectSource",
-    "SpecialEffectFact",
-    "SpecialEffectFactAccumulator",
-    "StatusCandidate",
-    "normalize_special_effect_text",
+    'RULE_PRIORITY',
+    'EffectResolutionIssue',
+    'EffectSource',
+    'SpecialEffectFact',
+    'SpecialEffectFactAccumulator',
+    'StatusCandidate',
+    'normalize_special_effect_text',
 ]
