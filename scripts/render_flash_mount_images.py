@@ -20,27 +20,27 @@ from urllib.request import Request, urlopen
 from PIL import Image, UnidentifiedImageError
 
 FLASH_MOUNT_ASSET_BASE_URL = os.environ.get(
-    "IRONSBOT_DATA_FLASH_MOUNT_ASSET_BASE_URL",
+    "SEERAPI_DATA_FLASH_MOUNT_ASSET_BASE_URL",
     "https://seer.61.com/resource/item/cloth/swf/",
 )
 FLASH_MOUNT_RENDER_FFDEC_JAR = Path(
-    os.environ.get("IRONSBOT_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR", "ffdec.jar")
+    os.environ.get("SEERAPI_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR", "ffdec.jar")
 )
 FLASH_MOUNT_RENDER_JAVA_COMMAND = os.environ.get(
-    "IRONSBOT_DATA_FLASH_MOUNT_RENDER_JAVA_COMMAND", "java"
+    "SEERAPI_DATA_FLASH_MOUNT_RENDER_JAVA_COMMAND", "java"
 )
 FLASH_MOUNT_RENDER_ZOOM = max(
     1,
-    int(os.environ.get("IRONSBOT_DATA_FLASH_MOUNT_RENDER_ZOOM", "3")),
+    int(os.environ.get("SEERAPI_DATA_FLASH_MOUNT_RENDER_ZOOM", "3")),
 )
 FLASH_MOUNT_RENDER_TIMEOUT_SECONDS = max(
     1,
-    float(os.environ.get("IRONSBOT_DATA_FLASH_MOUNT_RENDER_TIMEOUT_SECONDS", "45")),
+    float(os.environ.get("SEERAPI_DATA_FLASH_MOUNT_RENDER_TIMEOUT_SECONDS", "45")),
 )
 FLASH_MOUNT_DOWNLOAD_TIMEOUT_SECONDS = max(
     1,
     float(
-        os.environ.get("IRONSBOT_DATA_FLASH_MOUNT_DOWNLOAD_TIMEOUT_SECONDS", "20")
+        os.environ.get("SEERAPI_DATA_FLASH_MOUNT_DOWNLOAD_TIMEOUT_SECONDS", "20")
     ),
 )
 logger = logging.getLogger(__name__)

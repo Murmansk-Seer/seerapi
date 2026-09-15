@@ -238,7 +238,7 @@ jobs:
             --output "${previous_db}" \
             https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite || true
           if [ -s "${previous_db}" ]; then
-            IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
+            SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
               python scripts/build_seerapi_data_db.py \
                 --seed-effect-icon-cache "${previous_db}"
           else
@@ -248,8 +248,8 @@ jobs:
       - name: Plan effect icon PNG repairs
         id: effect_icon_cache_plan
         env:
-          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
         run: |
           python scripts/build_seerapi_data_db.py \
             --plan-effect-icon-shard ${{ matrix.shard }} \
@@ -264,15 +264,15 @@ jobs:
       - name: Render missing effect icon PNGs
         if: steps.effect_icon_cache_plan.outputs.needs_render == 'true'
         env:
-          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Some older animated soulmark SWFs need about 36 seconds for a
           # canonical sprite render. Keep two FFDec processes per runner so
           # their fallback render is not starved by Java process contention.
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
+          SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
+          SEERAPI_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
+          SEERAPI_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: |
           python scripts/build_seerapi_data_db.py \
             --render-effect-icon-shard ${{ matrix.shard }} \
@@ -351,13 +351,13 @@ jobs:
 
       - name: Build SeerAPI database
         env:
-          IRONSBOT_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
-          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           # Shard jobs own all Flash rendering. The release build consumes their
           # immutable cache and fails rather than introducing a second renderer.
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
+          SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
+          SEERAPI_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
         run: python scripts/build_seerapi_data_db.py
 
       - name: Download previous published database
@@ -593,7 +593,7 @@ jobs:
         id: mount_assets
         env:
           PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
-          IRONSBOT_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+          SEERAPI_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
         run: |
           set -euo pipefail
           args=(

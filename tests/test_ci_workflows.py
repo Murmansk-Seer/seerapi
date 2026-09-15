@@ -48,5 +48,5 @@ def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     mount_ffdec_position = workflow.rindex("uses: ./.github/actions/setup-ffdec")
     assert mount_plan_position < mount_ffdec_position
     assert "if: steps.mount_plan.outputs.needs_render == 'true'" in workflow
-    assert 'IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"' in workflow
-    assert 'IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"' in workflow
+    assert 'SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"' in workflow
+    assert 'SEERAPI_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"' in workflow

@@ -1,4 +1,4 @@
-﻿# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT
 """Build the published SeerAPI runtime SQLite database.
 
 Consumers download this database as their main data source. The upstream SeerAPI
@@ -148,29 +148,29 @@ else:
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DB = ROOT / os.environ.get("SEERAPI_DATA_OUTPUT", "seerapi-data.sqlite")
 UPSTREAM_SEERAPI_URL = os.environ.get(
-    "IRONSBOT_DATA_UPSTREAM_SEERAPI_URL",
+    "SEERAPI_DATA_UPSTREAM_SEERAPI_URL",
     "https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite",
 )
-UPSTREAM_SEERAPI_PATH = os.environ.get("IRONSBOT_DATA_UPSTREAM_SEERAPI_PATH", "")
+UPSTREAM_SEERAPI_PATH = os.environ.get("SEERAPI_DATA_UPSTREAM_SEERAPI_PATH", "")
 CONFIG_PACKAGE_BASE_URL = os.environ.get(
-    "IRONSBOT_DATA_CONFIG_PACKAGE_BASE_URL",
+    "SEERAPI_DATA_CONFIG_PACKAGE_BASE_URL",
     "https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/",
 )
 PACKAGE_NAME = "ConfigPackage"
 CONFIG_BUNDLE_NAME = "pgame_configs_bytes"
 DEFAULT_PACKAGE_BASE_URL = os.environ.get(
-    "IRONSBOT_DATA_DEFAULT_PACKAGE_BASE_URL",
+    "SEERAPI_DATA_DEFAULT_PACKAGE_BASE_URL",
     "https://newseer.61.com/Assets/StandaloneWindows64/DefaultPackage/",
 )
 DEFAULT_PACKAGE_NAME = "DefaultPackage"
 UNITY_EFFECT_ICON_ASSET_PREFIX = "Assets/Art/Ui/assets/effectIcon/"
 UNITY_EFFECT_ICON_ASSET_SUFFIX = ".png"
 UNITY_EFFECT_ICON_PNG_ENABLED = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_UNITY_PNG_ENABLED",
+    "SEERAPI_DATA_EFFECT_ICON_UNITY_PNG_ENABLED",
     "1",
 ).lower() not in {"0", "false", "no", "off"}
 EFFECT_ICON_PREFER_FLASH = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH",
+    "SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH",
     "1",
 ).lower() in {"1", "true", "yes", "on"}
 MINTMARK_BYTES_NAME = "mintmark.bytes"
@@ -180,68 +180,68 @@ ITEMS_TIP_BYTES_NAME = "itemsTip.bytes"
 EFFECT_ICON_BYTES_NAME = "effectIcon.bytes"
 AUTOCARD_SEASON_EFFECT_BYTES_NAME = "autocardSeasonEffect.bytes"
 EFFECT_ICON_ASSET_BASE_URL = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_ASSET_BASE_URL",
+    "SEERAPI_DATA_EFFECT_ICON_ASSET_BASE_URL",
     "https://seer.61.com/resource/effectIcon/",
 )
 EFFECT_ICON_ASSET_SUFFIX = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_ASSET_SUFFIX",
+    "SEERAPI_DATA_EFFECT_ICON_ASSET_SUFFIX",
     ".swf",
 )
 EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS = float(
-    os.environ.get("IRONSBOT_DATA_EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS", "15")
+    os.environ.get("SEERAPI_DATA_EFFECT_ICON_ASSET_VERIFY_TIMEOUT_SECONDS", "15")
 )
 EFFECT_ICON_ASSET_VERIFY_WORKERS = max(
     1,
-    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_ASSET_VERIFY_WORKERS", "16")),
+    int(os.environ.get("SEERAPI_DATA_EFFECT_ICON_ASSET_VERIFY_WORKERS", "16")),
 )
 EFFECT_ICON_PNG_RENDER_ENABLED = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED",
+    "SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_ENABLED",
     "1",
 ).lower() not in {"0", "false", "no", "off"}
 EFFECT_ICON_PNG_REQUIRE_CACHED = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED",
+    "SEERAPI_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED",
     "0",
 ).lower() in {"1", "true", "yes", "on"}
 EFFECT_ICON_PNG_RENDER_JAVA_COMMAND = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_JAVA_COMMAND",
+    "SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_JAVA_COMMAND",
     "java",
 )
 EFFECT_ICON_PNG_RENDER_FFDEC_JAR = Path(
     os.environ.get(
-        "IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR",
+        "SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR",
         "ffdec.jar",
     )
 )
 EFFECT_ICON_PNG_RENDER_ZOOM = max(
     1,
-    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ZOOM", "6")),
+    int(os.environ.get("SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_ZOOM", "6")),
 )
 EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS = float(
-    os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS", "60")
+    os.environ.get("SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_TIMEOUT_SECONDS", "60")
 )
 EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS = float(
     os.environ.get(
-        "IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS",
+        "SEERAPI_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS",
         "45",
     )
 )
 EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS = float(
     os.environ.get(
-        "IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS",
+        "SEERAPI_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS",
         "30",
     )
 )
 EFFECT_ICON_PNG_RENDER_WORKERS = max(
     1,
-    int(os.environ.get("IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS", "2")),
+    int(os.environ.get("SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_WORKERS", "2")),
 )
 EFFECT_ICON_PNG_CACHE_VERSION = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_VERSION",
+    "SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_VERSION",
     "ffdec-original-timeline-sprite-v1",
 )
 EFFECT_ICON_PNG_CACHE_DIR = Path(
     os.environ.get(
-        "IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR",
+        "SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR",
         str(ROOT / ".cache" / "effect-icon-png"),
     )
 )
@@ -307,20 +307,20 @@ PEAK_POOL_RENDER_ASSET_SCOPE = "peak_pool"
 NEW_CONTENT_STANDARD_RENDER_ASSET_SCOPE = "new_content_standard"
 RENDER_ASSET_REPOSITORY = "Murmansk-Seer/seer-unity-assets"
 RENDER_ASSET_REPOSITORY_GIT_URL = os.environ.get(
-    "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_GIT_URL",
+    "SEERAPI_DATA_RENDER_ASSET_REPOSITORY_GIT_URL",
     f"https://github.com/{RENDER_ASSET_REPOSITORY}.git",
 )
 RENDER_ASSET_REPOSITORY_REF = os.environ.get(
-    "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_REF",
+    "SEERAPI_DATA_RENDER_ASSET_REPOSITORY_REF",
     "main",
 )
 RENDER_ASSET_REPOSITORY_COMMIT_URL = os.environ.get(
-    "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_COMMIT_URL",
+    "SEERAPI_DATA_RENDER_ASSET_REPOSITORY_COMMIT_URL",
     "https://api.github.com/repos/"
     f"{RENDER_ASSET_REPOSITORY}/commits/{RENDER_ASSET_REPOSITORY_REF}",
 )
 RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE = os.environ.get(
-    "IRONSBOT_DATA_RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE",
+    "SEERAPI_DATA_RENDER_ASSET_REPOSITORY_TREE_URL_TEMPLATE",
     "https://api.github.com/repos/"
     f"{RENDER_ASSET_REPOSITORY}/git/trees/{{revision}}?recursive=1",
 )
@@ -345,9 +345,9 @@ RENDER_ASSET_MANIFEST_CONFIG = RenderAssetManifestConfig(
     special_effect_status_table=SPECIAL_EFFECT_STATUS_TABLE,
     skin_image_resolution_table=SKIN_IMAGE_RESOLUTION_TABLE,
 )
-AUTOCARD_JSON_DIR = os.environ.get("IRONSBOT_DATA_AUTOCARD_JSON_DIR", "")
+AUTOCARD_JSON_DIR = os.environ.get("SEERAPI_DATA_AUTOCARD_JSON_DIR", "")
 AUTOCARD_JSON_BASE_URL = os.environ.get(
-    "IRONSBOT_DATA_AUTOCARD_JSON_BASE_URL",
+    "SEERAPI_DATA_AUTOCARD_JSON_BASE_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/seer-unity-config-parser/main/json/",
 )
 AUTOCARD_CONTENT_FILE = "autocardContent.json"
@@ -362,37 +362,37 @@ WEEKLY_PREVIEW_SOURCE_URL = (
     "https://github.com/Murmansk-Seer/seer-unity-preview-img-dumper"
 )
 BATTLEPASS_SHOP_URL = os.environ.get(
-    "IRONSBOT_DATA_BATTLEPASS_SHOP_URL",
+    "SEERAPI_DATA_BATTLEPASS_SHOP_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/battlepassShop.json",
 )
 ACTIVITY_SHOP_URL = os.environ.get(
-    "IRONSBOT_DATA_ACTIVITY_SHOP_URL",
+    "SEERAPI_DATA_ACTIVITY_SHOP_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/Activity_ShopConfig.json",
 )
 SPECIAL_SKILL_SHOP_URL = os.environ.get(
-    "IRONSBOT_DATA_SPECIAL_SKILL_SHOP_URL",
+    "SEERAPI_DATA_SPECIAL_SKILL_SHOP_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/spHideMovesShop.json",
 )
 UNITY_ITEM_CATALOG_URL = os.environ.get(
-    "IRONSBOT_DATA_UNITY_ITEM_CATALOG_URL",
+    "SEERAPI_DATA_UNITY_ITEM_CATALOG_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/itemsOptimizeCatItems17.json",
 )
 EFFECT_DESCRIPTION_URL = os.environ.get(
-    "IRONSBOT_DATA_EFFECT_DESCRIPTION_URL",
+    "SEERAPI_DATA_EFFECT_DESCRIPTION_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/effectDes.json",
 )
 SPECIAL_EFFECT_STATUS_URL = os.environ.get(
-    "IRONSBOT_DATA_SPECIAL_EFFECT_STATUS_URL",
+    "SEERAPI_DATA_SPECIAL_EFFECT_STATUS_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/signIconFight.json",
 )
 PARTNER_CONTRACTS_URL = os.environ.get(
-    "IRONSBOT_DATA_PARTNER_CONTRACTS_URL",
+    "SEERAPI_DATA_PARTNER_CONTRACTS_URL",
     "https://raw.githubusercontent.com/Murmansk-Seer/"
     "config-sources/main/unity/partner_contracts.json",
 )
@@ -416,20 +416,20 @@ ACTIVITY_SHOP_SOURCE_NAME = "活动商店"
 SPECIAL_SKILL_SHOP_SOURCE_KEY = "special_skill_shop"
 SPECIAL_SKILL_SHOP_SOURCE_NAME = "微光秘境"
 HTTP_TIMEOUT_SECONDS = 180
-HTTP_RETRY_ATTEMPTS = int(os.environ.get("IRONSBOT_DATA_HTTP_RETRY_ATTEMPTS", "3"))
+HTTP_RETRY_ATTEMPTS = int(os.environ.get("SEERAPI_DATA_HTTP_RETRY_ATTEMPTS", "3"))
 HTTP_RETRY_BACKOFF_SECONDS = float(
-    os.environ.get("IRONSBOT_DATA_HTTP_RETRY_BACKOFF_SECONDS", "2")
+    os.environ.get("SEERAPI_DATA_HTTP_RETRY_BACKOFF_SECONDS", "2")
 )
 PET_IMAGE_ASSET_BASE_URL = os.environ.get(
-    "IRONSBOT_DATA_PET_IMAGE_ASSET_BASE_URL",
+    "SEERAPI_DATA_PET_IMAGE_ASSET_BASE_URL",
     "https://newseer.61.com/web/monster/",
 )
 PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS = float(
-    os.environ.get("IRONSBOT_DATA_PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS", "15")
+    os.environ.get("SEERAPI_DATA_PET_IMAGE_ASSET_VERIFY_TIMEOUT_SECONDS", "15")
 )
 PET_IMAGE_ASSET_VERIFY_WORKERS = max(
     1,
-    int(os.environ.get("IRONSBOT_DATA_PET_IMAGE_ASSET_VERIFY_WORKERS", "8")),
+    int(os.environ.get("SEERAPI_DATA_PET_IMAGE_ASSET_VERIFY_WORKERS", "8")),
 )
 CLASSIC_SKIN_CATEGORY_ID = 0
 logger = logging.getLogger(__name__)
