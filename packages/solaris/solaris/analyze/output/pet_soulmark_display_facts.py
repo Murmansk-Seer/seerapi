@@ -58,13 +58,13 @@ SOULMARK_DISPLAY_ADDITIONS = (
     SoulmarkDisplayAddition(
         pet_id=2500,
         display_id=0,
-        description="登场首回合所有攻击先制+1同时增加20%暴击率",
+        description='登场首回合所有攻击先制+1同时增加20%暴击率',
         intensified=True,
         is_adv=False,
         pve_effective=None,
         tags=(),
         display_order=0,
-        source="seerapi/soulmark-display-corrections#pet-2500-v1",
+        source='seerapi/soulmark-display-corrections#pet-2500-v1',
     ),
 )
 
@@ -89,7 +89,7 @@ def replace_pet_soulmark_display_facts(
         pet_id, soulmark_id, intensified, is_adv, intensified_to_id, *descriptions = row
         description = next(
             (str(value) for value in descriptions if value is not None and str(value)),
-            "",
+            '',
         )
         rows_by_pet[int(pet_id)].append(
             SoulmarkDisplaySource(
@@ -97,9 +97,7 @@ def replace_pet_soulmark_display_facts(
                 intensified=bool(intensified),
                 is_adv=bool(is_adv),
                 intensified_to_id=(
-                    int(intensified_to_id)
-                    if intensified_to_id is not None
-                    else None
+                    int(intensified_to_id) if intensified_to_id is not None else None
                 ),
                 description=description,
             )
@@ -216,10 +214,10 @@ def _display_rows(
             candidate_rows.append((pet_id, soulmark.id, root_id, display_kind))
 
     kind_order = {
-        "base": 0,
-        "intensified": 1,
-        "partner_upgrade": 1,
-        "advance": 2,
+        'base': 0,
+        'intensified': 1,
+        'partner_upgrade': 1,
+        'advance': 2,
     }
     result: list[tuple[int, int, int, int, str, float]] = []
     for pet_id in sorted(rows_by_pet):
@@ -240,7 +238,7 @@ def _partner_upgraded_ids(
     connection: sqlite3.Connection,
     rows_by_pet: dict[int, list[SoulmarkDisplaySource]],
 ) -> dict[int, frozenset[int]]:
-    if not _table_exists(connection, "pet_partner_upgrade"):
+    if not _table_exists(connection, 'pet_partner_upgrade'):
         return {}
     descriptions = connection.execute(
         """
@@ -253,8 +251,8 @@ def _partner_upgraded_ids(
     for pet_id, before, after in descriptions:
         if resolved := _resolve_partner_upgrade(
             rows_by_pet.get(int(pet_id), ()),
-            str(before or ""),
-            str(after or ""),
+            str(before or ''),
+            str(after or ''),
         ):
             result[int(pet_id)] = frozenset((resolved,))
     return result
@@ -280,8 +278,12 @@ def _resolve_partner_upgrade(
         return None
     candidates = [
         (
-            SequenceMatcher(None, _normalize_description(soulmark.description), after).ratio(),
-            SequenceMatcher(None, _normalize_description(soulmark.description), before).ratio(),
+            SequenceMatcher(
+                None, _normalize_description(soulmark.description), after
+            ).ratio(),
+            SequenceMatcher(
+                None, _normalize_description(soulmark.description), before
+            ).ratio(),
             soulmark.id,
         )
         for soulmark in soulmarks
@@ -310,16 +312,16 @@ def _display_kind(
     partner_upgraded_ids: frozenset[int],
 ) -> str:
     if soulmark.is_adv:
-        return "advance"
+        return 'advance'
     if soulmark.intensified:
-        return "intensified"
+        return 'intensified'
     if soulmark.id in partner_upgraded_ids:
-        return "partner_upgrade"
-    return "base"
+        return 'partner_upgrade'
+    return 'base'
 
 
 def _normalize_description(value: str) -> str:
-    return re.sub(r"[\W_]+", "", re.sub(r"<[^>]+>", "", value)).casefold()
+    return re.sub(r'[\W_]+', '', re.sub(r'<[^>]+>', '', value)).casefold()
 
 
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
@@ -333,8 +335,8 @@ def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
 
 
 __all__ = [
-    "SOULMARK_DISPLAY_ADDITIONS",
-    "SoulmarkDisplayAddition",
-    "SoulmarkDisplayBuildSummary",
-    "replace_pet_soulmark_display_facts",
+    'SOULMARK_DISPLAY_ADDITIONS',
+    'SoulmarkDisplayAddition',
+    'SoulmarkDisplayBuildSummary',
+    'replace_pet_soulmark_display_facts',
 ]
