@@ -33,7 +33,10 @@ if __package__:
     from .release_config_tables import replace_config_package_tables
     from .release_metadata import build_release_metadata, replace_release_metadata
     from .release_partner_tables import replace_pet_partner_tables
-    from .release_reference_tables import replace_reference_tables
+    from .release_reference_tables import (
+        replace_peak_master_pool_projection,
+        replace_reference_tables,
+    )
     from .release_render_manifest_tables import (
         replace_render_asset_manifest_table,
     )
@@ -76,6 +79,7 @@ else:
         replace_pet_partner_tables,  # type: ignore[import-not-found]
     )
     from release_reference_tables import (
+        replace_peak_master_pool_projection,
         replace_reference_tables,  # type: ignore[import-not-found]
     )
     from release_render_manifest_tables import (  # type: ignore[import-not-found]
@@ -170,6 +174,7 @@ def publish_release_tables(
             special_effect_statuses=release.special_effect_statuses,
             now=now,
         )
+        replace_peak_master_pool_projection(conn)
         remote_asset_manifest = collect_remote_asset_manifest(
             conn,
             asset_repository_snapshots,

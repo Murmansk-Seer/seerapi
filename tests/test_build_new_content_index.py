@@ -21,6 +21,11 @@ sys.modules[SPEC.name] = indexer
 SPEC.loader.exec_module(indexer)
 
 
+def test_weekly_cycle_uses_shanghai_date_for_utc_timestamp() -> None:
+    assert indexer._weekly_cycle('20260806222000') == '2026-08-07'
+    assert indexer._weekly_cycle('20260807090000') == '2026-08-07'
+
+
 def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> None:
     with sqlite3.connect(path) as conn:
         conn.executescript(
@@ -1046,3 +1051,94 @@ def test_sanctuary_effect_changes_are_indexed_with_sanctuary_context(
     assert item.change_kind == 'modified'
     assert item.payload['sanctuary_name'] == '沧岚'
     assert item.payload['sanctuary_pet_name'] == '沧岚之王'
+
+
+def test_modified_item_includes_compact_field_change_summary() -> None:
+    previous = indexer.ContentItem(
+        'skill',
+        9000,
+        '测试技能',
+        9000,
+        {'power': 120, 'info': '旧效果', 'pets': [{'id': 1}]},
+    )
+    current = indexer.ContentItem(
+        'skill',
+        9000,
+        '测试技能',
+        9000,
+        {'power': 130, 'info': '新效果', 'pets': [{'id': 2}]},
+    )
+
+    [changed] = indexer._modified_items(
+        (current,),
+        (indexer.SourceSnapshotItem.from_content(previous),),
+        (previous,),
+        {'skill'},
+    )
+
+    assert changed.payload['change_summary'] == [
+        '技能说明：旧效果 → 新效果',
+        '威力：120 → 130',
+    ]
+
+
+def test_same_week_added_skill_stays_added_after_field_correction(
+    tmp_path: Path,
+) -> None:
+    prior_raw = tmp_path / 'prior-raw.sqlite'
+    first_path = tmp_path / 'first.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(prior_raw, version='20260724090000', pet_ids=(1,))
+    _create_database(first_path, version='20260731090000', pet_ids=(1,))
+    with sqlite3.connect(first_path) as conn:
+        conn.execute("INSERT INTO skill VALUES (9001, '本周新增技能', '命中率 95')")
+    first = indexer.build_release_state(first_path, prior_raw, 'first-sha')
+    indexer.write_release_state(first_path, first, None)
+
+    _create_database(current_path, version='20260731100000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute("INSERT INTO skill VALUES (9001, '本周新增技能', '命中率 100')")
+
+    state = indexer.build_release_state(current_path, first_path, 'second-sha')
+    skill = next(item for item in state.items if item.entity_id == 9001)
+    assert skill.change_kind == 'added'
+    assert skill.payload['info'] == '命中率 100'
+    assert 'change_summary' not in skill.payload
+
+
+def test_schema_six_recovers_expert_pool_from_previous_raw_database(
+    tmp_path: Path,
+) -> None:
+    previous_path = tmp_path / 'previous.sqlite'
+    current_path = tmp_path / 'current.sqlite'
+    _create_database(previous_path, version='20260807100000', pet_ids=(1,))
+    baseline = indexer.build_release_state(previous_path, None, 'old-sha')
+    legacy = replace(
+        baseline,
+        baseline_established=True,
+        source_items=tuple(
+            item
+            for item in baseline.source_items
+            if item.category != 'peak_expert_pool'
+        ),
+        source_categories=frozenset(
+            category
+            for category in baseline.source_categories
+            if category != 'peak_expert_pool'
+        ),
+        category_states=tuple(
+            state
+            for state in baseline.category_states
+            if state.category != 'peak_expert_pool'
+        ),
+        semantic_schema_version=5,
+    )
+    indexer.write_release_state(previous_path, legacy, None)
+    _create_database(current_path, version='20260814100000', pet_ids=(1,))
+    with sqlite3.connect(current_path) as conn:
+        conn.execute('UPDATE pet SET peak_expert_pool_id = 0 WHERE id = 1')
+
+    state = indexer.build_release_state(current_path, previous_path, 'new-sha')
+    change = next(item for item in state.items if item.category == 'peak_expert_pool')
+    assert change.payload == {'previous_limit': None, 'current_limit': 0}
+    assert state.semantic_schema_version == 6

@@ -22,6 +22,10 @@ export const relations = defineRelations(schema, (r) => ({
 		petDiyStatsRanges: r.many.petDiyStatsRange({
 			alias: "petDiyStatsRange_id_pet_id"
 		}),
+		peakCostPool: r.one.peakCostPool({
+			from: r.pet.peakCostPoolId,
+			to: r.peakCostPool.id
+		}),
 		peakPoolVote: r.one.peakPoolVote({
 			from: r.pet.peakPoolVoteId,
 			to: r.peakPoolVote.id
@@ -102,6 +106,9 @@ export const relations = defineRelations(schema, (r) => ({
 		pets: r.many.pet({
 			alias: "pet_diyStatsId_petDiyStatsRange_id"
 		}),
+	},
+	peakCostPool: {
+		pets: r.many.pet(),
 	},
 	peakPoolVote: {
 		pets: r.many.pet(),
@@ -250,6 +257,24 @@ export const relations = defineRelations(schema, (r) => ({
 	resistanceCategory: {
 		battleEffects: r.many.battleEffect(),
 	},
+	buff: {
+		buffType: r.one.buffType({
+			from: r.buff.typeId,
+			to: r.buffType.id
+		}),
+	},
+	buffType: {
+		buffs: r.many.buff(),
+	},
+	fieldEffect: {
+		fieldEffectType: r.one.fieldEffectType({
+			from: r.fieldEffect.typeId,
+			to: r.fieldEffectType.id
+		}),
+	},
+	fieldEffectType: {
+		fieldEffects: r.many.fieldEffect(),
+	},
 	glossaryEntry: {
 		pets: r.many.pet({
 			from: r.glossaryEntry.id.through(r.petglossaryentrylink.glossaryEntryId),
@@ -343,6 +368,15 @@ export const relations = defineRelations(schema, (r) => ({
 	},
 	nature: {
 		natureAttrs: r.many.natureAttr(),
+	},
+	signSubitem: {
+		sign: r.one.sign({
+			from: r.signSubitem.signId,
+			to: r.sign.id
+		}),
+	},
+	sign: {
+		signSubitems: r.many.signSubitem(),
 	},
 	achievement: {
 		achievement: r.one.achievement({

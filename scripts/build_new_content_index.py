@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterable
+from dataclasses import replace
 import json
 from pathlib import Path
 import sqlite3
@@ -25,6 +26,7 @@ from new_content_index_models import (
     SourceHistoryAddition,
     SourceSnapshotItem,
     semantic_migration_prune_categories,
+    semantic_migration_suppress_modified_categories,
 )
 from new_content_index_pool_changes import (
     build_peak_pool_changes,
@@ -97,19 +99,109 @@ def _new_items(
     )
 
 
+_CHANGE_FIELD_LABELS = {
+    'accuracy': '命中',
+    'advance_id': '进阶效果',
+    'bonus': '效果',
+    'category_id': '分类',
+    'crit_rate': '暴击率',
+    'desc': '效果说明',
+    'description': '效果说明',
+    'info': '技能说明',
+    'learning_level': '学习等级',
+    'max_pp': 'PP',
+    'must_hit': '必中',
+    'power': '威力',
+    'priority': '先制',
+    'quality': '品质',
+    'suit_desc': '套装说明',
+    'transform': '变身效果',
+    'type_id': '属性',
+}
+_STAT_FIELD_LABELS = {
+    'atk': '攻击',
+    'def': '防御',
+    'def_': '防御',
+    'hp': '体力',
+    'sp_atk': '特攻',
+    'sp_def': '特防',
+    'spd': '速度',
+}
+_CHANGE_SUMMARY_LIMIT = 4
+
+
+def _format_change(label: str, previous: object, current: object) -> str:
+    if isinstance(previous, (dict, list)) or isinstance(current, (dict, list)):
+        return f'{label}已更新'
+    if isinstance(previous, str) or isinstance(current, str):
+        previous_text = str(previous or '').strip()
+        current_text = str(current or '').strip()
+        if max(len(previous_text), len(current_text)) > 32:
+            return f'{label}已更新'
+        return f'{label}：{previous_text or "无"} → {current_text or "无"}'
+    return f'{label}：{previous} → {current}'
+
+
+def _content_change_summary(previous: ContentItem, current: ContentItem) -> list[str]:
+    summary: list[str] = []
+    if previous.name != current.name:
+        summary.append(f'名称：{previous.name} → {current.name}')
+    old_payload = previous.semantic_payload
+    new_payload = current.semantic_payload
+    for key in sorted(set(old_payload) | set(new_payload)):
+        old_value = old_payload.get(key)
+        new_value = new_payload.get(key)
+        if old_value == new_value:
+            continue
+        if key == 'stats' and isinstance(old_value, dict) and isinstance(new_value, dict):
+            for stat in sorted(set(old_value) | set(new_value)):
+                if old_value.get(stat) != new_value.get(stat):
+                    summary.append(
+                        _format_change(
+                            _STAT_FIELD_LABELS.get(stat, stat),
+                            old_value.get(stat),
+                            new_value.get(stat),
+                        )
+                    )
+            continue
+        summary.append(
+            _format_change(_CHANGE_FIELD_LABELS.get(key, key), old_value, new_value)
+        )
+    if len(summary) <= _CHANGE_SUMMARY_LIMIT:
+        return summary
+    return [
+        *summary[:_CHANGE_SUMMARY_LIMIT],
+        f'另有 {len(summary) - _CHANGE_SUMMARY_LIMIT} 项数据更新',
+    ]
+
+
 def _modified_items(
     current: tuple[ContentItem, ...],
     previous: tuple[SourceSnapshotItem, ...],
+    previous_raw_items: tuple[ContentItem, ...],
     comparable_categories: set[str],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {
         (item.category, item.entity_id): item.semantic_digest for item in previous
     }
+    previous_raw_by_id = {
+        (item.category, item.entity_id): item for item in previous_raw_items
+    }
     return tuple(
-        item.with_change_kind('modified')
+        replace(
+            item,
+            payload={
+                **item.payload,
+                'change_summary': _content_change_summary(
+                    previous_raw_by_id[(item.category, item.entity_id)], item
+                ),
+            },
+            change_kind='modified',
+        )
         for item in current
         if (previous_item := previous_by_id.get((item.category, item.entity_id)))
         is not None
+        and (item.category, item.entity_id) in previous_raw_by_id
         and item.category in comparable_categories
         and item.category not in PEAK_POOL_CATEGORIES
         and item.semantic_digest != previous_item
@@ -140,14 +232,29 @@ def _current_subset(
     candidates: Iterable[ContentItem], current: tuple[ContentItem, ...]
 ) -> tuple[ContentItem, ...]:
     current_by_id = {(item.category, item.entity_id): item for item in current}
-    candidate_by_key = {(item.category, item.entity_id): item for item in candidates}
+    candidate_by_key: dict[tuple[str, int], ContentItem] = {}
+    for item in candidates:
+        key = (item.category, item.entity_id)
+        existing = candidate_by_key.get(key)
+        if existing is None or existing.change_kind != 'added':
+            candidate_by_key[key] = item
+        elif item.change_kind == 'added':
+            candidate_by_key[key] = item
     return tuple(
         sorted(
             (
                 (
-                    candidate
-                    if candidate.category in PEAK_POOL_CATEGORIES
-                    else current_by_id[key].with_change_kind(candidate.change_kind)
+                    replace(
+                        (
+                            candidate
+                            if (
+                                candidate.category in PEAK_POOL_CATEGORIES
+                                or candidate.change_kind == 'modified'
+                            )
+                            else current_by_id[key]
+                        ),
+                        change_kind=candidate.change_kind,
+                    )
                 )
                 for key, candidate in candidate_by_key.items()
                 if key in current_by_id
@@ -205,25 +312,29 @@ def build_release_state(
     comparable_categories = {
         state.category for state in category_states if state.comparison_ready
     }
-    previous_peak_pool_items: tuple[ContentItem, ...] = ()
-    if previous_path is not None and previous_path.is_file():
-        with sqlite3.connect(previous_path) as conn:
-            previous_peak_pool_items = tuple(
-                item
-                for item in load_current_items(conn)
-                if item.category in PEAK_POOL_CATEGORIES
-            )
+    modified_items = _modified_items(
+        current_items,
+        previous.source_items,
+        previous.raw_items,
+        comparable_categories,
+    )
+    if (
+        previous.baseline_established
+        and previous.semantic_schema_version < SEMANTIC_SCHEMA_VERSION
+    ):
+        suppressed = semantic_migration_suppress_modified_categories(
+            previous.semantic_schema_version
+        )
+        modified_items = tuple(
+            item for item in modified_items if item.category not in suppressed
+        )
     increment = _current_subset(
         (
             *_new_items(current_items, previous.source_items, comparable_categories),
-            *_modified_items(
-                current_items,
-                previous.source_items,
-                comparable_categories,
-            ),
+            *modified_items,
             *build_peak_pool_changes(
                 current_items,
-                previous_peak_pool_items,
+                previous.raw_items,
                 comparable_categories,
             ),
             *_source_history_items(current_items, source_history_additions),

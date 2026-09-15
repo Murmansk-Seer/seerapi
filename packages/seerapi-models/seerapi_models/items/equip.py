@@ -259,6 +259,8 @@ class EquipBase(BaseResModel):
     speed: float | None = Field(
         default=None, description='部件速度移动加成，一般只有脚部部件提供'
     )
+    x_position: int = Field(default=0, description='部件在UI中的X坐标偏移')
+    y_position: int = Field(default=0, description='部件在UI中的Y坐标偏移')
 
     @classmethod
     def resource_name(cls) -> str:
@@ -296,6 +298,8 @@ class Equip(EquipBase, ConvertToORM['EquipORM']):
             suit_id=self.suit.id if self.suit else None,
             occasion_id=self.occasion.id if self.occasion else None,
             bonus=self.bonus.to_orm() if self.bonus else None,
+            x_position=self.x_position,
+            y_position=self.y_position,
             **pk_kwargs,
         )
 

@@ -28,6 +28,12 @@ if TYPE_CHECKING:
     from solaris.parse.parsers.suit import SuitConfig
 
 
+class ClothPosition(TypedDict):
+    id: int
+    x: int
+    y: int
+
+
 def _create_suit_attribute(
     suit_effect_id: int | None,
     suit_effect_args: list[int],
@@ -107,7 +113,7 @@ class EquipAnalyzer(BaseItemAnalyzer):
                     'config.xml.ItemSeXMLInfo.xml',
                     'config.xml.ItemXMLInfo.xml',
                 ),
-                unity_paths=('suit.json', 'equip.json'),
+                unity_paths=('suit.json', 'equip.json', 'clothPos.json'),
                 patch_paths=('equip_effective_occasion.json', 'equip_type.json'),
             )
             + super().get_data_import_config()
@@ -201,6 +207,18 @@ class EquipAnalyzer(BaseItemAnalyzer):
             }
             result[item_id] = equip_item
         return result
+
+    @cached_property
+    def cloth_position_map(self) -> dict[int, ClothPosition]:
+        cloth_pos_data = self._get_data('unity', 'clothPos.json')['clothpos']
+        return {
+            cloth['id']: ClothPosition(
+                id=cloth['id'],
+                x=cloth['x'],
+                y=cloth['y'],
+            )
+            for cloth in cloth_pos_data
+        }
 
     def _get_equip_to_suit_map(self, suit_data: 'SuitConfig') -> dict[int, Suit]:
         """
@@ -350,6 +368,9 @@ class EquipAnalyzer(BaseItemAnalyzer):
             part_type_ref = ResourceRef.from_model(part_type_map[part_type_id])
 
             speed = equip_dict.get('speed')  # int or null
+            position = self.cloth_position_map.get(equip_id)
+            x_position = position['x'] if position else 0
+            y_position = position['y'] if position else 0
             equip_map[equip_id] = Equip(
                 id=equip_id,
                 name=equip_name,
@@ -359,6 +380,8 @@ class EquipAnalyzer(BaseItemAnalyzer):
                 suit=suit_ref,
                 bonus=equip_bonus,
                 occasion=occasion,
+                x_position=x_position,
+                y_position=y_position,
                 item=ResourceRef.from_model(Item, id=equip_id),
             )
             part_type_map.add_element(part_type_id, equip_ref)

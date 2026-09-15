@@ -10,6 +10,7 @@ from typing import Protocol
 ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
 EFFECT_DESCRIPTION_TABLE = "effect_description"
 SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
+PEAK_MASTER_POOL_VIEW = "peak_master_pool"
 
 
 class ItemExchangePriceRecord(Protocol):
@@ -167,5 +168,41 @@ def replace_reference_tables(
         f"""
         CREATE INDEX idx_{SPECIAL_EFFECT_STATUS_TABLE}_name
         ON {SPECIAL_EFFECT_STATUS_TABLE} (name)
+        """
+    )
+
+
+def replace_peak_master_pool_projection(conn: sqlite3.Connection) -> None:
+    """Expose normalized master-pool facts to the deployed IronsBot query."""
+
+    existing = conn.execute(
+        "SELECT type FROM sqlite_master WHERE name = ?",
+        (PEAK_MASTER_POOL_VIEW,),
+    ).fetchone()
+    if existing is not None:
+        object_type = str(existing[0])
+        if object_type not in {'table', 'view'}:
+            raise ValueError(f'unsupported {PEAK_MASTER_POOL_VIEW} object: {object_type}')
+        conn.execute(f'DROP {object_type.upper()} {PEAK_MASTER_POOL_VIEW}')
+    conn.execute(
+        f"""
+        CREATE VIEW {PEAK_MASTER_POOL_VIEW} AS
+        SELECT
+            pool.id AS id,
+            pool.cost AS cost,
+            pool.name AS name,
+            (
+                SELECT json_group_array(member.id)
+                FROM (
+                    SELECT pet.id
+                    FROM pet
+                    WHERE pet.peak_cost_pool_id = pool.id
+                    ORDER BY pet.id
+                ) AS member
+            ) AS pet_ids_json,
+            CAST(strftime('%m', pool.start_time) AS INTEGER) AS subkey_month,
+            CAST(strftime('%Y%m%d', pool.start_time) AS INTEGER) AS subkey_total,
+            strftime('%Y_%m_%d %H:%M:%S', pool.end_time) AS configured_time
+        FROM peak_cost_pool AS pool
         """
     )

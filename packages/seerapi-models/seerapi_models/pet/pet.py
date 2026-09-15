@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         SuitBonusORM,
     )
     from seerapi_models.mintmark import MintmarkORM
+    from seerapi_models.peak_cost import PeakCostPool, PeakCostPoolORM
     from seerapi_models.peak_pool import (
         PeakExpertPool,
         PeakExpertPoolORM,
@@ -223,6 +224,9 @@ class Pet(PetBase, ConvertToORM['PetORM']):
     peak_pool_vote_id: int | None = Field(
         default=None, description='精灵所属巅峰池票选ID', exclude=True
     )
+    peak_cost_pool: ResourceRef['PeakCostPool'] | None = Field(
+        default=None, description='精灵所属巅峰池票选'
+    )
     advance: ResourceRef['PetAdvance'] | None = Field(
         default=None, description='精灵觉醒信息'
     )
@@ -282,6 +286,7 @@ class Pet(PetBase, ConvertToORM['PetORM']):
             resource_id=self.resource_id,
             enemy_resource_id=self.enemy_resource_id,
             peak_pool_id=self.peak_pool.id if self.peak_pool else None,
+            peak_cost_pool_id=self.peak_cost_pool.id if self.peak_cost_pool else None,
             peak_expert_pool_id=self.peak_expert_pool.id
             if self.peak_expert_pool
             else None,
@@ -380,6 +385,8 @@ class PetORM(PetBase, table=True):
     peak_expert_pool: Optional['PeakExpertPoolORM'] = Relationship(back_populates='pet')
     peak_pool_vote_id: int | None = Field(default=None, foreign_key='peak_pool_vote.id')
     peak_pool_vote: Optional['PeakPoolVoteORM'] = Relationship(back_populates='pet')
+    peak_cost_pool_id: int | None = Field(default=None, foreign_key='peak_cost_pool.id')
+    peak_cost_pool: Optional['PeakCostPoolORM'] = Relationship(back_populates='pet')
     advance: Optional['PetAdvanceORM'] = Relationship(
         back_populates='pet',
         sa_relationship_kwargs={

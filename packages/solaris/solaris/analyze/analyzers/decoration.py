@@ -53,7 +53,9 @@ class DecorationAnalyzer(BaseDataSourceAnalyzer):
         for item in profilephoto_data['root']['item']:
             id_ = item['id']
             type_id = item['type']
-            model = type_map[type_id]
+            if (model := type_map.get(type_id)) is None:
+                continue
+
             obj = model(
                 id=id_,
                 name=item['name'],

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sqlite3
+from zoneinfo import ZoneInfo
 
 from new_content_index_models import (
     CATEGORY_SOURCE_TABLES,
@@ -49,6 +50,16 @@ def _config_version(conn: sqlite3.Connection) -> str:
 
 def _version_date(version: str) -> date:
     digits = ''.join(char for char in version if char.isdigit())
+    if len(digits) >= 14:
+        try:
+            return (
+                datetime.strptime(digits[:14], '%Y%m%d%H%M%S')
+                .replace(tzinfo=timezone.utc)
+                .astimezone(ZoneInfo('Asia/Shanghai'))
+                .date()
+            )
+        except ValueError:
+            pass
     if len(digits) >= 8:
         try:
             return datetime.strptime(digits[:8], '%Y%m%d').date()
@@ -123,6 +134,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 source_items,
                 source_categories,
                 semantic_schema_version=semantic_schema_version,
+                raw_items=current_items,
             )
         row = conn.execute(
             f'SELECT current_git_sha, weekly_cycle, baseline_established FROM {RELEASE_TABLE} WHERE id = 1'
@@ -137,6 +149,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
                 source_items,
                 source_categories,
                 semantic_schema_version=semantic_schema_version,
+                raw_items=current_items,
             )
         item_columns = {
             str(row[1])
@@ -172,6 +185,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
             source_categories,
             _load_category_states(conn),
             semantic_schema_version,
+            current_items,
         )
 
 
