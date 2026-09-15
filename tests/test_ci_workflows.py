@@ -7,6 +7,12 @@ DATA_BUILD_WORKFLOW = ROOT / ".github/workflows/build-seerapi-data-db.yml"
 FFDEC_ACTION = ROOT / ".github/actions/setup-ffdec/action.yml"
 
 
+def test_data_build_runs_for_release_contract_changes() -> None:
+    workflow = DATA_BUILD_WORKFLOW.read_text(encoding="utf-8")
+
+    assert '- "scripts/release_*.py"' in workflow
+
+
 def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     workflow = DATA_BUILD_WORKFLOW.read_text(encoding="utf-8")
     action = FFDEC_ACTION.read_text(encoding="utf-8")
