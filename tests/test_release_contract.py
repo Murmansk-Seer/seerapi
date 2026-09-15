@@ -31,27 +31,27 @@ def _create_release(path: Path, *, omit: str | None = None) -> None:
         for table in sorted(GENERATED_RELEASE_TABLES):
             if (
                 table == omit
-                or table == 'ironsbot_metadata'
+                or table == 'seerapi_metadata'
                 or table in SQLModel.metadata.tables
             ):
                 continue
             connection.execute(f'CREATE TABLE "{table}" (id INTEGER)')
-        if omit != 'ironsbot_metadata':
+        if omit != 'seerapi_metadata':
             connection.execute(
-                'CREATE TABLE ironsbot_metadata '
+                'CREATE TABLE seerapi_metadata '
                 '(key TEXT PRIMARY KEY, value TEXT NOT NULL)'
             )
         if omit in SQLModel.metadata.tables:
             connection.execute(f'DROP TABLE "{omit}"')
-        if omit == 'ironsbot_metadata':
+        if omit == 'seerapi_metadata':
             connection.commit()
             return
         connection.execute(
-            'DELETE FROM ironsbot_metadata WHERE key = ?',
+            'DELETE FROM seerapi_metadata WHERE key = ?',
             (SCHEMA_CONTRACT_VERSION_KEY,),
         )
         connection.execute(
-            'INSERT INTO ironsbot_metadata (key, value) VALUES (?, ?)',
+            'INSERT INTO seerapi_metadata (key, value) VALUES (?, ?)',
             (SCHEMA_CONTRACT_VERSION_KEY, SCHEMA_CONTRACT_VERSION),
         )
         connection.commit()
@@ -66,7 +66,7 @@ def test_final_release_contract_publishes_complete_table_manifest(tmp_path: Path
     with sqlite3.connect(database) as connection:
         metadata = dict(
             connection.execute(
-                'SELECT key, value FROM ironsbot_metadata '
+                'SELECT key, value FROM seerapi_metadata '
                 'WHERE key IN (?, ?)',
                 (SCHEMA_TABLES_KEY, SCHEMA_FINGERPRINT_KEY),
             )
@@ -89,7 +89,7 @@ def test_final_release_contract_rejects_wrong_schema_version(tmp_path: Path) -> 
     _create_release(database)
     with sqlite3.connect(database) as connection:
         connection.execute(
-            'UPDATE ironsbot_metadata SET value = ? WHERE key = ?',
+            'UPDATE seerapi_metadata SET value = ? WHERE key = ?',
             ('0', SCHEMA_CONTRACT_VERSION_KEY),
         )
         connection.commit()

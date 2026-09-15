@@ -127,7 +127,7 @@ def test_finalize_manifest_publishes_mount_fact_without_sqlite_blob(
                 release_revision TEXT, available INTEGER, source TEXT,
                 updated_at REAL, PRIMARY KEY (asset_kind, asset_key)
             );
-            CREATE TABLE ironsbot_metadata (
+            CREATE TABLE seerapi_metadata (
                 key TEXT PRIMARY KEY, value TEXT NOT NULL
             );
             """
@@ -149,7 +149,7 @@ def test_finalize_manifest_publishes_mount_fact_without_sqlite_blob(
             ),
         )
         connection.executemany(
-            "INSERT INTO ironsbot_metadata VALUES (?, ?)",
+            "INSERT INTO seerapi_metadata VALUES (?, ?)",
             (
                 (
                     finalizer.builder.RENDER_ASSET_MANIFEST_REPOSITORIES_KEY,
@@ -177,7 +177,7 @@ def test_finalize_manifest_publishes_mount_fact_without_sqlite_blob(
             "WHERE asset_kind = 'mount' AND asset_key = '8'"
         ).fetchone()
         published_repositories = connection.execute(
-            "SELECT value FROM ironsbot_metadata "
+            "SELECT value FROM seerapi_metadata "
             "WHERE key = 'render_asset_manifest_repositories'"
         ).fetchone()
     assert mount is not None

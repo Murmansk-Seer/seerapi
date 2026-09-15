@@ -23,7 +23,7 @@ class BuildHttpConfig:
     timeout_seconds: float
     retry_attempts: int
     retry_backoff_seconds: float
-    user_agent: str = "IronsBot data builder"
+    user_agent: str = "SeerAPI data builder"
 
 
 class BuildHttpClient:

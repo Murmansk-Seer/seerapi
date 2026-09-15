@@ -13,6 +13,14 @@ def test_data_build_runs_for_release_contract_changes() -> None:
     assert '- "scripts/release_*.py"' in workflow
 
 
+def test_data_build_has_no_legacy_release_fallback() -> None:
+    workflow = DATA_BUILD_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "name: Build SeerAPI Data DB" in workflow
+    assert "ironsbot-data-latest" not in workflow
+    assert "ironsbot-data.sqlite" not in workflow
+
+
 def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     workflow = DATA_BUILD_WORKFLOW.read_text(encoding="utf-8")
     action = FFDEC_ACTION.read_text(encoding="utf-8")
@@ -40,5 +48,5 @@ def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     mount_ffdec_position = workflow.rindex("uses: ./.github/actions/setup-ffdec")
     assert mount_plan_position < mount_ffdec_position
     assert "if: steps.mount_plan.outputs.needs_render == 'true'" in workflow
-    assert 'IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"' in workflow
-    assert 'IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"' in workflow
+    assert 'SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"' in workflow
+    assert 'SEERAPI_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"' in workflow

@@ -21,5 +21,5 @@ def test_replace_release_metadata_upserts_current_values() -> None:
     replace_release_metadata(conn, {"built_at": "2", "source": "first"})
 
     assert conn.execute(
-        "SELECT key, value FROM ironsbot_metadata ORDER BY key"
+        "SELECT key, value FROM seerapi_metadata ORDER BY key"
     ).fetchall() == [("built_at", "2"), ("source", "first")]

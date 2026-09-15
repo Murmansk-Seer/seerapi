@@ -188,7 +188,7 @@ def replace_release_metadata(
     """Upsert the complete public metadata projection for one release."""
     conn.execute(
         """
-        CREATE TABLE IF NOT EXISTS ironsbot_metadata (
+        CREATE TABLE IF NOT EXISTS seerapi_metadata (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         )
@@ -196,7 +196,7 @@ def replace_release_metadata(
     )
     conn.executemany(
         """
-        INSERT INTO ironsbot_metadata (key, value)
+        INSERT INTO seerapi_metadata (key, value)
         VALUES (?, ?)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
         """,

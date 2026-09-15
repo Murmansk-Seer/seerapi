@@ -1,4 +1,4 @@
-name: Build IronsBot Data DB
+name: Build SeerAPI Data DB
 
 on:
   workflow_run:
@@ -178,7 +178,7 @@ jobs:
 
           if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, special effect statuses, and pending Flash mount availability are unchanged; skipping IronsBot DB build."
+            echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, special effect statuses, and pending Flash mount availability are unchanged; skipping SeerAPI DB build."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, flash-mount-retry=${flash_mount_retry}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
@@ -234,17 +234,11 @@ jobs:
         run: |
           mkdir -p .cache/effect-icon-png .previous
           previous_db=.previous/seerapi-data.sqlite
-          if ! curl --fail --location --retry 3 \
+          curl --fail --location --retry 3 \
             --output "${previous_db}" \
-            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite; then
-            # One release-cycle migration fallback. The old asset is only a
-            # seed; subsequent runs read seerapi-data-latest above.
-            curl --fail --location --retry 3 \
-              --output "${previous_db}" \
-              https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite || true
-          fi
+            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite || true
           if [ -s "${previous_db}" ]; then
-            IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
+            SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
               python scripts/build_seerapi_data_db.py \
                 --seed-effect-icon-cache "${previous_db}"
           else
@@ -254,8 +248,8 @@ jobs:
       - name: Plan effect icon PNG repairs
         id: effect_icon_cache_plan
         env:
-          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
         run: |
           python scripts/build_seerapi_data_db.py \
             --plan-effect-icon-shard ${{ matrix.shard }} \
@@ -270,15 +264,15 @@ jobs:
       - name: Render missing effect icon PNGs
         if: steps.effect_icon_cache_plan.outputs.needs_render == 'true'
         env:
-          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Some older animated soulmark SWFs need about 36 seconds for a
           # canonical sprite render. Keep two FFDec processes per runner so
           # their fallback render is not starved by Java process contention.
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
+          SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_WORKERS: "2"
+          SEERAPI_DATA_EFFECT_ICON_PNG_COMPOSITE_RENDER_TIMEOUT_SECONDS: "45"
+          SEERAPI_DATA_EFFECT_ICON_PNG_SHAPE_RENDER_TIMEOUT_SECONDS: "30"
         run: |
           python scripts/build_seerapi_data_db.py \
             --render-effect-icon-shard ${{ matrix.shard }} \
@@ -357,13 +351,13 @@ jobs:
 
       - name: Build SeerAPI database
         env:
-          IRONSBOT_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
-          IRONSBOT_DATA_EFFECT_ICON_PREFER_FLASH: "1"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           # Shard jobs own all Flash rendering. The release build consumes their
           # immutable cache and fails rather than introducing a second renderer.
-          IRONSBOT_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
-          IRONSBOT_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
+          SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"
+          SEERAPI_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"
         run: python scripts/build_seerapi_data_db.py
 
       - name: Download previous published database
@@ -373,15 +367,9 @@ jobs:
         run: |
           set -euo pipefail
           previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
-          if ! curl -fL --retry 3 --retry-delay 2 \
+          curl -fL --retry 3 --retry-delay 2 \
             -o "${previous_db}" \
-            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite; then
-            # Preserve the embedded new-content history while publishing the
-            # first release under the corrected SeerAPI name.
-            curl -fL --retry 3 --retry-delay 2 \
-              -o "${previous_db}" \
-              https://github.com/Murmansk-Seer/seerapi/releases/download/ironsbot-data-latest/ironsbot-data.sqlite || true
-          fi
+            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite || true
           if [ -s "${previous_db}" ]; then
             comparison_db="${previous_db}"
             read -r expected_schema previous_schema previous_version previous_cycle current_version current_cycle <<< "$(
@@ -574,7 +562,7 @@ jobs:
             git worktree add --detach "${assets_dir}"
             git -C "${assets_dir}" switch --orphan generated-render-assets
             git -C "${assets_dir}" rm -rf . || true
-            printf '%s\n' '# Generated IronsBot render assets' > "${assets_dir}/README.md"
+            printf '%s\n' '# Generated SeerAPI render assets' > "${assets_dir}/README.md"
           fi
           mkdir -p "${assets_dir}/mount"
           echo "root=${assets_dir}" >> "$GITHUB_OUTPUT"
@@ -605,7 +593,7 @@ jobs:
         id: mount_assets
         env:
           PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
-          IRONSBOT_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
+          SEERAPI_DATA_FLASH_MOUNT_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
         run: |
           set -euo pipefail
           args=(

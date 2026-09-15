@@ -98,7 +98,7 @@ def finalize_manifest(
 ) -> None:
     with sqlite3.connect(database) as connection:
         metadata = dict(
-            connection.execute("SELECT key, value FROM ironsbot_metadata")
+            connection.execute("SELECT key, value FROM seerapi_metadata")
         )
         snapshots = {
             "default": _published_default_snapshot(connection, metadata),
@@ -137,12 +137,12 @@ def finalize_manifest(
             updated_at=time.time(),
         )
         connection.executemany(
-            "INSERT INTO ironsbot_metadata (key, value) VALUES (?, ?) "
+            "INSERT INTO seerapi_metadata (key, value) VALUES (?, ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             sorted(manifest.metadata.items()),
         )
         connection.executemany(
-            "DELETE FROM ironsbot_metadata WHERE key = ?",
+            "DELETE FROM seerapi_metadata WHERE key = ?",
             ((key,) for key in _LEGACY_REPOSITORY_KEYS),
         )
 

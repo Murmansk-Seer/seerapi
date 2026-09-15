@@ -29,7 +29,7 @@ def test_request_uses_default_user_agent_and_preserves_extra_headers() -> None:
         headers={"Range": "bytes=0-15"},
     )
 
-    assert request.get_header("User-agent") == "IronsBot data builder"
+    assert request.get_header("User-agent") == "SeerAPI data builder"
     assert request.get_header("Range") == "bytes=0-15"
 
 
