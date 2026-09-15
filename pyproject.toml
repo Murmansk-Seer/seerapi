@@ -51,7 +51,7 @@ exclude = ["./scripts", "./docs", "./docs_src"]
 [tool.ruff.format]
 quote-style = "single"
 indent-style = "space"
-line-ending = "lf"
+line-ending = "auto"
 docstring-code-format = false
 
 [tool.ruff.lint]
