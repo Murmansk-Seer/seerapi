@@ -310,6 +310,15 @@ export type Achievement = HashPartial & {
 };
 
 /**
+ * 名称映射成就资源
+ */
+export type AchievementNamedData = HashPartial & {
+    data: {
+        [key: string]: Achievement;
+    };
+};
+
+/**
  * 成就资源列表
  */
 export type AchievementList = CommonApiResourceList;
@@ -381,6 +390,15 @@ export type AchievementBranch = HashPartial & {
      */
     achievement?: Array<CommonResourceRef>;
     type: CommonResourceRef;
+};
+
+/**
+ * 名称映射成就分支资源
+ */
+export type AchievementBranchNamedData = HashPartial & {
+    data: {
+        [key: string]: AchievementBranch;
+    };
 };
 
 /**
@@ -457,6 +475,15 @@ export type AchievementType = HashPartial & {
 };
 
 /**
+ * 名称映射成就类型资源
+ */
+export type AchievementTypeNamedData = HashPartial & {
+    data: {
+        [key: string]: AchievementType;
+    };
+};
+
+/**
  * 成就类型资源列表
  */
 export type AchievementTypeList = CommonApiResourceList;
@@ -513,6 +540,15 @@ export type AchievementCategory = HashPartial & {
      * 该分类下的成就
      */
     achievement?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射成就分类资源
+ */
+export type AchievementCategoryNamedData = HashPartial & {
+    data: {
+        [key: string]: AchievementCategory;
+    };
 };
 
 /**
@@ -631,6 +667,15 @@ export type Title = HashPartial & {
 };
 
 /**
+ * 名称映射成就称号资源
+ */
+export type TitleNamedData = HashPartial & {
+    data: {
+        [key: string]: Title;
+    };
+};
+
+/**
  * 成就称号资源列表
  */
 export type TitleList = CommonApiResourceList;
@@ -708,6 +753,15 @@ export type Activity = HashPartial & {
      */
     sort_order: number;
     type: CommonResourceRef;
+};
+
+/**
+ * 名称映射活动资源
+ */
+export type ActivityNamedData = HashPartial & {
+    data: {
+        [key: string]: Activity;
+    };
 };
 
 /**
@@ -873,6 +927,15 @@ export type Autocard = HashPartial & {
 };
 
 /**
+ * 名称映射群星牌卡牌资源
+ */
+export type AutocardNamedData = HashPartial & {
+    data: {
+        [key: string]: Autocard;
+    };
+};
+
+/**
  * 群星牌卡牌资源列表
  */
 export type AutocardList = CommonApiResourceList;
@@ -980,6 +1043,15 @@ export type AutocardPetcard = HashPartial & {
 };
 
 /**
+ * 名称映射群星牌精灵卡资源
+ */
+export type AutocardPetcardNamedData = HashPartial & {
+    data: {
+        [key: string]: AutocardPetcard;
+    };
+};
+
+/**
  * 群星牌精灵卡资源列表
  */
 export type AutocardPetcardList = CommonApiResourceList;
@@ -1061,6 +1133,15 @@ export type AutocardSpellcard = HashPartial & {
 };
 
 /**
+ * 名称映射群星牌魔法卡资源
+ */
+export type AutocardSpellcardNamedData = HashPartial & {
+    data: {
+        [key: string]: AutocardSpellcard;
+    };
+};
+
+/**
  * 群星牌魔法卡资源列表
  */
 export type AutocardSpellcardList = CommonApiResourceList;
@@ -1119,6 +1200,15 @@ export type AutocardCardtype = HashPartial & {
      * 卡牌列表
      */
     autocard: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射群星牌卡牌类型资源
+ */
+export type AutocardCardtypeNamedData = HashPartial & {
+    data: {
+        [key: string]: AutocardCardtype;
+    };
 };
 
 /**
@@ -1186,6 +1276,15 @@ export type AutocardElementType = HashPartial & {
      * 角色列表
      */
     role: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射卡牌元素类型资源
+ */
+export type AutocardElementTypeNamedData = HashPartial & {
+    data: {
+        [key: string]: AutocardElementType;
+    };
 };
 
 /**
@@ -1287,6 +1386,15 @@ export type AutocardRole = HashPartial & {
 };
 
 /**
+ * 名称映射群星牌角色资源
+ */
+export type AutocardRoleNamedData = HashPartial & {
+    data: {
+        [key: string]: AutocardRole;
+    };
+};
+
+/**
  * 群星牌角色资源列表
  */
 export type AutocardRoleList = CommonApiResourceList;
@@ -1369,6 +1477,15 @@ export type AutocardField = HashPartial & {
 };
 
 /**
+ * 名称映射群星牌场地资源
+ */
+export type AutocardFieldNamedData = HashPartial & {
+    data: {
+        [key: string]: AutocardField;
+    };
+};
+
+/**
  * 群星牌场地资源列表
  */
 export type AutocardFieldList = CommonApiResourceList;
@@ -1406,7 +1523,7 @@ export type AutocardFieldListExpanded = {
 };
 
 /**
- * 状态资源
+ * 异常状态资源
  */
 export type BattleEffect = HashPartial & {
     /**
@@ -1440,12 +1557,21 @@ export type BattleEffect = HashPartial & {
 };
 
 /**
- * 状态资源列表
+ * 名称映射异常状态资源
+ */
+export type BattleEffectNamedData = HashPartial & {
+    data: {
+        [key: string]: BattleEffect;
+    };
+};
+
+/**
+ * 异常状态资源列表
  */
 export type BattleEffectList = CommonApiResourceList;
 
 /**
- * 状态资源列表（expand=true）
+ * 异常状态资源列表（expand=true）
  *
  * expand=true 时返回完整资源对象列表
  */
@@ -1477,7 +1603,7 @@ export type BattleEffectListExpanded = {
 };
 
 /**
- * 状态类型资源
+ * 异常状态类型资源
  */
 export type BattleEffectType = HashPartial & {
     /**
@@ -1501,12 +1627,21 @@ export type BattleEffectType = HashPartial & {
 };
 
 /**
- * 状态类型资源列表
+ * 名称映射异常状态类型资源
+ */
+export type BattleEffectTypeNamedData = HashPartial & {
+    data: {
+        [key: string]: BattleEffectType;
+    };
+};
+
+/**
+ * 异常状态类型资源列表
  */
 export type BattleEffectTypeList = CommonApiResourceList;
 
 /**
- * 状态类型资源列表（expand=true）
+ * 异常状态类型资源列表（expand=true）
  *
  * expand=true 时返回完整资源对象列表
  */
@@ -1562,6 +1697,15 @@ export type ResistanceCategory = HashPartial & {
 };
 
 /**
+ * 名称映射抗性类型资源
+ */
+export type ResistanceCategoryNamedData = HashPartial & {
+    data: {
+        [key: string]: ResistanceCategory;
+    };
+};
+
+/**
  * 抗性类型资源列表
  */
 export type ResistanceCategoryList = CommonApiResourceList;
@@ -1599,6 +1743,135 @@ export type ResistanceCategoryListExpanded = {
 };
 
 /**
+ * Buff资源
+ */
+export type Buff = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Desc
+     *
+     * 效果描述
+     */
+    desc: string;
+    /**
+     * Tag
+     *
+     * 效果标签
+     */
+    tag: string;
+    /**
+     * Desc Tag
+     *
+     * 效果描述中的标签，用于格式化效果描述
+     */
+    desc_tag?: string | null;
+    /**
+     * Icon
+     *
+     * 图标 ID 列表
+     */
+    icon?: Array<number>;
+    type: CommonResourceRef;
+};
+
+/**
+ * Buff资源列表
+ */
+export type BuffList = CommonApiResourceList;
+
+/**
+ * Buff资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type BuffListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Buff>;
+};
+
+/**
+ * Buff 图标类型资源
+ */
+export type BuffType = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Buff
+     *
+     * Buff 列表
+     */
+    buff?: Array<CommonResourceRef>;
+};
+
+/**
+ * Buff 图标类型资源列表
+ */
+export type BuffTypeList = CommonApiResourceList;
+
+/**
+ * Buff 图标类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type BuffTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<BuffType>;
+};
+
+/**
  * 头像资源
  */
 export type AvatarHead = HashPartial & {
@@ -1626,6 +1899,15 @@ export type AvatarHead = HashPartial & {
      * 资源ID（对应profilephoto配置中的icon字段）
      */
     icon_id: number;
+};
+
+/**
+ * 名称映射头像资源
+ */
+export type AvatarHeadNamedData = HashPartial & {
+    data: {
+        [key: string]: AvatarHead;
+    };
 };
 
 /**
@@ -1696,6 +1978,15 @@ export type AvatarFrame = HashPartial & {
 };
 
 /**
+ * 名称映射头像框资源
+ */
+export type AvatarFrameNamedData = HashPartial & {
+    data: {
+        [key: string]: AvatarFrame;
+    };
+};
+
+/**
  * 头像框资源列表
  */
 export type AvatarFrameList = CommonApiResourceList;
@@ -1760,6 +2051,15 @@ export type NamecardBackground = HashPartial & {
      * 资源ID（对应profilephoto配置中的icon字段）
      */
     icon_id: number;
+};
+
+/**
+ * 名称映射名片背景资源
+ */
+export type NamecardBackgroundNamedData = HashPartial & {
+    data: {
+        [key: string]: NamecardBackground;
+    };
 };
 
 /**
@@ -1830,6 +2130,15 @@ export type NicknameBackground = HashPartial & {
 };
 
 /**
+ * 名称映射昵称背景资源
+ */
+export type NicknameBackgroundNamedData = HashPartial & {
+    data: {
+        [key: string]: NicknameBackground;
+    };
+};
+
+/**
  * 昵称背景资源列表
  */
 export type NicknameBackgroundList = CommonApiResourceList;
@@ -1894,6 +2203,15 @@ export type HomepageBackground = HashPartial & {
      * 资源ID（对应profilephoto配置中的icon字段）
      */
     icon_id: number;
+};
+
+/**
+ * 名称映射主页背景资源
+ */
+export type HomepageBackgroundNamedData = HashPartial & {
+    data: {
+        [key: string]: HomepageBackground;
+    };
 };
 
 /**
@@ -1972,6 +2290,15 @@ export type PetEffect = HashPartial & {
 };
 
 /**
+ * 名称映射特性资源
+ */
+export type PetEffectNamedData = HashPartial & {
+    data: {
+        [key: string]: PetEffect;
+    };
+};
+
+/**
  * 特性资源列表
  */
 export type PetEffectList = CommonApiResourceList;
@@ -2030,6 +2357,15 @@ export type PetEffectGroup = HashPartial & {
      * 特性列表
      */
     effect?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射特性组资源
+ */
+export type PetEffectGroupNamedData = HashPartial & {
+    data: {
+        [key: string]: PetEffectGroup;
+    };
 };
 
 /**
@@ -2098,6 +2434,15 @@ export type PetVariation = HashPartial & {
      * 效果别名，命名规则为：[效果名称]_[参数1]_[参数2]_…
      */
     effect_alias: string;
+};
+
+/**
+ * 名称映射特质效果资源
+ */
+export type PetVariationNamedData = HashPartial & {
+    data: {
+        [key: string]: PetVariation;
+    };
 };
 
 /**
@@ -2235,6 +2580,15 @@ export type EnergyBead = HashPartial & {
 };
 
 /**
+ * 名称映射能量珠资源
+ */
+export type EnergyBeadNamedData = HashPartial & {
+    data: {
+        [key: string]: EnergyBead;
+    };
+};
+
+/**
  * 能量珠资源列表
  */
 export type EnergyBeadList = CommonApiResourceList;
@@ -2293,6 +2647,18 @@ export type Equip = HashPartial & {
      * 部件速度移动加成，一般只有脚部部件提供
      */
     speed?: number | null;
+    /**
+     * X Position
+     *
+     * 部件在UI中的X坐标偏移
+     */
+    x_position?: number;
+    /**
+     * Y Position
+     *
+     * 部件在UI中的Y坐标偏移
+     */
+    y_position?: number;
     item: CommonResourceRef;
     /**
      * 部件效果，仅当该部件为能力加成部件时有效
@@ -2378,6 +2744,15 @@ export type Equip = HashPartial & {
          */
         pk_fire_range: number;
     } | null;
+};
+
+/**
+ * 名称映射部件资源
+ */
+export type EquipNamedData = HashPartial & {
+    data: {
+        [key: string]: Equip;
+    };
 };
 
 /**
@@ -2497,6 +2872,15 @@ export type Suit = HashPartial & {
 };
 
 /**
+ * 名称映射套装资源
+ */
+export type SuitNamedData = HashPartial & {
+    data: {
+        [key: string]: Suit;
+    };
+};
+
+/**
  * 套装资源列表
  */
 export type SuitList = CommonApiResourceList;
@@ -2555,6 +2939,15 @@ export type EquipType = HashPartial & {
      * 部件列表
      */
     equip?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射部件类型资源
+ */
+export type EquipTypeNamedData = HashPartial & {
+    data: {
+        [key: string]: EquipType;
+    };
 };
 
 /**
@@ -2738,6 +3131,15 @@ export type Soulmark = HashPartial & {
 };
 
 /**
+ * 名称映射魂印资源
+ */
+export type SoulmarkNamedData = HashPartial & {
+    data: {
+        [key: string]: Soulmark;
+    };
+};
+
+/**
  * 魂印资源列表
  */
 export type SoulmarkList = CommonApiResourceList;
@@ -2796,6 +3198,15 @@ export type SoulmarkTag = HashPartial & {
      * 魂印列表
      */
     soulmark?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射魂印标签资源
+ */
+export type SoulmarkTagNamedData = HashPartial & {
+    data: {
+        [key: string]: SoulmarkTag;
+    };
 };
 
 /**
@@ -2878,6 +3289,15 @@ export type ElementType = HashPartial & {
 };
 
 /**
+ * 名称映射属性资源
+ */
+export type ElementTypeNamedData = HashPartial & {
+    data: {
+        [key: string]: ElementType;
+    };
+};
+
+/**
  * 属性资源列表
  */
 export type ElementTypeList = CommonApiResourceList;
@@ -2944,6 +3364,15 @@ export type ElementTypeCombination = HashPartial & {
 };
 
 /**
+ * 名称映射属性组合资源
+ */
+export type ElementTypeCombinationNamedData = HashPartial & {
+    data: {
+        [key: string]: ElementTypeCombination;
+    };
+};
+
+/**
  * 属性组合资源列表
  */
 export type ElementTypeCombinationList = CommonApiResourceList;
@@ -3005,6 +3434,15 @@ export type ErrorCode = HashPartial & {
 };
 
 /**
+ * 名称映射错误码资源
+ */
+export type ErrorCodeNamedData = HashPartial & {
+    data: {
+        [key: string]: ErrorCode;
+    };
+};
+
+/**
  * 错误码资源列表
  */
 export type ErrorCodeList = CommonApiResourceList;
@@ -3039,6 +3477,132 @@ export type ErrorCodeListExpanded = {
      * 资源列表
      */
     results: Array<ErrorCode>;
+};
+
+/**
+ * 场地效果资源
+ */
+export type FieldEffect = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 效果名称
+     */
+    name: string;
+    /**
+     * Desc
+     *
+     * 效果描述
+     */
+    desc: string;
+    type: CommonResourceRef;
+};
+
+/**
+ * 名称映射场地效果资源
+ */
+export type FieldEffectNamedData = HashPartial & {
+    data: {
+        [key: string]: FieldEffect;
+    };
+};
+
+/**
+ * 场地效果资源列表
+ */
+export type FieldEffectList = CommonApiResourceList;
+
+/**
+ * 场地效果资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type FieldEffectListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<FieldEffect>;
+};
+
+/**
+ * 场地效果类型资源
+ */
+export type FieldEffectType = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Effect
+     *
+     * 效果列表
+     */
+    effect: Array<CommonResourceRef>;
+};
+
+/**
+ * 场地效果类型资源列表
+ */
+export type FieldEffectTypeList = CommonApiResourceList;
+
+/**
+ * 场地效果类型资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type FieldEffectTypeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<FieldEffectType>;
 };
 
 /**
@@ -3081,6 +3645,15 @@ export type GlossaryEntry = HashPartial & {
      * 用于指示该术语是否是特定精灵专属的
      */
     pet?: Array<CommonResourceRef> | null;
+};
+
+/**
+ * 名称映射术语条目资源
+ */
+export type GlossaryEntryNamedData = HashPartial & {
+    data: {
+        [key: string]: GlossaryEntry;
+    };
 };
 
 /**
@@ -3152,6 +3725,15 @@ export type Item = HashPartial & {
 };
 
 /**
+ * 名称映射道具资源
+ */
+export type ItemNamedData = HashPartial & {
+    data: {
+        [key: string]: Item;
+    };
+};
+
+/**
  * 道具资源列表
  */
 export type ItemList = CommonApiResourceList;
@@ -3216,6 +3798,15 @@ export type ItemCategory = HashPartial & {
      * 该分类下的所有物品
      */
     item?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射道具分类资源
+ */
+export type ItemCategoryNamedData = HashPartial & {
+    data: {
+        [key: string]: ItemCategory;
+    };
 };
 
 /**
@@ -3329,6 +3920,15 @@ export type Gem = HashPartial & {
 };
 
 /**
+ * 名称映射宝石资源
+ */
+export type GemNamedData = HashPartial & {
+    data: {
+        [key: string]: Gem;
+    };
+};
+
+/**
  * 宝石资源列表
  */
 export type GemList = CommonApiResourceList;
@@ -3393,6 +3993,15 @@ export type GemCategory = HashPartial & {
      * 宝石列表
      */
     gem?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射宝石类别资源
+ */
+export type GemCategoryNamedData = HashPartial & {
+    data: {
+        [key: string]: GemCategory;
+    };
 };
 
 /**
@@ -3555,6 +4164,15 @@ export type GemGen1 = HashPartial & {
 };
 
 /**
+ * 名称映射一代刻印宝石资源
+ */
+export type GemGen1NamedData = HashPartial & {
+    data: {
+        [key: string]: GemGen1;
+    };
+};
+
+/**
  * 一代刻印宝石资源列表
  */
 export type GemGen1List = CommonApiResourceList;
@@ -3644,6 +4262,15 @@ export type GemGen2 = HashPartial & {
 };
 
 /**
+ * 名称映射二代刻印宝石资源
+ */
+export type GemGen2NamedData = HashPartial & {
+    data: {
+        [key: string]: GemGen2;
+    };
+};
+
+/**
  * 二代刻印宝石资源列表
  */
 export type GemGen2List = CommonApiResourceList;
@@ -3705,6 +4332,15 @@ export type SkillActivationItem = HashPartial & {
     item: CommonResourceRef;
     skill: CommonResourceRef;
     pet: CommonResourceRef;
+};
+
+/**
+ * 名称映射精灵技能激活道具资源
+ */
+export type SkillActivationItemNamedData = HashPartial & {
+    data: {
+        [key: string]: SkillActivationItem;
+    };
 };
 
 /**
@@ -3818,6 +4454,15 @@ export type SkillStone = HashPartial & {
 };
 
 /**
+ * 名称映射技能石资源
+ */
+export type SkillStoneNamedData = HashPartial & {
+    data: {
+        [key: string]: SkillStone;
+    };
+};
+
+/**
  * 技能石资源列表
  */
 export type SkillStoneList = CommonApiResourceList;
@@ -3877,6 +4522,15 @@ export type SkillStoneCategory = HashPartial & {
      */
     skill_stone?: Array<CommonResourceRef>;
     type: CommonResourceRef;
+};
+
+/**
+ * 名称映射技能石分类资源
+ */
+export type SkillStoneCategoryNamedData = HashPartial & {
+    data: {
+        [key: string]: SkillStoneCategory;
+    };
 };
 
 /**
@@ -3998,6 +4652,15 @@ export type Mintmark = HashPartial & {
 };
 
 /**
+ * 名称映射刻印资源
+ */
+export type MintmarkNamedData = HashPartial & {
+    data: {
+        [key: string]: Mintmark;
+    };
+};
+
+/**
  * 刻印资源列表
  */
 export type MintmarkList = CommonApiResourceList;
@@ -4065,6 +4728,15 @@ export type AbilityMintmark = HashPartial & {
      */
     desc: string;
     max_attr_value: CommonSixAttributes;
+};
+
+/**
+ * 名称映射能力刻印资源
+ */
+export type AbilityMintmarkNamedData = HashPartial & {
+    data: {
+        [key: string]: AbilityMintmark;
+    };
 };
 
 /**
@@ -4160,6 +4832,15 @@ export type SkillMintmark = HashPartial & {
 };
 
 /**
+ * 名称映射技能刻印资源
+ */
+export type SkillMintmarkNamedData = HashPartial & {
+    data: {
+        [key: string]: SkillMintmark;
+    };
+};
+
+/**
  * 技能刻印资源列表
  */
 export type SkillMintmarkList = CommonApiResourceList;
@@ -4249,6 +4930,15 @@ export type UniversalMintmark = HashPartial & {
 };
 
 /**
+ * 名称映射全能刻印资源
+ */
+export type UniversalMintmarkNamedData = HashPartial & {
+    data: {
+        [key: string]: UniversalMintmark;
+    };
+};
+
+/**
  * 全能刻印资源列表
  */
 export type UniversalMintmarkList = CommonApiResourceList;
@@ -4310,6 +5000,15 @@ export type MintmarkClass = HashPartial & {
 };
 
 /**
+ * 名称映射刻印系列分类资源
+ */
+export type MintmarkClassNamedData = HashPartial & {
+    data: {
+        [key: string]: MintmarkClass;
+    };
+};
+
+/**
  * 刻印系列分类资源列表
  */
 export type MintmarkClassList = CommonApiResourceList;
@@ -4368,6 +5067,15 @@ export type MintmarkType = HashPartial & {
      * 刻印列表
      */
     mintmark?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射刻印类型分类资源
+ */
+export type MintmarkTypeNamedData = HashPartial & {
+    data: {
+        [key: string]: MintmarkType;
+    };
 };
 
 /**
@@ -4494,6 +5202,15 @@ export type Nature = HashPartial & {
 };
 
 /**
+ * 名称映射性格资源
+ */
+export type NatureNamedData = HashPartial & {
+    data: {
+        [key: string]: Nature;
+    };
+};
+
+/**
  * 性格资源列表
  */
 export type NatureList = CommonApiResourceList;
@@ -4589,6 +5306,94 @@ export type PeakSeasonListExpanded = {
      * 资源列表
      */
     results: Array<PeakSeason>;
+};
+
+/**
+ * 巅峰大师模式cost池资源
+ */
+export type PeakCostPool = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Cost
+     *
+     * 该池的消耗
+     */
+    cost: number;
+    /**
+     * Name
+     *
+     * 该池的名称
+     */
+    name: string;
+    /**
+     * Start Time
+     *
+     * 该池的开始时间
+     */
+    start_time: Date;
+    /**
+     * End Time
+     *
+     * 该池的结束时间
+     */
+    end_time: Date;
+    /**
+     * Pet
+     *
+     * 该池内的精灵
+     */
+    pet?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射巅峰大师模式cost池资源
+ */
+export type PeakCostPoolNamedData = HashPartial & {
+    data: {
+        [key: string]: PeakCostPool;
+    };
+};
+
+/**
+ * 巅峰大师模式cost池资源列表
+ */
+export type PeakCostPoolList = CommonApiResourceList;
+
+/**
+ * 巅峰大师模式cost池资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type PeakCostPoolListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<PeakCostPool>;
 };
 
 /**
@@ -4980,9 +5785,22 @@ export type Pet = HashPartial & {
      */
     peak_pool_vote_id?: number | null;
     /**
+     * 精灵所属巅峰池票选
+     */
+    peak_cost_pool?: CommonResourceRef | null;
+    /**
      * 精灵觉醒信息
      */
     advance?: CommonResourceRef | null;
+};
+
+/**
+ * 名称映射精灵资源
+ */
+export type PetNamedData = HashPartial & {
+    data: {
+        [key: string]: Pet;
+    };
 };
 
 /**
@@ -5144,6 +5962,15 @@ export type PetGender = HashPartial & {
 };
 
 /**
+ * 名称映射精灵性别分类资源
+ */
+export type PetGenderNamedData = HashPartial & {
+    data: {
+        [key: string]: PetGender;
+    };
+};
+
+/**
  * 精灵性别分类资源列表
  */
 export type PetGenderList = CommonApiResourceList;
@@ -5211,6 +6038,15 @@ export type PetVipbuff = HashPartial & {
 };
 
 /**
+ * 名称映射精灵VIP加成分类资源
+ */
+export type PetVipbuffNamedData = HashPartial & {
+    data: {
+        [key: string]: PetVipbuff;
+    };
+};
+
+/**
  * 精灵VIP加成分类资源列表
  */
 export type PetVipbuffList = CommonApiResourceList;
@@ -5275,6 +6111,15 @@ export type PetMountType = HashPartial & {
      * 描述
      */
     description: string;
+};
+
+/**
+ * 名称映射精灵坐骑类型分类资源
+ */
+export type PetMountTypeNamedData = HashPartial & {
+    data: {
+        [key: string]: PetMountType;
+    };
 };
 
 /**
@@ -5441,6 +6286,15 @@ export type PetSkin = HashPartial & {
 };
 
 /**
+ * 名称映射精灵皮肤资源
+ */
+export type PetSkinNamedData = HashPartial & {
+    data: {
+        [key: string]: PetSkin;
+    };
+};
+
+/**
  * 精灵皮肤资源列表
  */
 export type PetSkinList = CommonApiResourceList;
@@ -5563,6 +6417,15 @@ export type PetSkinSeries = HashPartial & {
 };
 
 /**
+ * 名称映射精灵皮肤系列资源
+ */
+export type PetSkinSeriesNamedData = HashPartial & {
+    data: {
+        [key: string]: PetSkinSeries;
+    };
+};
+
+/**
  * 精灵皮肤系列资源列表
  */
 export type PetSkinSeriesList = CommonApiResourceList;
@@ -5622,6 +6485,15 @@ export type PetSkinSeriesSubType = HashPartial & {
      * 该子类型对应的皮肤列表
      */
     skins?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射精灵皮肤系列子类型资源
+ */
+export type PetSkinSeriesSubTypeNamedData = HashPartial & {
+    data: {
+        [key: string]: PetSkinSeriesSubType;
+    };
 };
 
 /**
@@ -5743,6 +6615,15 @@ export type PetArchiveStoryBook = HashPartial & {
 };
 
 /**
+ * 名称映射精灵故事系列资源
+ */
+export type PetArchiveStoryBookNamedData = HashPartial & {
+    data: {
+        [key: string]: PetArchiveStoryBook;
+    };
+};
+
+/**
  * 精灵故事系列资源列表
  */
 export type PetArchiveStoryBookList = CommonApiResourceList;
@@ -5835,6 +6716,15 @@ export type PetEncyclopediaEntry = HashPartial & {
 };
 
 /**
+ * 名称映射精灵图鉴条目资源
+ */
+export type PetEncyclopediaEntryNamedData = HashPartial & {
+    data: {
+        [key: string]: PetEncyclopediaEntry;
+    };
+};
+
+/**
  * 精灵图鉴条目资源列表
  */
 export type PetEncyclopediaEntryList = CommonApiResourceList;
@@ -5869,6 +6759,127 @@ export type PetEncyclopediaEntryListExpanded = {
      * 资源列表
      */
     results: Array<PetEncyclopediaEntry>;
+};
+
+/**
+ * 印记资源
+ */
+export type Sign = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 名称
+     */
+    name: string;
+    /**
+     * Desc
+     *
+     * 描述，当子项描述覆盖主项描述时为null
+     */
+    desc?: string | null;
+    /**
+     * Sort
+     *
+     * 战斗界面印记图标的显示顺序权重，数值越小越靠前。客户端在可见性（isShow）相同时按此字段升序排列；可见图标始终优先于隐藏图标。
+     */
+    sort: number;
+    /**
+     * Is Show Num
+     *
+     * 是否显示剩余计数
+     */
+    is_show_num: boolean;
+    /**
+     * Num Des
+     *
+     * 计数量词，仅在is_show_num为True时有效
+     */
+    num_des?: string | null;
+    /**
+     * Subitem
+     *
+     * 子项，key为子项内部ID，value为子项对象
+     */
+    subitem?: {
+        [key: string]: {
+            /**
+             * Subitem Id
+             *
+             * 子项ID
+             */
+            subitem_id: number;
+            /**
+             * Name
+             *
+             * 名称，为null时使用主项名称
+             */
+            name?: string | null;
+            /**
+             * Desc
+             *
+             * 描述，为null时使用主项描述
+             */
+            desc?: string | null;
+            /**
+             * Icon Subid
+             *
+             * 图标子ID，为null时使用不带子项ID后缀的图标
+             */
+            icon_subid?: number | null;
+        };
+    };
+};
+
+/**
+ * 名称映射印记资源
+ */
+export type SignNamedData = HashPartial & {
+    data: {
+        [key: string]: Sign;
+    };
+};
+
+/**
+ * 印记资源列表
+ */
+export type SignList = CommonApiResourceList;
+
+/**
+ * 印记资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SignListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Sign>;
 };
 
 /**
@@ -5963,6 +6974,15 @@ export type Skill = HashPartial & {
      * 技能觉醒信息，仅在该技能是通过神谕觉醒开启的技能时生效
      */
     advance?: CommonResourceRef | null;
+};
+
+/**
+ * 名称映射技能资源
+ */
+export type SkillNamedData = HashPartial & {
+    data: {
+        [key: string]: Skill;
+    };
 };
 
 /**
@@ -6197,6 +7217,15 @@ export type SkillHideEffect = HashPartial & {
 };
 
 /**
+ * 名称映射技能隐藏效果资源
+ */
+export type SkillHideEffectNamedData = HashPartial & {
+    data: {
+        [key: string]: SkillHideEffect;
+    };
+};
+
+/**
  * 技能隐藏效果资源列表
  */
 export type SkillHideEffectList = CommonApiResourceList;
@@ -6258,6 +7287,15 @@ export type SkillCategory = HashPartial & {
 };
 
 /**
+ * 名称映射技能分类资源
+ */
+export type SkillCategoryNamedData = HashPartial & {
+    data: {
+        [key: string]: SkillCategory;
+    };
+};
+
+/**
  * 技能分类资源列表
  */
 export type SkillCategoryList = CommonApiResourceList;
@@ -6316,6 +7354,15 @@ export type SkillEffectTypeTag = HashPartial & {
      * 技能效果类型列表
      */
     effect?: Array<CommonResourceRef>;
+};
+
+/**
+ * 名称映射技能效果类型标签资源
+ */
+export type SkillEffectTypeTagNamedData = HashPartial & {
+    data: {
+        [key: string]: SkillEffectTypeTag;
+    };
 };
 
 /**
@@ -6482,6 +7529,14 @@ export type RootIndex = HashPartial & {
      */
     resistance_category: string;
     /**
+     * buff Path
+     */
+    buff: string;
+    /**
+     * buff_type Path
+     */
+    buff_type: string;
+    /**
      * avatar_head Path
      */
     avatar_head: string;
@@ -6557,6 +7612,14 @@ export type RootIndex = HashPartial & {
      * error_code Path
      */
     error_code: string;
+    /**
+     * field_effect Path
+     */
+    field_effect: string;
+    /**
+     * field_effect_type Path
+     */
+    field_effect_type: string;
     /**
      * glossary_entry Path
      */
@@ -6638,6 +7701,10 @@ export type RootIndex = HashPartial & {
      */
     peak_season: string;
     /**
+     * peak_cost_pool Path
+     */
+    peak_cost_pool: string;
+    /**
      * peak_pool Path
      */
     peak_pool: string;
@@ -6702,6 +7769,10 @@ export type RootIndex = HashPartial & {
      */
     pet_encyclopedia_entry: string;
     /**
+     * sign Path
+     */
+    sign: string;
+    /**
      * skill Path
      */
     skill: string;
@@ -6736,6 +7807,11 @@ export type Id = number;
  * 资源名称
  */
 export type Name = string;
+
+/**
+ * 用于筛选资源的名称
+ */
+export type NameQuery = string;
 
 /**
  * 每页返回的最大结果数
@@ -6775,6 +7851,27 @@ export type GetAchievementByIdResponses = {
 
 export type GetAchievementByIdResponse = GetAchievementByIdResponses[keyof GetAchievementByIdResponses];
 
+export type GetAchievementByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/achievement/{name}';
+};
+
+export type GetAchievementByNameResponses = {
+    /**
+     * OK
+     */
+    200: AchievementNamedData;
+};
+
+export type GetAchievementByNameResponse = GetAchievementByNameResponses[keyof GetAchievementByNameResponses];
+
 export type GetAchievementListData = {
     body?: never;
     path?: never;
@@ -6793,6 +7890,10 @@ export type GetAchievementListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/achievement/';
 };
@@ -6827,6 +7928,27 @@ export type GetAchievementBranchByIdResponses = {
 
 export type GetAchievementBranchByIdResponse = GetAchievementBranchByIdResponses[keyof GetAchievementBranchByIdResponses];
 
+export type GetAchievementBranchByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/achievement_branch/{name}';
+};
+
+export type GetAchievementBranchByNameResponses = {
+    /**
+     * OK
+     */
+    200: AchievementBranchNamedData;
+};
+
+export type GetAchievementBranchByNameResponse = GetAchievementBranchByNameResponses[keyof GetAchievementBranchByNameResponses];
+
 export type GetAchievementBranchListData = {
     body?: never;
     path?: never;
@@ -6845,6 +7967,10 @@ export type GetAchievementBranchListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/achievement_branch/';
 };
@@ -6879,6 +8005,27 @@ export type GetAchievementTypeByIdResponses = {
 
 export type GetAchievementTypeByIdResponse = GetAchievementTypeByIdResponses[keyof GetAchievementTypeByIdResponses];
 
+export type GetAchievementTypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/achievement_type/{name}';
+};
+
+export type GetAchievementTypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: AchievementTypeNamedData;
+};
+
+export type GetAchievementTypeByNameResponse = GetAchievementTypeByNameResponses[keyof GetAchievementTypeByNameResponses];
+
 export type GetAchievementTypeListData = {
     body?: never;
     path?: never;
@@ -6897,6 +8044,10 @@ export type GetAchievementTypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/achievement_type/';
 };
@@ -6931,6 +8082,27 @@ export type GetAchievementCategoryByIdResponses = {
 
 export type GetAchievementCategoryByIdResponse = GetAchievementCategoryByIdResponses[keyof GetAchievementCategoryByIdResponses];
 
+export type GetAchievementCategoryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/achievement_category/{name}';
+};
+
+export type GetAchievementCategoryByNameResponses = {
+    /**
+     * OK
+     */
+    200: AchievementCategoryNamedData;
+};
+
+export type GetAchievementCategoryByNameResponse = GetAchievementCategoryByNameResponses[keyof GetAchievementCategoryByNameResponses];
+
 export type GetAchievementCategoryListData = {
     body?: never;
     path?: never;
@@ -6949,6 +8121,10 @@ export type GetAchievementCategoryListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/achievement_category/';
 };
@@ -6983,6 +8159,27 @@ export type GetTitleByIdResponses = {
 
 export type GetTitleByIdResponse = GetTitleByIdResponses[keyof GetTitleByIdResponses];
 
+export type GetTitleByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/title/{name}';
+};
+
+export type GetTitleByNameResponses = {
+    /**
+     * OK
+     */
+    200: TitleNamedData;
+};
+
+export type GetTitleByNameResponse = GetTitleByNameResponses[keyof GetTitleByNameResponses];
+
 export type GetTitleListData = {
     body?: never;
     path?: never;
@@ -7001,6 +8198,10 @@ export type GetTitleListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/title/';
 };
@@ -7035,6 +8236,27 @@ export type GetActivityByIdResponses = {
 
 export type GetActivityByIdResponse = GetActivityByIdResponses[keyof GetActivityByIdResponses];
 
+export type GetActivityByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/activity/{name}';
+};
+
+export type GetActivityByNameResponses = {
+    /**
+     * OK
+     */
+    200: ActivityNamedData;
+};
+
+export type GetActivityByNameResponse = GetActivityByNameResponses[keyof GetActivityByNameResponses];
+
 export type GetActivityListData = {
     body?: never;
     path?: never;
@@ -7053,6 +8275,10 @@ export type GetActivityListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/activity/';
 };
@@ -7139,6 +8365,27 @@ export type GetAutocardByIdResponses = {
 
 export type GetAutocardByIdResponse = GetAutocardByIdResponses[keyof GetAutocardByIdResponses];
 
+export type GetAutocardByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/autocard/{name}';
+};
+
+export type GetAutocardByNameResponses = {
+    /**
+     * OK
+     */
+    200: AutocardNamedData;
+};
+
+export type GetAutocardByNameResponse = GetAutocardByNameResponses[keyof GetAutocardByNameResponses];
+
 export type GetAutocardListData = {
     body?: never;
     path?: never;
@@ -7157,6 +8404,10 @@ export type GetAutocardListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/autocard/';
 };
@@ -7191,6 +8442,27 @@ export type GetAutocardPetcardByIdResponses = {
 
 export type GetAutocardPetcardByIdResponse = GetAutocardPetcardByIdResponses[keyof GetAutocardPetcardByIdResponses];
 
+export type GetAutocardPetcardByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/autocard_petcard/{name}';
+};
+
+export type GetAutocardPetcardByNameResponses = {
+    /**
+     * OK
+     */
+    200: AutocardPetcardNamedData;
+};
+
+export type GetAutocardPetcardByNameResponse = GetAutocardPetcardByNameResponses[keyof GetAutocardPetcardByNameResponses];
+
 export type GetAutocardPetcardListData = {
     body?: never;
     path?: never;
@@ -7209,6 +8481,10 @@ export type GetAutocardPetcardListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/autocard_petcard/';
 };
@@ -7243,6 +8519,27 @@ export type GetAutocardSpellcardByIdResponses = {
 
 export type GetAutocardSpellcardByIdResponse = GetAutocardSpellcardByIdResponses[keyof GetAutocardSpellcardByIdResponses];
 
+export type GetAutocardSpellcardByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/autocard_spellcard/{name}';
+};
+
+export type GetAutocardSpellcardByNameResponses = {
+    /**
+     * OK
+     */
+    200: AutocardSpellcardNamedData;
+};
+
+export type GetAutocardSpellcardByNameResponse = GetAutocardSpellcardByNameResponses[keyof GetAutocardSpellcardByNameResponses];
+
 export type GetAutocardSpellcardListData = {
     body?: never;
     path?: never;
@@ -7261,6 +8558,10 @@ export type GetAutocardSpellcardListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/autocard_spellcard/';
 };
@@ -7295,6 +8596,27 @@ export type GetAutocardCardtypeByIdResponses = {
 
 export type GetAutocardCardtypeByIdResponse = GetAutocardCardtypeByIdResponses[keyof GetAutocardCardtypeByIdResponses];
 
+export type GetAutocardCardtypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/autocard_cardtype/{name}';
+};
+
+export type GetAutocardCardtypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: AutocardCardtypeNamedData;
+};
+
+export type GetAutocardCardtypeByNameResponse = GetAutocardCardtypeByNameResponses[keyof GetAutocardCardtypeByNameResponses];
+
 export type GetAutocardCardtypeListData = {
     body?: never;
     path?: never;
@@ -7313,6 +8635,10 @@ export type GetAutocardCardtypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/autocard_cardtype/';
 };
@@ -7347,6 +8673,27 @@ export type GetAutocardElementTypeByIdResponses = {
 
 export type GetAutocardElementTypeByIdResponse = GetAutocardElementTypeByIdResponses[keyof GetAutocardElementTypeByIdResponses];
 
+export type GetAutocardElementTypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/autocard_element_type/{name}';
+};
+
+export type GetAutocardElementTypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: AutocardElementTypeNamedData;
+};
+
+export type GetAutocardElementTypeByNameResponse = GetAutocardElementTypeByNameResponses[keyof GetAutocardElementTypeByNameResponses];
+
 export type GetAutocardElementTypeListData = {
     body?: never;
     path?: never;
@@ -7365,6 +8712,10 @@ export type GetAutocardElementTypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/autocard_element_type/';
 };
@@ -7399,6 +8750,27 @@ export type GetAutocardRoleByIdResponses = {
 
 export type GetAutocardRoleByIdResponse = GetAutocardRoleByIdResponses[keyof GetAutocardRoleByIdResponses];
 
+export type GetAutocardRoleByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/autocard_role/{name}';
+};
+
+export type GetAutocardRoleByNameResponses = {
+    /**
+     * OK
+     */
+    200: AutocardRoleNamedData;
+};
+
+export type GetAutocardRoleByNameResponse = GetAutocardRoleByNameResponses[keyof GetAutocardRoleByNameResponses];
+
 export type GetAutocardRoleListData = {
     body?: never;
     path?: never;
@@ -7417,6 +8789,10 @@ export type GetAutocardRoleListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/autocard_role/';
 };
@@ -7451,6 +8827,27 @@ export type GetAutocardFieldByIdResponses = {
 
 export type GetAutocardFieldByIdResponse = GetAutocardFieldByIdResponses[keyof GetAutocardFieldByIdResponses];
 
+export type GetAutocardFieldByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/autocard_field/{name}';
+};
+
+export type GetAutocardFieldByNameResponses = {
+    /**
+     * OK
+     */
+    200: AutocardFieldNamedData;
+};
+
+export type GetAutocardFieldByNameResponse = GetAutocardFieldByNameResponses[keyof GetAutocardFieldByNameResponses];
+
 export type GetAutocardFieldListData = {
     body?: never;
     path?: never;
@@ -7469,6 +8866,10 @@ export type GetAutocardFieldListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/autocard_field/';
 };
@@ -7503,6 +8904,27 @@ export type GetBattleEffectByIdResponses = {
 
 export type GetBattleEffectByIdResponse = GetBattleEffectByIdResponses[keyof GetBattleEffectByIdResponses];
 
+export type GetBattleEffectByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/battle_effect/{name}';
+};
+
+export type GetBattleEffectByNameResponses = {
+    /**
+     * OK
+     */
+    200: BattleEffectNamedData;
+};
+
+export type GetBattleEffectByNameResponse = GetBattleEffectByNameResponses[keyof GetBattleEffectByNameResponses];
+
 export type GetBattleEffectListData = {
     body?: never;
     path?: never;
@@ -7521,6 +8943,10 @@ export type GetBattleEffectListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/battle_effect/';
 };
@@ -7555,6 +8981,27 @@ export type GetBattleEffectTypeByIdResponses = {
 
 export type GetBattleEffectTypeByIdResponse = GetBattleEffectTypeByIdResponses[keyof GetBattleEffectTypeByIdResponses];
 
+export type GetBattleEffectTypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/battle_effect_type/{name}';
+};
+
+export type GetBattleEffectTypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: BattleEffectTypeNamedData;
+};
+
+export type GetBattleEffectTypeByNameResponse = GetBattleEffectTypeByNameResponses[keyof GetBattleEffectTypeByNameResponses];
+
 export type GetBattleEffectTypeListData = {
     body?: never;
     path?: never;
@@ -7573,6 +9020,10 @@ export type GetBattleEffectTypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/battle_effect_type/';
 };
@@ -7607,6 +9058,27 @@ export type GetResistanceCategoryByIdResponses = {
 
 export type GetResistanceCategoryByIdResponse = GetResistanceCategoryByIdResponses[keyof GetResistanceCategoryByIdResponses];
 
+export type GetResistanceCategoryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/resistance_category/{name}';
+};
+
+export type GetResistanceCategoryByNameResponses = {
+    /**
+     * OK
+     */
+    200: ResistanceCategoryNamedData;
+};
+
+export type GetResistanceCategoryByNameResponse = GetResistanceCategoryByNameResponses[keyof GetResistanceCategoryByNameResponses];
+
 export type GetResistanceCategoryListData = {
     body?: never;
     path?: never;
@@ -7625,6 +9097,10 @@ export type GetResistanceCategoryListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/resistance_category/';
 };
@@ -7637,6 +9113,110 @@ export type GetResistanceCategoryListResponses = {
 };
 
 export type GetResistanceCategoryListResponse = GetResistanceCategoryListResponses[keyof GetResistanceCategoryListResponses];
+
+export type GetBuffByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/buff/{id}';
+};
+
+export type GetBuffByIdResponses = {
+    /**
+     * OK
+     */
+    200: Buff;
+};
+
+export type GetBuffByIdResponse = GetBuffByIdResponses[keyof GetBuffByIdResponses];
+
+export type GetBuffListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/buff/';
+};
+
+export type GetBuffListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: BuffList | BuffListExpanded;
+};
+
+export type GetBuffListResponse = GetBuffListResponses[keyof GetBuffListResponses];
+
+export type GetBuffTypeByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/buff_type/{id}';
+};
+
+export type GetBuffTypeByIdResponses = {
+    /**
+     * OK
+     */
+    200: BuffType;
+};
+
+export type GetBuffTypeByIdResponse = GetBuffTypeByIdResponses[keyof GetBuffTypeByIdResponses];
+
+export type GetBuffTypeListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/buff_type/';
+};
+
+export type GetBuffTypeListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: BuffTypeList | BuffTypeListExpanded;
+};
+
+export type GetBuffTypeListResponse = GetBuffTypeListResponses[keyof GetBuffTypeListResponses];
 
 export type GetAvatarHeadByIdData = {
     body?: never;
@@ -7659,6 +9239,27 @@ export type GetAvatarHeadByIdResponses = {
 
 export type GetAvatarHeadByIdResponse = GetAvatarHeadByIdResponses[keyof GetAvatarHeadByIdResponses];
 
+export type GetAvatarHeadByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/avatar_head/{name}';
+};
+
+export type GetAvatarHeadByNameResponses = {
+    /**
+     * OK
+     */
+    200: AvatarHeadNamedData;
+};
+
+export type GetAvatarHeadByNameResponse = GetAvatarHeadByNameResponses[keyof GetAvatarHeadByNameResponses];
+
 export type GetAvatarHeadListData = {
     body?: never;
     path?: never;
@@ -7677,6 +9278,10 @@ export type GetAvatarHeadListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/avatar_head/';
 };
@@ -7711,6 +9316,27 @@ export type GetAvatarFrameByIdResponses = {
 
 export type GetAvatarFrameByIdResponse = GetAvatarFrameByIdResponses[keyof GetAvatarFrameByIdResponses];
 
+export type GetAvatarFrameByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/avatar_frame/{name}';
+};
+
+export type GetAvatarFrameByNameResponses = {
+    /**
+     * OK
+     */
+    200: AvatarFrameNamedData;
+};
+
+export type GetAvatarFrameByNameResponse = GetAvatarFrameByNameResponses[keyof GetAvatarFrameByNameResponses];
+
 export type GetAvatarFrameListData = {
     body?: never;
     path?: never;
@@ -7729,6 +9355,10 @@ export type GetAvatarFrameListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/avatar_frame/';
 };
@@ -7763,6 +9393,27 @@ export type GetNamecardBackgroundByIdResponses = {
 
 export type GetNamecardBackgroundByIdResponse = GetNamecardBackgroundByIdResponses[keyof GetNamecardBackgroundByIdResponses];
 
+export type GetNamecardBackgroundByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/namecard_background/{name}';
+};
+
+export type GetNamecardBackgroundByNameResponses = {
+    /**
+     * OK
+     */
+    200: NamecardBackgroundNamedData;
+};
+
+export type GetNamecardBackgroundByNameResponse = GetNamecardBackgroundByNameResponses[keyof GetNamecardBackgroundByNameResponses];
+
 export type GetNamecardBackgroundListData = {
     body?: never;
     path?: never;
@@ -7781,6 +9432,10 @@ export type GetNamecardBackgroundListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/namecard_background/';
 };
@@ -7815,6 +9470,27 @@ export type GetNicknameBackgroundByIdResponses = {
 
 export type GetNicknameBackgroundByIdResponse = GetNicknameBackgroundByIdResponses[keyof GetNicknameBackgroundByIdResponses];
 
+export type GetNicknameBackgroundByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/nickname_background/{name}';
+};
+
+export type GetNicknameBackgroundByNameResponses = {
+    /**
+     * OK
+     */
+    200: NicknameBackgroundNamedData;
+};
+
+export type GetNicknameBackgroundByNameResponse = GetNicknameBackgroundByNameResponses[keyof GetNicknameBackgroundByNameResponses];
+
 export type GetNicknameBackgroundListData = {
     body?: never;
     path?: never;
@@ -7833,6 +9509,10 @@ export type GetNicknameBackgroundListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/nickname_background/';
 };
@@ -7867,6 +9547,27 @@ export type GetHomepageBackgroundByIdResponses = {
 
 export type GetHomepageBackgroundByIdResponse = GetHomepageBackgroundByIdResponses[keyof GetHomepageBackgroundByIdResponses];
 
+export type GetHomepageBackgroundByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/homepage_background/{name}';
+};
+
+export type GetHomepageBackgroundByNameResponses = {
+    /**
+     * OK
+     */
+    200: HomepageBackgroundNamedData;
+};
+
+export type GetHomepageBackgroundByNameResponse = GetHomepageBackgroundByNameResponses[keyof GetHomepageBackgroundByNameResponses];
+
 export type GetHomepageBackgroundListData = {
     body?: never;
     path?: never;
@@ -7885,6 +9586,10 @@ export type GetHomepageBackgroundListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/homepage_background/';
 };
@@ -7919,6 +9624,27 @@ export type GetPetEffectByIdResponses = {
 
 export type GetPetEffectByIdResponse = GetPetEffectByIdResponses[keyof GetPetEffectByIdResponses];
 
+export type GetPetEffectByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_effect/{name}';
+};
+
+export type GetPetEffectByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetEffectNamedData;
+};
+
+export type GetPetEffectByNameResponse = GetPetEffectByNameResponses[keyof GetPetEffectByNameResponses];
+
 export type GetPetEffectListData = {
     body?: never;
     path?: never;
@@ -7937,6 +9663,10 @@ export type GetPetEffectListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_effect/';
 };
@@ -7971,6 +9701,27 @@ export type GetPetEffectGroupByIdResponses = {
 
 export type GetPetEffectGroupByIdResponse = GetPetEffectGroupByIdResponses[keyof GetPetEffectGroupByIdResponses];
 
+export type GetPetEffectGroupByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_effect_group/{name}';
+};
+
+export type GetPetEffectGroupByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetEffectGroupNamedData;
+};
+
+export type GetPetEffectGroupByNameResponse = GetPetEffectGroupByNameResponses[keyof GetPetEffectGroupByNameResponses];
+
 export type GetPetEffectGroupListData = {
     body?: never;
     path?: never;
@@ -7989,6 +9740,10 @@ export type GetPetEffectGroupListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_effect_group/';
 };
@@ -8023,6 +9778,27 @@ export type GetPetVariationByIdResponses = {
 
 export type GetPetVariationByIdResponse = GetPetVariationByIdResponses[keyof GetPetVariationByIdResponses];
 
+export type GetPetVariationByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_variation/{name}';
+};
+
+export type GetPetVariationByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetVariationNamedData;
+};
+
+export type GetPetVariationByNameResponse = GetPetVariationByNameResponses[keyof GetPetVariationByNameResponses];
+
 export type GetPetVariationListData = {
     body?: never;
     path?: never;
@@ -8041,6 +9817,10 @@ export type GetPetVariationListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_variation/';
 };
@@ -8127,6 +9907,27 @@ export type GetEnergyBeadByIdResponses = {
 
 export type GetEnergyBeadByIdResponse = GetEnergyBeadByIdResponses[keyof GetEnergyBeadByIdResponses];
 
+export type GetEnergyBeadByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/energy_bead/{name}';
+};
+
+export type GetEnergyBeadByNameResponses = {
+    /**
+     * OK
+     */
+    200: EnergyBeadNamedData;
+};
+
+export type GetEnergyBeadByNameResponse = GetEnergyBeadByNameResponses[keyof GetEnergyBeadByNameResponses];
+
 export type GetEnergyBeadListData = {
     body?: never;
     path?: never;
@@ -8145,6 +9946,10 @@ export type GetEnergyBeadListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/energy_bead/';
 };
@@ -8179,6 +9984,27 @@ export type GetEquipByIdResponses = {
 
 export type GetEquipByIdResponse = GetEquipByIdResponses[keyof GetEquipByIdResponses];
 
+export type GetEquipByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/equip/{name}';
+};
+
+export type GetEquipByNameResponses = {
+    /**
+     * OK
+     */
+    200: EquipNamedData;
+};
+
+export type GetEquipByNameResponse = GetEquipByNameResponses[keyof GetEquipByNameResponses];
+
 export type GetEquipListData = {
     body?: never;
     path?: never;
@@ -8197,6 +10023,10 @@ export type GetEquipListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/equip/';
 };
@@ -8231,6 +10061,27 @@ export type GetSuitByIdResponses = {
 
 export type GetSuitByIdResponse = GetSuitByIdResponses[keyof GetSuitByIdResponses];
 
+export type GetSuitByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/suit/{name}';
+};
+
+export type GetSuitByNameResponses = {
+    /**
+     * OK
+     */
+    200: SuitNamedData;
+};
+
+export type GetSuitByNameResponse = GetSuitByNameResponses[keyof GetSuitByNameResponses];
+
 export type GetSuitListData = {
     body?: never;
     path?: never;
@@ -8249,6 +10100,10 @@ export type GetSuitListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/suit/';
 };
@@ -8283,6 +10138,27 @@ export type GetEquipTypeByIdResponses = {
 
 export type GetEquipTypeByIdResponse = GetEquipTypeByIdResponses[keyof GetEquipTypeByIdResponses];
 
+export type GetEquipTypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/equip_type/{name}';
+};
+
+export type GetEquipTypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: EquipTypeNamedData;
+};
+
+export type GetEquipTypeByNameResponse = GetEquipTypeByNameResponses[keyof GetEquipTypeByNameResponses];
+
 export type GetEquipTypeListData = {
     body?: never;
     path?: never;
@@ -8301,6 +10177,10 @@ export type GetEquipTypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/equip_type/';
 };
@@ -8387,6 +10267,27 @@ export type GetSoulmarkByIdResponses = {
 
 export type GetSoulmarkByIdResponse = GetSoulmarkByIdResponses[keyof GetSoulmarkByIdResponses];
 
+export type GetSoulmarkByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/soulmark/{name}';
+};
+
+export type GetSoulmarkByNameResponses = {
+    /**
+     * OK
+     */
+    200: SoulmarkNamedData;
+};
+
+export type GetSoulmarkByNameResponse = GetSoulmarkByNameResponses[keyof GetSoulmarkByNameResponses];
+
 export type GetSoulmarkListData = {
     body?: never;
     path?: never;
@@ -8405,6 +10306,10 @@ export type GetSoulmarkListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/soulmark/';
 };
@@ -8439,6 +10344,27 @@ export type GetSoulmarkTagByIdResponses = {
 
 export type GetSoulmarkTagByIdResponse = GetSoulmarkTagByIdResponses[keyof GetSoulmarkTagByIdResponses];
 
+export type GetSoulmarkTagByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/soulmark_tag/{name}';
+};
+
+export type GetSoulmarkTagByNameResponses = {
+    /**
+     * OK
+     */
+    200: SoulmarkTagNamedData;
+};
+
+export type GetSoulmarkTagByNameResponse = GetSoulmarkTagByNameResponses[keyof GetSoulmarkTagByNameResponses];
+
 export type GetSoulmarkTagListData = {
     body?: never;
     path?: never;
@@ -8457,6 +10383,10 @@ export type GetSoulmarkTagListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/soulmark_tag/';
 };
@@ -8491,6 +10421,27 @@ export type GetElementTypeByIdResponses = {
 
 export type GetElementTypeByIdResponse = GetElementTypeByIdResponses[keyof GetElementTypeByIdResponses];
 
+export type GetElementTypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/element_type/{name}';
+};
+
+export type GetElementTypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: ElementTypeNamedData;
+};
+
+export type GetElementTypeByNameResponse = GetElementTypeByNameResponses[keyof GetElementTypeByNameResponses];
+
 export type GetElementTypeListData = {
     body?: never;
     path?: never;
@@ -8509,6 +10460,10 @@ export type GetElementTypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/element_type/';
 };
@@ -8543,6 +10498,27 @@ export type GetElementTypeCombinationByIdResponses = {
 
 export type GetElementTypeCombinationByIdResponse = GetElementTypeCombinationByIdResponses[keyof GetElementTypeCombinationByIdResponses];
 
+export type GetElementTypeCombinationByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/element_type_combination/{name}';
+};
+
+export type GetElementTypeCombinationByNameResponses = {
+    /**
+     * OK
+     */
+    200: ElementTypeCombinationNamedData;
+};
+
+export type GetElementTypeCombinationByNameResponse = GetElementTypeCombinationByNameResponses[keyof GetElementTypeCombinationByNameResponses];
+
 export type GetElementTypeCombinationListData = {
     body?: never;
     path?: never;
@@ -8561,6 +10537,10 @@ export type GetElementTypeCombinationListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/element_type_combination/';
 };
@@ -8595,6 +10575,27 @@ export type GetErrorCodeByIdResponses = {
 
 export type GetErrorCodeByIdResponse = GetErrorCodeByIdResponses[keyof GetErrorCodeByIdResponses];
 
+export type GetErrorCodeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/error_code/{name}';
+};
+
+export type GetErrorCodeByNameResponses = {
+    /**
+     * OK
+     */
+    200: ErrorCodeNamedData;
+};
+
+export type GetErrorCodeByNameResponse = GetErrorCodeByNameResponses[keyof GetErrorCodeByNameResponses];
+
 export type GetErrorCodeListData = {
     body?: never;
     path?: never;
@@ -8613,6 +10614,10 @@ export type GetErrorCodeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/error_code/';
 };
@@ -8625,6 +10630,135 @@ export type GetErrorCodeListResponses = {
 };
 
 export type GetErrorCodeListResponse = GetErrorCodeListResponses[keyof GetErrorCodeListResponses];
+
+export type GetFieldEffectByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/field_effect/{id}';
+};
+
+export type GetFieldEffectByIdResponses = {
+    /**
+     * OK
+     */
+    200: FieldEffect;
+};
+
+export type GetFieldEffectByIdResponse = GetFieldEffectByIdResponses[keyof GetFieldEffectByIdResponses];
+
+export type GetFieldEffectByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/field_effect/{name}';
+};
+
+export type GetFieldEffectByNameResponses = {
+    /**
+     * OK
+     */
+    200: FieldEffectNamedData;
+};
+
+export type GetFieldEffectByNameResponse = GetFieldEffectByNameResponses[keyof GetFieldEffectByNameResponses];
+
+export type GetFieldEffectListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/field_effect/';
+};
+
+export type GetFieldEffectListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: FieldEffectList | FieldEffectListExpanded;
+};
+
+export type GetFieldEffectListResponse = GetFieldEffectListResponses[keyof GetFieldEffectListResponses];
+
+export type GetFieldEffectTypeByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/field_effect_type/{id}';
+};
+
+export type GetFieldEffectTypeByIdResponses = {
+    /**
+     * OK
+     */
+    200: FieldEffectType;
+};
+
+export type GetFieldEffectTypeByIdResponse = GetFieldEffectTypeByIdResponses[keyof GetFieldEffectTypeByIdResponses];
+
+export type GetFieldEffectTypeListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/field_effect_type/';
+};
+
+export type GetFieldEffectTypeListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: FieldEffectTypeList | FieldEffectTypeListExpanded;
+};
+
+export type GetFieldEffectTypeListResponse = GetFieldEffectTypeListResponses[keyof GetFieldEffectTypeListResponses];
 
 export type GetGlossaryEntryByIdData = {
     body?: never;
@@ -8647,6 +10781,27 @@ export type GetGlossaryEntryByIdResponses = {
 
 export type GetGlossaryEntryByIdResponse = GetGlossaryEntryByIdResponses[keyof GetGlossaryEntryByIdResponses];
 
+export type GetGlossaryEntryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/glossary_entry/{name}';
+};
+
+export type GetGlossaryEntryByNameResponses = {
+    /**
+     * OK
+     */
+    200: GlossaryEntryNamedData;
+};
+
+export type GetGlossaryEntryByNameResponse = GetGlossaryEntryByNameResponses[keyof GetGlossaryEntryByNameResponses];
+
 export type GetGlossaryEntryListData = {
     body?: never;
     path?: never;
@@ -8665,6 +10820,10 @@ export type GetGlossaryEntryListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/glossary_entry/';
 };
@@ -8699,6 +10858,27 @@ export type GetItemByIdResponses = {
 
 export type GetItemByIdResponse = GetItemByIdResponses[keyof GetItemByIdResponses];
 
+export type GetItemByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/item/{name}';
+};
+
+export type GetItemByNameResponses = {
+    /**
+     * OK
+     */
+    200: ItemNamedData;
+};
+
+export type GetItemByNameResponse = GetItemByNameResponses[keyof GetItemByNameResponses];
+
 export type GetItemListData = {
     body?: never;
     path?: never;
@@ -8717,6 +10897,10 @@ export type GetItemListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/item/';
 };
@@ -8751,6 +10935,27 @@ export type GetItemCategoryByIdResponses = {
 
 export type GetItemCategoryByIdResponse = GetItemCategoryByIdResponses[keyof GetItemCategoryByIdResponses];
 
+export type GetItemCategoryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/item_category/{name}';
+};
+
+export type GetItemCategoryByNameResponses = {
+    /**
+     * OK
+     */
+    200: ItemCategoryNamedData;
+};
+
+export type GetItemCategoryByNameResponse = GetItemCategoryByNameResponses[keyof GetItemCategoryByNameResponses];
+
 export type GetItemCategoryListData = {
     body?: never;
     path?: never;
@@ -8769,6 +10974,10 @@ export type GetItemCategoryListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/item_category/';
 };
@@ -8803,6 +11012,27 @@ export type GetGemByIdResponses = {
 
 export type GetGemByIdResponse = GetGemByIdResponses[keyof GetGemByIdResponses];
 
+export type GetGemByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/gem/{name}';
+};
+
+export type GetGemByNameResponses = {
+    /**
+     * OK
+     */
+    200: GemNamedData;
+};
+
+export type GetGemByNameResponse = GetGemByNameResponses[keyof GetGemByNameResponses];
+
 export type GetGemListData = {
     body?: never;
     path?: never;
@@ -8821,6 +11051,10 @@ export type GetGemListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/gem/';
 };
@@ -8855,6 +11089,27 @@ export type GetGemCategoryByIdResponses = {
 
 export type GetGemCategoryByIdResponse = GetGemCategoryByIdResponses[keyof GetGemCategoryByIdResponses];
 
+export type GetGemCategoryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/gem_category/{name}';
+};
+
+export type GetGemCategoryByNameResponses = {
+    /**
+     * OK
+     */
+    200: GemCategoryNamedData;
+};
+
+export type GetGemCategoryByNameResponse = GetGemCategoryByNameResponses[keyof GetGemCategoryByNameResponses];
+
 export type GetGemCategoryListData = {
     body?: never;
     path?: never;
@@ -8873,6 +11128,10 @@ export type GetGemCategoryListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/gem_category/';
 };
@@ -8959,6 +11218,27 @@ export type GetGemGen1ByIdResponses = {
 
 export type GetGemGen1ByIdResponse = GetGemGen1ByIdResponses[keyof GetGemGen1ByIdResponses];
 
+export type GetGemGen1ByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/gem_gen1/{name}';
+};
+
+export type GetGemGen1ByNameResponses = {
+    /**
+     * OK
+     */
+    200: GemGen1NamedData;
+};
+
+export type GetGemGen1ByNameResponse = GetGemGen1ByNameResponses[keyof GetGemGen1ByNameResponses];
+
 export type GetGemGen1ListData = {
     body?: never;
     path?: never;
@@ -8977,6 +11257,10 @@ export type GetGemGen1ListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/gem_gen1/';
 };
@@ -9011,6 +11295,27 @@ export type GetGemGen2ByIdResponses = {
 
 export type GetGemGen2ByIdResponse = GetGemGen2ByIdResponses[keyof GetGemGen2ByIdResponses];
 
+export type GetGemGen2ByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/gem_gen2/{name}';
+};
+
+export type GetGemGen2ByNameResponses = {
+    /**
+     * OK
+     */
+    200: GemGen2NamedData;
+};
+
+export type GetGemGen2ByNameResponse = GetGemGen2ByNameResponses[keyof GetGemGen2ByNameResponses];
+
 export type GetGemGen2ListData = {
     body?: never;
     path?: never;
@@ -9029,6 +11334,10 @@ export type GetGemGen2ListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/gem_gen2/';
 };
@@ -9063,6 +11372,27 @@ export type GetSkillActivationItemByIdResponses = {
 
 export type GetSkillActivationItemByIdResponse = GetSkillActivationItemByIdResponses[keyof GetSkillActivationItemByIdResponses];
 
+export type GetSkillActivationItemByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/skill_activation_item/{name}';
+};
+
+export type GetSkillActivationItemByNameResponses = {
+    /**
+     * OK
+     */
+    200: SkillActivationItemNamedData;
+};
+
+export type GetSkillActivationItemByNameResponse = GetSkillActivationItemByNameResponses[keyof GetSkillActivationItemByNameResponses];
+
 export type GetSkillActivationItemListData = {
     body?: never;
     path?: never;
@@ -9081,6 +11411,10 @@ export type GetSkillActivationItemListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/skill_activation_item/';
 };
@@ -9115,6 +11449,27 @@ export type GetSkillStoneByIdResponses = {
 
 export type GetSkillStoneByIdResponse = GetSkillStoneByIdResponses[keyof GetSkillStoneByIdResponses];
 
+export type GetSkillStoneByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/skill_stone/{name}';
+};
+
+export type GetSkillStoneByNameResponses = {
+    /**
+     * OK
+     */
+    200: SkillStoneNamedData;
+};
+
+export type GetSkillStoneByNameResponse = GetSkillStoneByNameResponses[keyof GetSkillStoneByNameResponses];
+
 export type GetSkillStoneListData = {
     body?: never;
     path?: never;
@@ -9133,6 +11488,10 @@ export type GetSkillStoneListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/skill_stone/';
 };
@@ -9167,6 +11526,27 @@ export type GetSkillStoneCategoryByIdResponses = {
 
 export type GetSkillStoneCategoryByIdResponse = GetSkillStoneCategoryByIdResponses[keyof GetSkillStoneCategoryByIdResponses];
 
+export type GetSkillStoneCategoryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/skill_stone_category/{name}';
+};
+
+export type GetSkillStoneCategoryByNameResponses = {
+    /**
+     * OK
+     */
+    200: SkillStoneCategoryNamedData;
+};
+
+export type GetSkillStoneCategoryByNameResponse = GetSkillStoneCategoryByNameResponses[keyof GetSkillStoneCategoryByNameResponses];
+
 export type GetSkillStoneCategoryListData = {
     body?: never;
     path?: never;
@@ -9185,6 +11565,10 @@ export type GetSkillStoneCategoryListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/skill_stone_category/';
 };
@@ -9219,6 +11603,27 @@ export type GetMintmarkByIdResponses = {
 
 export type GetMintmarkByIdResponse = GetMintmarkByIdResponses[keyof GetMintmarkByIdResponses];
 
+export type GetMintmarkByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/mintmark/{name}';
+};
+
+export type GetMintmarkByNameResponses = {
+    /**
+     * OK
+     */
+    200: MintmarkNamedData;
+};
+
+export type GetMintmarkByNameResponse = GetMintmarkByNameResponses[keyof GetMintmarkByNameResponses];
+
 export type GetMintmarkListData = {
     body?: never;
     path?: never;
@@ -9237,6 +11642,10 @@ export type GetMintmarkListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/mintmark/';
 };
@@ -9271,6 +11680,27 @@ export type GetAbilityMintmarkByIdResponses = {
 
 export type GetAbilityMintmarkByIdResponse = GetAbilityMintmarkByIdResponses[keyof GetAbilityMintmarkByIdResponses];
 
+export type GetAbilityMintmarkByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/ability_mintmark/{name}';
+};
+
+export type GetAbilityMintmarkByNameResponses = {
+    /**
+     * OK
+     */
+    200: AbilityMintmarkNamedData;
+};
+
+export type GetAbilityMintmarkByNameResponse = GetAbilityMintmarkByNameResponses[keyof GetAbilityMintmarkByNameResponses];
+
 export type GetAbilityMintmarkListData = {
     body?: never;
     path?: never;
@@ -9289,6 +11719,10 @@ export type GetAbilityMintmarkListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/ability_mintmark/';
 };
@@ -9323,6 +11757,27 @@ export type GetSkillMintmarkByIdResponses = {
 
 export type GetSkillMintmarkByIdResponse = GetSkillMintmarkByIdResponses[keyof GetSkillMintmarkByIdResponses];
 
+export type GetSkillMintmarkByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/skill_mintmark/{name}';
+};
+
+export type GetSkillMintmarkByNameResponses = {
+    /**
+     * OK
+     */
+    200: SkillMintmarkNamedData;
+};
+
+export type GetSkillMintmarkByNameResponse = GetSkillMintmarkByNameResponses[keyof GetSkillMintmarkByNameResponses];
+
 export type GetSkillMintmarkListData = {
     body?: never;
     path?: never;
@@ -9341,6 +11796,10 @@ export type GetSkillMintmarkListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/skill_mintmark/';
 };
@@ -9375,6 +11834,27 @@ export type GetUniversalMintmarkByIdResponses = {
 
 export type GetUniversalMintmarkByIdResponse = GetUniversalMintmarkByIdResponses[keyof GetUniversalMintmarkByIdResponses];
 
+export type GetUniversalMintmarkByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/universal_mintmark/{name}';
+};
+
+export type GetUniversalMintmarkByNameResponses = {
+    /**
+     * OK
+     */
+    200: UniversalMintmarkNamedData;
+};
+
+export type GetUniversalMintmarkByNameResponse = GetUniversalMintmarkByNameResponses[keyof GetUniversalMintmarkByNameResponses];
+
 export type GetUniversalMintmarkListData = {
     body?: never;
     path?: never;
@@ -9393,6 +11873,10 @@ export type GetUniversalMintmarkListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/universal_mintmark/';
 };
@@ -9427,6 +11911,27 @@ export type GetMintmarkClassByIdResponses = {
 
 export type GetMintmarkClassByIdResponse = GetMintmarkClassByIdResponses[keyof GetMintmarkClassByIdResponses];
 
+export type GetMintmarkClassByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/mintmark_class/{name}';
+};
+
+export type GetMintmarkClassByNameResponses = {
+    /**
+     * OK
+     */
+    200: MintmarkClassNamedData;
+};
+
+export type GetMintmarkClassByNameResponse = GetMintmarkClassByNameResponses[keyof GetMintmarkClassByNameResponses];
+
 export type GetMintmarkClassListData = {
     body?: never;
     path?: never;
@@ -9445,6 +11950,10 @@ export type GetMintmarkClassListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/mintmark_class/';
 };
@@ -9479,6 +11988,27 @@ export type GetMintmarkTypeByIdResponses = {
 
 export type GetMintmarkTypeByIdResponse = GetMintmarkTypeByIdResponses[keyof GetMintmarkTypeByIdResponses];
 
+export type GetMintmarkTypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/mintmark_type/{name}';
+};
+
+export type GetMintmarkTypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: MintmarkTypeNamedData;
+};
+
+export type GetMintmarkTypeByNameResponse = GetMintmarkTypeByNameResponses[keyof GetMintmarkTypeByNameResponses];
+
 export type GetMintmarkTypeListData = {
     body?: never;
     path?: never;
@@ -9497,6 +12027,10 @@ export type GetMintmarkTypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/mintmark_type/';
 };
@@ -9583,6 +12117,27 @@ export type GetNatureByIdResponses = {
 
 export type GetNatureByIdResponse = GetNatureByIdResponses[keyof GetNatureByIdResponses];
 
+export type GetNatureByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/nature/{name}';
+};
+
+export type GetNatureByNameResponses = {
+    /**
+     * OK
+     */
+    200: NatureNamedData;
+};
+
+export type GetNatureByNameResponse = GetNatureByNameResponses[keyof GetNatureByNameResponses];
+
 export type GetNatureListData = {
     body?: never;
     path?: never;
@@ -9601,6 +12156,10 @@ export type GetNatureListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/nature/';
 };
@@ -9665,6 +12224,83 @@ export type GetPeakSeasonListResponses = {
 };
 
 export type GetPeakSeasonListResponse = GetPeakSeasonListResponses[keyof GetPeakSeasonListResponses];
+
+export type GetPeakCostPoolByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/peak_cost_pool/{id}';
+};
+
+export type GetPeakCostPoolByIdResponses = {
+    /**
+     * OK
+     */
+    200: PeakCostPool;
+};
+
+export type GetPeakCostPoolByIdResponse = GetPeakCostPoolByIdResponses[keyof GetPeakCostPoolByIdResponses];
+
+export type GetPeakCostPoolByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/peak_cost_pool/{name}';
+};
+
+export type GetPeakCostPoolByNameResponses = {
+    /**
+     * OK
+     */
+    200: PeakCostPoolNamedData;
+};
+
+export type GetPeakCostPoolByNameResponse = GetPeakCostPoolByNameResponses[keyof GetPeakCostPoolByNameResponses];
+
+export type GetPeakCostPoolListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/peak_cost_pool/';
+};
+
+export type GetPeakCostPoolListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: PeakCostPoolList | PeakCostPoolListExpanded;
+};
+
+export type GetPeakCostPoolListResponse = GetPeakCostPoolListResponses[keyof GetPeakCostPoolListResponses];
 
 export type GetPeakPoolByIdData = {
     body?: never;
@@ -9843,6 +12479,27 @@ export type GetPetByIdResponses = {
 
 export type GetPetByIdResponse = GetPetByIdResponses[keyof GetPetByIdResponses];
 
+export type GetPetByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet/{name}';
+};
+
+export type GetPetByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetNamedData;
+};
+
+export type GetPetByNameResponse = GetPetByNameResponses[keyof GetPetByNameResponses];
+
 export type GetPetListData = {
     body?: never;
     path?: never;
@@ -9861,6 +12518,10 @@ export type GetPetListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet/';
 };
@@ -9947,6 +12608,27 @@ export type GetPetGenderByIdResponses = {
 
 export type GetPetGenderByIdResponse = GetPetGenderByIdResponses[keyof GetPetGenderByIdResponses];
 
+export type GetPetGenderByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_gender/{name}';
+};
+
+export type GetPetGenderByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetGenderNamedData;
+};
+
+export type GetPetGenderByNameResponse = GetPetGenderByNameResponses[keyof GetPetGenderByNameResponses];
+
 export type GetPetGenderListData = {
     body?: never;
     path?: never;
@@ -9965,6 +12647,10 @@ export type GetPetGenderListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_gender/';
 };
@@ -9999,6 +12685,27 @@ export type GetPetVipbuffByIdResponses = {
 
 export type GetPetVipbuffByIdResponse = GetPetVipbuffByIdResponses[keyof GetPetVipbuffByIdResponses];
 
+export type GetPetVipbuffByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_vipbuff/{name}';
+};
+
+export type GetPetVipbuffByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetVipbuffNamedData;
+};
+
+export type GetPetVipbuffByNameResponse = GetPetVipbuffByNameResponses[keyof GetPetVipbuffByNameResponses];
+
 export type GetPetVipbuffListData = {
     body?: never;
     path?: never;
@@ -10017,6 +12724,10 @@ export type GetPetVipbuffListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_vipbuff/';
 };
@@ -10051,6 +12762,27 @@ export type GetPetMountTypeByIdResponses = {
 
 export type GetPetMountTypeByIdResponse = GetPetMountTypeByIdResponses[keyof GetPetMountTypeByIdResponses];
 
+export type GetPetMountTypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_mount_type/{name}';
+};
+
+export type GetPetMountTypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetMountTypeNamedData;
+};
+
+export type GetPetMountTypeByNameResponse = GetPetMountTypeByNameResponses[keyof GetPetMountTypeByNameResponses];
+
 export type GetPetMountTypeListData = {
     body?: never;
     path?: never;
@@ -10069,6 +12801,10 @@ export type GetPetMountTypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_mount_type/';
 };
@@ -10155,6 +12891,27 @@ export type GetPetSkinByIdResponses = {
 
 export type GetPetSkinByIdResponse = GetPetSkinByIdResponses[keyof GetPetSkinByIdResponses];
 
+export type GetPetSkinByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_skin/{name}';
+};
+
+export type GetPetSkinByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetSkinNamedData;
+};
+
+export type GetPetSkinByNameResponse = GetPetSkinByNameResponses[keyof GetPetSkinByNameResponses];
+
 export type GetPetSkinListData = {
     body?: never;
     path?: never;
@@ -10173,6 +12930,10 @@ export type GetPetSkinListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_skin/';
 };
@@ -10259,6 +13020,27 @@ export type GetPetSkinSeriesByIdResponses = {
 
 export type GetPetSkinSeriesByIdResponse = GetPetSkinSeriesByIdResponses[keyof GetPetSkinSeriesByIdResponses];
 
+export type GetPetSkinSeriesByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_skin_series/{name}';
+};
+
+export type GetPetSkinSeriesByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetSkinSeriesNamedData;
+};
+
+export type GetPetSkinSeriesByNameResponse = GetPetSkinSeriesByNameResponses[keyof GetPetSkinSeriesByNameResponses];
+
 export type GetPetSkinSeriesListData = {
     body?: never;
     path?: never;
@@ -10277,6 +13059,10 @@ export type GetPetSkinSeriesListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_skin_series/';
 };
@@ -10311,6 +13097,27 @@ export type GetPetSkinSeriesSubTypeByIdResponses = {
 
 export type GetPetSkinSeriesSubTypeByIdResponse = GetPetSkinSeriesSubTypeByIdResponses[keyof GetPetSkinSeriesSubTypeByIdResponses];
 
+export type GetPetSkinSeriesSubTypeByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_skin_series_sub_type/{name}';
+};
+
+export type GetPetSkinSeriesSubTypeByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetSkinSeriesSubTypeNamedData;
+};
+
+export type GetPetSkinSeriesSubTypeByNameResponse = GetPetSkinSeriesSubTypeByNameResponses[keyof GetPetSkinSeriesSubTypeByNameResponses];
+
 export type GetPetSkinSeriesSubTypeListData = {
     body?: never;
     path?: never;
@@ -10329,6 +13136,10 @@ export type GetPetSkinSeriesSubTypeListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_skin_series_sub_type/';
 };
@@ -10415,6 +13226,27 @@ export type GetPetArchiveStoryBookByIdResponses = {
 
 export type GetPetArchiveStoryBookByIdResponse = GetPetArchiveStoryBookByIdResponses[keyof GetPetArchiveStoryBookByIdResponses];
 
+export type GetPetArchiveStoryBookByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_archive_story_book/{name}';
+};
+
+export type GetPetArchiveStoryBookByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetArchiveStoryBookNamedData;
+};
+
+export type GetPetArchiveStoryBookByNameResponse = GetPetArchiveStoryBookByNameResponses[keyof GetPetArchiveStoryBookByNameResponses];
+
 export type GetPetArchiveStoryBookListData = {
     body?: never;
     path?: never;
@@ -10433,6 +13265,10 @@ export type GetPetArchiveStoryBookListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_archive_story_book/';
 };
@@ -10467,6 +13303,27 @@ export type GetPetEncyclopediaEntryByIdResponses = {
 
 export type GetPetEncyclopediaEntryByIdResponse = GetPetEncyclopediaEntryByIdResponses[keyof GetPetEncyclopediaEntryByIdResponses];
 
+export type GetPetEncyclopediaEntryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/pet_encyclopedia_entry/{name}';
+};
+
+export type GetPetEncyclopediaEntryByNameResponses = {
+    /**
+     * OK
+     */
+    200: PetEncyclopediaEntryNamedData;
+};
+
+export type GetPetEncyclopediaEntryByNameResponse = GetPetEncyclopediaEntryByNameResponses[keyof GetPetEncyclopediaEntryByNameResponses];
+
 export type GetPetEncyclopediaEntryListData = {
     body?: never;
     path?: never;
@@ -10485,6 +13342,10 @@ export type GetPetEncyclopediaEntryListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/pet_encyclopedia_entry/';
 };
@@ -10497,6 +13358,83 @@ export type GetPetEncyclopediaEntryListResponses = {
 };
 
 export type GetPetEncyclopediaEntryListResponse = GetPetEncyclopediaEntryListResponses[keyof GetPetEncyclopediaEntryListResponses];
+
+export type GetSignByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/sign/{id}';
+};
+
+export type GetSignByIdResponses = {
+    /**
+     * OK
+     */
+    200: Sign;
+};
+
+export type GetSignByIdResponse = GetSignByIdResponses[keyof GetSignByIdResponses];
+
+export type GetSignByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/sign/{name}';
+};
+
+export type GetSignByNameResponses = {
+    /**
+     * OK
+     */
+    200: SignNamedData;
+};
+
+export type GetSignByNameResponse = GetSignByNameResponses[keyof GetSignByNameResponses];
+
+export type GetSignListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/sign/';
+};
+
+export type GetSignListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SignList | SignListExpanded;
+};
+
+export type GetSignListResponse = GetSignListResponses[keyof GetSignListResponses];
 
 export type GetSkillByIdData = {
     body?: never;
@@ -10519,6 +13457,27 @@ export type GetSkillByIdResponses = {
 
 export type GetSkillByIdResponse = GetSkillByIdResponses[keyof GetSkillByIdResponses];
 
+export type GetSkillByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/skill/{name}';
+};
+
+export type GetSkillByNameResponses = {
+    /**
+     * OK
+     */
+    200: SkillNamedData;
+};
+
+export type GetSkillByNameResponse = GetSkillByNameResponses[keyof GetSkillByNameResponses];
+
 export type GetSkillListData = {
     body?: never;
     path?: never;
@@ -10537,6 +13496,10 @@ export type GetSkillListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/skill/';
 };
@@ -10675,6 +13638,27 @@ export type GetSkillHideEffectByIdResponses = {
 
 export type GetSkillHideEffectByIdResponse = GetSkillHideEffectByIdResponses[keyof GetSkillHideEffectByIdResponses];
 
+export type GetSkillHideEffectByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/skill_hide_effect/{name}';
+};
+
+export type GetSkillHideEffectByNameResponses = {
+    /**
+     * OK
+     */
+    200: SkillHideEffectNamedData;
+};
+
+export type GetSkillHideEffectByNameResponse = GetSkillHideEffectByNameResponses[keyof GetSkillHideEffectByNameResponses];
+
 export type GetSkillHideEffectListData = {
     body?: never;
     path?: never;
@@ -10693,6 +13677,10 @@ export type GetSkillHideEffectListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/skill_hide_effect/';
 };
@@ -10727,6 +13715,27 @@ export type GetSkillCategoryByIdResponses = {
 
 export type GetSkillCategoryByIdResponse = GetSkillCategoryByIdResponses[keyof GetSkillCategoryByIdResponses];
 
+export type GetSkillCategoryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/skill_category/{name}';
+};
+
+export type GetSkillCategoryByNameResponses = {
+    /**
+     * OK
+     */
+    200: SkillCategoryNamedData;
+};
+
+export type GetSkillCategoryByNameResponse = GetSkillCategoryByNameResponses[keyof GetSkillCategoryByNameResponses];
+
 export type GetSkillCategoryListData = {
     body?: never;
     path?: never;
@@ -10745,6 +13754,10 @@ export type GetSkillCategoryListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/skill_category/';
 };
@@ -10779,6 +13792,27 @@ export type GetSkillEffectTypeTagByIdResponses = {
 
 export type GetSkillEffectTypeTagByIdResponse = GetSkillEffectTypeTagByIdResponses[keyof GetSkillEffectTypeTagByIdResponses];
 
+export type GetSkillEffectTypeTagByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/skill_effect_type_tag/{name}';
+};
+
+export type GetSkillEffectTypeTagByNameResponses = {
+    /**
+     * OK
+     */
+    200: SkillEffectTypeTagNamedData;
+};
+
+export type GetSkillEffectTypeTagByNameResponse = GetSkillEffectTypeTagByNameResponses[keyof GetSkillEffectTypeTagByNameResponses];
+
 export type GetSkillEffectTypeTagListData = {
     body?: never;
     path?: never;
@@ -10797,6 +13831,10 @@ export type GetSkillEffectTypeTagListData = {
          * - `true`：返回完整资源对象
          */
         expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
     };
     url: 'v1/skill_effect_type_tag/';
 };

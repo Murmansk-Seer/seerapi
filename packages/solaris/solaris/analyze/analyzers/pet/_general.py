@@ -3,6 +3,7 @@ from collections import defaultdict
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, cast
 
+from solaris.analyze.analyzers.peak_cost import PeakCostAnalyzer
 from solaris.analyze.analyzers.peak_pool import PeakPoolAnalyzer
 from solaris.analyze.base import (
     BaseAnalyzer,
@@ -70,7 +71,7 @@ class BasePetAnalyzer(BaseDataSourcePostAnalyzer, ABC):
 
     @classmethod
     def get_input_analyzers(cls) -> tuple[type[BaseAnalyzer], ...]:
-        return (PeakPoolAnalyzer,)
+        return (PeakPoolAnalyzer, PeakCostAnalyzer)
 
     @cached_property
     def pet_origin_data(self) -> dict[int, dict[str, Any]]:

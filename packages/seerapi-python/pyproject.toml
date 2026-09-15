@@ -4,29 +4,29 @@ build-backend = "uv_build"
 
 [project]
 name = "seerapi"
-version = "106.6.0"
+version = "106.10.0"
 description = "SeerAPI Python Client"
 authors = [{ name = "Nattsu39", email = "Nattsu39@outlook.com" }]
 license = { file = "LICENSE" }
 keywords = ["seerapi", "client"]
 classifiers = [
-	"Operating System :: OS Independent",
-	"Intended Audience :: Developers",
-	"License :: OSI Approved :: MIT License",
-	"Programming Language :: Python :: 3.10",
-	"Programming Language :: Python :: 3.11",
-	"Programming Language :: Python :: 3.12",
-	"Programming Language :: Python :: 3.13",
-	"Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-	"click>=8.2.1",
-	"hishel[httpx]>=1.1.5",
-	"httpx>=0.28.1",
-	"seerapi-models>=106.6.0,<107.0.0",
-	"typing-extensions>=4.15.0",
+    "click>=8.2.1",
+    "hishel[httpx]>=1.1.5",
+    "httpx>=0.28.1",
+    "seerapi-models>=106.10.0,<107.0.0",
+    "typing-extensions>=4.15.0",
 ]
 
 [project.scripts]

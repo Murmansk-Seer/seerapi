@@ -1,82 +1,21 @@
 name: Sync Upstream
-
-on:
+'on':
   schedule:
-    - cron: "30 19 * * *"
+  - cron: 46 * * * *
   workflow_dispatch:
-
+    inputs:
+      dry_run:
+        description: Compare without pushing
+        type: boolean
+        default: false
+permissions:
+  contents: write
 concurrency:
   group: sync-upstream-${{ github.repository }}
   cancel-in-progress: false
-
 jobs:
   sync:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout fork
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: main
-
-      - name: Merge conflict-free upstream changes
-        id: merge
-        run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote add upstream https://github.com/SeerAPI/seerapi.git || git remote set-url upstream https://github.com/SeerAPI/seerapi.git
-          git fetch upstream main
-
-          if git merge-base --is-ancestor upstream/main HEAD; then
-            echo "Upstream main is already included."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if ! git merge --no-ff --no-commit upstream/main; then
-            conflicts="$(git diff --name-only --diff-filter=U)"
-            {
-              echo "## Upstream sync stopped"
-              echo
-              echo "The upstream changes conflict with fork-specific code."
-              echo "No files were pushed. Resolve these paths manually:"
-              echo '```text'
-              printf '%s\n' "$conflicts"
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-            git merge --abort
-            exit 1
-          fi
-
-          git commit -m "Sync upstream seerapi 同步上游 SeerAPI"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Install uv
-        if: steps.merge.outputs.changed == 'true'
-        uses: astral-sh/setup-uv@v7
-        with:
-          version: "latest"
-
-      - name: Set up Python
-        if: steps.merge.outputs.changed == 'true'
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        if: steps.merge.outputs.changed == 'true'
-        run: uv sync --all-packages
-
-      - name: Validate merged code
-        if: steps.merge.outputs.changed == 'true'
-        run: |
-          uv run pytest -q
-          uv run pytest packages/seerapi-models/tests packages/seerapi-python/tests packages/solaris/tests -q
-          uv run ruff check .
-          uv run ruff format --check packages/seerapi-models packages/seerapi-python packages/solaris
-
-      - name: Push verified merge
-        if: steps.merge.outputs.changed == 'true'
-        run: git push origin HEAD:main
+    uses: Murmansk-Seer/.github/.github/workflows/sync-identical-reusable.yml@af9f847cc3716ff424670557e232f5b18fc6ccd3
+    with:
+      implementation_ref: af9f847cc3716ff424670557e232f5b18fc6ccd3
+      dry_run: ${{ inputs.dry_run == true }}

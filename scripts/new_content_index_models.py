@@ -39,14 +39,19 @@ PET_SKILL_RELATION_FIELDS = (
     'is_advanced',
     'is_fifth',
 )
-SEMANTIC_SCHEMA_VERSION = 4
+SEMANTIC_SCHEMA_VERSION = 6
 SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
     2: frozenset({'pet', 'skill', 'equip', 'mount'}),
     3: frozenset({'mintmark'}),
+    4: frozenset({'equip', 'mount'}),
 }
 SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
     2: frozenset({'pet', 'equip', 'mount'}),
     3: frozenset({'mintmark'}),
+    4: frozenset({'equip', 'mount'}),
+}
+SEMANTIC_MIGRATION_SUPPRESS_MODIFIED_BY_VERSION: dict[int, frozenset[str]] = {
+    4: frozenset({'equip', 'mount'}),
 }
 CONTENT_CATEGORIES = (
     'achievement',
@@ -97,8 +102,8 @@ class ContentItem:
         return json.dumps(self.payload, ensure_ascii=False, sort_keys=True)
 
     @property
-    def semantic_key(self) -> str:
-        """Return a stable fallback for an upstream item whose numeric ID changed."""
+    def semantic_payload(self) -> dict[str, Any]:
+        """Return the payload fields that define the item's business meaning."""
         payload = dict(self.payload)
         if self.category == 'pet_skin':
             payload = {
@@ -125,8 +130,17 @@ class ContentItem:
             payload.pop('pets', None)
         elif self.category == 'mintmark':
             payload.pop('rarity_id', None)
+        return payload
+
+    @property
+    def semantic_key(self) -> str:
+        """Return a stable fallback for an upstream item whose numeric ID changed."""
         return json.dumps(
-            {'category': self.category, 'name': self.name, 'payload': payload},
+            {
+                'category': self.category,
+                'name': self.name,
+                'payload': self.semantic_payload,
+            },
             ensure_ascii=False,
             sort_keys=True,
         )
@@ -150,6 +164,7 @@ class ReleaseState:
     source_categories: frozenset[str] = field(default_factory=frozenset)
     category_states: tuple[CategoryState, ...] = field(default_factory=tuple)
     semantic_schema_version: int = SEMANTIC_SCHEMA_VERSION
+    raw_items: tuple[ContentItem, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -193,6 +208,20 @@ def semantic_migration_prune_categories(previous_version: int) -> frozenset[str]
         *(
             categories
             for version, categories in SEMANTIC_MIGRATION_PRUNE_CATEGORIES_BY_VERSION.items()
+            if previous_version < version <= SEMANTIC_SCHEMA_VERSION
+        )
+    )
+
+
+def semantic_migration_suppress_modified_categories(
+    previous_version: int,
+) -> frozenset[str]:
+    return frozenset().union(
+        *(
+            categories
+            for version, categories in (
+                SEMANTIC_MIGRATION_SUPPRESS_MODIFIED_BY_VERSION.items()
+            )
             if previous_version < version <= SEMANTIC_SCHEMA_VERSION
         )
     )

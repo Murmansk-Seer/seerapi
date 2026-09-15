@@ -386,6 +386,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
         comment: APIComment,
         *,
         resource_name: str,
+        is_named_resource: bool = False,
         schema: JSONObject,
         expanded_schema: JSONObject | None = None,
     ) -> None:
@@ -434,13 +435,16 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                 expanded_schema_ref = self._list_expanded_ref_str(resource_name)
                 title = f'{comment.name_cn}资源列表'
                 operation_id = f'get_{resource_name}_list'
+                parameters: list[Reference | Parameter] = [
+                    builder.create_ref(Parameter, name='offset'),
+                    builder.create_ref(Parameter, name='limit'),
+                    builder.create_ref(Parameter, name='expand'),
+                ]
+                if is_named_resource:
+                    parameters.append(builder.create_ref(Parameter, name='name_query'))
                 path_item = PathItem(
                     get=Operation(
-                        parameters=[
-                            builder.create_ref(Parameter, name='offset'),
-                            builder.create_ref(Parameter, name='limit'),
-                            builder.create_ref(Parameter, name='expand'),
-                        ],
+                        parameters=parameters,
                         responses=builder.create_paginated_responses(
                             schema_ref, expanded_schema_ref
                         ),
@@ -487,15 +491,17 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                 res_model, schema_generator=self.shrink_generator
             )
             schema = self._merge_hash_partial_schema(schema)
+            is_named_resource = output_named_data and is_named_model(res_model)
             self._add_path_to_openapi(
                 'id',
                 comment,
                 resource_name=resource_name,
+                is_named_resource=is_named_resource,
                 schema=schema,
             )
 
             # 生成名称映射 schema
-            if output_named_data and is_named_model(res_model):
+            if is_named_resource:
                 named_schema = _generate_named_data_oas_schema(
                     build_ref_string(Schema, name=resource_name),
                 )
@@ -504,6 +510,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                     'name',
                     comment,
                     resource_name=resource_name,
+                    is_named_resource=is_named_resource,
                     schema=named_schema,
                 )
 
@@ -514,6 +521,7 @@ class OpenAPISchemaOutputter(SchemaOutputterProtocol):
                 'paginated',
                 comment,
                 resource_name=resource_name,
+                is_named_resource=is_named_resource,
                 schema=cast(JSONObject, api_resource_list_schema),
                 expanded_schema=cast(JSONObject, expanded_list_schema),
             )
