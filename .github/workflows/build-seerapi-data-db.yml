@@ -11,6 +11,7 @@ on:
     paths:
       - "scripts/build_seerapi_data_db.py"
       - "scripts/build_new_content_index.py"
+      - "scripts/release_*.py"
       - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
       - "scripts/finalize_render_asset_manifest.py"
