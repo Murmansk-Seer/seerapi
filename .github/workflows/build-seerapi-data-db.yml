@@ -78,7 +78,14 @@ jobs:
           FLASH_MOUNT_ASSET_BASE_URL: https://seer.61.com/resource/item/cloth/swf
         run: |
           set -euo pipefail
-          curl_retry=(curl -fsSL --retry 5 --retry-all-errors --retry-delay 3)
+          curl_retry=(
+            curl -fsSL
+            --connect-timeout 15
+            --max-time 120
+            --retry 5
+            --retry-all-errors
+            --retry-delay 3
+          )
           remote_sha="$(
             "${curl_retry[@]}" https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite.sha256 \
               | awk '{print $1}'
