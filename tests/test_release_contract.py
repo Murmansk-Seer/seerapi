@@ -57,7 +57,9 @@ def _create_release(path: Path, *, omit: str | None = None) -> None:
         connection.commit()
 
 
-def test_final_release_contract_publishes_complete_table_manifest(tmp_path: Path) -> None:
+def test_final_release_contract_publishes_complete_table_manifest(
+    tmp_path: Path,
+) -> None:
     database = tmp_path / 'release.sqlite'
     _create_release(database)
 
@@ -66,8 +68,7 @@ def test_final_release_contract_publishes_complete_table_manifest(tmp_path: Path
     with sqlite3.connect(database) as connection:
         metadata = dict(
             connection.execute(
-                'SELECT key, value FROM seerapi_metadata '
-                'WHERE key IN (?, ?)',
+                'SELECT key, value FROM seerapi_metadata WHERE key IN (?, ?)',
                 (SCHEMA_TABLES_KEY, SCHEMA_FINGERPRINT_KEY),
             )
         )
