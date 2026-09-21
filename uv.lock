@@ -1758,7 +1758,7 @@ requires-dist = [
 
 [[package]]
 name = "seerapi-models"
-version = "106.10.0"
+version = "106.10.1"
 source = { editable = "packages/seerapi-models" }
 dependencies = [
     { name = "pydantic" },
