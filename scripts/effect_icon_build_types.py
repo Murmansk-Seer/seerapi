@@ -11,7 +11,11 @@ from typing import Protocol
 class UnityBundleDescriptor(Protocol):
     """The narrow bundle fact required by effect-icon source selection."""
 
-    file_size: int
+    @property
+    def file_size(self) -> int: ...
+
+    @property
+    def file_hash(self) -> str: ...
 
 
 @dataclass(frozen=True, slots=True)

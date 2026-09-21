@@ -7,37 +7,56 @@ from collections.abc import Iterable
 import sqlite3
 from typing import Protocol
 
-ITEM_EXCHANGE_PRICE_TABLE = "item_exchange_price"
-EFFECT_DESCRIPTION_TABLE = "effect_description"
-SPECIAL_EFFECT_STATUS_TABLE = "special_effect_status"
+ITEM_EXCHANGE_PRICE_TABLE = 'item_exchange_price'
+EFFECT_DESCRIPTION_TABLE = 'effect_description'
+SPECIAL_EFFECT_STATUS_TABLE = 'special_effect_status'
 
 
 class ItemExchangePriceRecord(Protocol):
-    source_key: str
-    source_name: str
-    source_entry_id: int
-    item_id: int
-    item_name: str
-    item_quantity: int
-    currency_item_id: int
-    currency_name: str
-    amount: int
-    purchase_limit: int | None
-    start_time: int
-    end_time: int
+    @property
+    def source_key(self) -> str: ...
+    @property
+    def source_name(self) -> str: ...
+    @property
+    def source_entry_id(self) -> int: ...
+    @property
+    def item_id(self) -> int: ...
+    @property
+    def item_name(self) -> str: ...
+    @property
+    def item_quantity(self) -> int: ...
+    @property
+    def currency_item_id(self) -> int: ...
+    @property
+    def currency_name(self) -> str: ...
+    @property
+    def amount(self) -> int: ...
+    @property
+    def purchase_limit(self) -> int | None: ...
+    @property
+    def start_time(self) -> int: ...
+    @property
+    def end_time(self) -> int: ...
 
 
 class EffectDescriptionRecord(Protocol):
-    effect_id: int
-    name: str
-    description: str
+    @property
+    def effect_id(self) -> int: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def description(self) -> str: ...
 
 
 class SpecialEffectStatusRecord(Protocol):
-    status_id: int
-    name: str
-    description: str
-    show_monster_id: int
+    @property
+    def status_id(self) -> int: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def description(self) -> str: ...
+    @property
+    def show_monster_id(self) -> int: ...
 
 
 def replace_reference_tables(
@@ -49,7 +68,7 @@ def replace_reference_tables(
     now: float,
 ) -> None:
     """Replace parsed official shop and special-effect reference tables."""
-    conn.execute(f"DROP TABLE IF EXISTS {ITEM_EXCHANGE_PRICE_TABLE}")
+    conn.execute(f'DROP TABLE IF EXISTS {ITEM_EXCHANGE_PRICE_TABLE}')
     conn.execute(
         f"""
         CREATE TABLE {ITEM_EXCHANGE_PRICE_TABLE} (
@@ -105,7 +124,7 @@ def replace_reference_tables(
         ON {ITEM_EXCHANGE_PRICE_TABLE} (item_id)
         """
     )
-    conn.execute(f"DROP TABLE IF EXISTS {EFFECT_DESCRIPTION_TABLE}")
+    conn.execute(f'DROP TABLE IF EXISTS {EFFECT_DESCRIPTION_TABLE}')
     conn.execute(
         f"""
         CREATE TABLE {EFFECT_DESCRIPTION_TABLE} (
@@ -133,7 +152,7 @@ def replace_reference_tables(
         ON {EFFECT_DESCRIPTION_TABLE} (name)
         """
     )
-    conn.execute(f"DROP TABLE IF EXISTS {SPECIAL_EFFECT_STATUS_TABLE}")
+    conn.execute(f'DROP TABLE IF EXISTS {SPECIAL_EFFECT_STATUS_TABLE}')
     conn.execute(
         f"""
         CREATE TABLE {SPECIAL_EFFECT_STATUS_TABLE} (

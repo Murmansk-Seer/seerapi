@@ -8,6 +8,11 @@ import json
 import logging
 import sqlite3
 
+if __package__:
+    from .json_value_helpers import as_int
+else:
+    from json_value_helpers import as_int
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +68,4 @@ def collect_autocard_asset_requests(
 
 
 def _positive_int(value: object) -> int:
-    try:
-        return max(0, int(value))
-    except (TypeError, ValueError):
-        return 0
+    return max(0, as_int(value))

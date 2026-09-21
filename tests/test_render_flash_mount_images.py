@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from email.message import Message
 import importlib.util
 import json
 from pathlib import Path
@@ -201,7 +202,7 @@ def test_renderer_preflight_skips_ffdec_when_all_swfs_are_missing(monkeypatch) -
 
     def missing(url: str) -> bytes:
         requested.append(url)
-        raise HTTPError(url, 404, 'Not Found', None, None)
+        raise HTTPError(url, 404, 'Not Found', Message(), None)
 
     monkeypatch.setattr(renderer, '_download_swf', missing)
 
@@ -216,7 +217,7 @@ def test_renderer_preflight_stops_after_finding_an_available_swf(monkeypatch) ->
     def download(url: str) -> bytes:
         requested.append(url)
         if url.endswith('/7.swf'):
-            raise HTTPError(url, 404, 'Not Found', None, None)
+            raise HTTPError(url, 404, 'Not Found', Message(), None)
         return b'CWS-mount'
 
     monkeypatch.setattr(renderer, '_download_swf', download)

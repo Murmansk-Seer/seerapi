@@ -1,4 +1,6 @@
+from collections.abc import Sequence
 from dataclasses import replace
+from email.message import Message
 import importlib.util
 import io
 import json
@@ -7,9 +9,9 @@ import sqlite3
 import struct
 import sys
 from threading import Event
-from types import SimpleNamespace
 from typing import Any
 from urllib.error import HTTPError
+from urllib.request import Request
 
 from PIL import Image
 import pytest
@@ -75,6 +77,13 @@ def _seed_effect_icon_cache(database_path: Path) -> int:
     )
 
 
+def _capture_exported_icon_ids(
+    captured: dict[str, list[int]], icon_ids: Sequence[int]
+) -> int:
+    captured['icon_ids'] = list(icon_ids)
+    return 2
+
+
 def test_published_schema_contract_metadata_is_explicit() -> None:
     assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION == '2'
     assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION_KEY == (
@@ -95,10 +104,12 @@ def _isolate_effect_icon_png_cache(monkeypatch, tmp_path) -> None:
 
 
 def test_release_config_table_writer_replaces_all_config_package_tables() -> None:
-    config_data = SimpleNamespace(
+    config_data = release_build_types.ConfigPackageData(
+        version='test',
+        bundle_url='https://example.invalid/config',
         mintmark_quality={8: 6},
         skin_store_prices=[
-            SimpleNamespace(
+            config_package_sources.SkinStorePrice(
                 skin_id=538,
                 pool_id=1,
                 price=50,
@@ -112,7 +123,7 @@ def test_release_config_table_writer_replaces_all_config_package_tables() -> Non
             )
         ],
         skin_shop_prices=[
-            SimpleNamespace(
+            config_package_sources.SkinShopPrice(
                 skin_id=539,
                 resource_id=1400539,
                 card_price=20,
@@ -121,8 +132,10 @@ def test_release_config_table_writer_replaces_all_config_package_tables() -> Non
             )
         ],
         skin_item_tips={1720001: '测试道具'},
+        soulmark_icons=[],
+        autocard_season_effects=[],
     )
-    resolution = SimpleNamespace(
+    resolution = skin_image_resolution.SkinImageResolution(
         skin_id=538,
         head_resource_id=3382,
         body_resource_id=1400538,
@@ -156,7 +169,7 @@ def test_release_config_table_writer_replaces_all_config_package_tables() -> Non
 
 
 def test_release_reference_table_writer_replaces_official_reference_tables() -> None:
-    price = SimpleNamespace(
+    price = item_exchange_sources.ItemExchangePrice(
         source_key='battlepass_shop',
         source_name='战令商店',
         source_entry_id=1,
@@ -170,8 +183,10 @@ def test_release_reference_table_writer_replaces_official_reference_tables() -> 
         start_time=0,
         end_time=0,
     )
-    effect = SimpleNamespace(effect_id=544, name='冥妖之悼', description='效果说明')
-    status = SimpleNamespace(
+    effect = effect_metadata_sources.EffectDescription(
+        effect_id=544, name='冥妖之悼', description='效果说明'
+    )
+    status = effect_metadata_sources.SpecialEffectStatus(
         status_id=147,
         name='旧日之晷',
         description='状态说明',
@@ -286,25 +301,20 @@ def test_effect_icon_source_paths_use_resolved_build_config() -> None:
 def test_flash_effect_icon_adapter_accepts_ranged_swf_when_head_is_not_supported() -> (
     None
 ):
-    class Headers:
-        def get_content_type(self) -> str:
-            return 'application/octet-stream'
-
-        def get(self, key: str) -> str | None:
-            return '16' if key == 'Content-Length' else None
-
     class Response:
         status = 206
-        headers = Headers()
+        headers = Message()
+        headers['Content-Type'] = 'application/octet-stream'
+        headers['Content-Length'] = '16'
 
-        def __enter__(self) -> object:
+        def __enter__(self) -> effect_icon_flash_sources.UrlResponse:
             return self
 
         def __exit__(self, *_args: object) -> None:
             return None
 
-        def read(self, _size: int = -1) -> bytes:
-            return b'FWS\x09' if _size >= 0 else b'FWS\x09payload'
+        def read(self, amount: int = -1) -> bytes:
+            return b'FWS\x09' if amount >= 0 else b'FWS\x09payload'
 
     requests: list[tuple[str, str, dict[str, str] | None]] = []
 
@@ -313,9 +323,9 @@ def test_flash_effect_icon_adapter_accepts_ranged_swf_when_head_is_not_supported
         *,
         method: str,
         headers: dict[str, str] | None = None,
-    ) -> tuple[str, str, dict[str, str] | None]:
+    ) -> Request:
         requests.append((url, method, headers))
-        return url, method, headers
+        return Request(url, method=method, headers=headers or {})
 
     check = effect_icon_flash_sources.verify_effect_icon_asset(
         77,
@@ -1766,8 +1776,8 @@ def test_render_effect_icon_cache_shard_consumes_planned_id_snapshot(
                 logger=builder.logger,
                 require_any=False,
             )[1],
-            export_cache=lambda icon_ids, _output_dir: (
-                captured.setdefault('icon_ids', list(icon_ids)) and 2
+            export_cache=lambda icon_ids, _output_dir: _capture_exported_icon_ids(
+                captured, icon_ids
             ),
             logger=builder.logger,
         )
@@ -2542,13 +2552,13 @@ def test_mount_manifest_uses_unity_icon_before_generated_asset() -> None:
             INSERT INTO equip VALUES (1300081, 6);
             """
         )
+        resolved_requests = requests(
+            connection,
+            config=builder.RENDER_ASSET_MANIFEST_CONFIG,
+        )
+        assert resolved_requests is not None
         mount_request = next(
-            request
-            for request in requests(
-                connection,
-                config=builder.RENDER_ASSET_MANIFEST_CONFIG,
-            )
-            if request.asset_kind == 'mount'
+            request for request in resolved_requests if request.asset_kind == 'mount'
         )
 
     entries, complete = render_asset_manifest_build._resolve_requests(
@@ -2642,7 +2652,9 @@ def test_render_asset_repository_snapshot_uses_git_when_rest_fails(
 
     snapshot = render_asset_repository.load_asset_repository_snapshot(
         repository,
-        lambda _url: (_ for _ in ()).throw(HTTPError('url', 403, 'rate', {}, None)),
+        lambda _url: (_ for _ in ()).throw(
+            HTTPError('url', 403, 'rate', Message(), None)
+        ),
         logger=builder.logger,
     )
 
@@ -3010,8 +3022,10 @@ def test_render_effect_icon_png_preserves_exported_canvas_and_alpha(
     )
 
     assert render.available is True
-    assert render.data == png_data
-    with Image.open(io.BytesIO(render.data)) as image:
+    render_data = render.data
+    assert isinstance(render_data, bytes)
+    assert render_data == png_data
+    with Image.open(io.BytesIO(render_data)) as image:
         assert image.size == (9, 7)
         assert image.convert('RGBA').getpixel((8, 6)) == (255, 100, 0, 80)
 

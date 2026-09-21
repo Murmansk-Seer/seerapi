@@ -5,7 +5,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import AbstractContextManager
+from email.message import Message
 import logging
+from typing import Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
@@ -23,7 +26,16 @@ else:
 
 
 BuildRequest = Callable[..., Request]
-OpenUrl = Callable[..., object]
+
+
+class UrlResponse(Protocol):
+    status: int
+    headers: Message[str, str]
+
+    def read(self, amount: int = -1) -> bytes: ...
+
+
+OpenUrl = Callable[..., AbstractContextManager[UrlResponse]]
 
 
 def _parse_content_length(value: str | None) -> int | None:
@@ -36,15 +48,15 @@ def _parse_content_length(value: str | None) -> int | None:
 
 
 def _short_error(error: Exception | str) -> str:
-    return str(error).replace("\n", " ")[:200]
+    return str(error).replace('\n', ' ')[:200]
 
 
-def is_effect_icon_asset_content(content_type: str, header: bytes = b"") -> bool:
-    normalized = content_type.lower().split(";", maxsplit=1)[0]
+def is_effect_icon_asset_content(content_type: str, header: bytes = b'') -> bool:
+    normalized = content_type.lower().split(';', maxsplit=1)[0]
     return normalized in {
-        "application/x-shockwave-flash",
-        "application/vnd.adobe.flash.movie",
-    } or header.startswith((b"CWS", b"FWS", b"ZWS"))
+        'application/x-shockwave-flash',
+        'application/vnd.adobe.flash.movie',
+    } or header.startswith((b'CWS', b'FWS', b'ZWS'))
 
 
 def _probe_effect_icon_asset_range(
@@ -54,21 +66,26 @@ def _probe_effect_icon_asset_range(
     config: EffectIconBuildConfig,
     request: BuildRequest,
     open_url: OpenUrl,
-    prior_error: str = "",
+    prior_error: str = '',
 ) -> EffectIconAssetCheck:
     try:
-        range_request = request(url, method="GET", headers={"Range": "bytes=0-15"})
+        range_request = request(url, method='GET', headers={'Range': 'bytes=0-15'})
         with open_url(
             range_request, timeout=config.asset_verify_timeout_seconds
         ) as response:
             content_type = response.headers.get_content_type()
-            content_length = _parse_content_length(response.headers.get("Content-Length"))
+            content_length = _parse_content_length(
+                response.headers.get('Content-Length')
+            )
             header = response.read(16)
             available = response.status in (200, 206) and is_effect_icon_asset_content(
                 content_type, header
             )
-            error = "" if available else prior_error or (
-                f"unexpected ranged response: {response.status} {content_type}"
+            error = (
+                ''
+                if available
+                else prior_error
+                or (f'unexpected ranged response: {response.status} {content_type}')
             )
             return EffectIconAssetCheck(
                 icon_id=icon_id,
@@ -86,8 +103,8 @@ def _probe_effect_icon_asset_range(
             available=False,
             status=error.code,
             content_type=error.headers.get_content_type(),
-            content_length=_parse_content_length(error.headers.get("Content-Length")),
-            error="" if error.code == 404 else _short_error(error),
+            content_length=_parse_content_length(error.headers.get('Content-Length')),
+            error='' if error.code == 404 else _short_error(error),
         )
     except (URLError, TimeoutError, OSError) as error:
         return EffectIconAssetCheck(
@@ -95,7 +112,7 @@ def _probe_effect_icon_asset_range(
             url=url,
             available=False,
             status=0,
-            content_type="",
+            content_type='',
             content_length=None,
             error=prior_error or _short_error(error),
         )
@@ -111,10 +128,12 @@ def verify_effect_icon_asset(
     url = effect_icon_asset_url(icon_id, config=config)
     try:
         with open_url(
-            request(url, method="HEAD"), timeout=config.asset_verify_timeout_seconds
+            request(url, method='HEAD'), timeout=config.asset_verify_timeout_seconds
         ) as response:
             content_type = response.headers.get_content_type()
-            content_length = _parse_content_length(response.headers.get("Content-Length"))
+            content_length = _parse_content_length(
+                response.headers.get('Content-Length')
+            )
             available = (
                 response.status == 200
                 and (content_length is None or content_length > 0)
@@ -128,7 +147,7 @@ def verify_effect_icon_asset(
                     status=response.status,
                     content_type=content_type,
                     content_length=content_length,
-                    error="",
+                    error='',
                 )
             return _probe_effect_icon_asset_range(
                 icon_id,
@@ -136,7 +155,7 @@ def verify_effect_icon_asset(
                 config=config,
                 request=request,
                 open_url=open_url,
-                prior_error=f"unexpected HEAD response: {response.status} {content_type}",
+                prior_error=f'unexpected HEAD response: {response.status} {content_type}',
             )
     except HTTPError as error:
         if error.code in {403, 405, 501}:
@@ -154,8 +173,8 @@ def verify_effect_icon_asset(
             available=False,
             status=error.code,
             content_type=error.headers.get_content_type(),
-            content_length=_parse_content_length(error.headers.get("Content-Length")),
-            error="" if error.code == 404 else _short_error(error),
+            content_length=_parse_content_length(error.headers.get('Content-Length')),
+            error='' if error.code == 404 else _short_error(error),
         )
     except (URLError, TimeoutError, OSError) as error:
         return _probe_effect_icon_asset_range(
@@ -179,7 +198,9 @@ def verify_effect_icon_assets(
 ) -> dict[int, EffectIconAssetCheck]:
     if not icon_ids:
         return {}
-    logger.info("Validating official effect icon assets: %s unique icons", len(icon_ids))
+    logger.info(
+        'Validating official effect icon assets: %s unique icons', len(icon_ids)
+    )
     checks: dict[int, EffectIconAssetCheck] = {}
     worker_count = min(config.asset_verify_workers, len(icon_ids))
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -203,20 +224,20 @@ def verify_effect_icon_assets(
                     url=effect_icon_asset_url(icon_id, config=config),
                     available=False,
                     status=0,
-                    content_type="",
+                    content_type='',
                     content_length=None,
                     error=_short_error(error),
                 )
     available_count = sum(check.available for check in checks.values())
     missing_checks = [check for check in checks.values() if not check.available]
     if available_count == 0 and require_any:
-        raise ValueError("No official effect icon assets could be verified")
+        raise ValueError('No official effect icon assets could be verified')
     if missing_checks:
         logger.warning(
-            "Effect icon asset validation missing %s/%s icons; first missing: %s",
+            'Effect icon asset validation missing %s/%s icons; first missing: %s',
             len(missing_checks),
             len(checks),
-            ", ".join(str(check.icon_id) for check in missing_checks[:10]),
+            ', '.join(str(check.icon_id) for check in missing_checks[:10]),
         )
     return checks
 
@@ -229,12 +250,14 @@ def download_effect_icon_asset(
     open_url: OpenUrl,
 ) -> bytes:
     with open_url(
-        request(check.url, method="GET"), timeout=config.asset_verify_timeout_seconds
+        request(check.url, method='GET'), timeout=config.asset_verify_timeout_seconds
     ) as response:
         content_type = response.headers.get_content_type()
         data = response.read()
         if response.status != 200 or not is_effect_icon_asset_content(
             content_type, data[:16]
         ):
-            raise ValueError(f"unexpected SWF response: {response.status} {content_type}")
+            raise ValueError(
+                f'unexpected SWF response: {response.status} {content_type}'
+            )
         return data
