@@ -1,6 +1,7 @@
 import json
+from pathlib import Path
 
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 import httpx
 import pytest
 
@@ -84,7 +85,7 @@ def _invoke(
     runner: CliRunner,
     args: list[str],
     transport: httpx.MockTransport,
-) -> object:
+) -> Result:
     ctx = CliContext(transport=transport)
     return runner.invoke(cli_main, args, obj=ctx)
 
@@ -320,7 +321,7 @@ def test_skill_install_requires_target(runner: CliRunner) -> None:
     assert result.exit_code != 0
 
 
-def test_skill_install(runner: CliRunner, tmp_path) -> None:
+def test_skill_install(runner: CliRunner, tmp_path: Path) -> None:
     target = tmp_path / 'agent-skills'
     result = runner.invoke(
         cli_main,
@@ -333,7 +334,7 @@ def test_skill_install(runner: CliRunner, tmp_path) -> None:
     assert (target / 'seerapi-cli' / 'examples.md').is_file()
 
 
-def test_skill_install_to_final_dir(runner: CliRunner, tmp_path) -> None:
+def test_skill_install_to_final_dir(runner: CliRunner, tmp_path: Path) -> None:
     target = tmp_path / 'agent-skills' / 'seerapi-cli'
     result = runner.invoke(
         cli_main,
