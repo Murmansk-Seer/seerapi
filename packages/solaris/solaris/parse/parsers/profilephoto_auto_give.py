@@ -16,5 +16,6 @@ class ProfilephotoAutoGiveParser(BaseParser[ProfilephotoAutoGiveConfig]):
     def parsed_config_filename(cls) -> str:
         return 'profilephotoAutoGive.json'
 
-    def parse(self, _data: bytes) -> ProfilephotoAutoGiveConfig:
+    def parse(self, data: bytes) -> ProfilephotoAutoGiveConfig:
+        del data
         return {}

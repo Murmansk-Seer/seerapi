@@ -86,7 +86,7 @@ class SpHideMovesBisaifuParser(BaseParser[SpHideMovesBisaifuConfig]):
                 movesname = reader.ReadUTFBytesWithLength()
                 movetype = reader.ReadSignedInt()
 
-                sp_item: SpMovesItem = {
+                hidden_sp_item: SpMovesItem = {
                     'id': sid,
                     'item': item,
                     'itemname': itemname,
@@ -96,6 +96,6 @@ class SpHideMovesBisaifuParser(BaseParser[SpHideMovesBisaifuConfig]):
                     'movesname': movesname,
                     'movetype': movetype,
                 }
-                result['config']['sp_moves'].append(sp_item)
+                result['config']['sp_moves'].append(hidden_sp_item)
 
         return result

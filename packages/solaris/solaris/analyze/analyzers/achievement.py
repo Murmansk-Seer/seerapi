@@ -88,7 +88,7 @@ CATEGORY_NAME_MAP: CsvTable[dict] = {
 
 
 CATEGORY_ID_MAP: dict[CatNameEnum, int] = {
-    enum.value: id_ for id_, enum in enumerate(CatNameEnum)
+    enum: id_ for id_, enum in enumerate(CatNameEnum)
 }
 
 
@@ -210,8 +210,6 @@ class AchievementAnalyzer(BaseDataSourceAnalyzer):
                 prev_model.next_level_achievement = next_ref
                 next_model.prev_level_achievement = prev_ref
 
-        for category in category_map.values():
-            category.name = category.name.value
         return (
             AnalyzeResult(Achievement, achievement_map),
             AnalyzeResult(AchievementBranch, achievement_branch_map),

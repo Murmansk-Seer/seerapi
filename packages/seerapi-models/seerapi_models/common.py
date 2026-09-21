@@ -1,3 +1,4 @@
+from abc import ABC
 from collections.abc import Iterable
 import inspect
 from typing import (
@@ -284,7 +285,7 @@ class EidEffectInUseORM(EidEffectInUseBase, table=True):
 AttrValue = Annotated[int | float, WithJsonSchema({'type': 'number'})]
 
 
-class SixAttributesBase(BaseResModelWithOptionalId, BaseGeneralModel):
+class SixAttributesBase(BaseResModelWithOptionalId, BaseGeneralModel, ABC):
     """六维属性类"""
 
     atk: AttrValue = Field(sa_type=Numeric, description='攻击')
@@ -438,7 +439,7 @@ class SixAttributes(SixAttributesBase, BaseGeneralModel):
         )
 
 
-class SixAttributesORMBase(SixAttributesBase):
+class SixAttributesORMBase(SixAttributesBase, ABC):
     model_config = ConfigDict(ignored_types=(declared_attr,))  # type: ignore
 
     @declared_attr
