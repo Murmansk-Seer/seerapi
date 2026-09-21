@@ -1,5 +1,3 @@
-import pytest
-
 from seerapi_models.common import ResourceRef
 from seerapi_models.element_type import TypeCombination
 from seerapi_models.items import (
@@ -10,9 +8,6 @@ from seerapi_models.items import (
 )
 
 
-@pytest.mark.filterwarnings(
-    "ignore:relationship 'SkillORM.friend_skill_effect'.*:sqlalchemy.exc.SAWarning"
-)
 def test_skill_stone_orm_preserves_unity_name_and_unknown_probability() -> None:
     category = SkillStoneCategory(
         id=5,

@@ -332,7 +332,7 @@ class SkillORM(SkillBase, table=True):
         back_populates='skill', link_model=SkillEffectLink
     )
     friend_skill_effect: list[SkillEffectInUseORM] = Relationship(
-        back_populates='skill', link_model=SkillFriendSkillEffectLink
+        back_populates='friend_skill', link_model=SkillFriendSkillEffectLink
     )
     hide_effect_id: int | None = Field(default=None, foreign_key='skill_hide_effect.id')
     hide_effect: SkillHideEffectORM | None = Relationship(back_populates='skill')
