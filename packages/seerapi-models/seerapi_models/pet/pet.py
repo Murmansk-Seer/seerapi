@@ -1,3 +1,4 @@
+from abc import ABC
 from typing import TYPE_CHECKING, Optional, cast
 
 from pydantic import BaseModel
@@ -441,7 +442,7 @@ class PetClassORM(PetClassBase, table=True):
     evolution_chain: list['PetORM'] = Relationship(back_populates='pet_class')
 
 
-class PetCategoryBase(BaseCategoryModel):
+class PetCategoryBase(BaseCategoryModel, ABC):
     name: str = Field(description='名称')
     description: str = Field(description='描述')
 

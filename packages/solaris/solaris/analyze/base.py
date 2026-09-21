@@ -3,7 +3,7 @@ from collections.abc import Callable
 from dataclasses import KW_ONLY, dataclass, field
 import json
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, TypeAlias, cast
 
 import xmltodict
 
@@ -21,11 +21,22 @@ from .typing_ import (
     TResModelRequiredId,
 )
 
+XmlAttrValue: TypeAlias = str | dict[str, str]
+XmlAttrDict: TypeAlias = dict[str, XmlAttrValue]
 
-def _convert_xml_attr_to_number(_, key, value):
+
+def _convert_xml_attr_to_number(
+    _path: list[tuple[str, XmlAttrDict | None]],
+    key: str,
+    value: XmlAttrValue,
+) -> tuple[str, XmlAttrValue]:
+    if not isinstance(value, str):
+        return key, value
     try:
-        return key, round(convert_to_number(value), 3)
-    except:  # noqa: E722
+        # xmltodict's stub restricts postprocessed values to strings and dicts,
+        # although the runtime intentionally accepts arbitrary scalar values.
+        return key, cast(XmlAttrValue, round(convert_to_number(value), 3))
+    except ValueError:
         return key, value
 
 
@@ -228,7 +239,7 @@ class BaseAnalyzer(ABC):
         return f'分析器: {class_name} | {class_path}'
 
 
-class BaseDataSourceAnalyzer(DataLoader, BaseAnalyzer):
+class BaseDataSourceAnalyzer(DataLoader, BaseAnalyzer, ABC):
     """数据源分析器抽象基类"""
 
     @classmethod
@@ -374,7 +385,7 @@ class PostAnalyzerMixin:
         return self._input_results[analyzer_cls]
 
 
-class BasePostAnalyzer(PostAnalyzerMixin, BaseAnalyzer):
+class BasePostAnalyzer(PostAnalyzerMixin, BaseAnalyzer, ABC):
     """后处理分析器抽象基类，该类型的分析器使用其他分析器的分析结果作为输入
 
     后处理分析器需要实现 get_input_analyzers() 类方法来声明依赖的分析器。
@@ -400,7 +411,7 @@ class BasePostAnalyzer(PostAnalyzerMixin, BaseAnalyzer):
     pass
 
 
-class BaseDataSourcePostAnalyzer(PostAnalyzerMixin, BaseDataSourceAnalyzer):
+class BaseDataSourcePostAnalyzer(PostAnalyzerMixin, BaseDataSourceAnalyzer, ABC):
     """混合分析器抽象基类，既能加载数据源又能接收其他分析器结果
 
     该类结合了 DataLoader 和 PostAnalyzerMixin 的功能，

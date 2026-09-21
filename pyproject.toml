@@ -24,6 +24,7 @@ dev = [
     { include-group = "tests" },
     { include-group = "docs" },
     "albi0>=0.5.3",
+    "basedpyright==1.40.1",
     "ruff>=0.13.0",
     "seerapi-solaris",
 ]
@@ -40,6 +41,7 @@ extraPaths = [
     "packages/solaris",
     "packages/seerapi-models",
     "packages/seerapi-python",
+    "scripts",
 ]
 reportImplicitAbstractClass = "error"
 

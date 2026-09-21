@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 import io
 import logging
-from typing import Protocol
+from typing import BinaryIO, Protocol
 from urllib.parse import urljoin
 
 if __package__:
@@ -19,6 +19,7 @@ if __package__:
         EffectIconAssetCheck,
         EffectIconBuildConfig,
         EffectIconPngRender,
+        UnityBundleDescriptor,
         UnityEffectIconPngLoad,
         UnityEffectIconPngSource,
     )
@@ -34,6 +35,7 @@ else:
         EffectIconAssetCheck,
         EffectIconBuildConfig,
         EffectIconPngRender,
+        UnityBundleDescriptor,
         UnityEffectIconPngLoad,
         UnityEffectIconPngSource,
     )
@@ -51,7 +53,14 @@ else:
 class UnityPackageManifest(Protocol):
     """The package facts needed to locate DefaultPackage icon bundles."""
 
-    assets: Mapping[str, object]
+    @property
+    def assets(self) -> Mapping[str, 'UnityBundleDescriptor']: ...
+
+
+class EncodableImage(Protocol):
+    def convert(self, mode: str) -> 'EncodableImage': ...
+
+    def save(self, output: BinaryIO, *, format: str) -> None: ...
 
 
 FetchPackageManifest = Callable[[str, str], tuple[str, UnityPackageManifest]]
@@ -59,16 +68,17 @@ DownloadBytes = Callable[[str], bytes]
 
 
 def _short_error(error: Exception | str) -> str:
-    return str(error).replace("\n", " ")[:200]
+    return str(error).replace('\n', ' ')[:200]
 
 
-def _encode_unity_image_png(image: object, *, config: EffectIconBuildConfig) -> bytes:
-    if image is None or not hasattr(image, "save"):
-        raise ValueError("Unity object has no image data")
-    if hasattr(image, "convert"):
-        image = image.convert("RGBA")
+def _encode_unity_image_png(
+    image: EncodableImage | None, *, config: EffectIconBuildConfig
+) -> bytes:
+    if image is None:
+        raise ValueError('Unity object has no image data')
+    image = image.convert('RGBA')
     output = io.BytesIO()
-    image.save(output, format="PNG")
+    image.save(output, format='PNG')
     png_data = output.getvalue()
     visible_png_pixel_count(png_data, config=config)
     return png_data
@@ -89,7 +99,7 @@ def extract_unity_effect_icon_pngs(
     env = UnityPy.load(io.BytesIO(bundle_data))
     for obj in env.objects:
         object_type = obj.type.name
-        if object_type not in {"Sprite", "Texture2D"}:
+        if object_type not in {'Sprite', 'Texture2D'}:
             continue
         icon_id: int | None = None
         try:
@@ -102,7 +112,7 @@ def extract_unity_effect_icon_pngs(
             if icon_id is not None:
                 errors[icon_id] = _short_error(error)
             continue
-        priority = 0 if object_type == "Sprite" else 1
+        priority = 0 if object_type == 'Sprite' else 1
         existing = candidates.get(icon_id)
         if existing is None or priority < existing[0]:
             candidates[icon_id] = (priority, png_data)
@@ -117,7 +127,7 @@ def missing_unity_effect_icon_png_load(
     status: int = 0,
 ) -> UnityEffectIconPngLoad:
     return UnityEffectIconPngLoad(
-        package_version="",
+        package_version='',
         total_manifest_icon_count=0,
         sources={},
         asset_checks={
@@ -126,7 +136,7 @@ def missing_unity_effect_icon_png_load(
                 url=unity_effect_icon_expected_url(icon_id, config=config),
                 available=False,
                 status=status,
-                content_type="",
+                content_type='',
                 content_length=None,
                 error=error,
             )
@@ -136,7 +146,7 @@ def missing_unity_effect_icon_png_load(
             icon_id: EffectIconPngRender(
                 icon_id=icon_id,
                 available=False,
-                content_type="",
+                content_type='',
                 content_length=None,
                 data=None,
                 error=error,
@@ -152,7 +162,7 @@ def fetch_unity_effect_icon_png_sources(
     config: EffectIconBuildConfig,
     fetch_package_manifest: FetchPackageManifest,
 ) -> tuple[str, int, dict[int, UnityEffectIconPngSource]]:
-    base_url = config.default_package_base_url.rstrip("/") + "/"
+    base_url = config.default_package_base_url.rstrip('/') + '/'
     version, manifest = fetch_package_manifest(base_url, config.default_package_name)
     all_sources: dict[int, UnityEffectIconPngSource] = {}
     for asset_path, bundle in manifest.assets.items():
@@ -180,12 +190,12 @@ def load_unity_effect_icon_png_assets(
     download_bytes: DownloadBytes,
 ) -> UnityEffectIconPngLoad:
     if not icon_ids:
-        return missing_unity_effect_icon_png_load(icon_ids, config=config, error="")
+        return missing_unity_effect_icon_png_load(icon_ids, config=config, error='')
     if not config.unity_png_enabled:
         return missing_unity_effect_icon_png_load(
             icon_ids,
             config=config,
-            error="Unity effect icon PNG loading disabled",
+            error='Unity effect icon PNG loading disabled',
         )
 
     package_version, total_icon_count, sources = fetch_unity_effect_icon_png_sources(
@@ -195,21 +205,21 @@ def load_unity_effect_icon_png_assets(
     )
     asset_checks: dict[int, EffectIconAssetCheck] = {}
     png_renders: dict[int, EffectIconPngRender] = {}
-    missing_error = "Unity DefaultPackage effectIcon PNG missing"
+    missing_error = 'Unity DefaultPackage effectIcon PNG missing'
     for icon_id in icon_ids - sources.keys():
         asset_checks[icon_id] = EffectIconAssetCheck(
             icon_id=icon_id,
             url=unity_effect_icon_expected_url(icon_id, config=config),
             available=False,
             status=404,
-            content_type="",
+            content_type='',
             content_length=None,
             error=missing_error,
         )
         png_renders[icon_id] = EffectIconPngRender(
             icon_id=icon_id,
             available=False,
-            content_type="",
+            content_type='',
             content_length=None,
             data=None,
             error=missing_error,
@@ -235,21 +245,21 @@ def load_unity_effect_icon_png_assets(
             source_url = unity_effect_icon_source_url(source)
             if png_data is None:
                 error = extraction_errors.get(
-                    source.icon_id, "Unity bundle did not contain a visible PNG"
+                    source.icon_id, 'Unity bundle did not contain a visible PNG'
                 )
                 asset_checks[source.icon_id] = EffectIconAssetCheck(
                     icon_id=source.icon_id,
                     url=source_url,
                     available=True,
                     status=200,
-                    content_type="application/octet-stream",
+                    content_type='application/octet-stream',
                     content_length=source.bundle.file_size,
-                    error="",
+                    error='',
                 )
                 png_renders[source.icon_id] = EffectIconPngRender(
                     icon_id=source.icon_id,
                     available=False,
-                    content_type="",
+                    content_type='',
                     content_length=None,
                     data=None,
                     error=error,
@@ -260,17 +270,17 @@ def load_unity_effect_icon_png_assets(
                 url=source_url,
                 available=True,
                 status=200,
-                content_type="image/png",
+                content_type='image/png',
                 content_length=len(png_data),
-                error="",
+                error='',
             )
             png_renders[source.icon_id] = EffectIconPngRender(
                 icon_id=source.icon_id,
                 available=True,
-                content_type="image/png",
+                content_type='image/png',
                 content_length=len(png_data),
                 data=png_data,
-                error="",
+                error='',
             )
 
     return UnityEffectIconPngLoad(
@@ -299,7 +309,7 @@ def unity_effect_icon_swf_fallback_icon_ids(
         )
     except (OSError, TimeoutError, ValueError) as error:
         logger.warning(
-            "Unity effect icon manifest lookup skipped; rendering SWF fallback: %s",
+            'Unity effect icon manifest lookup skipped; rendering SWF fallback: %s',
             _short_error(error),
         )
         return sorted(icon_ids)

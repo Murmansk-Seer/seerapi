@@ -1,9 +1,11 @@
+from abc import ABC
+
 from sqlmodel import Field
 
 from seerapi_models.build_model import BaseResModel, ConvertToORM
 
 
-class BaseDecoration(BaseResModel):
+class BaseDecoration(BaseResModel, ABC):
     name: str = Field(description='资源名称')
     desc: str = Field(description='资源描述')
     icon_id: int = Field(

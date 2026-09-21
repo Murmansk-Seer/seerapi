@@ -1,3 +1,4 @@
+from abc import ABC
 from typing import ClassVar
 
 from sqlmodel import Field, Relationship
@@ -10,12 +11,12 @@ from seerapi_models.common import (
 )
 
 
-class EffectSeDataBase(BaseResModel):
+class EffectSeDataBase(BaseResModel, ABC):
     name: str = Field(description='名称')
     desc: str = Field(description='描述')
 
 
-class EffectSeData(EffectSeDataBase):
+class EffectSeData(EffectSeDataBase, ABC):
     __name_fields__: ClassVar[list[str]] = ['name', 'effect_alias']
     effect: EidEffectInUse = Field(description='效果')
     effect_alias: str = Field(
@@ -23,7 +24,7 @@ class EffectSeData(EffectSeDataBase):
     )
 
 
-class EffectSeDataORM(EffectSeDataBase):
+class EffectSeDataORM(EffectSeDataBase, ABC):
     effect_in_use_id: int | None = Field(
         default=None, foreign_key='eid_effect_in_use.id'
     )

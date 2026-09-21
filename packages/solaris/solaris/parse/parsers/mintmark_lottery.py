@@ -108,7 +108,7 @@ class MintmarkLotteryParser(BaseParser[MintmarkLotteryConfig]):
                     price = reader.ReadSignedInt()
                     puton = reader.ReadSignedInt()
 
-                    mark_item: MintMarkItem = {
+                    shop_mark_item: MintMarkItem = {
                         'des': des,
                         'id': mark_id,
                         'level': mark_level,
@@ -117,7 +117,7 @@ class MintmarkLotteryParser(BaseParser[MintmarkLotteryConfig]):
                         'price': price,
                         'puton': puton,
                     }
-                    shop_mark_list.append(mark_item)
+                    shop_mark_list.append(shop_mark_item)
 
             shop_name = reader.ReadUTFBytesWithLength()
             shop_num = reader.ReadSignedInt()

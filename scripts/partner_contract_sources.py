@@ -42,41 +42,41 @@ def parse_pet_partner_data(
 ) -> PetPartnerData:
     """Validate and normalize the published partner-contract source."""
 
-    raw = json.loads(data.decode("utf-8-sig"))
+    raw = json.loads(data.decode('utf-8-sig'))
     if not isinstance(raw, dict):
-        raise ValueError("Partner contracts root must be an object")
-    if raw.get("schema_version") != schema_version:
+        raise ValueError('Partner contracts root must be an object')
+    if raw.get('schema_version') != schema_version:
         raise ValueError(
-            f"Unsupported partner contracts schema: {raw.get('schema_version')!r}"
+            f'Unsupported partner contracts schema: {raw.get("schema_version")!r}'
         )
-    source = raw.get("source")
+    source = raw.get('source')
     if (
         not isinstance(source, dict)
-        or source.get("package") != "ConfigPackage"
-        or not isinstance(source.get("config_package_version"), str)
-        or not source["config_package_version"].strip()
+        or source.get('package') != 'ConfigPackage'
+        or not isinstance(source.get('config_package_version'), str)
+        or not source['config_package_version'].strip()
     ):
-        raise ValueError("Partner contracts are not sourced from ConfigPackage")
+        raise ValueError('Partner contracts are not sourced from ConfigPackage')
 
-    group_rows = raw.get("groups")
+    group_rows = raw.get('groups')
     if not isinstance(group_rows, list):
-        raise ValueError("Partner contracts groups must be a list")
+        raise ValueError('Partner contracts groups must be a list')
 
     groups: list[PetPartnerGroup] = []
     member_pet_ids: set[int] = set()
     seen_group_ids: set[int] = set()
     for index, row in enumerate(group_rows):
         if not isinstance(row, dict):
-            raise ValueError(f"Partner contract group {index} must be an object")
-        group_id = _contract_int(row.get("key"), f"groups[{index}].key")
-        row_group_type = _text(row, "type").strip()
-        name = _text(row, "name").strip()
-        cost = _contract_int(row.get("cost"), f"groups[{index}].cost")
-        raw_members = row.get("member_pet_ids")
+            raise ValueError(f'Partner contract group {index} must be an object')
+        group_id = _contract_int(row.get('key'), f'groups[{index}].key')
+        row_group_type = _text(row, 'type').strip()
+        name = _text(row, 'name').strip()
+        cost = _contract_int(row.get('cost'), f'groups[{index}].cost')
+        raw_members = row.get('member_pet_ids')
         if not isinstance(raw_members, list):
-            raise ValueError(f"Partner contract group {group_id} has invalid members")
+            raise ValueError(f'Partner contract group {group_id} has invalid members')
         members = tuple(
-            _contract_int(member_id, f"groups[{index}].member_pet_ids[{member_index}]")
+            _contract_int(member_id, f'groups[{index}].member_pet_ids[{member_index}]')
             for member_index, member_id in enumerate(raw_members)
         )
         if (
@@ -90,7 +90,7 @@ def parse_pet_partner_data(
             or len(set(members)) != len(members)
             or any(member_id in member_pet_ids for member_id in members)
         ):
-            raise ValueError(f"Invalid partner contract group {group_id}")
+            raise ValueError(f'Invalid partner contract group {group_id}')
         if row_group_type != group_type:
             continue
         seen_group_ids.add(group_id)
@@ -106,20 +106,20 @@ def parse_pet_partner_data(
             )
         )
 
-    upgrade_rows = raw.get("upgrades")
+    upgrade_rows = raw.get('upgrades')
     if not isinstance(upgrade_rows, list):
-        raise ValueError("Partner contract upgrades must be a list")
+        raise ValueError('Partner contract upgrades must be a list')
 
     upgrades: dict[int, PetPartnerUpgrade] = {}
     for index, row in enumerate(upgrade_rows):
         if not isinstance(row, dict):
-            raise ValueError(f"Partner contract upgrade {index} must be an object")
-        pet_id = _contract_int(row.get("pet_id"), f"upgrades[{index}].pet_id")
+            raise ValueError(f'Partner contract upgrade {index} must be an object')
+        pet_id = _contract_int(row.get('pet_id'), f'upgrades[{index}].pet_id')
         if pet_id <= 0 or pet_id not in member_pet_ids or pet_id in upgrades:
             continue
-        raw_skill_ids = row.get("skill_ids", [])
+        raw_skill_ids = row.get('skill_ids', [])
         if not isinstance(raw_skill_ids, list):
-            raise ValueError(f"Partner contract upgrade {pet_id} has invalid skill IDs")
+            raise ValueError(f'Partner contract upgrade {pet_id} has invalid skill IDs')
         skill_id = next(
             (
                 value
@@ -127,17 +127,20 @@ def parse_pet_partner_data(
                 if (
                     value := _contract_int(
                         raw_skill_id,
-                        f"upgrades[{index}].skill_ids[{skill_index}]",
+                        f'upgrades[{index}].skill_ids[{skill_index}]',
                     )
                 )
                 > 0
             ),
             None,
         )
-        before_description = _text(row, "before_description").strip()
-        after_description = _text(row, "after_description").strip()
+        before_description = _text(row, 'before_description').strip()
+        after_description = _text(row, 'after_description').strip()
         if descriptions_reversed:
-            before_description, after_description = after_description, before_description
+            before_description, after_description = (
+                after_description,
+                before_description,
+            )
         upgrades[pet_id] = PetPartnerUpgrade(
             pet_id=pet_id,
             before_description=before_description,
@@ -152,12 +155,14 @@ def parse_pet_partner_data(
 
 
 def _contract_int(value: object, label: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"Invalid contract {label}: {value!r}")
+    if isinstance(value, bool) or not isinstance(
+        value, (str, bytes, bytearray, int, float)
+    ):
+        raise ValueError(f'Invalid contract {label}: {value!r}')
     try:
         return int(value)
     except (TypeError, ValueError) as error:
-        raise ValueError(f"Invalid contract {label}: {value!r}") from error
+        raise ValueError(f'Invalid contract {label}: {value!r}') from error
 
 
 def _text(item: dict[object, object], *names: str) -> str:
@@ -165,4 +170,4 @@ def _text(item: dict[object, object], *names: str) -> str:
         value = item.get(name)
         if value is not None:
             return str(value)
-    return ""
+    return ''

@@ -6,6 +6,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 
+if __package__:
+    from .json_value_helpers import item_int
+else:
+    from json_value_helpers import item_int
+
 
 @dataclass(frozen=True, slots=True)
 class ItemExchangePrice:
@@ -20,7 +25,7 @@ class ItemExchangePrice:
     purchase_limit: int | None
     start_time: int
     end_time: int
-    currency_name: str = ""
+    currency_name: str = ''
 
 
 def parse_commodity_shop(
@@ -31,8 +36,8 @@ def parse_commodity_shop(
 ) -> list[ItemExchangePrice]:
     """Parse standard Unity commodity-shop rows into exchange-price facts."""
 
-    raw = json.loads(data.decode("utf-8-sig"))
-    rows = raw.get("item", [])
+    raw = json.loads(data.decode('utf-8-sig'))
+    rows = raw.get('item', [])
     if not isinstance(rows, list):
         return []
 
@@ -40,9 +45,9 @@ def parse_commodity_shop(
     for row in rows:
         if not isinstance(row, dict):
             continue
-        commodity = str(row.get("commodity", ""))
-        parts = commodity.split("_")
-        if len(parts) != 3 or parts[0] != "1":
+        commodity = str(row.get('commodity', ''))
+        parts = commodity.split('_')
+        if len(parts) != 3 or parts[0] != '1':
             continue
         try:
             item_id = int(parts[1])
@@ -50,10 +55,10 @@ def parse_commodity_shop(
         except ValueError:
             continue
 
-        source_entry_id = _item_int(row, "id")
-        currency_item_id = _item_int(row, "consumeitemid")
-        amount = _item_int(row, "price")
-        item_quantity = _item_int(row, "quantity") or commodity_quantity
+        source_entry_id = _item_int(row, 'id')
+        currency_item_id = _item_int(row, 'consumeitemid')
+        amount = _item_int(row, 'price')
+        item_quantity = _item_int(row, 'quantity') or commodity_quantity
         if (
             source_entry_id <= 0
             or item_id <= 0
@@ -62,20 +67,20 @@ def parse_commodity_shop(
             or amount <= 0
         ):
             continue
-        limit = _item_int(row, "limit")
+        limit = _item_int(row, 'limit')
         result.append(
             ItemExchangePrice(
                 source_key=source_key,
                 source_name=source_name,
                 source_entry_id=source_entry_id,
                 item_id=item_id,
-                item_name=_item_text(row, "item_name", "itemname").strip(),
+                item_name=_item_text(row, 'item_name', 'itemname').strip(),
                 item_quantity=item_quantity,
                 currency_item_id=currency_item_id,
                 amount=amount,
                 purchase_limit=limit if limit > 0 else None,
-                start_time=_item_int(row, "timestart", "starttime"),
-                end_time=_item_int(row, "timeend", "endtime"),
+                start_time=_item_int(row, 'timestart', 'starttime'),
+                end_time=_item_int(row, 'timeend', 'endtime'),
             )
         )
     return result
@@ -89,8 +94,8 @@ def parse_special_skill_shop(
 ) -> list[ItemExchangePrice]:
     """Parse the special-skill shop's distinct item/coin field layout."""
 
-    raw = json.loads(data.decode("utf-8-sig"))
-    rows = raw.get("item", [])
+    raw = json.loads(data.decode('utf-8-sig'))
+    rows = raw.get('item', [])
     if not isinstance(rows, list):
         return []
 
@@ -98,25 +103,20 @@ def parse_special_skill_shop(
     for row in rows:
         if not isinstance(row, dict):
             continue
-        source_entry_id = _item_int(row, "id")
-        item_id = _item_int(row, "item_id")
-        currency_item_id = _item_int(row, "coin_id")
-        amount = _item_int(row, "price")
-        if (
-            source_entry_id <= 0
-            or item_id <= 0
-            or currency_item_id <= 0
-            or amount <= 0
-        ):
+        source_entry_id = _item_int(row, 'id')
+        item_id = _item_int(row, 'item_id')
+        currency_item_id = _item_int(row, 'coin_id')
+        amount = _item_int(row, 'price')
+        if source_entry_id <= 0 or item_id <= 0 or currency_item_id <= 0 or amount <= 0:
             continue
-        limit = _item_int(row, "limit")
+        limit = _item_int(row, 'limit')
         result.append(
             ItemExchangePrice(
                 source_key=source_key,
                 source_name=source_name,
                 source_entry_id=source_entry_id,
                 item_id=item_id,
-                item_name=_item_text(row, "item_name", "itemname").strip(),
+                item_name=_item_text(row, 'item_name', 'itemname').strip(),
                 item_quantity=1,
                 currency_item_id=currency_item_id,
                 amount=amount,
@@ -129,14 +129,7 @@ def parse_special_skill_shop(
 
 
 def _item_int(item: dict[object, object], *names: str) -> int:
-    for name in names:
-        if name not in item:
-            continue
-        try:
-            return int(item.get(name, 0) or 0)
-        except (TypeError, ValueError):
-            return 0
-    return 0
+    return item_int({str(key): value for key, value in item.items()}, *names)
 
 
 def _item_text(item: dict[object, object], *names: str) -> str:
@@ -144,4 +137,4 @@ def _item_text(item: dict[object, object], *names: str) -> str:
         value = item.get(name)
         if value is not None:
             return str(value)
-    return ""
+    return ''

@@ -1,3 +1,4 @@
+from abc import ABC
 from typing import TYPE_CHECKING, Optional, cast
 
 from pydantic import BaseModel
@@ -68,7 +69,7 @@ class SkillMintmarkEffect(BaseModel):
     arg: int | None = Field(description='增幅效果参数')
 
 
-class MintmarkBase(BaseResModel):
+class MintmarkBase(BaseResModel, ABC):
     name: str = Field(description='名称')
     desc: str = Field(description='刻印描述')
 

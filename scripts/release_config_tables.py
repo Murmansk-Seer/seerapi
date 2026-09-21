@@ -8,57 +8,83 @@ official pet-image probes.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 import sqlite3
 from typing import Protocol
 
-MINTMARK_QUALITY_TABLE = "mintmark_quality"
-SKIN_STORE_PRICE_TABLE = "skin_store_price"
-SKIN_SHOP_PRICE_TABLE = "skin_shop_price"
-SKIN_ITEM_TIP_TABLE = "skin_item_tip"
-SKIN_IMAGE_RESOLUTION_TABLE = "skin_image_resolution"
+MINTMARK_QUALITY_TABLE = 'mintmark_quality'
+SKIN_STORE_PRICE_TABLE = 'skin_store_price'
+SKIN_SHOP_PRICE_TABLE = 'skin_shop_price'
+SKIN_ITEM_TIP_TABLE = 'skin_item_tip'
+SKIN_IMAGE_RESOLUTION_TABLE = 'skin_image_resolution'
 
 
 class _SkinStorePrice(Protocol):
-    skin_id: int
-    pool_id: int
-    price: int
-    original_price: int
-    discount_rate: int
-    selected_price: int
-    ticket_id: int
-    ticket_num: int
-    start_time: int
-    end_time: int
+    @property
+    def skin_id(self) -> int: ...
+    @property
+    def pool_id(self) -> int: ...
+    @property
+    def price(self) -> int: ...
+    @property
+    def original_price(self) -> int: ...
+    @property
+    def discount_rate(self) -> int: ...
+    @property
+    def selected_price(self) -> int: ...
+    @property
+    def ticket_id(self) -> int: ...
+    @property
+    def ticket_num(self) -> int: ...
+    @property
+    def start_time(self) -> int: ...
+    @property
+    def end_time(self) -> int: ...
 
 
 class _SkinShopPrice(Protocol):
-    skin_id: int
-    resource_id: int
-    card_price: int
-    diamond_price: int
-    original_price: int
+    @property
+    def skin_id(self) -> int: ...
+    @property
+    def resource_id(self) -> int: ...
+    @property
+    def card_price(self) -> int: ...
+    @property
+    def diamond_price(self) -> int: ...
+    @property
+    def original_price(self) -> int: ...
 
 
 class ConfigPackageTableData(Protocol):
-    mintmark_quality: dict[int, int]
-    skin_store_prices: list[_SkinStorePrice]
-    skin_shop_prices: list[_SkinShopPrice]
-    skin_item_tips: dict[int, str]
+    @property
+    def mintmark_quality(self) -> Mapping[int, int]: ...
+    @property
+    def skin_store_prices(self) -> Sequence[_SkinStorePrice]: ...
+    @property
+    def skin_shop_prices(self) -> Sequence[_SkinShopPrice]: ...
+    @property
+    def skin_item_tips(self) -> Mapping[int, str]: ...
 
 
 class SkinImageResolutionRecord(Protocol):
-    skin_id: int
-    head_resource_id: int
-    body_resource_id: int
-    head_resolution: str
-    body_resolution: str
-    source_pet_id: int | None
+    @property
+    def skin_id(self) -> int: ...
+    @property
+    def head_resource_id(self) -> int: ...
+    @property
+    def body_resource_id(self) -> int: ...
+    @property
+    def head_resolution(self) -> str: ...
+    @property
+    def body_resolution(self) -> str: ...
+    @property
+    def source_pet_id(self) -> int | None: ...
 
 
 def replace_config_package_tables(
     conn: sqlite3.Connection,
     config_data: ConfigPackageTableData,
-    skin_image_resolutions: list[SkinImageResolutionRecord],
+    skin_image_resolutions: Sequence[SkinImageResolutionRecord],
     *,
     now: float,
 ) -> None:
@@ -73,7 +99,7 @@ def replace_config_package_tables(
         )
         """
     )
-    conn.execute(f"DELETE FROM {MINTMARK_QUALITY_TABLE}")
+    conn.execute(f'DELETE FROM {MINTMARK_QUALITY_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {MINTMARK_QUALITY_TABLE}
@@ -81,7 +107,7 @@ def replace_config_package_tables(
         VALUES (?, ?, ?, ?)
         """,
         [
-            (mintmark_id, quality, "ConfigPackage/mintmark.bytes", now)
+            (mintmark_id, quality, 'ConfigPackage/mintmark.bytes', now)
             for mintmark_id, quality in sorted(config_data.mintmark_quality.items())
         ],
     )
@@ -104,7 +130,7 @@ def replace_config_package_tables(
         )
         """
     )
-    conn.execute(f"DELETE FROM {SKIN_STORE_PRICE_TABLE}")
+    conn.execute(f'DELETE FROM {SKIN_STORE_PRICE_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {SKIN_STORE_PRICE_TABLE}
@@ -128,7 +154,7 @@ def replace_config_package_tables(
                 item.ticket_num,
                 item.start_time,
                 item.end_time,
-                "ConfigPackage/skinStorePool.bytes",
+                'ConfigPackage/skinStorePool.bytes',
                 now,
             )
             for index, item in enumerate(config_data.skin_store_prices, start=1)
@@ -153,7 +179,7 @@ def replace_config_package_tables(
         )
         """
     )
-    conn.execute(f"DELETE FROM {SKIN_SHOP_PRICE_TABLE}")
+    conn.execute(f'DELETE FROM {SKIN_SHOP_PRICE_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {SKIN_SHOP_PRICE_TABLE}
@@ -170,7 +196,7 @@ def replace_config_package_tables(
                 item.card_price,
                 item.diamond_price,
                 item.original_price,
-                "ConfigPackage/skin_shop.bytes",
+                'ConfigPackage/skin_shop.bytes',
                 now,
             )
             for item in config_data.skin_shop_prices
@@ -186,7 +212,7 @@ def replace_config_package_tables(
         )
         """
     )
-    conn.execute(f"DELETE FROM {SKIN_ITEM_TIP_TABLE}")
+    conn.execute(f'DELETE FROM {SKIN_ITEM_TIP_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {SKIN_ITEM_TIP_TABLE}
@@ -194,7 +220,7 @@ def replace_config_package_tables(
         VALUES (?, ?, ?, ?)
         """,
         [
-            (item_id, description, "ConfigPackage/itemsTip.bytes", now)
+            (item_id, description, 'ConfigPackage/itemsTip.bytes', now)
             for item_id, description in sorted(config_data.skin_item_tips.items())
         ],
     )
@@ -212,7 +238,7 @@ def replace_config_package_tables(
         )
         """
     )
-    conn.execute(f"DELETE FROM {SKIN_IMAGE_RESOLUTION_TABLE}")
+    conn.execute(f'DELETE FROM {SKIN_IMAGE_RESOLUTION_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {SKIN_IMAGE_RESOLUTION_TABLE}
@@ -230,7 +256,7 @@ def replace_config_package_tables(
                 resolution.head_resolution,
                 resolution.body_resolution,
                 resolution.source_pet_id,
-                "official pet image assets",
+                'official pet image assets',
                 now,
             )
             for resolution in skin_image_resolutions

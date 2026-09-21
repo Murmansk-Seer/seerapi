@@ -622,11 +622,11 @@ def _resolve_requests(
             None,
         )
         if available_candidate is None:
-            declared_candidates = tuple(
-                (candidate, snapshot_for(candidate.repository_kind))
-                for candidate in request.candidates
-                if snapshot_for(candidate.repository_kind) is not None
-            )
+            declared_candidates = []
+            for candidate in request.candidates:
+                snapshot = snapshot_for(candidate.repository_kind)
+                if snapshot is not None:
+                    declared_candidates.append((candidate, snapshot))
             candidate_text = '|'.join(
                 f'{candidate.repository_kind}:{candidate.path}'
                 for candidate in request.candidates

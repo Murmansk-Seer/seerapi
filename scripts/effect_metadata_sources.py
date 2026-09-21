@@ -6,6 +6,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 
+if __package__:
+    from .json_value_helpers import item_int
+else:
+    from json_value_helpers import item_int
+
 
 @dataclass(frozen=True, slots=True)
 class EffectDescription:
@@ -25,22 +30,22 @@ class SpecialEffectStatus:
 def parse_effect_descriptions(data: bytes) -> list[EffectDescription]:
     """Read named exclusive-effect descriptions from ``effectDes.json``."""
 
-    raw = json.loads(data.decode("utf-8-sig"))
-    root = raw.get("root")
+    raw = json.loads(data.decode('utf-8-sig'))
+    root = raw.get('root')
     if not isinstance(root, dict):
         return []
-    rows = root.get("item", [])
+    rows = root.get('item', [])
     if not isinstance(rows, list):
         return []
 
     result: list[EffectDescription] = []
     seen_ids: set[int] = set()
     for row in rows:
-        if not isinstance(row, dict) or _item_int(row, "kind") != 1:
+        if not isinstance(row, dict) or _item_int(row, 'kind') != 1:
             continue
-        effect_id = _item_int(row, "id")
-        name = _item_text(row, "kinddes").strip()
-        description = _item_text(row, "desc").strip()
+        effect_id = _item_int(row, 'id')
+        name = _item_text(row, 'kinddes').strip()
+        description = _item_text(row, 'desc').strip()
         if effect_id <= 0 or not name or not description or effect_id in seen_ids:
             continue
         seen_ids.add(effect_id)
@@ -51,11 +56,11 @@ def parse_effect_descriptions(data: bytes) -> list[EffectDescription]:
 def parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
     """Read displayable status-name variants from ``signIconFight.json``."""
 
-    raw = json.loads(data.decode("utf-8-sig"))
-    config = raw.get("config")
+    raw = json.loads(data.decode('utf-8-sig'))
+    config = raw.get('config')
     if not isinstance(config, dict):
         return []
-    rows = config.get("item", [])
+    rows = config.get('item', [])
     if not isinstance(rows, list):
         return []
 
@@ -64,21 +69,21 @@ def parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        status_id = _item_int(row, "id")
+        status_id = _item_int(row, 'id')
         if status_id <= 0:
             continue
         names = tuple(
             dict.fromkeys(
                 name
                 for name in (
-                    _item_text(row, "dec").strip(),
-                    _item_text(row, "tips").strip(),
+                    _item_text(row, 'dec').strip(),
+                    _item_text(row, 'tips').strip(),
                 )
                 if name
             )
         )
-        description = _item_text(row, "des").strip()
-        show_monster_id = _item_int(row, "show_monster")
+        description = _item_text(row, 'des').strip()
+        show_monster_id = _item_int(row, 'show_monster')
         for name in names:
             key = (status_id, name)
             if key in seen:
@@ -96,14 +101,7 @@ def parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
 
 
 def _item_int(item: dict[object, object], *names: str) -> int:
-    for name in names:
-        if name not in item:
-            continue
-        try:
-            return int(item.get(name, 0) or 0)
-        except (TypeError, ValueError):
-            return 0
-    return 0
+    return item_int({str(key): value for key, value in item.items()}, *names)
 
 
 def _item_text(item: dict[object, object], *names: str) -> str:
@@ -111,4 +109,4 @@ def _item_text(item: dict[object, object], *names: str) -> str:
         value = item.get(name)
         if value is not None:
             return str(value)
-    return ""
+    return ''

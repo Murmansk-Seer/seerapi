@@ -5,10 +5,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from email.message import Message
 import hashlib
 import logging
 import time
+from typing import Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
@@ -36,6 +39,16 @@ class SkinImageAssetProbeConfig:
     workers: int
 
 
+class UrlResponse(Protocol):
+    status: int
+    headers: Message[str, str]
+
+    def read(self, amount: int = -1) -> bytes: ...
+
+
+OpenUrl = Callable[..., AbstractContextManager[UrlResponse]]
+
+
 class SkinImageAssetProbe:
     """Validate asset headers and hashes without knowing about release tables."""
 
@@ -45,7 +58,7 @@ class SkinImageAssetProbe:
         *,
         request: Callable[..., Request],
         logger: logging.Logger,
-        open_url: Callable[..., object] = urlopen,
+        open_url: OpenUrl = urlopen,
     ) -> None:
         self._config = config
         self._request = request
@@ -54,15 +67,15 @@ class SkinImageAssetProbe:
 
     def asset_url(self, kind: str, resource_id: int) -> str:
         if kind not in PET_IMAGE_ASSET_KINDS:
-            raise ValueError(f"unsupported pet image asset kind: {kind}")
+            raise ValueError(f'unsupported pet image asset kind: {kind}')
         return urljoin(
-            self._config.base_url.rstrip("/") + "/",
-            f"{kind}/{resource_id}.png",
+            self._config.base_url.rstrip('/') + '/',
+            f'{kind}/{resource_id}.png',
         )
 
     def verify_asset(self, kind: str, resource_id: int) -> PetImageAssetCheck:
         url = self.asset_url(kind, resource_id)
-        prior_error = ""
+        prior_error = ''
         for attempt in range(1, max(1, self._config.retry_attempts) + 1):
             check = self._probe_range(kind, resource_id, url, prior_error=prior_error)
             if not is_transient_asset_failure(check) or attempt >= max(
@@ -72,16 +85,16 @@ class SkinImageAssetProbe:
             prior_error = check.error
             delay = self._config.retry_backoff_seconds * attempt
             self._logger.warning(
-                "Classic skin image probe failed (%s/%s): %s/%s (%s); retrying in %.1fs",
+                'Classic skin image probe failed (%s/%s): %s/%s (%s); retrying in %.1fs',
                 attempt,
                 self._config.retry_attempts,
                 kind,
                 resource_id,
-                check.error or f"HTTP {check.status}",
+                check.error or f'HTTP {check.status}',
                 delay,
             )
             time.sleep(delay)
-        raise AssertionError("unreachable")
+        raise AssertionError('unreachable')
 
     def verify_assets(
         self, asset_keys: set[tuple[str, int]]
@@ -89,7 +102,7 @@ class SkinImageAssetProbe:
         if not asset_keys:
             return {}
         self._logger.info(
-            "Validating classic skin image assets: %s image resources",
+            'Validating classic skin image assets: %s image resources',
             len(asset_keys),
         )
         checks: dict[tuple[str, int], PetImageAssetCheck] = {}
@@ -97,7 +110,10 @@ class SkinImageAssetProbe:
             max_workers=min(self._config.workers, len(asset_keys))
         ) as executor:
             futures = {
-                executor.submit(self.verify_asset, kind, resource_id): (kind, resource_id)
+                executor.submit(self.verify_asset, kind, resource_id): (
+                    kind,
+                    resource_id,
+                )
                 for kind, resource_id in sorted(asset_keys)
             }
             for future in as_completed(futures):
@@ -111,21 +127,23 @@ class SkinImageAssetProbe:
                         url=self.asset_url(kind, resource_id),
                         available=False,
                         status=0,
-                        content_type="",
+                        content_type='',
                         content_length=None,
                         error=_short_error(error),
                     )
         transient_failures = [
-            check for check in checks.values() if check.status == 0 or check.status >= 500
+            check
+            for check in checks.values()
+            if check.status == 0 or check.status >= 500
         ]
         if transient_failures:
-            sample = ", ".join(
-                f"{check.kind}/{check.resource_id} ({check.status}: {check.error})"
+            sample = ', '.join(
+                f'{check.kind}/{check.resource_id} ({check.status}: {check.error})'
                 for check in transient_failures[:5]
             )
             self._logger.warning(
-                "Classic skin image asset verification still has transient failures; "
-                "affected image kinds will remain unverified: %s",
+                'Classic skin image asset verification still has transient failures; '
+                'affected image kinds will remain unverified: %s',
                 sample,
             )
         return checks
@@ -135,7 +153,7 @@ class SkinImageAssetProbe:
             return None
         try:
             with self._open_url(
-                self._request(check.url, method="GET"),
+                self._request(check.url, method='GET'),
                 timeout=self._config.timeout_seconds,
             ) as response:
                 data = response.read()
@@ -157,38 +175,58 @@ class SkinImageAssetProbe:
     ) -> PetImageAssetCheck:
         try:
             with self._open_url(
-                self._request(url, method="GET", headers={"Range": "bytes=0-15"}),
+                self._request(url, method='GET', headers={'Range': 'bytes=0-15'}),
                 timeout=self._config.timeout_seconds,
             ) as response:
                 content_type = response.headers.get_content_type()
-                content_length = _parse_content_length(response.headers.get("Content-Length"))
+                content_length = _parse_content_length(
+                    response.headers.get('Content-Length')
+                )
                 header = response.read(16)
                 available = response.status in (200, 206) and _is_png_asset(
                     content_type, header
                 )
                 return PetImageAssetCheck(
-                    kind, resource_id, url, available, response.status, content_type,
+                    kind,
+                    resource_id,
+                    url,
+                    available,
+                    response.status,
+                    content_type,
                     content_length,
-                    "" if available else prior_error or f"unexpected ranged response: {response.status} {content_type}",
+                    ''
+                    if available
+                    else prior_error
+                    or f'unexpected ranged response: {response.status} {content_type}',
                 )
         except HTTPError as error:
             return PetImageAssetCheck(
-                kind, resource_id, url, False, error.code,
+                kind,
+                resource_id,
+                url,
+                False,
+                error.code,
                 error.headers.get_content_type(),
-                _parse_content_length(error.headers.get("Content-Length")),
-                "" if error.code == 404 else _short_error(error),
+                _parse_content_length(error.headers.get('Content-Length')),
+                '' if error.code == 404 else _short_error(error),
             )
         except (URLError, TimeoutError, OSError) as error:
             return PetImageAssetCheck(
-                kind, resource_id, url, False, 0, "", None,
+                kind,
+                resource_id,
+                url,
+                False,
+                0,
+                '',
+                None,
                 prior_error or _short_error(error),
             )
 
 
-def _is_png_asset(content_type: str, header: bytes = b"") -> bool:
-    return content_type.lower().split(";", maxsplit=1)[0] == "image/png" or header.startswith(
-        b"\x89PNG\r\n\x1a\n"
-    )
+def _is_png_asset(content_type: str, header: bytes = b'') -> bool:
+    return content_type.lower().split(';', maxsplit=1)[
+        0
+    ] == 'image/png' or header.startswith(b'\x89PNG\r\n\x1a\n')
 
 
 def _parse_content_length(value: str | None) -> int | None:
@@ -199,4 +237,4 @@ def _parse_content_length(value: str | None) -> int | None:
 
 
 def _short_error(error: Exception | str) -> str:
-    return str(error).replace("\n", " ")[:200]
+    return str(error).replace('\n', ' ')[:200]

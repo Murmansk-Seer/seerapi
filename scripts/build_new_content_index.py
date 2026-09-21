@@ -153,19 +153,25 @@ def _content_change_summary(previous: ContentItem, current: ContentItem) -> list
         new_value = new_payload.get(key)
         if old_value == new_value:
             continue
-        if key == 'stats' and isinstance(old_value, dict) and isinstance(new_value, dict):
+        if (
+            key == 'stats'
+            and isinstance(old_value, dict)
+            and isinstance(new_value, dict)
+        ):
             for stat in sorted(set(old_value) | set(new_value)):
                 if old_value.get(stat) != new_value.get(stat):
                     summary.append(
                         _format_change(
-                            _STAT_FIELD_LABELS.get(stat, stat),
+                            str(_STAT_FIELD_LABELS.get(stat, stat)),
                             old_value.get(stat),
                             new_value.get(stat),
                         )
                     )
             continue
         summary.append(
-            _format_change(_CHANGE_FIELD_LABELS.get(key, key), old_value, new_value)
+            _format_change(
+                str(_CHANGE_FIELD_LABELS.get(key, key)), old_value, new_value
+            )
         )
     if len(summary) <= _CHANGE_SUMMARY_LIMIT:
         return summary
