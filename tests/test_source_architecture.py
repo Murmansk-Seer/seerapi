@@ -33,7 +33,5 @@ def test_maintained_python_modules_stay_below_size_limit() -> None:
                 continue
             line_count = len(path.read_text(encoding='utf-8').splitlines())
             if line_count > MAX_MAINTAINED_MODULE_LINES:
-                oversized.append(
-                    f'{path.relative_to(ROOT)}: {line_count} lines'
-                )
+                oversized.append(f'{path.relative_to(ROOT)}: {line_count} lines')
     assert not oversized, 'Oversized maintained modules:\n' + '\n'.join(oversized)
