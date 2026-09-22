@@ -2,16 +2,20 @@
 
 SeerAPI 数据模型/ORM 定义，用于前后端开发。
 
+本分支维护 IronsBot 使用的数据模型修订版。发行文件由
+[Murmansk-Seer/seerapi Releases](https://github.com/Murmansk-Seer/seerapi/releases)
+托管，Python 导入名仍为 `seerapi_models`。
+
 ## 安装
-使用 uv：
+安装当前修订版：
 
 ```bash
-uv add seerapi-models
+uv add "seerapi-models @ https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-models%2Fv106.10.2/seerapi_models-106.10.2-py3-none-any.whl"
 ```
 或者使用 pip：
 
 ```bash
-pip install seerapi-models
+pip install "seerapi-models @ https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-models%2Fv106.10.2/seerapi_models-106.10.2-py3-none-any.whl"
 ```
 也可以使用其他包管理器，如 poetry 等。
 
@@ -35,7 +39,9 @@ assert isinstance(item.to_orm(), ItemORM) # 转换为 ORM 模型
 
 ## 开发环境部署
 
-本包是 [SeerAPI monorepo](https://github.com/SeerAPI/seerapi) 的一部分。推荐从 monorepo 根目录进行开发。
+本包基于 [SeerAPI monorepo](https://github.com/SeerAPI/seerapi)，修订版在
+[Murmansk-Seer/seerapi](https://github.com/Murmansk-Seer/seerapi) 维护。推荐从
+fork 的 monorepo 根目录进行开发。
 
 ### 使用 uv 部署
 
@@ -50,7 +56,7 @@ assert isinstance(item.to_orm(), ItemORM) # 转换为 ORM 模型
 
 2. **克隆 monorepo**
    ```bash
-   git clone https://github.com/SeerAPI/seerapi.git
+   git clone https://github.com/Murmansk-Seer/seerapi.git
    cd seerapi
    ```
 

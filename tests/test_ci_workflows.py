@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_BUILD_WORKFLOW = ROOT / '.github/workflows/build-seerapi-data-db.yml'
+PYTHON_RELEASE_WORKFLOW = ROOT / '.github/workflows/release-python.yml'
 FFDEC_ACTION = ROOT / '.github/actions/setup-ffdec/action.yml'
 
 
@@ -53,3 +54,16 @@ def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     assert "if: steps.mount_plan.outputs.needs_render == 'true'" in workflow
     assert 'SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"' in workflow
     assert 'SEERAPI_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"' in workflow
+
+
+def test_python_release_uses_github_release_artifacts() -> None:
+    workflow = PYTHON_RELEASE_WORKFLOW.read_text(encoding='utf-8')
+
+    assert 'uses: actions/upload-artifact@v4' in workflow
+    assert 'uses: actions/download-artifact@v4' in workflow
+    assert 'uses: softprops/action-gh-release@v2' in workflow
+    assert 'github-release:' in workflow
+    assert 'needs: [parse-tag, release]' in workflow
+    assert 'uv publish' not in workflow
+    assert 'environment:\n      name: pypi' not in workflow
+    assert 'id-token: write' not in workflow
