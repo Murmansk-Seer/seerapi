@@ -65,7 +65,7 @@ pnpm run build:ts
 ```bash
 # Python
 pip install seerapi
-pip install "seerapi-models @ https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-models%2Fv106.10.2/seerapi_models-106.10.2-py3-none-any.whl"
+pip install "seerapi-models @ git+https://github.com/Murmansk-Seer/seerapi.git@<commit>#subdirectory=packages/seerapi-models"
 
 # TypeScript
 pnpm add @seerapi/client
