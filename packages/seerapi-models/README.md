@@ -2,20 +2,20 @@
 
 SeerAPI 数据模型/ORM 定义，用于前后端开发。
 
-本分支维护 IronsBot 使用的数据模型修订版。发行文件由
-[Murmansk-Seer/seerapi Releases](https://github.com/Murmansk-Seer/seerapi/releases)
-托管，Python 导入名仍为 `seerapi_models`。
+本分支维护 IronsBot 使用的数据模型修订版。IronsBot 从本仓库的固定 Git 提交
+直接安装该工作区包，不需要向 PyPI 或 GitHub Release 上传发行文件。Python
+导入名仍为 `seerapi_models`。
 
 ## 安装
 安装当前修订版：
 
 ```bash
-uv add "seerapi-models @ https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-models%2Fv106.10.2/seerapi_models-106.10.2-py3-none-any.whl"
+uv add "seerapi-models @ git+https://github.com/Murmansk-Seer/seerapi.git@<commit>#subdirectory=packages/seerapi-models"
 ```
 或者使用 pip：
 
 ```bash
-pip install "seerapi-models @ https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-models%2Fv106.10.2/seerapi_models-106.10.2-py3-none-any.whl"
+pip install "seerapi-models @ git+https://github.com/Murmansk-Seer/seerapi.git@<commit>#subdirectory=packages/seerapi-models"
 ```
 也可以使用其他包管理器，如 poetry 等。
 

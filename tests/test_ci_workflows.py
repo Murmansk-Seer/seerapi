@@ -56,9 +56,11 @@ def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     assert 'SEERAPI_DATA_EFFECT_ICON_PNG_REQUIRE_CACHED: "1"' in workflow
 
 
-def test_python_release_uses_github_release_artifacts() -> None:
+def test_python_release_excludes_source_consumed_models() -> None:
     workflow = PYTHON_RELEASE_WORKFLOW.read_text(encoding='utf-8')
 
+    assert '- "seerapi-models/v*"' not in workflow
+    assert 'TARGETS_JSON="[\\"seerapi-models\\"' not in workflow
     assert 'uses: actions/upload-artifact@v4' in workflow
     assert 'uses: actions/download-artifact@v4' in workflow
     assert 'uses: softprops/action-gh-release@v2' in workflow
