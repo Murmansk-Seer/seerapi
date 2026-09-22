@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "seerapi-models"
-version = "106.10.1"
+version = "106.10.2"
 description = "SeerAPI 数据模型/ORM 定义"
 authors = [{ name = "Nattsu39", email = "Nattsu39@outlook.com" }]
 license = { file = "LICENSE" }
@@ -24,8 +24,8 @@ requires-python = ">=3.10"
 dependencies = ["pydantic>=2.12.5", "sqlmodel>=0.0.35"]
 
 [project.urls]
-Homepage = "https://github.com/SeerAPI/seerapi"
-Repository = "https://github.com/SeerAPI/seerapi"
+Homepage = "https://github.com/Murmansk-Seer/seerapi"
+Repository = "https://github.com/Murmansk-Seer/seerapi"
 
 [tool.uv.build-backend]
 module-root = ""

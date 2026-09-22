@@ -27,7 +27,7 @@ SeerAPI 项目 monorepo — 赛尔号游戏数据开放 API 平台。
 ### 安装
 
 ```bash
-git clone https://github.com/SeerAPI/seerapi.git
+git clone https://github.com/Murmansk-Seer/seerapi.git
 cd seerapi
 ```
 
@@ -65,7 +65,7 @@ pnpm run build:ts
 ```bash
 # Python
 pip install seerapi
-pip install seerapi-models
+pip install "seerapi-models @ https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-models%2Fv106.10.2/seerapi_models-106.10.2-py3-none-any.whl"
 
 # TypeScript
 pnpm add @seerapi/client
@@ -75,7 +75,8 @@ pnpm add @seerapi/client
 
 - [在线文档](https://docs.seerapi.com)
 - [API 参考](https://api.seerapi.com/docs/v1/api_reference.html)
-- [GitHub 仓库](https://github.com/SeerAPI/seerapi)
+- [GitHub 仓库](https://github.com/Murmansk-Seer/seerapi)
+- [上游 SeerAPI](https://github.com/SeerAPI/seerapi)
 
 ## 许可证
 

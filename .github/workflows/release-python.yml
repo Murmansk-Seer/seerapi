@@ -37,14 +37,11 @@ jobs:
           echo "Targets: $TARGETS_JSON, version=$VERSION"
 
   release:
-    name: Release ${{ matrix.package }}
+    name: Build ${{ matrix.package }}
     needs: parse-tag
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
     permissions:
-      id-token: write
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -78,17 +75,32 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: uv build --out-dir dist
 
-      - name: Publish to PyPI
-        working-directory: packages/${{ matrix.package }}
-        run: uv publish
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/dist/*
+          if-no-files-found: error
 
-      # - name: Create GitHub Release
-      #   uses: softprops/action-gh-release@v2
-      #   with:
-      #     name: "${{ matrix.package }} v${{ needs.parse-tag.outputs.version }}"
-      #     tag_name: ${{ github.ref_name }}
-      #     files: packages/${{ matrix.package }}/dist/*
-      #     draft: false
-      #     prerelease: false
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  github-release:
+    name: Publish GitHub release
+    needs: [parse-tag, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          pattern: python-dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Python packages v${{ needs.parse-tag.outputs.version }}"
+          tag_name: ${{ github.ref_name }}
+          files: dist/*
+          draft: false
+          prerelease: false
