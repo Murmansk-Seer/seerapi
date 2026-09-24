@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
@@ -10,7 +10,7 @@ class ApiMetadata(BaseModel):
     generator_name: str = Field(description='生成器名称')
     generator_version: str = Field(description='生成器版本')
     generate_time: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description='生成时间',
     )
     data_source: str = Field(
