@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "seerapi-models"
-version = "106.10.0"
+version = "106.10.1"
 description = "SeerAPI 数据模型/ORM 定义"
 authors = [{ name = "Nattsu39", email = "Nattsu39@outlook.com" }]
 license = { file = "LICENSE" }
@@ -21,7 +21,7 @@ classifiers = [
 ]
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["pydantic>=2.12.5", "sqlmodel>=0.0.35"]
+dependencies = ["pydantic>=2.12.5", "sqlmodel>=0.0.45"]
 
 [project.urls]
 Homepage = "https://github.com/SeerAPI/seerapi"
