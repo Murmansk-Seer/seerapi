@@ -1,8 +1,8 @@
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from seerapi_models.activity import Activity, ActivityType
 from seerapi_models.common import ResourceRef
+from solaris.utils import parse_unity_datetime
 
 from ..base import AnalyzeResult, BaseDataSourceAnalyzer, DataImportConfig
 
@@ -29,11 +29,11 @@ class ActivityAnalyzer(BaseDataSourceAnalyzer):
             id_ = item['id']
             start_time = None
             if beginning := item['beginning']:  # 2024_07_19 00:00:00
-                start_time = datetime.strptime(beginning, '%Y_%m_%d %H:%M:%S')
+                start_time = parse_unity_datetime(beginning)
 
             end_time = None
             if ending := item['ending']:
-                end_time = datetime.strptime(ending, '%Y_%m_%d %H:%M:%S')
+                end_time = parse_unity_datetime(ending)
 
             type_id = item['type']
             if type_id not in type_map:
