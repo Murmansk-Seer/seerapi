@@ -1,19 +1,13 @@
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from seerapi_models.activity import Activity, ActivityType
 from seerapi_models.common import ResourceRef
-from solaris.utils import CN_TZ
+from solaris.utils import parse_unity_datetime
 
 from ..base import AnalyzeResult, BaseDataSourceAnalyzer, DataImportConfig
 
 if TYPE_CHECKING:
     from solaris.parse.parsers.activity_center import ActivityCenterInfo
-
-
-def parse_activity_time(value: str) -> datetime:
-    """ActivityCenter times are wall-clock times in China Standard Time."""
-    return datetime.strptime(value, '%Y_%m_%d %H:%M:%S').replace(tzinfo=CN_TZ)
 
 
 class ActivityAnalyzer(BaseDataSourceAnalyzer):
@@ -35,11 +29,11 @@ class ActivityAnalyzer(BaseDataSourceAnalyzer):
             id_ = item['id']
             start_time = None
             if beginning := item['beginning']:  # 2024_07_19 00:00:00
-                start_time = parse_activity_time(beginning)
+                start_time = parse_unity_datetime(beginning)
 
             end_time = None
             if ending := item['ending']:
-                end_time = parse_activity_time(ending)
+                end_time = parse_unity_datetime(ending)
 
             type_id = item['type']
             if type_id not in type_map:
