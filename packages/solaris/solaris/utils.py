@@ -1,6 +1,6 @@
 from collections.abc import Generator, MutableSequence
 from contextlib import contextmanager
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import importlib
 import inspect
 from pathlib import Path
@@ -285,3 +285,12 @@ def join_url(base_url: str, *parts: str, end_slash: bool = False) -> str:
 
 
 CN_TZ: Final[timezone] = timezone(timedelta(hours=8))
+
+
+def parse_unity_datetime(time_str: str) -> datetime:
+    """解析 Unity 数据中 ``YYYY_MM_DD HH:MM:SS`` 格式的时间。
+
+    返回值会附加 :data:`CN_TZ` 时区：ORM 的 datetime 字段要求带时区信息，
+    否则写入数据库时会抛出 ``Datetime values must have timezone information``。
+    """
+    return datetime.strptime(time_str, '%Y_%m_%d %H:%M:%S').replace(tzinfo=CN_TZ)

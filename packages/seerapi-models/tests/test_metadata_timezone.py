@@ -13,7 +13,7 @@ def test_generated_metadata_can_be_stored_with_timezone() -> None:
     assert metadata.generate_time.tzinfo is not None
 
     engine = create_engine('sqlite://')
-    ApiMetadataORM.__table__.create(engine)
+    ApiMetadataORM.metadata.create_all(engine)
     with Session(engine) as session:
         session.add(metadata.to_orm())
         session.commit()

@@ -6,15 +6,10 @@ from seerapi_models.peak_cost import PeakCostPool
 from seerapi_models.pet import Pet
 from solaris.analyze.base import BaseDataSourceAnalyzer, DataImportConfig
 from solaris.analyze.typing_ import AnalyzeResult
-from solaris.utils import CN_TZ
+from solaris.utils import CN_TZ, parse_unity_datetime
 
 if TYPE_CHECKING:
     from solaris.parse.parsers.pvp_cost_mode_cost import PvpCostModeCostConfig
-
-
-def parse_end_datetime(time_str: str) -> datetime:
-    """将 ``YYYY_MM_DD HH:MM:SS`` 格式的时间转换为 datetime。"""
-    return datetime.strptime(time_str, '%Y_%m_%d %H:%M:%S').replace(tzinfo=CN_TZ)
 
 
 def parse_start_time(time_str: str) -> datetime:
@@ -55,7 +50,7 @@ class PeakCostAnalyzer(BaseDataSourceAnalyzer):
                 cost=cost,
                 name=item['name'],
                 start_time=start_time,
-                end_time=parse_end_datetime(item['time']),
+                end_time=parse_unity_datetime(item['time']),
                 pet=[
                     ResourceRef.from_model(Pet, id=int(pet_id))
                     for pet_id in filter(None, item['pet'].split(';'))
