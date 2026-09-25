@@ -172,7 +172,7 @@ UNITY_EFFECT_ICON_PNG_ENABLED = os.environ.get(
 ).lower() not in {'0', 'false', 'no', 'off'}
 EFFECT_ICON_PREFER_FLASH = os.environ.get(
     'SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH',
-    '1',
+    '0',
 ).lower() in {'1', 'true', 'yes', 'on'}
 MINTMARK_BYTES_NAME = 'mintmark.bytes'
 SKIN_STORE_POOL_BYTES_NAME = 'skinStorePool.bytes'

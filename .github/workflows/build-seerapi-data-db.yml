@@ -255,7 +255,7 @@ jobs:
       - name: Plan effect icon PNG repairs
         id: effect_icon_cache_plan
         env:
-          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "0"
           SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
         run: |
           python scripts/build_seerapi_data_db.py \
@@ -271,7 +271,7 @@ jobs:
       - name: Render missing effect icon PNGs
         if: steps.effect_icon_cache_plan.outputs.needs_render == 'true'
         env:
-          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "0"
           SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Some older animated soulmark SWFs need about 36 seconds for a
@@ -359,7 +359,7 @@ jobs:
       - name: Build SeerAPI database
         env:
           SEERAPI_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
-          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "1"
+          SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "0"
           SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           # Shard jobs own all Flash rendering. The release build consumes their
           # immutable cache and fails rather than introducing a second renderer.
