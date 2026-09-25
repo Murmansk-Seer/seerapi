@@ -1167,7 +1167,7 @@ def test_load_unity_effect_icon_png_assets_uses_default_package_manifest(
 def test_resolve_effect_icon_png_assets_prefers_unity_and_falls_back_to_swf(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(builder, 'EFFECT_ICON_PREFER_FLASH', False)
+    assert builder.EFFECT_ICON_PREFER_FLASH is False
     unity_png = _test_png()
     fallback_png = _test_png(size=(3, 3))
     unity_check = effect_icon_build_types.EffectIconAssetCheck(
@@ -1876,6 +1876,25 @@ def test_flash_preferred_cache_partition_renders_all_icons(monkeypatch) -> None:
         fetch_package_manifest=lambda *_args: (_ for _ in ()).throw(AssertionError),
         logger=builder.logger,
     ) == [100, 101]
+
+
+def test_unity_preferred_cache_partition_only_renders_missing_unity_icons(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(builder, 'EFFECT_ICON_PREFER_FLASH', False)
+    manifest = config_package_sources.parse_package_manifest(
+        _package_manifest_bytes(
+            assets=[('Assets/Art/Ui/assets/effectIcon/100.png', 0)],
+            bundles=[('art_ui_effecticon', 'effect-hash', 34)],
+        )
+    )
+
+    assert effect_icon_unity_sources.unity_effect_icon_swf_fallback_icon_ids(
+        {100, 101},
+        config=builder._effect_icon_source_config(),
+        fetch_package_manifest=lambda *_args: ('20260925120000', manifest),
+        logger=builder.logger,
+    ) == [101]
 
 
 def test_render_effect_icon_png_assets_skips_ffdec_for_confirmed_missing(
