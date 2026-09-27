@@ -47,14 +47,23 @@ def _database(path: Path, version: str, heal: int | None) -> None:
 
 def test_parse_and_publish_autocard_chip() -> None:
     chip = parse_autocard_chips(_payload(5))[0]
-    assert chip == AutocardChip(115, '复苏之风 I', '己方所有精灵恢复5点生命值', 3, 1, 115, 60, '防御/续航类')
+    assert chip == AutocardChip(
+        115, '复苏之风 I', '己方所有精灵恢复5点生命值', 3, 1, 115, 60, '防御/续航类'
+    )
     with sqlite3.connect(':memory:') as conn:
         replace_autocard_chip_table(conn, [chip], 1.0)
         row = conn.execute(
             'SELECT id, name, description, rarity, config_group_id, source '
             'FROM autocard_chip'
         ).fetchone()
-    assert row == (115, '复苏之风 I', '己方所有精灵恢复5点生命值', 1, 60, 'ConfigPackage/autocardChip.bytes')
+    assert row == (
+        115,
+        '复苏之风 I',
+        '己方所有精灵恢复5点生命值',
+        1,
+        60,
+        'ConfigPackage/autocardChip.bytes',
+    )
 
 
 def test_chip_first_observation_does_not_report_all_rows(tmp_path: Path) -> None:
@@ -64,30 +73,39 @@ def test_chip_first_observation_does_not_report_all_rows(tmp_path: Path) -> None
     _database(new, '20260924175611', 5)
     state = build_release_state(new, old, 'new')
     assert state.items == ()
-    assert not next(row for row in state.category_states if row.category == 'autocard_chip').comparison_ready
+    assert not next(
+        row for row in state.category_states if row.category == 'autocard_chip'
+    ).comparison_ready
 
 
 def test_historical_chip_backfill_is_optional(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     old = tmp_path / 'old.sqlite'
     _database(old, '20260924175611', None)
     requested_urls: list[str] = []
+
     def download(_self, url: str) -> bytes:
         requested_urls.append(url)
         return b'bundle'
+
     monkeypatch.setattr(
-        baseline.BuildHttpClient, 'download_bytes',
+        baseline.BuildHttpClient,
+        'download_bytes',
         download,
     )
     monkeypatch.setattr(
-        baseline, 'parse_package_manifest',
+        baseline,
+        'parse_package_manifest',
         lambda _raw: PackageManifestData(
-            bundles=(BundleInfo('pgame_configs_bytes', 'hash', 6),), assets={},
+            bundles=(BundleInfo('pgame_configs_bytes', 'hash', 6),),
+            assets={},
         ),
     )
     monkeypatch.setattr(
-        baseline, 'extract_text_assets',
+        baseline,
+        'extract_text_assets',
         lambda _raw, _wanted: {'autocardChip.bytes': _payload(2)},
     )
     assert baseline.backfill(old, '20260924175611')
@@ -97,21 +115,31 @@ def test_historical_chip_backfill_is_optional(
 
     unavailable = tmp_path / 'unavailable.sqlite'
     _database(unavailable, '20260918180640', None)
+
     def fail(_self, _url):
         raise OSError('historical package unavailable')
+
     monkeypatch.setattr(baseline.BuildHttpClient, 'download_bytes', fail)
     assert not baseline.backfill(unavailable, '20260924175611')
     with sqlite3.connect(unavailable) as conn:
-        assert conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE name = 'autocard_chip'"
-        ).fetchone() is None
+        assert (
+            conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name = 'autocard_chip'"
+            ).fetchone()
+            is None
+        )
 
-    assert baseline._historical_version('20261002123456', '20261003123456') == '20261002123456'
+    assert (
+        baseline._historical_version('20261002123456', '20261003123456')
+        == '20261002123456'
+    )
     assert baseline._historical_version('20261003123456', '20261003123456') is None
 
 
 def test_backfill_cli_reads_current_database_version(
-    tmp_path: Path, monkeypatch, capsys,
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
 ) -> None:
     previous = tmp_path / 'previous.sqlite'
     current = tmp_path / 'current.sqlite'
@@ -124,9 +152,15 @@ def test_backfill_cli_reads_current_database_version(
         return True
 
     monkeypatch.setattr(baseline, 'backfill', record)
-    monkeypatch.setattr(sys, 'argv', [
-        'backfill_autocard_chip_baseline.py', str(previous), str(current),
-    ])
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'backfill_autocard_chip_baseline.py',
+            str(previous),
+            str(current),
+        ],
+    )
     baseline.main()
     assert seen == [(previous, '20260924175611')]
     assert 'chip baseline: ready' in capsys.readouterr().out

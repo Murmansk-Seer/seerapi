@@ -138,9 +138,17 @@ jobs:
           config_package_version="$(
             "${curl_retry[@]}" "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage.version?t=$(date +%s)"
           )"
+          if ! [[ "${config_package_version}" =~ ^[0-9]+$ ]]; then
+            echo "Unexpected ConfigPackage version: ${config_package_version}" >&2
+            exit 1
+          fi
+          mkdir -p .cache/official-packages/ConfigPackage
+          printf '%s' "${config_package_version}" > .cache/official-packages/ConfigPackage/PackageManifest_ConfigPackage.version
+          "${curl_retry[@]}" \
+            --output ".cache/official-packages/ConfigPackage/PackageManifest_ConfigPackage_${config_package_version}.bytes" \
+            "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage_${config_package_version}.bytes"
           remote_config_package_manifest_sha="$(
-            "${curl_retry[@]}" "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage_${config_package_version}.bytes" \
-              | sha256sum | awk '{print $1}'
+            sha256sum ".cache/official-packages/ConfigPackage/PackageManifest_ConfigPackage_${config_package_version}.bytes" | awk '{print $1}'
           )"
           default_package_version="$(
             "${curl_retry[@]}" "${DEFAULT_PACKAGE_BASE_URL}PackageManifest_DefaultPackage.version?t=$(date +%s)"
@@ -222,9 +230,49 @@ jobs:
             echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, flash-mount-retry=${flash_mount_retry}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
+      - name: Cache official ConfigPackage for build jobs
+        if: steps.source_check.outputs.skip != 'true'
+        env:
+          CONFIG_PACKAGE_VERSION: ${{ steps.source_check.outputs.remote_config_package_version }}
+          DEFAULT_PACKAGE_VERSION: ${{ steps.source_check.outputs.remote_default_package_version }}
+        run: |
+          set -euo pipefail
+          if ! [[ "${DEFAULT_PACKAGE_VERSION}" =~ ^[0-9]+$ ]]; then
+            echo "Unexpected DefaultPackage version: ${DEFAULT_PACKAGE_VERSION}" >&2
+            exit 1
+          fi
+          mkdir -p .cache/official-packages/DefaultPackage
+          printf '%s' "${DEFAULT_PACKAGE_VERSION}" > .cache/official-packages/DefaultPackage/PackageManifest_DefaultPackage.version
+          curl -fsSL --connect-timeout 15 --max-time 120 \
+            --retry 5 --retry-all-errors --retry-delay 3 \
+            --output ".cache/official-packages/DefaultPackage/PackageManifest_DefaultPackage_${DEFAULT_PACKAGE_VERSION}.bytes" \
+            "https://newseer.61.com/Assets/StandaloneWindows64/DefaultPackage/PackageManifest_DefaultPackage_${DEFAULT_PACKAGE_VERSION}.bytes"
+          bundle_hash="$(python -c 'from pathlib import Path; from scripts.config_package_sources import parse_package_manifest; import os; version = os.environ["CONFIG_PACKAGE_VERSION"]; manifest = parse_package_manifest(Path(f".cache/official-packages/ConfigPackage/PackageManifest_ConfigPackage_{version}.bytes").read_bytes()); bundle = next((item for item in manifest.bundles if item.name == "pgame_configs_bytes"), None); bundle = bundle or (manifest.bundles[0] if len(manifest.bundles) == 1 else None); assert bundle is not None, "ConfigPackage bundle not found"; print(bundle.file_hash)')"
+          if ! [[ "${bundle_hash}" =~ ^[0-9a-fA-F]{32}$ ]]; then
+            echo "Unexpected ConfigPackage bundle hash: ${bundle_hash}" >&2
+            exit 1
+          fi
+          curl -fsSL --connect-timeout 15 --max-time 120 \
+            --retry 5 --retry-all-errors --retry-delay 3 \
+            --output ".cache/official-packages/ConfigPackage/${bundle_hash}" \
+            "https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/${bundle_hash}"
+          printf '%s  %s\n' "${bundle_hash}" ".cache/official-packages/ConfigPackage/${bundle_hash}" | md5sum --check
+
+      - name: Upload official ConfigPackage cache
+        if: steps.source_check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-config-package
+          path: .cache/official-packages
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Read official preview window from game DLL
         id: preview_cycle
         if: steps.source_check.outputs.skip != 'true'
+        env:
+          SEERAPI_DATA_OFFICIAL_PACKAGE_CACHE_DIR: .cache/official-packages
         run: |
           python -m pip install 'dnfile>=0.18,<1'
           python scripts/official_preview_cycle.py \
@@ -262,6 +310,12 @@ jobs:
           -e packages/solaris
           UnityPy Pillow
 
+      - name: Download official ConfigPackage cache
+        uses: actions/download-artifact@v4
+        with:
+          name: official-config-package
+          path: .cache/official-packages
+
       - name: Restore previously published icon PNGs
         run: |
           mkdir -p .cache/effect-icon-png .previous
@@ -282,6 +336,7 @@ jobs:
         env:
           SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "0"
           SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_OFFICIAL_PACKAGE_CACHE_DIR: .cache/official-packages
         run: |
           python scripts/build_seerapi_data_db.py \
             --plan-effect-icon-shard ${{ matrix.shard }} \
@@ -298,6 +353,7 @@ jobs:
         env:
           SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "0"
           SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_OFFICIAL_PACKAGE_CACHE_DIR: .cache/official-packages
           SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_FFDEC_JAR: /opt/ffdec/ffdec.jar
           # Some older animated soulmark SWFs need about 36 seconds for a
           # canonical sprite render. Keep two FFDec processes per runner so
@@ -355,6 +411,12 @@ jobs:
           -e packages/solaris
           UnityPy Pillow
 
+      - name: Download official ConfigPackage cache
+        uses: actions/download-artifact@v4
+        with:
+          name: official-config-package
+          path: .cache/official-packages
+
       - name: Download rendered icon PNG cache
         uses: actions/download-artifact@v4
         with:
@@ -386,6 +448,7 @@ jobs:
           SEERAPI_DATA_UPSTREAM_SEERAPI_PATH: ${{ runner.temp }}/api-data.sqlite
           SEERAPI_DATA_EFFECT_ICON_PREFER_FLASH: "0"
           SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
+          SEERAPI_DATA_OFFICIAL_PACKAGE_CACHE_DIR: .cache/official-packages
           # Shard jobs own all Flash rendering. The release build consumes their
           # immutable cache and fails rather than introducing a second renderer.
           SEERAPI_DATA_EFFECT_ICON_PNG_RENDER_ENABLED: "0"

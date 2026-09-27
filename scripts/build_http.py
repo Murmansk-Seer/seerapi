@@ -12,7 +12,7 @@ import shutil
 import time
 from typing import TypeVar
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 T = TypeVar("T")
@@ -24,6 +24,7 @@ class BuildHttpConfig:
     retry_attempts: int
     retry_backoff_seconds: float
     user_agent: str = "SeerAPI data builder"
+    official_package_cache_dir: Path | None = None
 
 
 class BuildHttpClient:
@@ -77,6 +78,19 @@ class BuildHttpClient:
         raise RuntimeError("HTTP request failed without an exception")
 
     def download_bytes(self, url: str) -> bytes:
+        cache_dir = self._config.official_package_cache_dir
+        if cache_dir is not None:
+            parsed = urlsplit(url)
+            prefix = "/Assets/StandaloneWindows64/"
+            if parsed.hostname == "newseer.61.com" and parsed.path.startswith(prefix):
+                relative = parsed.path.removeprefix(prefix).split("/")
+                if len(relative) == 2 and relative[0] in {
+                    "ConfigPackage",
+                    "DefaultPackage",
+                } and relative[1] not in {"", ".", ".."}:
+                    cached = cache_dir / relative[0] / relative[1]
+                    if cached.is_file():
+                        return cached.read_bytes()
         with self.open_with_retries(self.request(url)) as response:
             return response.read()
 

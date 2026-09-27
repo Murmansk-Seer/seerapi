@@ -26,11 +26,13 @@ def _snapshot(path: Path, generated_at: str) -> None:
 
 
 def test_history_selection_uses_official_window_not_friday() -> None:
-    history = {'assets': [
-        {'name': 'seerapi-data-20260924015959.sqlite'},
-        {'name': 'seerapi-data-20260924020000.sqlite'},
-        {'name': 'seerapi-data-20260918180640.sqlite'},
-    ]}
+    history = {
+        'assets': [
+            {'name': 'seerapi-data-20260924015959.sqlite'},
+            {'name': 'seerapi-data-20260924020000.sqlite'},
+            {'name': 'seerapi-data-20260918180640.sqlite'},
+        ]
+    }
     assert candidate_assets(history, START) == [
         'seerapi-data-20260924015959.sqlite',
         'seerapi-data-20260918180640.sqlite',

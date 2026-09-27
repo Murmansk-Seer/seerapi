@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -69,7 +70,16 @@ def main() -> None:
     parser.add_argument('--expected-version', default='')
     args = parser.parse_args()
     client = BuildHttpClient(
-        BuildHttpConfig(timeout_seconds=45, retry_attempts=3, retry_backoff_seconds=2),
+        BuildHttpConfig(
+            timeout_seconds=45,
+            retry_attempts=3,
+            retry_backoff_seconds=2,
+            official_package_cache_dir=(
+                Path(cache_dir)
+                if (cache_dir := os.environ.get('SEERAPI_DATA_OFFICIAL_PACKAGE_CACHE_DIR'))
+                else None
+            ),
+        ),
         logger=logging.getLogger(__name__),
     )
     cycle = fetch_official_preview_cycle(client, expected_version=args.expected_version)
