@@ -201,6 +201,12 @@ def _modified_items(
                 **item.payload,
                 **(
                     {
+                        'previous_name': previous_raw_by_id[
+                            (item.category, item.entity_id)
+                        ].name,
+                        'previous_payload': previous_raw_by_id[
+                            (item.category, item.entity_id)
+                        ].semantic_payload,
                         'previous_description': str(
                             previous_raw_by_id[(item.category, item.entity_id)]
                             .payload.get('description', '')
@@ -304,17 +310,29 @@ def _preserve_weekly_chip_origin(
         if current_item is None:
             continue
         carried_item = previous_by_id.get(item.entity_id)
-        old = (
-            carried_item.payload.get('previous_description')
-            if carried_item is not None
-            else item.payload.get('previous_description')
+        origin = carried_item or item
+        previous_payload = origin.payload.get('previous_payload')
+        if not isinstance(previous_payload, dict):
+            previous_payload = {
+                **current_item.semantic_payload,
+                'description': str(origin.payload.get('previous_description', '')),
+            }
+        previous_name = str(origin.payload.get('previous_name', current_item.name))
+        previous_item = ContentItem(
+            AUTOCARD_CHIP_CATEGORY,
+            item.entity_id,
+            previous_name,
+            current_item.sort_value,
+            previous_payload,
         )
-        if old == current_item.payload.get('description'):
+        if previous_item.semantic_key == current_item.semantic_key:
             continue
         result.append(replace(item, payload={
             **current_item.payload,
-            'previous_description': str(old or ''),
-            'change_summary': item.payload.get('change_summary', []),
+            'previous_name': previous_name,
+            'previous_payload': previous_payload,
+            'previous_description': str(previous_payload.get('description', '')),
+            'change_summary': _content_change_summary(previous_item, current_item),
         }))
     return tuple(result)
 

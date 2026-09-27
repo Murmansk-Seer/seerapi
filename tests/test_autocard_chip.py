@@ -149,3 +149,36 @@ def test_chip_weekly_change_keeps_original_description(tmp_path: Path) -> None:
     chip = next(item for item in second.items if item.category == 'autocard_chip')
     assert chip.payload['previous_description'].endswith('2点生命值')
     assert chip.payload['description'].endswith('7点生命值')
+
+
+def test_chip_rarity_change_survives_rebuild_and_disappears_on_revert(
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / 'old.sqlite'
+    current = tmp_path / 'current.sqlite'
+    rebuild = tmp_path / 'rebuild.sqlite'
+    reverted = tmp_path / 'reverted.sqlite'
+    for path, version, rarity in (
+        (old, '20260918180640', 1),
+        (current, '20260924175611', 2),
+        (rebuild, '20260924175611', 2),
+        (reverted, '20260924175611', 1),
+    ):
+        _database(path, version, 5)
+        with sqlite3.connect(path) as conn:
+            conn.execute('UPDATE autocard_chip SET rarity = ?', (rarity,))
+
+    baseline = build_release_state(old, None, 'old')
+    write_release_state(old, baseline, None)
+    first = build_release_state(current, old, 'current')
+    write_release_state(current, first, baseline)
+    second = build_release_state(rebuild, current, 'rebuild')
+    chip = next(item for item in second.items if item.category == 'autocard_chip')
+    assert chip.change_kind == 'modified'
+    assert chip.payload['previous_payload']['rarity'] == 1
+    assert chip.payload['rarity'] == 2
+    assert chip.payload['change_summary'] == ['rarity：1 → 2']
+
+    write_release_state(rebuild, second, first)
+    third = build_release_state(reverted, rebuild, 'reverted')
+    assert not [item for item in third.items if item.category == 'autocard_chip']
