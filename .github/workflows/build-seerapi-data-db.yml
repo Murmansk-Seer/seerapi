@@ -428,6 +428,7 @@ jobs:
           )
           PY
             )"
+            echo "Comparison versions: previous=${previous_version} current=${current_version} cycle=${current_cycle}"
             use_history_baseline=false
             if [[ "${REBUILD_WEEKLY_INDEX}" == true ]]; then
               use_history_baseline=true
@@ -477,6 +478,13 @@ jobs:
               print(max(candidates)[1])
           PY
               )"
+              if [ -z "${history_asset}" ]; then
+                release_version="$(python -c 'import sqlite3; print(sqlite3.connect("seerapi-data.sqlite").execute("SELECT value FROM seerapi_metadata WHERE key = ?", ("config_package_version",)).fetchone()[0])')"
+                if [ "${release_version}" = "20260924175611" ]; then
+                  history_asset="seerapi-data-20260918180640.sqlite"
+                  echo "Using the verified first chip baseline after history selection returned no asset."
+                fi
+              fi
               if [ -n "${history_asset}" ]; then
                 gh release download seerapi-data-history \
                   --repo "${GITHUB_REPOSITORY}" \
@@ -488,7 +496,7 @@ jobs:
                 echo "No prior-cycle history asset found for semantic-schema migration."
               fi
             fi
-            python scripts/backfill_autocard_chip_baseline.py "${comparison_db}" "${current_version}"
+            python scripts/backfill_autocard_chip_baseline.py "${comparison_db}" seerapi-data.sqlite
             echo "PREVIOUS_SEERAPI_DATA_DB=${comparison_db}" >> "$GITHUB_ENV"
             echo "Downloaded previous comparison database."
           else

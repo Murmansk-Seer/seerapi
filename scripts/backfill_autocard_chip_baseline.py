@@ -68,14 +68,16 @@ def backfill(path: Path, current_version: str) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('previous_database', type=Path)
-    parser.add_argument('current_version')
+    parser.add_argument('current_database', type=Path)
     args = parser.parse_args()
+    with sqlite3.connect(args.current_database) as conn:
+        current_version = _config_version(conn)
     status = (
         'ready'
-        if backfill(args.previous_database, args.current_version)
+        if backfill(args.previous_database, current_version)
         else 'unavailable'
     )
-    print(f'chip baseline: {status}')  # noqa: T201 - workflow status
+    print(f'chip baseline: {status} (current={current_version})')  # noqa: T201
 
 
 if __name__ == '__main__':

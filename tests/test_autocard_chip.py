@@ -109,6 +109,28 @@ def test_historical_chip_backfill_is_optional(
     assert baseline._historical_version('20261002123456', '20261003123456') is None
 
 
+def test_backfill_cli_reads_current_database_version(
+    tmp_path: Path, monkeypatch, capsys,
+) -> None:
+    previous = tmp_path / 'previous.sqlite'
+    current = tmp_path / 'current.sqlite'
+    _database(previous, '20260924175611', None)
+    _database(current, '20260924175611', 5)
+    seen: list[tuple[Path, str]] = []
+
+    def record(path: Path, version: str) -> bool:
+        seen.append((path, version))
+        return True
+
+    monkeypatch.setattr(baseline, 'backfill', record)
+    monkeypatch.setattr(sys, 'argv', [
+        'backfill_autocard_chip_baseline.py', str(previous), str(current),
+    ])
+    baseline.main()
+    assert seen == [(previous, '20260924175611')]
+    assert 'chip baseline: ready' in capsys.readouterr().out
+
+
 def test_chip_weekly_change_keeps_original_description(tmp_path: Path) -> None:
     old = tmp_path / 'old.sqlite'
     current = tmp_path / 'current.sqlite'
