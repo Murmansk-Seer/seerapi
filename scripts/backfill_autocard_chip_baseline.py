@@ -15,6 +15,18 @@ from new_content_index_release import _config_version, _weekly_cycle
 from release_autocard_tables import replace_autocard_chip_table
 
 BASE_URL = 'https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/'
+INITIAL_BASELINE_VERSION = '20260918180640'
+INITIAL_CURRENT_VERSION = '20260924175611'
+
+
+def _historical_version(previous_version: str, current_version: str) -> str | None:
+    # The first chip-enabled release follows a chip-less DB already on 9/24.
+    # Reconstruct the 9/18 snapshot so its 9/24 changes are not lost.
+    if current_version == INITIAL_CURRENT_VERSION:
+        return INITIAL_BASELINE_VERSION
+    if _weekly_cycle(previous_version) < _weekly_cycle(current_version):
+        return previous_version
+    return None
 
 
 def backfill(path: Path, current_version: str) -> bool:
@@ -25,7 +37,8 @@ def backfill(path: Path, current_version: str) -> bool:
         if existing:
             return True
         previous_version = _config_version(conn)
-        if _weekly_cycle(previous_version) >= _weekly_cycle(current_version):
+        historical_version = _historical_version(previous_version, current_version)
+        if historical_version is None:
             return False
         http = BuildHttpClient(
             BuildHttpConfig(timeout_seconds=30, retry_attempts=3, retry_backoff_seconds=2),
@@ -34,7 +47,7 @@ def backfill(path: Path, current_version: str) -> bool:
         try:
             manifest = parse_package_manifest(http.download_bytes(urljoin(
                 BASE_URL,
-                f'PackageManifest_ConfigPackage_{previous_version}.bytes',
+                f'PackageManifest_ConfigPackage_{historical_version}.bytes',
             )))
             bundle = next(
                 item for item in manifest.bundles if item.name == 'pgame_configs_bytes'

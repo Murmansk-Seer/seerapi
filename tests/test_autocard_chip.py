@@ -71,10 +71,14 @@ def test_historical_chip_backfill_is_optional(
     tmp_path: Path, monkeypatch,
 ) -> None:
     old = tmp_path / 'old.sqlite'
-    _database(old, '20260918180640', None)
+    _database(old, '20260924175611', None)
+    requested_urls: list[str] = []
+    def download(_self, url: str) -> bytes:
+        requested_urls.append(url)
+        return b'bundle'
     monkeypatch.setattr(
         baseline.BuildHttpClient, 'download_bytes',
-        lambda _self, _url: b'bundle',
+        download,
     )
     monkeypatch.setattr(
         baseline, 'parse_package_manifest',
@@ -87,6 +91,7 @@ def test_historical_chip_backfill_is_optional(
         lambda _raw, _wanted: {'autocardChip.bytes': _payload(2)},
     )
     assert baseline.backfill(old, '20260924175611')
+    assert 'PackageManifest_ConfigPackage_20260918180640.bytes' in requested_urls[0]
     with sqlite3.connect(old) as conn:
         assert conn.execute('SELECT count(*) FROM autocard_chip').fetchone() == (1,)
 
@@ -100,6 +105,8 @@ def test_historical_chip_backfill_is_optional(
         assert conn.execute(
             "SELECT 1 FROM sqlite_master WHERE name = 'autocard_chip'"
         ).fetchone() is None
+
+    assert baseline._historical_version('20261002123456', '20261003123456') is None
 
 
 def test_chip_weekly_change_keeps_original_description(tmp_path: Path) -> None:
