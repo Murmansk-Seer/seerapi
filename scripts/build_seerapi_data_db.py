@@ -444,6 +444,11 @@ BUILD_HTTP = BuildHttpClient(
         timeout_seconds=HTTP_TIMEOUT_SECONDS,
         retry_attempts=HTTP_RETRY_ATTEMPTS,
         retry_backoff_seconds=HTTP_RETRY_BACKOFF_SECONDS,
+        official_package_cache_dir=(
+            Path(cache_dir)
+            if (cache_dir := os.environ.get('SEERAPI_DATA_OFFICIAL_PACKAGE_CACHE_DIR'))
+            else None
+        ),
     ),
     logger=logger,
 )

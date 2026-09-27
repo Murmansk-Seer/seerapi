@@ -54,7 +54,9 @@ def test_preview_cycle_recomputes_against_fixed_pre_window_baseline(
     restored = indexer.build_release_state(
         reverted, current, 'reverted', cycle_start=cycle, baseline_path=baseline
     )
-    assert not any(item.category == 'pet' and item.entity_id == 2 for item in restored.items)
+    assert not any(
+        item.category == 'pet' and item.entity_id == 2 for item in restored.items
+    )
 
 
 def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> None:
@@ -417,8 +419,11 @@ def test_same_week_pool_changes_keep_origin_and_drop_reverts(tmp_path: Path) -> 
         )
     cycle = '2026-08-14T10:00:00+08:00'
     first = indexer.build_release_state(
-        previous_path, baseline_path, 'first-sha',
-        cycle_start=cycle, baseline_path=baseline_path,
+        previous_path,
+        baseline_path,
+        'first-sha',
+        cycle_start=cycle,
+        baseline_path=baseline_path,
     )
     indexer.write_release_state(previous_path, first, None)
     with sqlite3.connect(current_path) as conn:
@@ -428,8 +433,11 @@ def test_same_week_pool_changes_keep_origin_and_drop_reverts(tmp_path: Path) -> 
         )
 
     state = indexer.build_release_state(
-        current_path, previous_path, 'second-sha',
-        cycle_start=cycle, baseline_path=baseline_path,
+        current_path,
+        previous_path,
+        'second-sha',
+        cycle_start=cycle,
+        baseline_path=baseline_path,
     )
 
     changes = {
@@ -514,8 +522,11 @@ def test_master_pool_same_week_keeps_origin_and_drops_reverts(tmp_path: Path) ->
         )
     cycle = '2026-09-04T10:00:00+08:00'
     first = indexer.build_release_state(
-        previous_path, baseline_path, 'first-sha',
-        cycle_start=cycle, baseline_path=baseline_path,
+        previous_path,
+        baseline_path,
+        'first-sha',
+        cycle_start=cycle,
+        baseline_path=baseline_path,
     )
     indexer.write_release_state(previous_path, first, None)
     with sqlite3.connect(current_path) as conn:
@@ -525,8 +536,11 @@ def test_master_pool_same_week_keeps_origin_and_drops_reverts(tmp_path: Path) ->
         )
 
     state = indexer.build_release_state(
-        current_path, previous_path, 'second-sha',
-        cycle_start=cycle, baseline_path=baseline_path,
+        current_path,
+        previous_path,
+        'second-sha',
+        cycle_start=cycle,
+        baseline_path=baseline_path,
     )
 
     changes = {
@@ -733,15 +747,21 @@ def test_same_week_accumulates_incremental_rows(tmp_path: Path) -> None:
     _create_database(previous_path, version='20260729090000', pet_ids=(1, 2))
     cycle = '2026-07-28T10:00:00+08:00'
     prior_state = indexer.build_release_state(
-        previous_path, prior_raw, 'old',
-        cycle_start=cycle, baseline_path=prior_raw,
+        previous_path,
+        prior_raw,
+        'old',
+        cycle_start=cycle,
+        baseline_path=prior_raw,
     )
     indexer.write_release_state(previous_path, prior_state, None)
     _create_database(current_path, version='20260730090000', pet_ids=(1, 2, 3))
 
     state = indexer.build_release_state(
-        current_path, previous_path, 'new',
-        cycle_start=cycle, baseline_path=prior_raw,
+        current_path,
+        previous_path,
+        'new',
+        cycle_start=cycle,
+        baseline_path=prior_raw,
     )
 
     assert [(item.category, item.entity_id) for item in state.items] == [
