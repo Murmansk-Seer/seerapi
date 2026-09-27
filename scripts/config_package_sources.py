@@ -52,6 +52,18 @@ class AutocardSeasonEffect:
 
 
 @dataclass(frozen=True, slots=True)
+class AutocardChip:
+    chip_id: int
+    name: str
+    description: str
+    config_type: int
+    rarity: int
+    config_ref_id: int
+    config_group_id: int
+    category: str
+
+
+@dataclass(frozen=True, slots=True)
 class SkinShopPrice:
     skin_id: int
     resource_id: int
@@ -337,6 +349,44 @@ def parse_autocard_season_effects(data: bytes) -> list[AutocardSeasonEffect]:
                 stage=stage,
             )
         )
+    return result
+
+
+def parse_autocard_chips(data: bytes) -> list[AutocardChip]:
+    if not data:
+        raise ValueError('autocardChip is empty')
+    reader = BytesReader(data)
+    if not reader.read_bool():
+        raise ValueError('autocardChip is disabled')
+    count = reader.read_i32()
+    if count <= 0:
+        raise ValueError('autocardChip has no rows')
+    result: list[AutocardChip] = []
+    seen: set[int] = set()
+    for _ in range(count):
+        description = reader.read_text()
+        chip_id = reader.read_i32()
+        config_type = reader.read_i32()
+        rarity = reader.read_i32()
+        name = reader.read_text()
+        config_ref_id = reader.read_i32()
+        config_group_id = reader.read_i32()
+        category = reader.read_text()
+        if chip_id <= 0 or chip_id in seen or not name or rarity <= 0:
+            raise ValueError(f'invalid autocardChip row: {chip_id}')
+        seen.add(chip_id)
+        result.append(AutocardChip(
+            chip_id=chip_id,
+            name=name,
+            description=description,
+            config_type=config_type,
+            rarity=rarity,
+            config_ref_id=config_ref_id,
+            config_group_id=config_group_id,
+            category=category,
+        ))
+    if reader._pos != len(data):
+        raise ValueError('autocardChip has trailing bytes')
     return result
 
 

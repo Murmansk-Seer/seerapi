@@ -16,6 +16,7 @@ from urllib.parse import urljoin
 if __package__:
     from .build_http import BuildHttpClient, extract_text_assets
     from .config_package_sources import (
+        parse_autocard_chips,
         parse_autocard_season_effects,
         parse_effect_icons,
         parse_items_tip,
@@ -44,6 +45,7 @@ else:
         extract_text_assets,
     )
     from config_package_sources import (  # type: ignore[import-not-found]
+        parse_autocard_chips,
         parse_autocard_season_effects,
         parse_effect_icons,
         parse_items_tip,
@@ -103,6 +105,7 @@ class ReleaseSourceConfig:
     contract_badge_item_id: int
     contract_badge_item_name: str
     partner_contracts_descriptions_reversed: bool
+    autocard_chip_bytes_name: str = 'autocardChip.bytes'
 
 
 class ReleaseSourceLoader:
@@ -159,6 +162,9 @@ class ReleaseSourceLoader:
             ),
             autocard_season_effects=parse_autocard_season_effects(
                 assets[self._config.autocard_season_effect_bytes_name]
+            ),
+            autocard_chips=parse_autocard_chips(
+                assets[self._config.autocard_chip_bytes_name]
             ),
         )
 

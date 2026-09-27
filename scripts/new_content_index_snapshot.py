@@ -8,6 +8,7 @@ import sqlite3
 from typing import Any
 
 from new_content_index_models import (
+    AUTOCARD_CHIP_CATEGORY,
     AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
     AUTOCARD_SANCTUARY_EFFECT_TABLE,
     PEAK_POOL_FIELDS,
@@ -465,6 +466,29 @@ def load_current_items(conn: sqlite3.Connection) -> tuple[ContentItem, ...]:
                     payload if isinstance(payload, dict) else {'raw_json': payload},
                 )
             )
+
+    if _has_table(conn, 'autocard_chip'):
+        for row in _rows(
+            conn,
+            'SELECT id, name, description, config_type, rarity, '
+            'config_ref_id, config_group_id, category '
+            'FROM autocard_chip ORDER BY id',
+        ):
+            entity_id = int(row['id'])
+            items.append(ContentItem(
+                AUTOCARD_CHIP_CATEGORY,
+                entity_id,
+                str(row['name']),
+                entity_id,
+                {
+                    'description': str(row['description']),
+                    'config_type': int(row['config_type']),
+                    'rarity': int(row['rarity']),
+                    'config_ref_id': int(row['config_ref_id']),
+                    'config_group_id': int(row['config_group_id']),
+                    'category': str(row['category']),
+                },
+            ))
 
     if _has_table(conn, AUTOCARD_SANCTUARY_EFFECT_TABLE):
         for row in _rows(

@@ -26,6 +26,7 @@ if __package__:
     from .item_exchange_sources import ItemExchangePrice
     from .partner_contract_sources import PetPartnerData
     from .release_autocard_tables import (
+        replace_autocard_chip_table,
         replace_autocard_season_effect_table,
         replace_autocard_tables,
     )
@@ -61,6 +62,7 @@ else:
         PetPartnerData,  # type: ignore[import-not-found]
     )
     from release_autocard_tables import (  # type: ignore[import-not-found]
+        replace_autocard_chip_table,
         replace_autocard_season_effect_table,
         replace_autocard_tables,
     )
@@ -227,6 +229,7 @@ def publish_release_tables(
             updated_at=now,
         )
         replace_autocard_tables(conn, release.autocard_data, now)
+        replace_autocard_chip_table(conn, release.config_data.autocard_chips, now)
         replace_autocard_season_effect_table(
             conn,
             release.config_data.autocard_season_effects,

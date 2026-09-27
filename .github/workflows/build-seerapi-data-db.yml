@@ -11,6 +11,9 @@ on:
     paths:
       - "scripts/build_seerapi_data_db.py"
       - "scripts/build_new_content_index.py"
+      - "scripts/backfill_autocard_chip_baseline.py"
+      - "scripts/config_package_sources.py"
+      - "scripts/new_content_index_*.py"
       - "scripts/release_*.py"
       - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
@@ -485,6 +488,7 @@ jobs:
                 echo "No prior-cycle history asset found for semantic-schema migration."
               fi
             fi
+            python scripts/backfill_autocard_chip_baseline.py "${comparison_db}" "${current_version}"
             echo "PREVIOUS_SEERAPI_DATA_DB=${comparison_db}" >> "$GITHUB_ENV"
             echo "Downloaded previous comparison database."
           else

@@ -7,7 +7,7 @@ import sqlite3
 
 if __package__:
     from .autocard_sources import AutocardData
-    from .config_package_sources import AutocardSeasonEffect
+    from .config_package_sources import AutocardChip, AutocardSeasonEffect
     from .json_value_helpers import (
         compact_json as _dump_json,
     )
@@ -20,6 +20,7 @@ if __package__:
 else:
     from autocard_sources import AutocardData  # type: ignore[import-not-found]
     from config_package_sources import (  # type: ignore[import-not-found]
+        AutocardChip,
         AutocardSeasonEffect,
     )
     from json_value_helpers import (  # type: ignore[import-not-found]
@@ -38,6 +39,73 @@ AUTOCARD_ROLE_RAW_TABLE = "autocard_role_raw"
 AUTOCARD_NATURE_TABLE = "autocard_nature"
 AUTOCARD_BUFF_TABLE = "autocard_buff"
 AUTOCARD_SEASON_EFFECT_TABLE = "autocard_season_effect"
+AUTOCARD_CHIP_TABLE = "autocard_chip"
+
+
+def replace_autocard_chip_table(
+    conn: sqlite3.Connection,
+    chips: list[AutocardChip],
+    updated_at: float,
+) -> None:
+    conn.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {AUTOCARD_CHIP_TABLE} (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            config_type INTEGER NOT NULL,
+            rarity INTEGER NOT NULL,
+            config_ref_id INTEGER NOT NULL,
+            config_group_id INTEGER NOT NULL,
+            category TEXT NOT NULL,
+            raw_json TEXT NOT NULL,
+            source TEXT NOT NULL,
+            updated_at REAL NOT NULL
+        )
+        """
+    )
+    conn.execute(f"DELETE FROM {AUTOCARD_CHIP_TABLE}")
+    conn.executemany(
+        f"""
+        INSERT INTO {AUTOCARD_CHIP_TABLE}
+            (id, name, description, config_type, rarity, config_ref_id,
+             config_group_id, category, raw_json, source, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                chip.chip_id,
+                chip.name,
+                chip.description,
+                chip.config_type,
+                chip.rarity,
+                chip.config_ref_id,
+                chip.config_group_id,
+                chip.category,
+                _dump_json({
+                    'id': chip.chip_id,
+                    'name': chip.name,
+                    'description': chip.description,
+                    'config_type': chip.config_type,
+                    'rarity': chip.rarity,
+                    'config_ref_id': chip.config_ref_id,
+                    'config_group_id': chip.config_group_id,
+                    'category': chip.category,
+                }),
+                'ConfigPackage/autocardChip.bytes',
+                updated_at,
+            )
+            for chip in chips
+        ],
+    )
+    conn.execute(
+        f"CREATE INDEX IF NOT EXISTS idx_{AUTOCARD_CHIP_TABLE}_group "
+        f"ON {AUTOCARD_CHIP_TABLE} (config_group_id, rarity, id)"
+    )
+    conn.execute(
+        f"CREATE INDEX IF NOT EXISTS idx_{AUTOCARD_CHIP_TABLE}_name "
+        f"ON {AUTOCARD_CHIP_TABLE} (name)"
+    )
 
 def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return {
