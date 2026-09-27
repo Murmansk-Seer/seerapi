@@ -389,7 +389,7 @@ jobs:
           import sqlite3
           import sys
 
-          script = Path("scripts/build_new_content_index.py")
+          script = Path("scripts/new_content_index_release.py")
           sys.path.insert(0, str(script.parent.resolve()))
           spec = importlib.util.spec_from_file_location("new_content_index", script)
           if spec is None or spec.loader is None:
