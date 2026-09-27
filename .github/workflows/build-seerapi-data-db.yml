@@ -469,51 +469,8 @@ jobs:
           if [ -s "${previous_db}" ]; then
             comparison_db="${previous_db}"
             version_info="$(
-              python - "${previous_db}" "${CYCLE_START}" <<'PY'
-          import importlib.util
-          from pathlib import Path
-          import sqlite3
-          import sys
-
-          script = Path("scripts/build_new_content_index.py")
-          sys.path.insert(0, str(script.parent.resolve()))
-          spec = importlib.util.spec_from_file_location("new_content_index", script)
-          if spec is None or spec.loader is None:
-              raise SystemExit("cannot load new-content index module")
-          module = importlib.util.module_from_spec(spec)
-          sys.modules[spec.name] = module
-          spec.loader.exec_module(module)
-
-          with sqlite3.connect(sys.argv[1]) as connection:
-              columns = module._table_columns(connection, module.RELEASE_TABLE)
-              previous_schema = 1
-              previous_version = module._config_version(connection)
-              previous_cycle = 'unknown'
-              if {"schema_version", "weekly_cycle"}.issubset(columns):
-                  row = connection.execute(
-                      f"SELECT schema_version, weekly_cycle FROM {module.RELEASE_TABLE} WHERE id = 1"
-                  ).fetchone()
-                  if row is not None:
-                      previous_schema = int(row[0])
-                      previous_cycle = str(row[1] or previous_cycle)
-              elif "schema_version" in columns:
-                  row = connection.execute(
-                      f"SELECT schema_version FROM {module.RELEASE_TABLE} WHERE id = 1"
-                  ).fetchone()
-                  if row is not None:
-                      previous_schema = int(row[0])
-          with sqlite3.connect("seerapi-data.sqlite") as connection:
-              current_version = module._config_version(connection)
-              current_cycle = sys.argv[2]
-          print(
-              module.SEMANTIC_SCHEMA_VERSION,
-              previous_schema,
-              previous_version,
-              previous_cycle,
-              current_version,
-              current_cycle,
-          )
-          PY
+              python scripts/release_version_info.py \
+                "${previous_db}" seerapi-data.sqlite "${CYCLE_START}"
             )"
             read -r expected_schema previous_schema previous_version previous_cycle current_version current_cycle <<< "${version_info}"
             echo "Comparison versions: previous=${previous_version} current=${current_version} cycle=${current_cycle}"
