@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 
 from build_http import BuildHttpClient, BuildHttpConfig, extract_text_assets
 from config_package_sources import parse_autocard_chips, parse_package_manifest
-from new_content_index_release import _config_version, _weekly_cycle
+from new_content_index_release import _config_version
 from release_autocard_tables import replace_autocard_chip_table
 
 BASE_URL = 'https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/'
@@ -24,7 +24,7 @@ def _historical_version(previous_version: str, current_version: str) -> str | No
     # Reconstruct the 9/18 snapshot so its 9/24 changes are not lost.
     if current_version == INITIAL_CURRENT_VERSION:
         return INITIAL_BASELINE_VERSION
-    if _weekly_cycle(previous_version) < _weekly_cycle(current_version):
+    if previous_version < current_version:
         return previous_version
     return None
 
