@@ -14,6 +14,9 @@ on:
       - "scripts/backfill_autocard_chip_baseline.py"
       - "scripts/config_package_sources.py"
       - "scripts/new_content_index_*.py"
+      - "scripts/official_preview_cycle.py"
+      - "scripts/preview_cycle_*.py"
+      - "scripts/preview_window_dll.py"
       - "scripts/release_*.py"
       - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
@@ -47,7 +50,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.source_check.outputs.skip }}
-      defer: ${{ steps.publication_gate.outputs.defer }}
+      defer: "false"
+      preview_cycle_start: ${{ steps.preview_cycle.outputs.preview_cycle_start }}
+      preview_cycle_end: ${{ steps.preview_cycle.outputs.preview_cycle_end }}
+      preview_manifest_version: ${{ steps.preview_cycle.outputs.preview_manifest_version }}
+      preview_dll_hash: ${{ steps.preview_cycle.outputs.preview_dll_hash }}
+      preview_ui_hash: ${{ steps.preview_cycle.outputs.preview_ui_hash }}
       remote_sha: ${{ steps.source_check.outputs.remote_sha }}
       expected_api_data_sha: ${{ steps.source_check.outputs.expected_api_data_sha }}
       remote_partner_sha: ${{ steps.source_check.outputs.remote_partner_sha }}
@@ -194,20 +202,12 @@ jobs:
             echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, flash-mount-retry=${flash_mount_retry}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
-      - name: Apply weekly publication consistency gate
-        id: publication_gate
+      - name: Read official preview window from game DLL
+        id: preview_cycle
+        if: steps.source_check.outputs.skip != 'true'
         run: |
-          python scripts/weekly_publication_gate.py \
-            --current-config-version "${{ steps.source_check.outputs.remote_config_package_version }}" \
-            --previous-config-version "${{ steps.source_check.outputs.previous_config_package_version }}" \
-            --current-api-data-sha256 "${{ steps.source_check.outputs.remote_sha }}" \
-            --previous-api-data-sha256 "${{ steps.source_check.outputs.previous_sha }}" \
-            --github-output "$GITHUB_OUTPUT"
-
-      - name: Defer until api-data catches up
-        if: steps.publication_gate.outputs.defer == 'true'
-        run: |
-          echo "Deferred: waiting for api-data to catch up with the new weekly cycle"
+          python -m pip install 'dnfile>=0.18,<1'
+          python scripts/official_preview_cycle.py --github-output "$GITHUB_OUTPUT"
 
   render-effect-icon-cache:
     needs: plan
@@ -382,7 +382,7 @@ jobs:
             https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite || true
           if [ -s "${previous_db}" ]; then
             comparison_db="${previous_db}"
-            read -r expected_schema previous_schema previous_version previous_cycle current_version current_cycle <<< "$(
+            version_info="$(
               python - "${previous_db}" <<'PY'
           import importlib.util
           from pathlib import Path
@@ -390,6 +390,7 @@ jobs:
           import sys
 
           script = Path("scripts/build_new_content_index.py")
+          sys.path.insert(0, str(script.parent.resolve()))
           spec = importlib.util.spec_from_file_location("new_content_index", script)
           if spec is None or spec.loader is None:
               raise SystemExit("cannot load new-content index module")
@@ -428,6 +429,7 @@ jobs:
           )
           PY
             )"
+            read -r expected_schema previous_schema previous_version previous_cycle current_version current_cycle <<< "${version_info}"
             echo "Comparison versions: previous=${previous_version} current=${current_version} cycle=${current_cycle}"
             use_history_baseline=false
             if [[ "${REBUILD_WEEKLY_INDEX}" == true ]]; then
@@ -504,6 +506,55 @@ jobs:
             rm -f "${previous_db}"
           fi
 
+      - name: Pin a verified pre-window content baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CYCLE_START: ${{ needs.plan.outputs.preview_cycle_start }}
+        run: |
+          set -euo pipefail
+          baseline_asset="$(python scripts/preview_cycle_baseline.py asset-name "${CYCLE_START}")"
+          baseline_path="${RUNNER_TEMP}/${baseline_asset}"
+          baseline_tag="seerapi-content-baselines"
+          if gh release view "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release download "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" \
+              --pattern "${baseline_asset}" --dir "${RUNNER_TEMP}" || true
+          fi
+          if [ -s "${baseline_path}" ]; then
+            python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${baseline_path}"
+          else
+            previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
+            if python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${previous_db}"; then
+              cp "${previous_db}" "${baseline_path}"
+            else
+              history_json="${RUNNER_TEMP}/seerapi-content-history.json"
+              if gh release view seerapi-data-history --repo "${GITHUB_REPOSITORY}" \
+                  --json assets > "${history_json}"; then
+                while IFS= read -r candidate; do
+                  candidate_path="${RUNNER_TEMP}/${candidate}"
+                  gh release download seerapi-data-history --repo "${GITHUB_REPOSITORY}" \
+                    --pattern "${candidate}" --dir "${RUNNER_TEMP}" --clobber || continue
+                  if python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${candidate_path}"; then
+                    cp "${candidate_path}" "${baseline_path}"
+                    break
+                  fi
+                done < <(python scripts/preview_cycle_baseline.py candidates "${CYCLE_START}" "${history_json}")
+              fi
+            fi
+            if [ -s "${baseline_path}" ]; then
+              if ! gh release view "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+                gh release create "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" \
+                  --title "New-content cycle baselines" --latest=false
+              fi
+              gh release upload "${baseline_tag}" "${baseline_path}" \
+                --repo "${GITHUB_REPOSITORY}" --clobber
+            fi
+          fi
+          if [ -s "${baseline_path}" ]; then
+            echo "PREVIEW_CYCLE_BASELINE=${baseline_path}" >> "$GITHUB_ENV"
+          else
+            echo "No trustworthy published snapshot before ${CYCLE_START}; new content will remain unavailable."
+          fi
+
       - name: Collect API data source-history additions
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -561,6 +612,16 @@ jobs:
           if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
             args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
           fi
+          if [ -n "${PREVIEW_CYCLE_BASELINE:-}" ]; then
+            args+=(--baseline "${PREVIEW_CYCLE_BASELINE}")
+          fi
+          args+=(
+            --cycle-start "${{ needs.plan.outputs.preview_cycle_start }}"
+            --cycle-end "${{ needs.plan.outputs.preview_cycle_end }}"
+            --preview-manifest-version "${{ needs.plan.outputs.preview_manifest_version }}"
+            --preview-dll-hash "${{ needs.plan.outputs.preview_dll_hash }}"
+            --preview-ui-hash "${{ needs.plan.outputs.preview_ui_hash }}"
+          )
           history_additions="${RUNNER_TEMP}/api-data-history-additions.json"
           if [ -f "${history_additions}" ]; then
             args+=(--source-history-additions "${history_additions}")
