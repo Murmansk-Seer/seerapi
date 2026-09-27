@@ -382,14 +382,15 @@ jobs:
             https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite || true
           if [ -s "${previous_db}" ]; then
             comparison_db="${previous_db}"
-            read -r expected_schema previous_schema previous_version previous_cycle current_version current_cycle <<< "$(
+            version_info="$(
               python - "${previous_db}" <<'PY'
           import importlib.util
           from pathlib import Path
           import sqlite3
           import sys
 
-          script = Path("scripts/build_new_content_index.py")
+          script = Path("scripts/new_content_index_release.py")
+          sys.path.insert(0, str(script.parent.resolve()))
           spec = importlib.util.spec_from_file_location("new_content_index", script)
           if spec is None or spec.loader is None:
               raise SystemExit("cannot load new-content index module")
@@ -428,6 +429,7 @@ jobs:
           )
           PY
             )"
+            read -r expected_schema previous_schema previous_version previous_cycle current_version current_cycle <<< "${version_info}"
             echo "Comparison versions: previous=${previous_version} current=${current_version} cycle=${current_cycle}"
             use_history_baseline=false
             if [[ "${REBUILD_WEEKLY_INDEX}" == true ]]; then
