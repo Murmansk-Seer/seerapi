@@ -357,6 +357,11 @@ WEEKLY_PREVIEW_IMAGE_URL = (
     'https://raw.githubusercontent.com/Murmansk-Seer/'
     'seer-unity-preview-img-dumper/main/img/preview.png'
 )
+WEEKLY_PREVIEW_IMAGE_URLS = (
+    WEEKLY_PREVIEW_IMAGE_URL,
+    'https://raw.githubusercontent.com/Murmansk-Seer/'
+    'seer-unity-preview-img-dumper/main/img/imgPreview_1.png',
+)
 WEEKLY_PREVIEW_SOURCE_URL = (
     'https://github.com/Murmansk-Seer/seer-unity-preview-img-dumper'
 )
@@ -556,6 +561,7 @@ def _release_publication_context() -> ReleasePublicationContext:
             special_effect_status_url=SPECIAL_EFFECT_STATUS_URL,
             partner_contracts_url=PARTNER_CONTRACTS_URL,
             weekly_preview_image_url=WEEKLY_PREVIEW_IMAGE_URL,
+            weekly_preview_image_urls=WEEKLY_PREVIEW_IMAGE_URLS,
             weekly_preview_source_url=WEEKLY_PREVIEW_SOURCE_URL,
         ),
         logger=logger,
