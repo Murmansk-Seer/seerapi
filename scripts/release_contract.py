@@ -25,6 +25,7 @@ GENERATED_RELEASE_TABLES = frozenset(
     {
         'autocard_buff',
         'autocard_card',
+        'autocard_chip',
         'autocard_nature',
         'autocard_role_raw',
         'autocard_season_effect',

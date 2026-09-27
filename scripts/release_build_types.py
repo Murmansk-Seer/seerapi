@@ -3,10 +3,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 if __package__:
     from .config_package_sources import (
+        AutocardChip,
         AutocardSeasonEffect,
         SkinShopPrice,
         SkinStorePrice,
@@ -14,6 +15,7 @@ if __package__:
     )
 else:
     from config_package_sources import (  # type: ignore[import-not-found]
+        AutocardChip,
         AutocardSeasonEffect,
         SkinShopPrice,
         SkinStorePrice,
@@ -33,3 +35,4 @@ class ConfigPackageData:
     skin_item_tips: dict[int, str]
     soulmark_icons: list[SoulmarkIcon]
     autocard_season_effects: list[AutocardSeasonEffect]
+    autocard_chips: list[AutocardChip] = field(default_factory=list)

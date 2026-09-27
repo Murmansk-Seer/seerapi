@@ -9,6 +9,7 @@ from typing import Any
 
 AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
 AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
+AUTOCARD_CHIP_CATEGORY = 'autocard_chip'
 PEAK_POOL_CATEGORY = 'peak_pool'
 PEAK_EXPERT_POOL_CATEGORY = 'peak_expert_pool'
 PEAK_MASTER_POOL_CATEGORY = 'peak_master_pool'
@@ -39,7 +40,7 @@ PET_SKILL_RELATION_FIELDS = (
     'is_advanced',
     'is_fifth',
 )
-SEMANTIC_SCHEMA_VERSION = 6
+SEMANTIC_SCHEMA_VERSION = 7
 SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
     2: frozenset({'pet', 'skill', 'equip', 'mount'}),
     3: frozenset({'mintmark'}),
@@ -67,6 +68,7 @@ CONTENT_CATEGORIES = (
     'mount',
     'autocard_card',
     'autocard_role',
+    AUTOCARD_CHIP_CATEGORY,
     AUTOCARD_SANCTUARY_EFFECT_CATEGORY,
 )
 CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
@@ -84,6 +86,7 @@ CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
     'mount': ('equip',),
     'autocard_card': ('autocard_card',),
     'autocard_role': ('autocard_role',),
+    AUTOCARD_CHIP_CATEGORY: ('autocard_chip',),
     AUTOCARD_SANCTUARY_EFFECT_CATEGORY: (AUTOCARD_SANCTUARY_EFFECT_TABLE,),
 }
 

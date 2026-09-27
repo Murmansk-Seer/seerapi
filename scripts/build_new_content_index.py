@@ -17,6 +17,7 @@ from pathlib import Path
 import sqlite3
 
 from new_content_index_models import (
+    AUTOCARD_CHIP_CATEGORY,
     CONTENT_CATEGORIES,
     PEAK_POOL_CATEGORIES,
     SEMANTIC_SCHEMA_VERSION,
@@ -198,6 +199,15 @@ def _modified_items(
             item,
             payload={
                 **item.payload,
+                **(
+                    {
+                        'previous_description': str(
+                            previous_raw_by_id[(item.category, item.entity_id)]
+                            .payload.get('description', '')
+                        )
+                    }
+                    if item.category == AUTOCARD_CHIP_CATEGORY else {}
+                ),
                 'change_summary': _content_change_summary(
                     previous_raw_by_id[(item.category, item.entity_id)], item
                 ),
@@ -268,6 +278,45 @@ def _current_subset(
             key=lambda item: (item.category, item.entity_id),
         )
     )
+
+
+def _preserve_weekly_chip_origin(
+    items: tuple[ContentItem, ...],
+    carried: tuple[ContentItem, ...],
+    current: tuple[ContentItem, ...],
+) -> tuple[ContentItem, ...]:
+    previous_by_id = {
+        item.entity_id: item
+        for item in carried
+        if item.category == AUTOCARD_CHIP_CATEGORY and item.change_kind == 'modified'
+    }
+    current_by_id = {
+        item.entity_id: item
+        for item in current
+        if item.category == AUTOCARD_CHIP_CATEGORY
+    }
+    result: list[ContentItem] = []
+    for item in items:
+        if item.category != AUTOCARD_CHIP_CATEGORY or item.change_kind != 'modified':
+            result.append(item)
+            continue
+        current_item = current_by_id.get(item.entity_id)
+        if current_item is None:
+            continue
+        carried_item = previous_by_id.get(item.entity_id)
+        old = (
+            carried_item.payload.get('previous_description')
+            if carried_item is not None
+            else item.payload.get('previous_description')
+        )
+        if old == current_item.payload.get('description'):
+            continue
+        result.append(replace(item, payload={
+            **current_item.payload,
+            'previous_description': str(old or ''),
+            'change_summary': item.payload.get('change_summary', []),
+        }))
+    return tuple(result)
 
 
 def _category_states(
@@ -363,6 +412,7 @@ def build_release_state(
             )
         increment = merge_weekly_peak_pool_changes(carried_items, increment)
         items = _current_subset((*carried_items, *increment), current_items)
+        items = _preserve_weekly_chip_origin(items, carried_items, current_items)
         items = tuple(
             item
             for item in items

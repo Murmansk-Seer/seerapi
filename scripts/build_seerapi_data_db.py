@@ -180,6 +180,7 @@ SKIN_SHOP_BYTES_NAME = 'skin_shop.bytes'
 ITEMS_TIP_BYTES_NAME = 'itemsTip.bytes'
 EFFECT_ICON_BYTES_NAME = 'effectIcon.bytes'
 AUTOCARD_SEASON_EFFECT_BYTES_NAME = 'autocardSeasonEffect.bytes'
+AUTOCARD_CHIP_BYTES_NAME = 'autocardChip.bytes'
 EFFECT_ICON_ASSET_BASE_URL = os.environ.get(
     'SEERAPI_DATA_EFFECT_ICON_ASSET_BASE_URL',
     'https://seer.61.com/resource/effectIcon/',
@@ -292,6 +293,7 @@ CONFIG_TEXT_ASSETS = {
     ITEMS_TIP_BYTES_NAME,
     EFFECT_ICON_BYTES_NAME,
     AUTOCARD_SEASON_EFFECT_BYTES_NAME,
+    AUTOCARD_CHIP_BYTES_NAME,
 }
 SEERAPI_SCHEMA_CONTRACT_VERSION = '2'
 SEERAPI_SCHEMA_CONTRACT_VERSION_KEY = 'seerapi_schema_contract_version'
@@ -472,6 +474,7 @@ def _release_source_loader() -> ReleaseSourceLoader:
             items_tip_bytes_name=ITEMS_TIP_BYTES_NAME,
             effect_icon_bytes_name=EFFECT_ICON_BYTES_NAME,
             autocard_season_effect_bytes_name=AUTOCARD_SEASON_EFFECT_BYTES_NAME,
+            autocard_chip_bytes_name=AUTOCARD_CHIP_BYTES_NAME,
             autocard_json_dir=AUTOCARD_JSON_DIR,
             autocard_json_base_url=AUTOCARD_JSON_BASE_URL,
             unity_item_catalog_url=UNITY_ITEM_CATALOG_URL,

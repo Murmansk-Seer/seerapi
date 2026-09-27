@@ -176,6 +176,7 @@ def build_release_metadata(
         'autocard_nature_count': str(len(autocard_data.natures)),
         'autocard_buff_count': str(len(autocard_data.buffs)),
         'autocard_season_effect_count': str(len(config_data.autocard_season_effects)),
+        'autocard_chip_count': str(len(config_data.autocard_chips)),
         'autocard_source': autocard_data.source,
         'weekly_preview_image_url': context.weekly_preview_image_url,
         'weekly_preview_image_urls': json.dumps(
