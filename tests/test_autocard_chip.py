@@ -106,7 +106,8 @@ def test_historical_chip_backfill_is_optional(
             "SELECT 1 FROM sqlite_master WHERE name = 'autocard_chip'"
         ).fetchone() is None
 
-    assert baseline._historical_version('20261002123456', '20261003123456') is None
+    assert baseline._historical_version('20261002123456', '20261003123456') == '20261002123456'
+    assert baseline._historical_version('20261003123456', '20261003123456') is None
 
 
 def test_backfill_cli_reads_current_database_version(

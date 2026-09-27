@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Iterable
 from dataclasses import replace
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -37,7 +38,7 @@ from new_content_index_release import (
     _config_version,
     _load_previous_state,
     _source_categories,
-    _weekly_cycle,
+    _source_cycle_date,
     write_release_state,
 )
 from new_content_index_snapshot import (
@@ -352,11 +353,26 @@ def _category_states(
     return tuple(states)
 
 
+def _source_has_reached_cycle(source_version: str, cycle_start: str) -> bool:
+    """Do not call an empty cycle complete while the official data is still old."""
+    if len(source_version) != 14 or not source_version.isdigit():
+        return False
+    try:
+        published_at = datetime.strptime(source_version, '%Y%m%d%H%M%S')
+    except ValueError:
+        return False
+    published_at = published_at.replace(tzinfo=timezone.utc)
+    return published_at >= datetime.fromisoformat(cycle_start)
+
+
 def build_release_state(
     current_path: Path,
     previous_path: Path | None,
     current_git_sha: str,
     source_history_additions: Iterable[SourceHistoryAddition] = (),
+    *,
+    cycle_start: str | None = None,
+    baseline_path: Path | None = None,
 ) -> ReleaseState:
     with sqlite3.connect(current_path) as conn:
         current_version = _config_version(conn)
@@ -365,8 +381,8 @@ def build_release_state(
     current_sources = tuple(
         SourceSnapshotItem.from_content(item) for item in current_items
     )
-    previous = _load_previous_state(previous_path)
-    cycle = _weekly_cycle(current_version)
+    previous = _load_previous_state(baseline_path if cycle_start else previous_path)
+    cycle = cycle_start or _source_cycle_date(current_version)
     if previous is None:
         return ReleaseState(
             current_version,
@@ -401,6 +417,15 @@ def build_release_state(
         modified_items = tuple(
             item for item in modified_items if item.category not in suppressed
         )
+    history_items = _source_history_items(current_items, source_history_additions)
+    if cycle_start is not None:
+        baseline_keys = {
+            (item.category, item.entity_id) for item in previous.source_items
+        }
+        history_items = tuple(
+            item for item in history_items
+            if (item.category, item.entity_id) not in baseline_keys
+        )
     increment = _current_subset(
         (
             *_new_items(current_items, previous.source_items, comparable_categories),
@@ -410,11 +435,11 @@ def build_release_state(
                 previous.raw_items,
                 comparable_categories,
             ),
-            *_source_history_items(current_items, source_history_additions),
+            *history_items,
         ),
         current_items,
     )
-    if previous.weekly_cycle == cycle:
+    if cycle_start is None and previous.weekly_cycle == cycle:
         carried_items = previous.items
         if previous.semantic_schema_version < SEMANTIC_SCHEMA_VERSION:
             migration_prune_categories = semantic_migration_prune_categories(
@@ -461,12 +486,28 @@ def main() -> None:
         help='Git-confirmed entity additions from the published API source history.',
     )
     parser.add_argument('--current-git-sha', required=True)
+    parser.add_argument('--cycle-start', default='')
+    parser.add_argument('--cycle-end', default='')
+    parser.add_argument('--preview-manifest-version', default='')
+    parser.add_argument('--preview-dll-hash', default='')
+    parser.add_argument('--preview-ui-hash', default='')
+    parser.add_argument('--baseline', type=Path)
     parser.add_argument(
         '--github-output',
         type=Path,
         help='Optional GitHub Actions output file for release promotion metadata.',
     )
     args = parser.parse_args()
+
+    if bool(args.cycle_start) != bool(args.cycle_end):
+        parser.error('both --cycle-start and --cycle-end are required')
+    if args.cycle_start:
+        from datetime import datetime
+
+        start = datetime.fromisoformat(args.cycle_start)
+        end = datetime.fromisoformat(args.cycle_end)
+        if start.tzinfo is None or end.tzinfo is None or not start < end:
+            parser.error('preview cycle requires ordered timezone-aware dates')
 
     previous = _load_previous_state(args.previous)
     history_additions = load_source_history_additions(args.source_history_additions)
@@ -475,8 +516,40 @@ def main() -> None:
         args.previous,
         args.current_git_sha,
         history_additions,
+        cycle_start=args.cycle_start or None,
+        baseline_path=args.baseline,
     )
+    status = 'ready'
+    if args.cycle_start:
+        from datetime import datetime
+
+        now = datetime.now().astimezone()
+        start = datetime.fromisoformat(args.cycle_start)
+        end = datetime.fromisoformat(args.cycle_end)
+        status = (
+            'expired' if now >= end else
+            'scheduled' if now < start else
+            'baseline_unavailable' if not state.baseline_established else
+            'ready' if state.items or _source_has_reached_cycle(
+                state.config_version, args.cycle_start
+            ) else 'syncing'
+        )
+        if status != 'ready':
+            state = replace(state, items=())
     write_release_state(args.current, state, previous)
+    if args.cycle_start:
+        with sqlite3.connect(args.current) as conn:
+            conn.executemany(
+                'INSERT OR REPLACE INTO seerapi_metadata (key, value) VALUES (?, ?)',
+                (
+                    ('preview_cycle_start', args.cycle_start),
+                    ('preview_cycle_end', args.cycle_end),
+                    ('preview_manifest_version', args.preview_manifest_version),
+                    ('preview_dll_hash', args.preview_dll_hash),
+                    ('preview_ui_hash', args.preview_ui_hash),
+                    ('new_content_cycle_status', status),
+                ),
+            )
     if args.github_output is not None:
         with args.github_output.open('a', encoding='utf-8') as output:
             output.write(f'weekly_cycle={state.weekly_cycle}\n')

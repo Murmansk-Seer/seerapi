@@ -14,6 +14,9 @@ on:
       - "scripts/backfill_autocard_chip_baseline.py"
       - "scripts/config_package_sources.py"
       - "scripts/new_content_index_*.py"
+      - "scripts/official_preview_cycle.py"
+      - "scripts/preview_cycle_*.py"
+      - "scripts/preview_window_dll.py"
       - "scripts/release_*.py"
       - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
@@ -47,7 +50,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.source_check.outputs.skip }}
-      defer: ${{ steps.publication_gate.outputs.defer }}
+      defer: "false"
+      preview_cycle_start: ${{ steps.preview_cycle.outputs.preview_cycle_start }}
+      preview_cycle_end: ${{ steps.preview_cycle.outputs.preview_cycle_end }}
+      preview_manifest_version: ${{ steps.preview_cycle.outputs.preview_manifest_version }}
+      preview_dll_hash: ${{ steps.preview_cycle.outputs.preview_dll_hash }}
+      preview_ui_hash: ${{ steps.preview_cycle.outputs.preview_ui_hash }}
       remote_sha: ${{ steps.source_check.outputs.remote_sha }}
       expected_api_data_sha: ${{ steps.source_check.outputs.expected_api_data_sha }}
       remote_partner_sha: ${{ steps.source_check.outputs.remote_partner_sha }}
@@ -55,6 +63,7 @@ jobs:
       remote_special_effect_status_sha: ${{ steps.source_check.outputs.remote_special_effect_status_sha }}
       remote_config_package_version: ${{ steps.source_check.outputs.remote_config_package_version }}
       remote_config_package_manifest_sha: ${{ steps.source_check.outputs.remote_config_package_manifest_sha }}
+      remote_default_package_version: ${{ steps.source_check.outputs.remote_default_package_version }}
       build_sha: ${{ steps.build_ref.outputs.sha }}
 
     steps:
@@ -78,6 +87,7 @@ jobs:
           UNITY_ITEM_CATALOG_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/itemsOptimizeCatItems17.json
           SPECIAL_EFFECT_STATUS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/signIconFight.json
           CONFIG_PACKAGE_BASE_URL: https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/
+          DEFAULT_PACKAGE_BASE_URL: https://newseer.61.com/Assets/StandaloneWindows64/DefaultPackage/
           FLASH_MOUNT_ASSET_BASE_URL: https://seer.61.com/resource/item/cloth/swf
         run: |
           set -euo pipefail
@@ -132,12 +142,18 @@ jobs:
             "${curl_retry[@]}" "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage_${config_package_version}.bytes" \
               | sha256sum | awk '{print $1}'
           )"
+          default_package_version="$(
+            "${curl_retry[@]}" "${DEFAULT_PACKAGE_BASE_URL}PackageManifest_DefaultPackage.version?t=$(date +%s)"
+          )"
           previous_sha=""
           previous_partner_sha=""
           previous_item_catalog_sha=""
           previous_special_effect_status_sha=""
           previous_config_package_version=""
           previous_config_package_manifest_sha=""
+          previous_default_package_version=""
+          previous_preview_cycle_phase=""
+          current_preview_cycle_phase=""
           if [ -f .build-state/api-data-sha256 ]; then
             previous_sha="$(cat .build-state/api-data-sha256)"
           fi
@@ -155,6 +171,17 @@ jobs:
           fi
           if [ -f .build-state/config-package-version ]; then
             previous_config_package_version="$(cat .build-state/config-package-version)"
+          fi
+          if [ -f .build-state/default-package-version ]; then
+            previous_default_package_version="$(cat .build-state/default-package-version)"
+          fi
+          if [ -f .build-state/preview-cycle-phase ]; then
+            previous_preview_cycle_phase="$(cat .build-state/preview-cycle-phase)"
+          fi
+          if [ -s .build-state/preview-cycle-start ] && [ -s .build-state/preview-cycle-end ]; then
+            current_preview_cycle_phase="$(python scripts/preview_cycle_phase.py \
+              "$(cat .build-state/preview-cycle-start)" \
+              "$(cat .build-state/preview-cycle-end)")"
           fi
 
           flash_mount_retry=false
@@ -183,10 +210,11 @@ jobs:
           echo "remote_special_effect_status_sha=${remote_special_effect_status_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_config_package_version=${config_package_version}" >> "$GITHUB_OUTPUT"
           echo "remote_config_package_manifest_sha=${remote_config_package_manifest_sha}" >> "$GITHUB_OUTPUT"
+          echo "remote_default_package_version=${default_package_version}" >> "$GITHUB_OUTPUT"
           echo "previous_config_package_version=${previous_config_package_version}" >> "$GITHUB_OUTPUT"
           echo "flash_mount_retry=${flash_mount_retry}" >> "$GITHUB_OUTPUT"
 
-          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ]; then
+          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ -n "${previous_default_package_version}" ] && [ -n "${current_preview_cycle_phase}" ] && [ "${current_preview_cycle_phase}" = "${previous_preview_cycle_phase}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ] && [ "${default_package_version}" = "${previous_default_package_version}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, special effect statuses, and pending Flash mount availability are unchanged; skipping SeerAPI DB build."
           else
@@ -194,20 +222,14 @@ jobs:
             echo "Build required: force=${FORCE}, event=${GITHUB_EVENT_NAME}, flash-mount-retry=${flash_mount_retry}, api-data=${remote_sha}/${previous_sha:-none}, config-package-version=${config_package_version}/${previous_config_package_version:-none}, config-package-manifest=${remote_config_package_manifest_sha}/${previous_config_package_manifest_sha:-none}, partner-contracts=${remote_partner_sha}/${previous_partner_sha:-none}, unity-item-catalog=${remote_item_catalog_sha}/${previous_item_catalog_sha:-none}, special-effect-status=${remote_special_effect_status_sha}/${previous_special_effect_status_sha:-none}"
           fi
 
-      - name: Apply weekly publication consistency gate
-        id: publication_gate
+      - name: Read official preview window from game DLL
+        id: preview_cycle
+        if: steps.source_check.outputs.skip != 'true'
         run: |
-          python scripts/weekly_publication_gate.py \
-            --current-config-version "${{ steps.source_check.outputs.remote_config_package_version }}" \
-            --previous-config-version "${{ steps.source_check.outputs.previous_config_package_version }}" \
-            --current-api-data-sha256 "${{ steps.source_check.outputs.remote_sha }}" \
-            --previous-api-data-sha256 "${{ steps.source_check.outputs.previous_sha }}" \
+          python -m pip install 'dnfile>=0.18,<1'
+          python scripts/official_preview_cycle.py \
+            --expected-version "${{ steps.source_check.outputs.remote_default_package_version }}" \
             --github-output "$GITHUB_OUTPUT"
-
-      - name: Defer until api-data catches up
-        if: steps.publication_gate.outputs.defer == 'true'
-        run: |
-          echo "Deferred: waiting for api-data to catch up with the new weekly cycle"
 
   render-effect-icon-cache:
     needs: plan
@@ -374,6 +396,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REBUILD_WEEKLY_INDEX: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_weekly_index == true }}
+          CYCLE_START: ${{ needs.plan.outputs.preview_cycle_start }}
         run: |
           set -euo pipefail
           previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
@@ -383,13 +406,13 @@ jobs:
           if [ -s "${previous_db}" ]; then
             comparison_db="${previous_db}"
             version_info="$(
-              python - "${previous_db}" <<'PY'
+              python - "${previous_db}" "${CYCLE_START}" <<'PY'
           import importlib.util
           from pathlib import Path
           import sqlite3
           import sys
 
-          script = Path("scripts/new_content_index_release.py")
+          script = Path("scripts/build_new_content_index.py")
           sys.path.insert(0, str(script.parent.resolve()))
           spec = importlib.util.spec_from_file_location("new_content_index", script)
           if spec is None or spec.loader is None:
@@ -402,7 +425,7 @@ jobs:
               columns = module._table_columns(connection, module.RELEASE_TABLE)
               previous_schema = 1
               previous_version = module._config_version(connection)
-              previous_cycle = module._weekly_cycle(previous_version)
+              previous_cycle = 'unknown'
               if {"schema_version", "weekly_cycle"}.issubset(columns):
                   row = connection.execute(
                       f"SELECT schema_version, weekly_cycle FROM {module.RELEASE_TABLE} WHERE id = 1"
@@ -418,7 +441,7 @@ jobs:
                       previous_schema = int(row[0])
           with sqlite3.connect("seerapi-data.sqlite") as connection:
               current_version = module._config_version(connection)
-              current_cycle = module._weekly_cycle(current_version)
+              current_cycle = sys.argv[2]
           print(
               module.SEMANTIC_SCHEMA_VERSION,
               previous_schema,
@@ -448,33 +471,17 @@ jobs:
                 --repo "${GITHUB_REPOSITORY}" --json assets > "${history_json}"
               history_asset="$(
                 python - "${history_json}" "${current_cycle}" <<'PY'
-          from datetime import datetime, timedelta, timezone
+          from datetime import datetime, timezone
           import json
           from pathlib import Path
           import re
           import sys
-          from zoneinfo import ZoneInfo
-
-          def weekly_cycle(version: str) -> str:
-              digits = "".join(character for character in version if character.isdigit())
-              if len(digits) >= 14:
-                  value = (
-                      datetime.strptime(digits[:14], "%Y%m%d%H%M%S")
-                      .replace(tzinfo=timezone.utc)
-                      .astimezone(ZoneInfo("Asia/Shanghai"))
-                      .date()
-                  )
-              else:
-                  value = datetime.strptime(digits[:8], "%Y%m%d").date()
-              friday = value - timedelta(days=(value.weekday() - 4) % 7)
-              return friday.isoformat()
-
           document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-          current_cycle = sys.argv[2]
+          current_cycle = datetime.fromisoformat(sys.argv[2])
           candidates = []
           for asset in document["assets"]:
               match = re.fullmatch(r"seerapi-data-(\d+)\.sqlite", asset["name"])
-              if match and weekly_cycle(match.group(1)) < current_cycle:
+              if match and datetime.strptime(match.group(1), "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc) < current_cycle:
                   candidates.append((match.group(1), asset["name"]))
           if candidates:
               print(max(candidates)[1])
@@ -504,6 +511,55 @@ jobs:
           else
             echo "No previous published database is available; establishing baseline."
             rm -f "${previous_db}"
+          fi
+
+      - name: Pin a verified pre-window content baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CYCLE_START: ${{ needs.plan.outputs.preview_cycle_start }}
+        run: |
+          set -euo pipefail
+          baseline_asset="$(python scripts/preview_cycle_baseline.py asset-name "${CYCLE_START}")"
+          baseline_path="${RUNNER_TEMP}/${baseline_asset}"
+          baseline_tag="seerapi-content-baselines"
+          if gh release view "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release download "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" \
+              --pattern "${baseline_asset}" --dir "${RUNNER_TEMP}" || true
+          fi
+          if [ -s "${baseline_path}" ]; then
+            python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${baseline_path}"
+          else
+            previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
+            if python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${previous_db}"; then
+              cp "${previous_db}" "${baseline_path}"
+            else
+              history_json="${RUNNER_TEMP}/seerapi-content-history.json"
+              if gh release view seerapi-data-history --repo "${GITHUB_REPOSITORY}" \
+                  --json assets > "${history_json}"; then
+                while IFS= read -r candidate; do
+                  candidate_path="${RUNNER_TEMP}/${candidate}"
+                  gh release download seerapi-data-history --repo "${GITHUB_REPOSITORY}" \
+                    --pattern "${candidate}" --dir "${RUNNER_TEMP}" --clobber || continue
+                  if python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${candidate_path}"; then
+                    cp "${candidate_path}" "${baseline_path}"
+                    break
+                  fi
+                done < <(python scripts/preview_cycle_baseline.py candidates "${CYCLE_START}" "${history_json}")
+              fi
+            fi
+            if [ -s "${baseline_path}" ]; then
+              if ! gh release view "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+                gh release create "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" \
+                  --title "New-content cycle baselines" --latest=false
+              fi
+              gh release upload "${baseline_tag}" "${baseline_path}" \
+                --repo "${GITHUB_REPOSITORY}" --clobber
+            fi
+          fi
+          if [ -s "${baseline_path}" ]; then
+            echo "PREVIEW_CYCLE_BASELINE=${baseline_path}" >> "$GITHUB_ENV"
+          else
+            echo "No trustworthy published snapshot before ${CYCLE_START}; new content will remain unavailable."
           fi
 
       - name: Collect API data source-history additions
@@ -563,6 +619,16 @@ jobs:
           if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
             args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
           fi
+          if [ -n "${PREVIEW_CYCLE_BASELINE:-}" ]; then
+            args+=(--baseline "${PREVIEW_CYCLE_BASELINE}")
+          fi
+          args+=(
+            --cycle-start "${{ needs.plan.outputs.preview_cycle_start }}"
+            --cycle-end "${{ needs.plan.outputs.preview_cycle_end }}"
+            --preview-manifest-version "${{ needs.plan.outputs.preview_manifest_version }}"
+            --preview-dll-hash "${{ needs.plan.outputs.preview_dll_hash }}"
+            --preview-ui-hash "${{ needs.plan.outputs.preview_ui_hash }}"
+          )
           history_additions="${RUNNER_TEMP}/api-data-history-additions.json"
           if [ -f "${history_additions}" ]; then
             args+=(--source-history-additions "${history_additions}")
@@ -855,8 +921,14 @@ jobs:
           printf '%s\n' "${{ needs.plan.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_version }}" > .build-state/config-package-version
           printf '%s\n' "${{ needs.plan.outputs.remote_config_package_manifest_sha }}" > .build-state/config-package-manifest-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_default_package_version }}" > .build-state/default-package-version
+          printf '%s\n' "${{ needs.plan.outputs.preview_cycle_start }}" > .build-state/preview-cycle-start
+          printf '%s\n' "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-end
+          python scripts/preview_cycle_phase.py \
+            "${{ needs.plan.outputs.preview_cycle_start }}" \
+            "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-phase
           cp "${FLASH_MOUNT_PENDING_FILE}" .build-state/flash-mount-image-pending-ids
-          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/flash-mount-image-pending-ids
+          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/default-package-version .build-state/preview-cycle-start .build-state/preview-cycle-end .build-state/preview-cycle-phase .build-state/flash-mount-image-pending-ids
           if ! git diff --cached --quiet; then
             git commit -m "Record SeerAPI data source checksums"
             git push origin main

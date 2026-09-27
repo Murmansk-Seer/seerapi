@@ -21,9 +21,40 @@ sys.modules[SPEC.name] = indexer
 SPEC.loader.exec_module(indexer)
 
 
-def test_weekly_cycle_uses_shanghai_date_for_utc_timestamp() -> None:
-    assert indexer._weekly_cycle('20260806222000') == '2026-08-07'
-    assert indexer._weekly_cycle('20260807090000') == '2026-08-07'
+def test_legacy_source_date_does_not_infer_friday_cycle() -> None:
+    assert indexer._source_cycle_date('20260806222000') == '2026-08-07'
+    assert indexer._source_cycle_date('20260807090000') == '2026-08-07'
+
+
+def test_empty_official_cycle_is_ready_only_after_source_sync() -> None:
+    cycle = '2026-09-24T10:00:00+08:00'
+    assert not indexer._source_has_reached_cycle('20260924010000', cycle)
+    assert indexer._source_has_reached_cycle('20260924020000', cycle)
+    assert indexer._source_has_reached_cycle('20260925010000', cycle)
+    assert not indexer._source_has_reached_cycle('unknown', cycle)
+
+
+def test_preview_cycle_recomputes_against_fixed_pre_window_baseline(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / 'baseline.sqlite'
+    current = tmp_path / 'current.sqlite'
+    reverted = tmp_path / 'reverted.sqlite'
+    _create_database(baseline, version='20260924010000', pet_ids=(1,))
+    first = indexer.build_release_state(baseline, None, 'before-window')
+    indexer.write_release_state(baseline, first, None)
+    _create_database(current, version='20260925010000', pet_ids=(1, 2))
+    cycle = '2026-09-24T10:00:00+08:00'
+    changed = indexer.build_release_state(
+        current, baseline, 'changed', cycle_start=cycle, baseline_path=baseline
+    )
+    assert changed.weekly_cycle == cycle
+    assert {(item.category, item.entity_id) for item in changed.items} >= {('pet', 2)}
+    _create_database(reverted, version='20260926010000', pet_ids=(1,))
+    restored = indexer.build_release_state(
+        reverted, current, 'reverted', cycle_start=cycle, baseline_path=baseline
+    )
+    assert not any(item.category == 'pet' and item.entity_id == 2 for item in restored.items)
 
 
 def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> None:
@@ -384,7 +415,11 @@ def test_same_week_pool_changes_keep_origin_and_drop_reverts(tmp_path: Path) -> 
             'UPDATE pet SET peak_pool_id = ? WHERE id = ?',
             ((2, 1), (2, 2)),
         )
-    first = indexer.build_release_state(previous_path, baseline_path, 'first-sha')
+    cycle = '2026-08-14T10:00:00+08:00'
+    first = indexer.build_release_state(
+        previous_path, baseline_path, 'first-sha',
+        cycle_start=cycle, baseline_path=baseline_path,
+    )
     indexer.write_release_state(previous_path, first, None)
     with sqlite3.connect(current_path) as conn:
         conn.executemany(
@@ -392,7 +427,10 @@ def test_same_week_pool_changes_keep_origin_and_drop_reverts(tmp_path: Path) -> 
             ((0, 1), (3, 2)),
         )
 
-    state = indexer.build_release_state(current_path, previous_path, 'second-sha')
+    state = indexer.build_release_state(
+        current_path, previous_path, 'second-sha',
+        cycle_start=cycle, baseline_path=baseline_path,
+    )
 
     changes = {
         item.entity_id: item.payload
@@ -474,7 +512,11 @@ def test_master_pool_same_week_keeps_origin_and_drops_reverts(tmp_path: Path) ->
             'UPDATE pet SET peak_cost_pool_id = ? WHERE id = ?',
             ((10, 1), (10, 2)),
         )
-    first = indexer.build_release_state(previous_path, baseline_path, 'first-sha')
+    cycle = '2026-09-04T10:00:00+08:00'
+    first = indexer.build_release_state(
+        previous_path, baseline_path, 'first-sha',
+        cycle_start=cycle, baseline_path=baseline_path,
+    )
     indexer.write_release_state(previous_path, first, None)
     with sqlite3.connect(current_path) as conn:
         conn.executemany(
@@ -482,7 +524,10 @@ def test_master_pool_same_week_keeps_origin_and_drops_reverts(tmp_path: Path) ->
             ((6, 1), (20, 2)),
         )
 
-    state = indexer.build_release_state(current_path, previous_path, 'second-sha')
+    state = indexer.build_release_state(
+        current_path, previous_path, 'second-sha',
+        cycle_start=cycle, baseline_path=baseline_path,
+    )
 
     changes = {
         item.entity_id: item.payload
@@ -686,11 +731,18 @@ def test_same_week_accumulates_incremental_rows(tmp_path: Path) -> None:
     current_path = tmp_path / 'current.sqlite'
     _create_database(prior_raw, version='20260725090000', pet_ids=(1,))
     _create_database(previous_path, version='20260729090000', pet_ids=(1, 2))
-    prior_state = indexer.build_release_state(previous_path, prior_raw, 'old')
+    cycle = '2026-07-28T10:00:00+08:00'
+    prior_state = indexer.build_release_state(
+        previous_path, prior_raw, 'old',
+        cycle_start=cycle, baseline_path=prior_raw,
+    )
     indexer.write_release_state(previous_path, prior_state, None)
     _create_database(current_path, version='20260730090000', pet_ids=(1, 2, 3))
 
-    state = indexer.build_release_state(current_path, previous_path, 'new')
+    state = indexer.build_release_state(
+        current_path, previous_path, 'new',
+        cycle_start=cycle, baseline_path=prior_raw,
+    )
 
     assert [(item.category, item.entity_id) for item in state.items] == [
         ('pet', 2),

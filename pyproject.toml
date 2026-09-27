@@ -25,6 +25,7 @@ dev = [
     { include-group = "docs" },
     "albi0>=0.5.3",
     "basedpyright==1.40.1",
+    "dnfile>=0.18.0,<1",
     "ruff>=0.13.0",
     "seerapi-solaris",
 ]

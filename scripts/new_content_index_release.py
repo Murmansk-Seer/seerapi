@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -68,11 +68,9 @@ def _version_date(version: str) -> date:
     return datetime.now().date()
 
 
-def _weekly_cycle(version: str) -> str:
-    """Return the Friday-starting weekly cycle containing the source version."""
-    value = _version_date(version)
-    friday = value - timedelta(days=(value.weekday() - 4) % 7)
-    return friday.isoformat()
+def _source_cycle_date(version: str) -> str:
+    """Use the source date only for legacy indexes without an official cycle."""
+    return _version_date(version).isoformat()
 
 
 def _load_previous_state(path: Path | None) -> ReleaseState | None:
@@ -128,7 +126,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
             return ReleaseState(
                 version,
                 None,
-                _weekly_cycle(version),
+                _source_cycle_date(version),
                 False,
                 (),
                 source_items,
@@ -143,7 +141,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
             return ReleaseState(
                 version,
                 None,
-                _weekly_cycle(version),
+                _source_cycle_date(version),
                 False,
                 (),
                 source_items,
@@ -178,7 +176,7 @@ def _load_previous_state(path: Path | None) -> ReleaseState | None:
         return ReleaseState(
             version,
             str(row[0]) if row[0] else None,
-            str(row[1] or _weekly_cycle(version)),
+            str(row[1] or _source_cycle_date(version)),
             bool(row[2]),
             items,
             source_items,
