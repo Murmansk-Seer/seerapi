@@ -18,6 +18,7 @@ on:
       - "scripts/preview_cycle_*.py"
       - "scripts/preview_window_dll.py"
       - "scripts/release_*.py"
+      - "scripts/push_build_state.py"
       - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
       - "scripts/finalize_render_asset_manifest.py"
@@ -939,7 +940,7 @@ jobs:
           git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/default-package-version .build-state/preview-cycle-start .build-state/preview-cycle-end .build-state/preview-cycle-phase .build-state/flash-mount-image-pending-ids
           if ! git diff --cached --quiet; then
             git commit -m "Record SeerAPI data source checksums"
-            git push origin main
+            python scripts/push_build_state.py
           fi
 
       - name: Upload to Release
