@@ -1042,14 +1042,10 @@ def test_parse_named_status_variants_uses_explicit_icon_mapping() -> None:
     )
 
     assert rows[0].variants == (
-        effect_metadata_sources.SpecialEffectStatusVariant(
-            132, 7, '开启', '', '132_2'
-        ),
+        effect_metadata_sources.SpecialEffectStatusVariant(132, 7, '开启', '', '132_2'),
     )
     assert rows[1].variants == (
-        effect_metadata_sources.SpecialEffectStatusVariant(
-            133, 3, '守护', '', '133_3'
-        ),
+        effect_metadata_sources.SpecialEffectStatusVariant(133, 3, '守护', '', '133_3'),
     )
     assert rows[2].variants == (
         effect_metadata_sources.SpecialEffectStatusVariant(
@@ -2269,8 +2265,7 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
                 'newseer/assets/art/ui/assets/pettype/prop.png': 'prop',
                 'newseer/assets/art/ui/assets/countermark/icon/8.png': 'mintmark',
                 'newseer/assets/art/ui/assets/item/petitem/icon/9.png': 'item',
-                'newseer/assets/art/ui/assets/battleeffect/signbuff/191_2.png':
-                    'variant-icon',
+                'newseer/assets/art/ui/assets/battleeffect/signbuff/191_2.png': 'variant-icon',
             },
         )
         remote = _collect_remote_asset_manifest(
