@@ -57,6 +57,21 @@ class SpecialEffectStatusRecord(Protocol):
     def description(self) -> str: ...
     @property
     def show_monster_id(self) -> int: ...
+    @property
+    def variants(self) -> Iterable[SpecialEffectStatusVariantRecord]: ...
+
+
+class SpecialEffectStatusVariantRecord(Protocol):
+    @property
+    def status_id(self) -> int: ...
+    @property
+    def value(self) -> int: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def description(self) -> str: ...
+    @property
+    def icon_key(self) -> str: ...
 
 
 def replace_reference_tables(
@@ -68,6 +83,7 @@ def replace_reference_tables(
     now: float,
 ) -> None:
     """Replace parsed official shop and special-effect reference tables."""
+    special_effect_statuses = tuple(special_effect_statuses)
     conn.execute(f'DROP TABLE IF EXISTS {ITEM_EXCHANGE_PRICE_TABLE}')
     conn.execute(
         f"""
@@ -187,4 +203,39 @@ def replace_reference_tables(
         CREATE INDEX idx_{SPECIAL_EFFECT_STATUS_TABLE}_name
         ON {SPECIAL_EFFECT_STATUS_TABLE} (name)
         """
+    )
+    conn.execute('DROP TABLE IF EXISTS special_effect_status_variant')
+    conn.execute(
+        """
+        CREATE TABLE special_effect_status_variant (
+            status_id INTEGER NOT NULL,
+            variant_value INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            icon_key TEXT NOT NULL,
+            updated_at REAL NOT NULL,
+            PRIMARY KEY (status_id, variant_value)
+        )
+        """
+    )
+    variants = {
+        (variant.status_id, variant.value): variant
+        for status in special_effect_statuses
+        for variant in getattr(status, 'variants', ())
+    }
+    conn.executemany(
+        """
+        INSERT INTO special_effect_status_variant
+            (status_id, variant_value, name, description, icon_key, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (variant.status_id, variant.value, variant.name,
+             variant.description, variant.icon_key, now)
+            for _, variant in sorted(variants.items())
+        ],
+    )
+    conn.execute(
+        'CREATE INDEX idx_special_effect_status_variant_name '
+        'ON special_effect_status_variant (name)'
     )

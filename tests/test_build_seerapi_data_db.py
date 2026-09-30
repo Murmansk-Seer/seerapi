@@ -191,6 +191,11 @@ def test_release_reference_table_writer_replaces_official_reference_tables() -> 
         name='旧日之晷',
         description='状态说明',
         show_monster_id=4125,
+        variants=(
+            effect_metadata_sources.SpecialEffectStatusVariant(
+                147, 2, '另一个状态', '分支说明', '147_3'
+            ),
+        ),
     )
 
     with sqlite3.connect(':memory:') as connection:
@@ -210,6 +215,10 @@ def test_release_reference_table_writer_replaces_official_reference_tables() -> 
         assert connection.execute(
             'SELECT status_id, name, show_monster_id FROM special_effect_status'
         ).fetchall() == [(147, '旧日之晷', 4125)]
+        assert connection.execute(
+            'SELECT status_id, variant_value, name, icon_key '
+            'FROM special_effect_status_variant'
+        ).fetchall() == [(147, 2, '另一个状态', '147_3')]
 
 
 def test_release_soulmark_icon_writer_replaces_icons_and_issues() -> None:
@@ -1000,6 +1009,56 @@ def test_parse_special_effect_statuses_keeps_display_name_aliases() -> None:
             show_monster_id=0,
         ),
     ]
+
+
+def test_parse_named_status_variants_uses_explicit_icon_mapping() -> None:
+    payload = {
+        'config': {
+            'item': [
+                {
+                    'id': 191,
+                    'dec': '阴冥之择',
+                    'sp_tips': ['1_冥妖之悼', '2_幽迹之秘'],
+                    'sp_des': ['1_第一条说明', '2_第二条说明'],
+                },
+                {
+                    'id': 132,
+                    'dec': '赛博共振器',
+                    'sp_tips': ['7_开启'],
+                    'sp_icon': ['7_2'],
+                },
+                {
+                    'id': 133,
+                    'dec': '坏图标映射',
+                    'sp_tips': ['3_守护'],
+                    'sp_icon': ['3_../../unexpected'],
+                },
+            ]
+        }
+    }
+
+    rows = effect_metadata_sources.parse_special_effect_statuses(
+        json.dumps(payload, ensure_ascii=False).encode('utf-8')
+    )
+
+    assert rows[0].variants == (
+        effect_metadata_sources.SpecialEffectStatusVariant(
+            132, 7, '开启', '', '132_2'
+        ),
+    )
+    assert rows[1].variants == (
+        effect_metadata_sources.SpecialEffectStatusVariant(
+            133, 3, '守护', '', '133_3'
+        ),
+    )
+    assert rows[2].variants == (
+        effect_metadata_sources.SpecialEffectStatusVariant(
+            191, 1, '冥妖之悼', '第一条说明', '191_1'
+        ),
+        effect_metadata_sources.SpecialEffectStatusVariant(
+            191, 2, '幽迹之秘', '第二条说明', '191_2'
+        ),
+    )
 
 
 def test_parse_autocard_season_effects() -> None:
@@ -2184,11 +2243,19 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
             CREATE TABLE mintmark (id INTEGER NOT NULL);
             CREATE TABLE item (id INTEGER NOT NULL);
             CREATE TABLE special_effect_status (status_id INTEGER NOT NULL);
+            CREATE TABLE effect_description (effect_id INTEGER, name TEXT);
+            CREATE TABLE special_effect_status_variant (
+                status_id INTEGER, variant_value INTEGER, name TEXT,
+                description TEXT, icon_key TEXT
+            );
             INSERT INTO pet VALUES (100), (101);
             INSERT INTO element_type VALUES (1);
             INSERT INTO mintmark VALUES (8);
             INSERT INTO item VALUES (9);
             INSERT INTO special_effect_status VALUES (10);
+            INSERT INTO effect_description VALUES (545, '幽迹之秘');
+            INSERT INTO special_effect_status_variant
+                VALUES (191, 2, '幽迹之秘', '分支说明', '191_2');
             """
         )
         snapshot = render_asset_repository.AssetRepositorySnapshot(
@@ -2202,6 +2269,8 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
                 'newseer/assets/art/ui/assets/pettype/prop.png': 'prop',
                 'newseer/assets/art/ui/assets/countermark/icon/8.png': 'mintmark',
                 'newseer/assets/art/ui/assets/item/petitem/icon/9.png': 'item',
+                'newseer/assets/art/ui/assets/battleeffect/signbuff/191_2.png':
+                    'variant-icon',
             },
         )
         remote = _collect_remote_asset_manifest(
@@ -2217,6 +2286,7 @@ def test_pet_info_remote_asset_manifest_requires_all_mandatory_assets(
     assert by_identity[('pet_head', '100')].available is True
     assert by_identity[('item', '9')].available is True
     assert by_identity[('sign_buff', '10')].available is False
+    assert by_identity[('sign_buff', '191_2')].available is True
     assert '#blob:item' in by_identity[('item', '9')].source
 
 

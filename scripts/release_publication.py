@@ -236,7 +236,16 @@ def publish_release_tables(
             now,
         )
         replace_pet_partner_tables(conn, release.pet_partner_data, updated_at=now)
-        special_effect_facts = replace_pet_special_effect_facts(conn, now=now)
+        available_sign_buff_keys = frozenset(
+            entry.asset_key
+            for entry in render_manifest_build.entries
+            if entry.asset_kind == 'sign_buff' and entry.available
+        )
+        special_effect_facts = replace_pet_special_effect_facts(
+            conn,
+            now=now,
+            available_icon_keys=available_sign_buff_keys,
+        )
         metadata = build_release_metadata(
             context=context.metadata_context,
             built_at=now,

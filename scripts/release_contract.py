@@ -55,6 +55,7 @@ GENERATED_RELEASE_TABLES = frozenset(
         'soulmark_icon',
         'soulmark_icon_render_issue',
         'special_effect_status',
+        'special_effect_status_variant',
     }
 )
 

@@ -76,6 +76,7 @@ class SpecialEffectFact:
     status_id: int | None
     primary_rule: str
     discovery_index: int
+    icon_key: str | None = None
     sources: set[EffectSource] = field(default_factory=set)
 
     @property
