@@ -35,6 +35,13 @@ def test_data_build_pins_api_data_release_asset() -> None:
     assert 'releases/download/latest/seerapi-data.sqlite.sha256' not in workflow
 
 
+def test_data_build_uses_safe_state_push() -> None:
+    workflow = DATA_BUILD_WORKFLOW.read_text(encoding='utf-8')
+
+    assert 'python scripts/push_build_state.py' in workflow
+    assert 'git push origin main' not in workflow
+
+
 def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     workflow = DATA_BUILD_WORKFLOW.read_text(encoding='utf-8')
     action = FFDEC_ACTION.read_text(encoding='utf-8')
