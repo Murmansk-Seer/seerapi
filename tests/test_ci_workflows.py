@@ -22,6 +22,19 @@ def test_data_build_has_no_legacy_release_fallback() -> None:
     assert 'ironsbot-data.sqlite' not in workflow
 
 
+def test_data_build_pins_api_data_release_asset() -> None:
+    workflow = DATA_BUILD_WORKFLOW.read_text(encoding='utf-8')
+
+    assert 'release_api_data_source.py resolve' in workflow
+    assert 'release_api_data_source.py download' in workflow
+    assert (
+        'api_data_asset_id: ${{ steps.source_check.outputs.api_data_asset_id }}'
+        in workflow
+    )
+    assert 'API_DATA_ASSET_ID: ${{ needs.plan.outputs.api_data_asset_id }}' in workflow
+    assert 'releases/download/latest/seerapi-data.sqlite.sha256' not in workflow
+
+
 def test_data_build_reuses_the_pinned_ffdec_setup_action() -> None:
     workflow = DATA_BUILD_WORKFLOW.read_text(encoding='utf-8')
     action = FFDEC_ACTION.read_text(encoding='utf-8')

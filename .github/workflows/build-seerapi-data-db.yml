@@ -57,6 +57,7 @@ jobs:
       preview_dll_hash: ${{ steps.preview_cycle.outputs.preview_dll_hash }}
       preview_ui_hash: ${{ steps.preview_cycle.outputs.preview_ui_hash }}
       remote_sha: ${{ steps.source_check.outputs.remote_sha }}
+      api_data_asset_id: ${{ steps.source_check.outputs.api_data_asset_id }}
       expected_api_data_sha: ${{ steps.source_check.outputs.expected_api_data_sha }}
       remote_partner_sha: ${{ steps.source_check.outputs.remote_partner_sha }}
       remote_item_catalog_sha: ${{ steps.source_check.outputs.remote_item_catalog_sha }}
@@ -80,6 +81,7 @@ jobs:
       - name: Check data source changes
         id: source_check
         env:
+          GH_TOKEN: ${{ github.token }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
           DISPATCHED_API_DATA_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha256 || '' }}
           DISPATCHED_SOURCE_COMMIT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_commit || '' }}
@@ -99,15 +101,9 @@ jobs:
             --retry-all-errors
             --retry-delay 3
           )
-          remote_sha="$(
-            "${curl_retry[@]}" https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite.sha256 \
-              | awk '{print $1}'
-          )"
-          remote_sha="${remote_sha,,}"
-          if ! [[ "${remote_sha}" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "api-data latest checksum is not a SHA256 value: ${remote_sha}" >&2
-            exit 1
-          fi
+          release_info="$(python scripts/release_api_data_source.py resolve --github-output "$GITHUB_OUTPUT")"
+          read -r api_data_asset_id remote_sha <<< "${release_info}"
+          echo "Pinned api-data Release asset ${api_data_asset_id} (${remote_sha})"
           expected_api_data_sha="${remote_sha}"
           if [ "${GITHUB_EVENT_NAME}" = "repository_dispatch" ]; then
             dispatched_sha="${DISPATCHED_API_DATA_SHA,,}"
@@ -210,7 +206,6 @@ jobs:
             done < .build-state/flash-mount-image-pending-ids
           fi
 
-          echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
           echo "expected_api_data_sha=${expected_api_data_sha}" >> "$GITHUB_OUTPUT"
           echo "previous_sha=${previous_sha}" >> "$GITHUB_OUTPUT"
           echo "remote_partner_sha=${remote_partner_sha}" >> "$GITHUB_OUTPUT"
@@ -426,22 +421,15 @@ jobs:
 
       - name: Download and verify api-data database
         env:
+          GH_TOKEN: ${{ github.token }}
+          API_DATA_ASSET_ID: ${{ needs.plan.outputs.api_data_asset_id }}
           EXPECTED_API_DATA_SHA: ${{ needs.plan.outputs.expected_api_data_sha }}
         run: |
           set -euo pipefail
-          database_path="${RUNNER_TEMP}/api-data.sqlite"
-          for attempt in 1 2 3; do
-            curl --fail --location --retry 3 --retry-delay 2 \
-              --output "${database_path}" \
-              https://github.com/Murmansk-Seer/api-data/releases/download/latest/seerapi-data.sqlite
-            if printf '%s  %s\n' "${EXPECTED_API_DATA_SHA}" "${database_path}" | sha256sum --check; then
-              exit 0
-            fi
-            echo "api-data checksum mismatch on download attempt ${attempt}; retrying" >&2
-            rm -f "${database_path}"
-          done
-          echo "api-data release asset changed during build; checksum verification failed after 3 attempts" >&2
-          exit 1
+          python scripts/release_api_data_source.py download \
+            --asset-id "${API_DATA_ASSET_ID}" \
+            --sha256 "${EXPECTED_API_DATA_SHA}" \
+            --output "${RUNNER_TEMP}/api-data.sqlite"
 
       - name: Build SeerAPI database
         env:
