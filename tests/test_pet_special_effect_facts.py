@@ -34,6 +34,13 @@ def _connection() -> sqlite3.Connection:
             description TEXT NOT NULL,
             show_monster_id INTEGER NOT NULL
         );
+        CREATE TABLE special_effect_status_variant (
+            status_id INTEGER NOT NULL,
+            variant_value INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            icon_key TEXT NOT NULL
+        );
         CREATE TABLE effect_description (
             effect_id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
@@ -346,6 +353,86 @@ def test_publishes_declared_soulmark_display_additions() -> None:
             'seerapi/soulmark-display-corrections#pet-2500-v1',
         )
     ]
+
+
+def test_named_status_variants_attach_distinct_icons_without_new_effects() -> None:
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (3488, '阴灵魂姬')")
+    connection.executemany(
+        'INSERT INTO glossary_entry VALUES (?, ?, ?)',
+        [(544, '冥妖之悼', '第一条说明'), (545, '幽迹之秘', '第二条说明')],
+    )
+    connection.executemany(
+        'INSERT INTO effect_description VALUES (?, ?, ?)',
+        [(544, '冥妖之悼', '第一条说明'), (545, '幽迹之秘', '第二条说明')],
+    )
+    connection.execute(
+        'INSERT INTO skill (id, name, info) VALUES '
+        "(29402, '黄泉妖偈', '获得冥妖之悼或幽迹之秘')"
+    )
+    connection.execute('INSERT INTO skillinpetorm VALUES (3488, 29402)')
+    connection.execute(
+        "INSERT INTO special_effect_status VALUES (191, '阴冥之择', '', 0)"
+    )
+    connection.executemany(
+        'INSERT INTO special_effect_status_variant VALUES (?, ?, ?, ?, ?)',
+        [
+            (191, 1, '冥妖之悼', '第一条说明', '191_1'),
+            (191, 2, '幽迹之秘', '第二条说明', '191_2'),
+        ],
+    )
+
+    replace_pet_special_effect_facts(connection, now=1.0)
+
+    assert connection.execute(
+        'SELECT name, icon_key FROM pet_special_effect '
+        'WHERE pet_id=3488 ORDER BY glossary_id'
+    ).fetchall() == [('冥妖之悼', '191_1'), ('幽迹之秘', '191_2')]
+
+    replace_pet_special_effect_facts(
+        connection, now=2.0, available_icon_keys=frozenset({'191_1'})
+    )
+    assert connection.execute(
+        'SELECT name, icon_key FROM pet_special_effect '
+        'WHERE pet_id=3488 ORDER BY glossary_id'
+    ).fetchall() == [('冥妖之悼', '191_1'), ('幽迹之秘', None)]
+
+
+@pytest.mark.parametrize(
+    ('description', 'expected_icon'),
+    [('对应说明', '10_1'), ('不相同的说明', None)],
+)
+def test_ambiguous_variant_name_needs_matching_description(
+    description: str,
+    expected_icon: str | None,
+) -> None:
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (9000, '测试精灵')")
+    connection.execute(
+        'INSERT INTO glossary_entry VALUES (77, ?, ?)', ('重名效果', description)
+    )
+    connection.execute(
+        'INSERT INTO effect_description VALUES (77, ?, ?)',
+        ('重名效果', description),
+    )
+    connection.execute('INSERT INTO petglossaryentrylink VALUES (9000, 77)')
+    connection.executemany(
+        'INSERT INTO special_effect_status_variant VALUES (?, ?, ?, ?, ?)',
+        [
+            (10, 1, '重名效果', '对应说明', '10_1'),
+            (11, 2, '重名效果', '另一分支说明', '11_2'),
+        ],
+    )
+
+    replace_pet_special_effect_facts(connection, now=1.0)
+
+    assert connection.execute(
+        'SELECT icon_key FROM pet_special_effect WHERE pet_id=9000'
+    ).fetchone() == (expected_icon,)
+    assert connection.execute(
+        'SELECT COUNT(*) FROM pet_special_effect_issue '
+        "WHERE reason='ambiguous_variant_icon'"
+    ).fetchone() == (0 if expected_icon else 2,)
 
 
 def test_publishes_partner_upgrade_soulmark_display_kind() -> None:

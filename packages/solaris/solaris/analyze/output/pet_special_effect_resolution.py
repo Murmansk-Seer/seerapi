@@ -609,8 +609,67 @@ def _add_linked_glossaries(
             )
 
 
+def _attach_variant_icons(
+    connection: sqlite3.Connection,
+    facts: SpecialEffectFactAccumulator,
+    issues: list[EffectResolutionIssue],
+    available_icon_keys: frozenset[str] | None,
+) -> None:
+    if not connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='special_effect_status_variant'"
+    ).fetchone():
+        return
+    variants: dict[int, list[tuple[int, str, str, str]]] = defaultdict(list)
+    for effect_id, name, status_id, description, icon_key in connection.execute(
+        """
+        SELECT effect.effect_id, variant.name, variant.status_id,
+               variant.description, variant.icon_key
+        FROM special_effect_status_variant AS variant
+        JOIN effect_description AS effect ON effect.name = variant.name
+        ORDER BY effect.effect_id, variant.status_id, variant.variant_value
+        """
+    ):
+        variants[int(effect_id)].append(
+            (int(status_id), str(name), str(description), str(icon_key))
+        )
+    for fact in facts.facts:
+        if fact.glossary_id is None:
+            continue
+        candidates = [
+            variant
+            for variant in variants.get(fact.glossary_id, [])
+            if variant[1] == fact.name
+        ]
+        ambiguous_candidates = candidates
+        if len(candidates) > 1:
+            exact_description = normalize_special_effect_text(fact.description)
+            candidates = [
+                candidate
+                for candidate in candidates
+                if exact_description
+                and normalize_special_effect_text(candidate[2]) == exact_description
+            ]
+        if len(candidates) == 1:
+            icon_key = candidates[0][3]
+            if available_icon_keys is None or icon_key in available_icon_keys:
+                fact.icon_key = icon_key
+        elif ambiguous_candidates:
+            _append_issue(
+                issues,
+                pet_id=fact.pet_id,
+                effect_name=fact.name,
+                candidate_kind='status_variant',
+                candidates=(candidate[0] for candidate in ambiguous_candidates),
+                reason='ambiguous_variant_icon',
+                context=fact.description,
+            )
+
+
 def collect_pet_special_effect_facts(
     connection: sqlite3.Connection,
+    *,
+    available_icon_keys: frozenset[str] | None = None,
 ) -> tuple[SpecialEffectFactAccumulator, list[EffectResolutionIssue]]:
     """Collect all official effect relations before publishing fact tables."""
     glossaries, glossary_by_name = _load_glossaries(connection)
@@ -627,6 +686,7 @@ def collect_pet_special_effect_facts(
     _add_linked_glossaries(connection, facts, glossaries)
     _attach_named_statuses(facts, statuses_by_name, issues)
     _resolve_glossary_candidates(facts, glossary_by_name, issues)
+    _attach_variant_icons(connection, facts, issues, available_icon_keys)
     return facts, issues
 
 

@@ -41,6 +41,7 @@ def _replace_special_effect_tables(
             effect_key TEXT NOT NULL,
             glossary_id INTEGER,
             status_id INTEGER,
+            icon_key TEXT,
             name TEXT NOT NULL,
             description TEXT,
             sort_id INTEGER,
@@ -92,10 +93,10 @@ def _replace_special_effect_tables(
         """
         INSERT INTO pet_special_effect
             (
-                pet_id, effect_key, glossary_id, status_id, name, description,
+                pet_id, effect_key, glossary_id, status_id, icon_key, name, description,
                 sort_id, sort_kind, primary_rule, updated_at
             )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             (
@@ -103,6 +104,7 @@ def _replace_special_effect_tables(
                 fact.effect_key,
                 fact.glossary_id,
                 fact.status_id,
+                fact.icon_key,
                 fact.name,
                 fact.description,
                 fact.sort_id,
@@ -176,9 +178,12 @@ def replace_pet_special_effect_facts(
     connection: sqlite3.Connection,
     *,
     now: float,
+    available_icon_keys: frozenset[str] | None = None,
 ) -> PetSpecialEffectBuildSummary:
     """Replace published special-effect and soulmark-display facts in one DB."""
-    facts, issues = collect_pet_special_effect_facts(connection)
+    facts, issues = collect_pet_special_effect_facts(
+        connection, available_icon_keys=available_icon_keys
+    )
     fact_count, source_count, issue_count = _replace_special_effect_tables(
         connection,
         facts,
