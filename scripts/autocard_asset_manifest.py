@@ -38,6 +38,19 @@ def collect_autocard_asset_requests(
         return None
 
     requests: dict[tuple[str, str], AutocardAssetRequest] = {}
+    try:
+        chip_rows = conn.execute('SELECT id FROM autocard_chip ORDER BY id').fetchall()
+    except sqlite3.OperationalError:
+        chip_rows = []
+    for (chip_id,) in chip_rows:
+        if _positive_int(chip_id) <= 0:
+            continue
+        key = f'autocardChip_{chip_id}'
+        requests[('autocard_chip', key)] = AutocardAssetRequest(
+            'autocard_chip',
+            key,
+            f'newseer/assets/game/ui/autocard/s2chip/{key}.png',
+        )
     for item_id, raw_json in card_rows:
         try:
             item = json.loads(str(raw_json))

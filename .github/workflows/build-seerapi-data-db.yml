@@ -13,6 +13,7 @@ on:
       - "scripts/build_new_content_index.py"
       - "scripts/backfill_autocard_chip_baseline.py"
       - "scripts/config_package_sources.py"
+      - "scripts/autocard_asset_manifest.py"
       - "scripts/new_content_index_*.py"
       - "scripts/official_preview_cycle.py"
       - "scripts/preview_cycle_*.py"
