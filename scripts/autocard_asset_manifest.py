@@ -30,14 +30,40 @@ def collect_autocard_asset_requests(
         card_rows = conn.execute(
             'SELECT id, raw_json FROM autocard_card ORDER BY id'
         ).fetchall()
+    except sqlite3.OperationalError:
+        card_rows = []
+    try:
         role_rows = conn.execute(
-            'SELECT id, pic_id FROM autocard_role ORDER BY id'
+            'SELECT role_id, pic_id FROM autocard_role_raw ORDER BY role_id'
         ).fetchall()
     except sqlite3.OperationalError:
-        logger.warning('Autocard catalogue is unavailable for asset publication')
-        return None
+        try:
+            role_rows = conn.execute(
+                'SELECT id, pic_id FROM autocard_role ORDER BY id'
+            ).fetchall()
+        except sqlite3.OperationalError:
+            role_rows = []
 
     requests: dict[tuple[str, str], AutocardAssetRequest] = {}
+    try:
+        chip_rows = conn.execute('SELECT id FROM autocard_chip ORDER BY id').fetchall()
+    except sqlite3.OperationalError:
+        chip_rows = []
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name IN "
+        "('autocard_card', 'autocard_role', 'autocard_role_raw', 'autocard_chip') LIMIT 1"
+    ).fetchone():
+        logger.warning('Autocard catalogue is unavailable for asset publication')
+        return None
+    for (chip_id,) in chip_rows:
+        if _positive_int(chip_id) <= 0:
+            continue
+        key = f'autocardChip_{chip_id}'
+        requests[('autocard_chip', key)] = AutocardAssetRequest(
+            'autocard_chip',
+            key,
+            f'newseer/assets/game/ui/autocard/s2chip/{key}.png',
+        )
     for item_id, raw_json in card_rows:
         try:
             item = json.loads(str(raw_json))

@@ -2331,7 +2331,8 @@ def test_optional_battle_effect_assets_use_the_release_snapshot() -> None:
     }
 
 
-def test_optional_autocard_assets_use_the_release_snapshot() -> None:
+@pytest.mark.parametrize('include_chips', [False, True])
+def test_optional_autocard_assets_use_the_release_snapshot(include_chips: bool) -> None:
     with sqlite3.connect(':memory:') as connection:
         connection.execute(
             'CREATE TABLE autocard_card (id INTEGER, raw_json TEXT NOT NULL)'
@@ -2346,11 +2347,17 @@ def test_optional_autocard_assets_use_the_release_snapshot() -> None:
         )
         connection.execute('CREATE TABLE autocard_role (id INTEGER, pic_id INTEGER)')
         connection.execute('INSERT INTO autocard_role VALUES (3, 9)')
+        if include_chips:
+            connection.executescript("""
+                CREATE TABLE autocard_chip (id INTEGER);
+                INSERT INTO autocard_chip VALUES (115), (116);
+            """)
         snapshot = render_asset_repository.AssetRepositorySnapshot(
             revision='a' * 40,
             blobs_by_path={
                 'newseer/assets/art/autocard/texture/cards/card_7.png': 'card-7',
                 'newseer/assets/art/autocard/texture/roles/card/role_9.png': 'role-9',
+                'newseer/assets/game/ui/autocard/s2chip/autocardChip_115.png': 'chip-115',
             },
         )
 
@@ -2364,11 +2371,21 @@ def test_optional_autocard_assets_use_the_release_snapshot() -> None:
         (entry.asset_kind, entry.asset_key): entry
         for entry in remote.supplemental_entries
     }
-    assert set(by_identity) == {
+    expected = {
         ('autocard_card', 'card_7'),
         ('autocard_card', 'card_20001'),
         ('autocard_role', 'role_9'),
     }
+    if include_chips:
+        expected.update(
+            {
+                ('autocard_chip', 'autocardChip_115'),
+                ('autocard_chip', 'autocardChip_116'),
+            }
+        )
+        assert by_identity[('autocard_chip', 'autocardChip_115')].available is True
+        assert by_identity[('autocard_chip', 'autocardChip_116')].available is False
+    assert set(by_identity) == expected
     assert by_identity[('autocard_card', 'card_7')].available is True
     assert by_identity[('autocard_card', 'card_20001')].available is False
     assert by_identity[('autocard_role', 'role_9')].available is True
