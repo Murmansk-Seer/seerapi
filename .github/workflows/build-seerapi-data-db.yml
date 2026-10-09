@@ -17,6 +17,7 @@ on:
       - "scripts/new_content_index_*.py"
       - "scripts/official_preview_cycle.py"
       - "scripts/preview_cycle_*.py"
+      - "scripts/maintenance_*.py"
       - "scripts/preview_window_dll.py"
       - "scripts/release_*.py"
       - "scripts/push_build_state.py"
@@ -58,6 +59,10 @@ jobs:
       preview_manifest_version: ${{ steps.preview_cycle.outputs.preview_manifest_version }}
       preview_dll_hash: ${{ steps.preview_cycle.outputs.preview_dll_hash }}
       preview_ui_hash: ${{ steps.preview_cycle.outputs.preview_ui_hash }}
+      maintenance_start: ${{ steps.source_check.outputs.maintenance_start }}
+      maintenance_end: ${{ steps.source_check.outputs.maintenance_end }}
+      maintenance_source: ${{ steps.source_check.outputs.maintenance_source }}
+      maintenance_notice_id: ${{ steps.source_check.outputs.maintenance_notice_id }}
       remote_sha: ${{ steps.source_check.outputs.remote_sha }}
       api_data_asset_id: ${{ steps.source_check.outputs.api_data_asset_id }}
       expected_api_data_sha: ${{ steps.source_check.outputs.expected_api_data_sha }}
@@ -84,7 +89,7 @@ jobs:
         id: source_check
         env:
           GH_TOKEN: ${{ github.token }}
-          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && (inputs.force == true || inputs.rebuild_weekly_index == true) }}
           DISPATCHED_API_DATA_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha256 || '' }}
           DISPATCHED_SOURCE_COMMIT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_commit || '' }}
           PARTNER_CONTRACTS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/partner_contracts.json
@@ -103,6 +108,14 @@ jobs:
             --retry-all-errors
             --retry-delay 3
           )
+          python scripts/maintenance_cycle.py \
+            --state .build-state/maintenance-cycle.json \
+            --output .cache/official-packages/maintenance-cycle.json \
+            --github-output "$GITHUB_OUTPUT"
+          if ! cmp -s .build-state/maintenance-cycle.json .cache/official-packages/maintenance-cycle.json; then
+            FORCE=true
+            echo "Official maintenance batch changed; rebuilding content independently of preview windows."
+          fi
           release_info="$(python scripts/release_api_data_source.py resolve --github-output "$GITHUB_OUTPUT")"
           read -r api_data_asset_id remote_sha <<< "${release_info}"
           echo "Pinned api-data Release asset ${api_data_asset_id} (${remote_sha})"
@@ -267,6 +280,7 @@ jobs:
 
       - name: Read official preview window from game DLL
         id: preview_cycle
+        continue-on-error: true
         if: steps.source_check.outputs.skip != 'true'
         env:
           SEERAPI_DATA_OFFICIAL_PACKAGE_CACHE_DIR: .cache/official-packages
@@ -448,8 +462,7 @@ jobs:
       - name: Download previous published database
         env:
           GH_TOKEN: ${{ github.token }}
-          REBUILD_WEEKLY_INDEX: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_weekly_index == true }}
-          CYCLE_START: ${{ needs.plan.outputs.preview_cycle_start }}
+          CYCLE_START: ${{ needs.plan.outputs.maintenance_start }}
         run: |
           set -euo pipefail
           previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
@@ -464,57 +477,7 @@ jobs:
             )"
             read -r expected_schema previous_schema previous_version previous_cycle current_version current_cycle <<< "${version_info}"
             echo "Comparison versions: previous=${previous_version} current=${current_version} cycle=${current_cycle}"
-            use_history_baseline=false
-            if [[ "${REBUILD_WEEKLY_INDEX}" == true ]]; then
-              use_history_baseline=true
-              echo "Manual weekly-index rebuild requested; recovering from a prior-cycle baseline."
-            elif (( previous_schema < expected_schema )); then
-              use_history_baseline=true
-              echo "Previous release needs a semantic-schema migration baseline."
-            elif [[ "${previous_version}" == "${current_version}" && "${previous_cycle}" < "${current_cycle}" ]]; then
-              use_history_baseline=true
-              echo "Previous release has a same-version old weekly cycle; recovering from a prior-cycle baseline."
-            fi
-            if [[ "${use_history_baseline}" == true ]]; then
-              history_json="${RUNNER_TEMP}/seerapi-data-history.json"
-              gh release view seerapi-data-history \
-                --repo "${GITHUB_REPOSITORY}" --json assets > "${history_json}"
-              history_asset="$(
-                python - "${history_json}" "${current_cycle}" <<'PY'
-          from datetime import datetime, timezone
-          import json
-          from pathlib import Path
-          import re
-          import sys
-          document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-          current_cycle = datetime.fromisoformat(sys.argv[2])
-          candidates = []
-          for asset in document["assets"]:
-              match = re.fullmatch(r"seerapi-data-(\d+)\.sqlite", asset["name"])
-              if match and datetime.strptime(match.group(1), "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc) < current_cycle:
-                  candidates.append((match.group(1), asset["name"]))
-          if candidates:
-              print(max(candidates)[1])
-          PY
-              )"
-              if [ -z "${history_asset}" ]; then
-                release_version="$(python -c 'import sqlite3; print(sqlite3.connect("seerapi-data.sqlite").execute("SELECT value FROM seerapi_metadata WHERE key = ?", ("config_package_version",)).fetchone()[0])')"
-                if [ "${release_version}" = "20260924175611" ]; then
-                  history_asset="seerapi-data-20260918180640.sqlite"
-                  echo "Using the verified first chip baseline after history selection returned no asset."
-                fi
-              fi
-              if [ -n "${history_asset}" ]; then
-                gh release download seerapi-data-history \
-                  --repo "${GITHUB_REPOSITORY}" \
-                  --pattern "${history_asset}" \
-                  --dir "${RUNNER_TEMP}" --clobber
-                comparison_db="${RUNNER_TEMP}/${history_asset}"
-                echo "Using ${history_asset} as the semantic-schema migration baseline."
-              else
-                echo "No prior-cycle history asset found for semantic-schema migration."
-              fi
-            fi
+            # Content comparison uses the independently verified maintenance baseline.
             python scripts/backfill_autocard_chip_baseline.py "${comparison_db}" seerapi-data.sqlite
             echo "PREVIOUS_SEERAPI_DATA_DB=${comparison_db}" >> "$GITHUB_ENV"
             echo "Downloaded previous comparison database."
@@ -523,53 +486,18 @@ jobs:
             rm -f "${previous_db}"
           fi
 
-      - name: Pin a verified pre-window content baseline
+      - name: Pin a verified pre-maintenance content baseline
         env:
           GH_TOKEN: ${{ github.token }}
-          CYCLE_START: ${{ needs.plan.outputs.preview_cycle_start }}
+          CYCLE_START: ${{ needs.plan.outputs.maintenance_start }}
         run: |
           set -euo pipefail
-          baseline_asset="$(python scripts/preview_cycle_baseline.py asset-name "${CYCLE_START}")"
-          baseline_path="${RUNNER_TEMP}/${baseline_asset}"
-          baseline_tag="seerapi-content-baselines"
-          if gh release view "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            gh release download "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" \
-              --pattern "${baseline_asset}" --dir "${RUNNER_TEMP}" || true
-          fi
-          if [ -s "${baseline_path}" ]; then
-            python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${baseline_path}"
-          else
-            previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
-            if python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${previous_db}"; then
-              cp "${previous_db}" "${baseline_path}"
-            else
-              history_json="${RUNNER_TEMP}/seerapi-content-history.json"
-              if gh release view seerapi-data-history --repo "${GITHUB_REPOSITORY}" \
-                  --json assets > "${history_json}"; then
-                while IFS= read -r candidate; do
-                  candidate_path="${RUNNER_TEMP}/${candidate}"
-                  gh release download seerapi-data-history --repo "${GITHUB_REPOSITORY}" \
-                    --pattern "${candidate}" --dir "${RUNNER_TEMP}" --clobber || continue
-                  if python scripts/preview_cycle_baseline.py check "${CYCLE_START}" "${candidate_path}"; then
-                    cp "${candidate_path}" "${baseline_path}"
-                    break
-                  fi
-                done < <(python scripts/preview_cycle_baseline.py candidates "${CYCLE_START}" "${history_json}")
-              fi
-            fi
-            if [ -s "${baseline_path}" ]; then
-              if ! gh release view "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-                gh release create "${baseline_tag}" --repo "${GITHUB_REPOSITORY}" \
-                  --title "New-content cycle baselines" --latest=false
-              fi
-              gh release upload "${baseline_tag}" "${baseline_path}" \
-                --repo "${GITHUB_REPOSITORY}" --clobber
-            fi
-          fi
-          if [ -s "${baseline_path}" ]; then
+          if [ -n "${CYCLE_START}" ]; then
+            baseline_path="${RUNNER_TEMP}/maintenance-baseline.sqlite"
+            python scripts/maintenance_baseline.py \
+              --start "${CYCLE_START}" --output "${baseline_path}" \
+              --repository "${GITHUB_REPOSITORY}"
             echo "PREVIEW_CYCLE_BASELINE=${baseline_path}" >> "$GITHUB_ENV"
-          else
-            echo "No trustworthy published snapshot before ${CYCLE_START}; new content will remain unavailable."
           fi
 
       - name: Collect API data source-history additions
@@ -633,6 +561,11 @@ jobs:
             args+=(--baseline "${PREVIEW_CYCLE_BASELINE}")
           fi
           args+=(
+            --maintenance-mode
+            --maintenance-start "${{ needs.plan.outputs.maintenance_start }}"
+            --maintenance-end "${{ needs.plan.outputs.maintenance_end }}"
+            --maintenance-source "${{ needs.plan.outputs.maintenance_source }}"
+            --maintenance-notice-id "${{ needs.plan.outputs.maintenance_notice_id }}"
             --cycle-start "${{ needs.plan.outputs.preview_cycle_start }}"
             --cycle-end "${{ needs.plan.outputs.preview_cycle_end }}"
             --preview-manifest-version "${{ needs.plan.outputs.preview_manifest_version }}"
@@ -919,31 +852,6 @@ jobs:
       - name: Generate SHA256 checksum
         run: sha256sum seerapi-data.sqlite > seerapi-data.sqlite.sha256
 
-      - name: Record data source checksums
-        run: |
-          set -e
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          mkdir -p .build-state
-          printf '%s\n' "${{ needs.plan.outputs.remote_sha }}" > .build-state/api-data-sha256
-          printf '%s\n' "${{ needs.plan.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
-          printf '%s\n' "${{ needs.plan.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
-          printf '%s\n' "${{ needs.plan.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
-          printf '%s\n' "${{ needs.plan.outputs.remote_config_package_version }}" > .build-state/config-package-version
-          printf '%s\n' "${{ needs.plan.outputs.remote_config_package_manifest_sha }}" > .build-state/config-package-manifest-sha256
-          printf '%s\n' "${{ needs.plan.outputs.remote_default_package_version }}" > .build-state/default-package-version
-          printf '%s\n' "${{ needs.plan.outputs.preview_cycle_start }}" > .build-state/preview-cycle-start
-          printf '%s\n' "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-end
-          python scripts/preview_cycle_phase.py \
-            "${{ needs.plan.outputs.preview_cycle_start }}" \
-            "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-phase
-          cp "${FLASH_MOUNT_PENDING_FILE}" .build-state/flash-mount-image-pending-ids
-          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/default-package-version .build-state/preview-cycle-start .build-state/preview-cycle-end .build-state/preview-cycle-phase .build-state/flash-mount-image-pending-ids
-          if ! git diff --cached --quiet; then
-            git commit -m "Record SeerAPI data source checksums"
-            python scripts/push_build_state.py
-          fi
-
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
@@ -969,3 +877,34 @@ jobs:
             seerapi-data.sqlite
             seerapi-data.sqlite.sha256
             effect-icon-render-report.md
+
+      - name: Record data source checksums
+        run: |
+          set -e
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          mkdir -p .build-state
+          cp .cache/official-packages/maintenance-cycle.json .build-state/maintenance-cycle.json
+          git add .build-state/maintenance-cycle.json
+          printf '%s\n' "${{ needs.plan.outputs.remote_sha }}" > .build-state/api-data-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_special_effect_status_sha }}" > .build-state/special-effect-status-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_config_package_version }}" > .build-state/config-package-version
+          printf '%s\n' "${{ needs.plan.outputs.remote_config_package_manifest_sha }}" > .build-state/config-package-manifest-sha256
+          printf '%s\n' "${{ needs.plan.outputs.remote_default_package_version }}" > .build-state/default-package-version
+          printf '%s\n' "${{ needs.plan.outputs.preview_cycle_start }}" > .build-state/preview-cycle-start
+          printf '%s\n' "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-end
+          if [ -n "${{ needs.plan.outputs.preview_cycle_start }}" ]; then
+            python scripts/preview_cycle_phase.py \
+              "${{ needs.plan.outputs.preview_cycle_start }}" \
+              "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-phase
+          else
+            printf 'unavailable\n' > .build-state/preview-cycle-phase
+          fi
+          cp "${FLASH_MOUNT_PENDING_FILE}" .build-state/flash-mount-image-pending-ids
+          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/default-package-version .build-state/preview-cycle-start .build-state/preview-cycle-end .build-state/preview-cycle-phase .build-state/flash-mount-image-pending-ids
+          if ! git diff --cached --quiet; then
+            git commit -m "Record SeerAPI data source checksums"
+            python scripts/push_build_state.py
+          fi

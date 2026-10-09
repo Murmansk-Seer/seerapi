@@ -492,37 +492,59 @@ def main() -> None:
     parser.add_argument('--preview-dll-hash', default='')
     parser.add_argument('--preview-ui-hash', default='')
     parser.add_argument('--baseline', type=Path)
+    parser.add_argument('--maintenance-mode', action='store_true')
+    parser.add_argument('--maintenance-start', default='')
+    parser.add_argument('--maintenance-end', default='')
+    parser.add_argument('--maintenance-source', default='')
+    parser.add_argument('--maintenance-notice-id', default='')
     parser.add_argument(
         '--github-output',
         type=Path,
         help='Optional GitHub Actions output file for release promotion metadata.',
     )
     args = parser.parse_args()
+    if args.maintenance_start:
+        boundary = datetime.fromisoformat(args.maintenance_start)
+        if boundary.tzinfo is None:
+            parser.error('maintenance start requires a timezone')
+        if args.baseline is None:
+            parser.error('maintenance indexing requires a verified fixed baseline')
 
     if bool(args.cycle_start) != bool(args.cycle_end):
         parser.error('both --cycle-start and --cycle-end are required')
     if args.cycle_start:
-        from datetime import datetime
-
         start = datetime.fromisoformat(args.cycle_start)
         end = datetime.fromisoformat(args.cycle_end)
         if start.tzinfo is None or end.tzinfo is None or not start < end:
             parser.error('preview cycle requires ordered timezone-aware dates')
 
     previous = _load_previous_state(args.previous)
+    baseline = _load_previous_state(args.baseline) if args.maintenance_mode else previous
     history_additions = load_source_history_additions(args.source_history_additions)
     state = build_release_state(
         args.current,
         args.previous,
         args.current_git_sha,
         history_additions,
-        cycle_start=args.cycle_start or None,
+        cycle_start=(args.maintenance_start if args.maintenance_mode else args.cycle_start) or None,
         baseline_path=args.baseline,
     )
     status = 'ready'
-    if args.cycle_start:
-        from datetime import datetime
-
+    if args.maintenance_mode:
+        now = datetime.now(timezone.utc)
+        if not args.maintenance_start:
+            status = 'cycle_unavailable'
+        elif now < datetime.fromisoformat(args.maintenance_start):
+            status = 'scheduled'
+        elif not state.baseline_established:
+            status = 'baseline_unavailable'
+        elif state.items or (baseline is not None and state.config_version != baseline.config_version):
+            status = 'ready'
+        else:
+            status = 'syncing'
+        if status != 'ready':
+            state = replace(state, items=())
+    elif args.cycle_start:
         now = datetime.now().astimezone()
         start = datetime.fromisoformat(args.cycle_start)
         end = datetime.fromisoformat(args.cycle_end)
@@ -537,6 +559,18 @@ def main() -> None:
         if status != 'ready':
             state = replace(state, items=())
     write_release_state(args.current, state, previous)
+    if args.maintenance_mode:
+        with sqlite3.connect(args.current) as conn:
+            conn.executemany(
+                'INSERT OR REPLACE INTO seerapi_metadata (key, value) VALUES (?, ?)',
+                (
+                    ('update_cycle_start', args.maintenance_start),
+                    ('update_cycle_end', args.maintenance_end),
+                    ('update_cycle_source', args.maintenance_source),
+                    ('update_cycle_notice_id', args.maintenance_notice_id),
+                    ('update_cycle_status', status),
+                ),
+            )
     if args.cycle_start:
         with sqlite3.connect(args.current) as conn:
             conn.executemany(
