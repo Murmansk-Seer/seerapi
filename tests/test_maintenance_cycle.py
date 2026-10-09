@@ -2,9 +2,11 @@ from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
 import sqlite3
+import sys
 
 import pytest
 
+from scripts import maintenance_cycle
 from scripts.maintenance_baseline import verified_timestamp
 from scripts.maintenance_cycle import fingerprint, select_cycle
 
@@ -39,6 +41,36 @@ def test_empty_response_preserves_started_batch_and_future_is_not_activated():
 def test_invalid_notice_is_not_an_empty_success(value):
     with pytest.raises(ValueError, match='maintenance'):
         select_cycle(value, {}, datetime.now(timezone.utc))
+
+
+def test_missing_confirmed_batch_stops_publication(tmp_path, monkeypatch):
+    class EmptyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return b'[]'
+
+    monkeypatch.setattr(
+        maintenance_cycle, 'urlopen', lambda *args, **kwargs: EmptyResponse()
+    )
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'maintenance_cycle',
+            '--state',
+            str(tmp_path / 'state.json'),
+            '--output',
+            str(tmp_path / 'result.json'),
+        ],
+    )
+    with pytest.raises(SystemExit) as error:
+        maintenance_cycle.main()
+    assert error.value.code == 2
 
 
 def test_baseline_requires_checksum_and_aware_generated_time(tmp_path: Path):

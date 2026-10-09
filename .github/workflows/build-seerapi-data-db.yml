@@ -116,6 +116,10 @@ jobs:
             FORCE=true
             echo "Official maintenance batch changed; rebuilding content independently of preview windows."
           fi
+          maintenance_start="$(python -c 'import json; print(json.load(open(".cache/official-packages/maintenance-cycle.json"))["current"]["start"])')"
+          if [ "$(cat .build-state/maintenance-published-start 2>/dev/null || true)" != "${maintenance_start}" ]; then
+            FORCE=true
+          fi
           release_info="$(python scripts/release_api_data_source.py resolve --github-output "$GITHUB_OUTPUT")"
           read -r api_data_asset_id remote_sha <<< "${release_info}"
           echo "Pinned api-data Release asset ${api_data_asset_id} (${remote_sha})"
@@ -886,6 +890,8 @@ jobs:
           mkdir -p .build-state
           cp .cache/official-packages/maintenance-cycle.json .build-state/maintenance-cycle.json
           git add .build-state/maintenance-cycle.json
+          printf '%s\n' "${{ needs.plan.outputs.maintenance_start }}" > .build-state/maintenance-published-start
+          git add .build-state/maintenance-published-start
           printf '%s\n' "${{ needs.plan.outputs.remote_sha }}" > .build-state/api-data-sha256
           printf '%s\n' "${{ needs.plan.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
           printf '%s\n' "${{ needs.plan.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
