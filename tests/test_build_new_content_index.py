@@ -33,21 +33,37 @@ def test_maintenance_index_remains_ready_after_preview_expired(tmp_path, monkeyp
     state = indexer.build_release_state(baseline, None, 'baseline')
     indexer.write_release_state(baseline, state, None)
     _create_database(current, version='20261009153137', pet_ids=(1, 2))
-    monkeypatch.setattr(sys, 'argv', [
-        'index', '--current', str(current), '--baseline', str(baseline),
-        '--current-git-sha', 'test', '--maintenance-mode',
-        '--maintenance-start', '2026-10-09T10:00:00+08:00',
-        '--maintenance-end', '2026-10-09T15:00:00+08:00',
-        '--cycle-start', '2026-09-24T10:00:00+08:00',
-        '--cycle-end', '2026-10-02T00:00:00+08:00',
-    ])
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'index',
+            '--current',
+            str(current),
+            '--baseline',
+            str(baseline),
+            '--current-git-sha',
+            'test',
+            '--maintenance-mode',
+            '--maintenance-start',
+            '2026-10-09T10:00:00+08:00',
+            '--maintenance-end',
+            '2026-10-09T15:00:00+08:00',
+            '--cycle-start',
+            '2026-09-24T10:00:00+08:00',
+            '--cycle-end',
+            '2026-10-02T00:00:00+08:00',
+        ],
+    )
     indexer.main()
     with sqlite3.connect(current) as conn:
         metadata = dict(conn.execute('SELECT key,value FROM seerapi_metadata'))
         assert metadata['update_cycle_status'] == 'ready'
         assert metadata['update_cycle_start'] == '2026-10-09T10:00:00+08:00'
         assert metadata['preview_cycle_end'] == '2026-10-02T00:00:00+08:00'
-        assert conn.execute("SELECT 1 FROM new_content_item WHERE category='pet' AND entity_id=2").fetchone()
+        assert conn.execute(
+            "SELECT 1 FROM new_content_item WHERE category='pet' AND entity_id=2"
+        ).fetchone()
 
 
 def test_empty_official_cycle_is_ready_only_after_source_sync() -> None:
