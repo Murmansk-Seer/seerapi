@@ -19,5 +19,7 @@ def test_manual_weekly_index_rebuild_uses_prior_cycle_baseline() -> None:
     workflow = WORKFLOW.read_text(encoding='utf-8')
 
     assert 'rebuild_weekly_index:' in workflow
-    assert 'if [[ "${REBUILD_WEEKLY_INDEX}" == true ]]; then' in workflow
-    assert 'Manual weekly-index rebuild requested' in workflow
+    assert 'scripts/maintenance_baseline.py' in workflow
+    assert 'needs.plan.outputs.maintenance_start' in workflow
+    assert '--maintenance-mode' in workflow
+    assert 'datetime.strptime(match.group(1)' not in workflow
