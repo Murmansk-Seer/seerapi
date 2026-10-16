@@ -55,6 +55,8 @@ jobs:
     outputs:
       skip: ${{ steps.source_check.outputs.skip }}
       blocked: ${{ steps.source_check.outputs.blocked }}
+      config_source: ${{ steps.source_check.outputs.config_source }}
+      published_source: ${{ steps.source_check.outputs.published_source }}
       defer: "false"
       preview_cycle_start: ${{ steps.preview_cycle.outputs.preview_cycle_start }}
       preview_cycle_end: ${{ steps.preview_cycle.outputs.preview_cycle_end }}
@@ -954,7 +956,7 @@ jobs:
         with:
           jobs: ${{ toJSON(needs) }}
           release-tag: seerapi-data-latest
-          evidence: '{"published":"${{ needs.build.outputs.published }}","blocked":${{ needs.plan.result == ''skipped'' || needs.plan.outputs.blocked == ''true'' }},"source":"${{ needs.plan.outputs.remote_sha }}","config_version":"${{ needs.plan.outputs.remote_config_package_version }}","build_commit":"${{ needs.plan.outputs.build_sha }}","skip":"${{ needs.plan.outputs.skip }}"}'
+          evidence: '{"published":"${{ needs.build.outputs.published }}","blocked":${{ needs.plan.result == ''skipped'' || needs.plan.outputs.blocked == ''true'' }},"source":"${{ needs.plan.outputs.remote_sha }}","config_source":"${{ needs.plan.outputs.config_source }}","published_source":"${{ needs.plan.outputs.published_source }}","config_version":"${{ needs.plan.outputs.remote_config_package_version }}","build_commit":"${{ needs.plan.outputs.build_sha }}","skip":"${{ needs.plan.outputs.skip }}"}'
   result:
     if: ${{ always() }}
     needs: report

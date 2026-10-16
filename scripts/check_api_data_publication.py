@@ -35,10 +35,15 @@ def publication_matches(state: dict, source: str, digest: str) -> bool:
 
 
 def main():
-    source = get_json('config-sources/commits/main')['sha']
+    source_info = get_json('config-sources/commits/main')
+    if source_info is None:
+        raise RuntimeError('config-sources main is unavailable; cannot establish publication provenance')
+    source = source_info['sha']
     content = get_json('api-data/contents/.build-state/publication.json?ref=main')
     state = json.loads(base64.b64decode(content['content'])) if content else {}
     checksum = get_json('api-data/releases/tags/latest')
+    if checksum is None:
+        raise RuntimeError('api-data latest Release is unavailable')
     asset = next(item for item in checksum['assets'] if item['name'] == 'seerapi-data.sqlite.sha256')
     # Public asset URL; no authorization token is forwarded to another host.
     with urlopen(asset['browser_download_url'], timeout=60) as response:
