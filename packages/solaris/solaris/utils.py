@@ -293,4 +293,19 @@ def parse_unity_datetime(time_str: str) -> datetime:
     返回值会附加 :data:`CN_TZ` 时区：ORM 的 datetime 字段要求带时区信息，
     否则写入数据库时会抛出 ``Datetime values must have timezone information``。
     """
+    if time_str.endswith(' 24:00:00'):
+        date = datetime.strptime(time_str[:-9], '%Y_%m_%d')
+        return (date + timedelta(days=1)).replace(tzinfo=CN_TZ)
     return datetime.strptime(time_str, '%Y_%m_%d %H:%M:%S').replace(tzinfo=CN_TZ)
+
+
+def parse_unity_datetime_field(
+    value: str, *, source: str, item_id: object, field: str
+) -> datetime:
+    """Parse without losing the source record when a required time is invalid."""
+    try:
+        return parse_unity_datetime(value)
+    except ValueError as error:
+        raise ValueError(
+            f'{source}: item={item_id!r}, field={field}, value={value!r}: {error}'
+        ) from error
