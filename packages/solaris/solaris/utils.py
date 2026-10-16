@@ -290,11 +290,14 @@ CN_TZ: Final[timezone] = timezone(timedelta(hours=8))
 def parse_unity_datetime(time_str: str) -> datetime:
     """解析 Unity 数据中 ``YYYY_MM_DD HH:MM:SS`` 格式的时间。
 
+    配置数据里存在 ``24:00:00`` 的写法，表示当天结束（等价于次日 ``00:00:00``），
+    而 :func:`datetime.strptime` 不接受 ``24`` 时，因此单独按日期解析并进位一天。
+
     返回值会附加 :data:`CN_TZ` 时区：ORM 的 datetime 字段要求带时区信息，
     否则写入数据库时会抛出 ``Datetime values must have timezone information``。
     """
     if time_str.endswith(' 24:00:00'):
-        date = datetime.strptime(time_str[:-9], '%Y_%m_%d')
+        date = datetime.strptime(time_str.removesuffix(' 24:00:00'), '%Y_%m_%d')
         return (date + timedelta(days=1)).replace(tzinfo=CN_TZ)
     return datetime.strptime(time_str, '%Y_%m_%d %H:%M:%S').replace(tzinfo=CN_TZ)
 
