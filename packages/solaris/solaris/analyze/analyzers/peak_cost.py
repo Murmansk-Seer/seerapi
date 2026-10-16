@@ -6,7 +6,7 @@ from seerapi_models.peak_cost import PeakCostPool
 from seerapi_models.pet import Pet
 from solaris.analyze.base import BaseDataSourceAnalyzer, DataImportConfig
 from solaris.analyze.typing_ import AnalyzeResult
-from solaris.utils import CN_TZ, parse_unity_datetime
+from solaris.utils import CN_TZ, parse_unity_datetime_field
 
 if TYPE_CHECKING:
     from solaris.parse.parsers.pvp_cost_mode_cost import PvpCostModeCostConfig
@@ -50,7 +50,12 @@ class PeakCostAnalyzer(BaseDataSourceAnalyzer):
                 cost=cost,
                 name=item['name'],
                 start_time=start_time,
-                end_time=parse_unity_datetime(item['time']),
+                end_time=parse_unity_datetime_field(
+                    item['time'],
+                    source='pvpCostMode_cost.json',
+                    item_id=cost,
+                    field='time',
+                ),
                 pet=[
                     ResourceRef.from_model(Pet, id=int(pet_id))
                     for pet_id in filter(None, item['pet'].split(';'))

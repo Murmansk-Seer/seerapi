@@ -5,7 +5,7 @@ from seerapi_models.peak import PeakSeason
 from solaris.analyze.base import BaseDataSourceAnalyzer, DataImportConfig
 from solaris.analyze.typing_ import AnalyzeResult
 from solaris.parse.parsers.activity_time_update_config import ActivityTimeUpdateInfo
-from solaris.utils import parse_unity_datetime
+from solaris.utils import parse_unity_datetime_field
 
 if TYPE_CHECKING:
     pass
@@ -31,8 +31,18 @@ class PeakSeasonAnalyzer(BaseDataSourceAnalyzer):
         for item in activity_time_update_config_data:
             if item.get('id') == 1:
                 season = item.get('parameters1')
-                start_time = parse_unity_datetime(item['beginning'])
-                end_time = parse_unity_datetime(item['ending'])
+                start_time = parse_unity_datetime_field(
+                    item['beginning'],
+                    source='activityTimeUpdateConfig.json',
+                    item_id=item['id'],
+                    field='beginning',
+                )
+                end_time = parse_unity_datetime_field(
+                    item['ending'],
+                    source='activityTimeUpdateConfig.json',
+                    item_id=item['id'],
+                    field='ending',
+                )
                 break
 
         if not season:
