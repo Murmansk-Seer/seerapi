@@ -20,6 +20,7 @@ on:
       - "scripts/maintenance_*.py"
       - "scripts/preview_window_dll.py"
       - "scripts/release_*.py"
+      - "scripts/check_api_data_publication.py"
       - "scripts/push_build_state.py"
       - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
@@ -53,6 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.source_check.outputs.skip }}
+      blocked: ${{ steps.source_check.outputs.blocked }}
       defer: "false"
       preview_cycle_start: ${{ steps.preview_cycle.outputs.preview_cycle_start }}
       preview_cycle_end: ${{ steps.preview_cycle.outputs.preview_cycle_end }}
@@ -100,6 +102,11 @@ jobs:
           FLASH_MOUNT_ASSET_BASE_URL: https://seer.61.com/resource/item/cloth/swf
         run: |
           set -euo pipefail
+          python scripts/check_api_data_publication.py
+          if grep -q '^blocked=true$' "$GITHUB_OUTPUT"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           curl_retry=(
             curl -fsSL
             --connect-timeout 15
@@ -947,7 +954,7 @@ jobs:
         with:
           jobs: ${{ toJSON(needs) }}
           release-tag: seerapi-data-latest
-          evidence: '{"published":"${{ needs.build.outputs.published }}","blocked":${{ needs.plan.result == ''skipped'' }},"source":"${{ needs.plan.outputs.remote_sha }}","config_version":"${{ needs.plan.outputs.remote_config_package_version }}","build_commit":"${{ needs.plan.outputs.build_sha }}","skip":"${{ needs.plan.outputs.skip }}"}'
+          evidence: '{"published":"${{ needs.build.outputs.published }}","blocked":${{ needs.plan.result == ''skipped'' || needs.plan.outputs.blocked == ''true'' }},"source":"${{ needs.plan.outputs.remote_sha }}","config_version":"${{ needs.plan.outputs.remote_config_package_version }}","build_commit":"${{ needs.plan.outputs.build_sha }}","skip":"${{ needs.plan.outputs.skip }}"}'
   result:
     if: ${{ always() }}
     needs: report
