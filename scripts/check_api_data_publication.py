@@ -30,8 +30,32 @@ def get_json(path: str):
     raise AssertionError('unreachable')
 
 
-def publication_matches(state: dict, source: str, digest: str) -> bool:
-    return bool(source and digest and state.get('config') == source and state.get('sha256') == digest)
+def publication_matches(
+    state: dict, source: str, digest: str, *, source_tree: str = '', published_tree: str = ''
+) -> bool:
+    # A history-only merge changes the commit but not its complete Git tree.
+    # Never infer equality from an empty/truncated compare API file listing.
+    same_source = state.get('config') == source or bool(
+        source_tree and published_tree and source_tree == published_tree
+    )
+    return bool(source and state.get('config') and digest and same_source and state.get('sha256') == digest)
+
+
+def verified_publication_matches(state: dict, source_info: dict, digest: str) -> bool:
+    source = source_info['sha']
+    if publication_matches(state, source, digest):
+        return True
+    if not state.get('config') or not digest or state.get('sha256') != digest:
+        return False
+    # Resolve both immutable commits, not moving main or the upstream repository.
+    published = get_json(f'config-sources/commits/{state["config"]}')
+    if published is None or published.get('sha') != state['config']:
+        return False
+    return publication_matches(
+        state, source, digest,
+        source_tree=source_info.get('commit', {}).get('tree', {}).get('sha', ''),
+        published_tree=published.get('commit', {}).get('tree', {}).get('sha', ''),
+    )
 
 
 def main():
@@ -48,7 +72,7 @@ def main():
     # Public asset URL; no authorization token is forwarded to another host.
     with urlopen(asset['browser_download_url'], timeout=60) as response:
         digest = response.read().decode().split()[0]
-    blocked = not publication_matches(state, source, digest)
+    blocked = not verified_publication_matches(state, source_info, digest)
     with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:
         output.write(f'blocked={str(blocked).lower()}\nconfig_source={source}\npublished_source={state.get("config", "")}\n')
     if blocked:
