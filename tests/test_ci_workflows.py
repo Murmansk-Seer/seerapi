@@ -8,6 +8,17 @@ PYTHON_RELEASE_WORKFLOW = ROOT / '.github/workflows/release-python.yml'
 FFDEC_ACTION = ROOT / '.github/actions/setup-ffdec/action.yml'
 
 
+def test_release_is_verified_before_state_advances_and_outcome_is_explicit() -> None:
+    workflow = DATA_BUILD_WORKFLOW.read_text(encoding='utf-8')
+    assert workflow.index('id: verify_release') < workflow.index(
+        'name: Record data source checksums'
+    )
+    assert 'cmp seerapi-data.sqlite.sha256' in workflow
+    assert 'release_contract.py --database "$directory/seerapi-data.sqlite"' in workflow
+    assert 'report-update@dadd404c9c0119e0326e1e4fb8fcdf3ef6330dab' in workflow
+    assert 'needs.report.outputs.label' in workflow
+
+
 def test_data_build_runs_for_release_contract_changes() -> None:
     workflow = DATA_BUILD_WORKFLOW.read_text(encoding='utf-8')
 

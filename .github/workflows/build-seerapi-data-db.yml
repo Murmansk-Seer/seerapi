@@ -398,6 +398,8 @@ jobs:
           if-no-files-found: error
 
   build:
+    outputs:
+      published: ${{ steps.verify_release.outcome == 'success' }}
     needs: [plan, render-effect-icon-cache]
     if: ${{ needs.plan.outputs.skip != 'true' && needs.plan.outputs.defer != 'true' }}
     runs-on: ubuntu-latest
@@ -857,6 +859,7 @@ jobs:
         run: sha256sum seerapi-data.sqlite > seerapi-data.sqlite.sha256
 
       - name: Upload to Release
+        id: upload_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: seerapi-data-latest
@@ -881,6 +884,20 @@ jobs:
             seerapi-data.sqlite
             seerapi-data.sqlite.sha256
             effect-icon-render-report.md
+
+      - name: Verify actual published database
+        id: verify_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          directory="${RUNNER_TEMP}/verify-published-release"
+          mkdir -p "$directory"
+          gh release download seerapi-data-latest --repo "$GITHUB_REPOSITORY" \
+            --pattern 'seerapi-data.sqlite*' --dir "$directory" --clobber
+          cmp seerapi-data.sqlite.sha256 "$directory/seerapi-data.sqlite.sha256"
+          (cd "$directory" && sha256sum --check seerapi-data.sqlite.sha256)
+          python scripts/release_contract.py --database "$directory/seerapi-data.sqlite"
 
       - name: Record data source checksums
         run: |
@@ -914,3 +931,30 @@ jobs:
             git commit -m "Record SeerAPI data source checksums"
             python scripts/push_build_state.py
           fi
+
+  report:
+    if: ${{ always() }}
+    needs: [plan, render-effect-icon-cache, build]
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.report.outputs.label }}
+      failed: ${{ steps.report.outputs.failed }}
+    steps:
+      - id: report
+        uses: Murmansk-Seer/.github/.github/actions/report-update@dadd404c9c0119e0326e1e4fb8fcdf3ef6330dab
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          jobs: ${{ toJSON(needs) }}
+          release-tag: seerapi-data-latest
+          evidence: '{"published":"${{ needs.build.outputs.published }}","blocked":${{ needs.plan.result == ''skipped'' }},"source":"${{ needs.plan.outputs.remote_sha }}","config_version":"${{ needs.plan.outputs.remote_config_package_version }}","build_commit":"${{ needs.plan.outputs.build_sha }}","skip":"${{ needs.plan.outputs.skip }}"}'
+  result:
+    if: ${{ always() }}
+    needs: report
+    name: ${{ needs.report.outputs.label || '失败 · 状态报告未完成' }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          FAILED: ${{ needs.report.outputs.failed }}
+          REPORT_RESULT: ${{ needs.report.result }}
+        run: test "$FAILED" != true && test "$REPORT_RESULT" = success
