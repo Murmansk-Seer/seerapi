@@ -13,6 +13,7 @@ if __package__:
         SkinStorePrice,
         SoulmarkIcon,
     )
+    from .release_peak_sources import OfficialPeakData
 else:
     from config_package_sources import (  # type: ignore[import-not-found]
         AutocardChip,
@@ -21,6 +22,7 @@ else:
         SkinStorePrice,
         SoulmarkIcon,
     )
+    from release_peak_sources import OfficialPeakData
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,3 +38,4 @@ class ConfigPackageData:
     soulmark_icons: list[SoulmarkIcon]
     autocard_season_effects: list[AutocardSeasonEffect]
     autocard_chips: list[AutocardChip] = field(default_factory=list)
+    peak: OfficialPeakData | None = None
