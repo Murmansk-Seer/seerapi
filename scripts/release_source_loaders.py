@@ -39,6 +39,7 @@ if __package__:
     from .json_value_helpers import item_int, item_text
     from .partner_contract_sources import PetPartnerData, parse_pet_partner_data
     from .release_build_types import ConfigPackageData
+    from .release_peak_sources import parse_official_peak
 else:
     from build_http import (  # type: ignore[import-not-found]
         BuildHttpClient,
@@ -71,6 +72,7 @@ else:
         parse_pet_partner_data,
     )
     from release_build_types import ConfigPackageData  # type: ignore[import-not-found]
+    from release_peak_sources import parse_official_peak
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,7 +125,7 @@ class ReleaseSourceLoader:
         self._logger = logger
 
     def fetch_config_package_data(self) -> ConfigPackageData:
-        base_url = self._config.config_package_base_url.rstrip("/") + "/"
+        base_url = self._config.config_package_base_url.rstrip('/') + '/'
         version, manifest = self._http.fetch_package_manifest(
             base_url,
             self._config.config_package_name,
@@ -139,12 +141,13 @@ class ReleaseSourceLoader:
         )
         if bundle is None:
             if len(manifest.bundles) != 1:
-                raise ValueError("ConfigPackage bundle not found")
+                raise ValueError('ConfigPackage bundle not found')
             bundle = manifest.bundles[0]
         bundle_url = urljoin(base_url, bundle.file_hash)
         assets = extract_text_assets(
             self._http.download_bytes(bundle_url),
-            self._config.config_text_assets,
+            self._config.config_text_assets
+            | {'Activity_TimeUpdateConfig.bytes', 'pvpCostMode_cost.bytes'},
         )
         return ConfigPackageData(
             version=version,
@@ -166,15 +169,19 @@ class ReleaseSourceLoader:
             autocard_chips=parse_autocard_chips(
                 assets[self._config.autocard_chip_bytes_name]
             ),
+            peak=parse_official_peak(
+                assets['Activity_TimeUpdateConfig.bytes'],
+                assets['pvpCostMode_cost.bytes'],
+            ),
         )
 
     def load_autocard_json(self, filename: str) -> tuple[dict[str, object], str]:
         if self._config.autocard_json_dir:
             path = Path(self._config.autocard_json_dir) / filename
             if path.exists():
-                return json.loads(path.read_text(encoding="utf-8")), str(path)
-        url = urljoin(self._config.autocard_json_base_url.rstrip("/") + "/", filename)
-        return json.loads(self._http.download_bytes(url).decode("utf-8-sig")), url
+                return json.loads(path.read_text(encoding='utf-8')), str(path)
+        url = urljoin(self._config.autocard_json_base_url.rstrip('/') + '/', filename)
+        return json.loads(self._http.download_bytes(url).decode('utf-8-sig')), url
 
     def load_item_exchange_prices(self) -> list[ItemExchangePrice]:
         try:
@@ -183,7 +190,7 @@ class ReleaseSourceLoader:
             )
         except _SOURCE_ERRORS as error:
             self._logger.warning(
-                "Official Unity item names skipped: %s", _short_error(error)
+                'Official Unity item names skipped: %s', _short_error(error)
             )
             currency_names = {}
         prices: list[ItemExchangePrice] = []
@@ -192,13 +199,13 @@ class ReleaseSourceLoader:
                 prices.extend(
                     replace(
                         item,
-                        currency_name=currency_names.get(item.currency_item_id, ""),
+                        currency_name=currency_names.get(item.currency_item_id, ''),
                     )
                     for item in parser(self._http.download_bytes(source_url))
                 )
             except _SOURCE_ERRORS as error:
                 self._logger.warning(
-                    "Item exchange price source skipped (%s): %s",
+                    'Item exchange price source skipped (%s): %s',
                     source_name,
                     _short_error(error),
                 )
@@ -206,14 +213,14 @@ class ReleaseSourceLoader:
 
     def load_effect_descriptions(self) -> list[EffectDescription]:
         return self._load_optional(
-            "Effect description source",
+            'Effect description source',
             self._config.effect_description_url,
             parse_effect_descriptions,
         )
 
     def load_special_effect_statuses(self) -> list[SpecialEffectStatus]:
         return self._load_optional(
-            "Special effect status source",
+            'Special effect status source',
             self._config.special_effect_status_url,
             parse_special_effect_statuses,
         )
@@ -232,7 +239,7 @@ class ReleaseSourceLoader:
             )
         except (*_SOURCE_ERRORS, ValueError) as error:
             self._logger.warning(
-                "Official contract-partner source skipped: %s", _short_error(error)
+                'Official contract-partner source skipped: %s', _short_error(error)
             )
             return PetPartnerData(groups=[], upgrades=[])
 
@@ -245,7 +252,7 @@ class ReleaseSourceLoader:
         try:
             return parser(self._http.download_bytes(url))
         except _SOURCE_ERRORS as error:
-            self._logger.warning("%s skipped: %s", label, _short_error(error))
+            self._logger.warning('%s skipped: %s', label, _short_error(error))
             return []
 
     def _item_exchange_sources(
@@ -294,30 +301,30 @@ _SOURCE_ERRORS = (
 
 
 def _parse_unity_item_names(data: bytes) -> dict[int, str]:
-    raw = json.loads(data.decode("utf-8-sig"))
+    raw = json.loads(data.decode('utf-8-sig'))
     if not isinstance(raw, dict):
-        raise ValueError("Unity item catalog root must be an object")
-    items_root = raw.get("root")
+        raise ValueError('Unity item catalog root must be an object')
+    items_root = raw.get('root')
     if not isinstance(items_root, dict):
-        raise ValueError("Unity item catalog has no root object")
-    rows = items_root.get("items")
+        raise ValueError('Unity item catalog has no root object')
+    rows = items_root.get('items')
     if not isinstance(rows, list):
-        raise ValueError("Unity item catalog has no items list")
+        raise ValueError('Unity item catalog has no items list')
     names: dict[int, str] = {}
     for index, row in enumerate(rows):
         if not isinstance(row, dict):
             continue
-        item_id = item_int(row, "id")
-        item_name = item_text(row, "name").strip()
+        item_id = item_int(row, 'id')
+        item_name = item_text(row, 'name').strip()
         if item_id <= 0 or not item_name:
             continue
         existing = names.setdefault(item_id, item_name)
         if existing != item_name:
             raise ValueError(
-                f"Unity item catalog has conflicting name for item {item_id} at index {index}"
+                f'Unity item catalog has conflicting name for item {item_id} at index {index}'
             )
     return names
 
 
 def _short_error(error: Exception | str) -> str:
-    return str(error).replace("\n", " ")[:200]
+    return str(error).replace('\n', ' ')[:200]

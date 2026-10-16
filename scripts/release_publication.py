@@ -34,6 +34,7 @@ if __package__:
     from .release_config_tables import replace_config_package_tables
     from .release_metadata import build_release_metadata, replace_release_metadata
     from .release_partner_tables import replace_pet_partner_tables
+    from .release_peak_sources import replace_official_peak
     from .release_reference_tables import replace_reference_tables
     from .release_render_manifest_tables import (
         replace_render_asset_manifest_table,
@@ -77,6 +78,7 @@ else:
     from release_partner_tables import (
         replace_pet_partner_tables,  # type: ignore[import-not-found]
     )
+    from release_peak_sources import replace_official_peak
     from release_reference_tables import (  # type: ignore[import-not-found]
         replace_reference_tables,
     )
@@ -139,7 +141,7 @@ def _collect_soulmark_icon_render_issues(
                 icon_id=icon_id,
                 soulmark_id=soulmark_id,
                 pet_id=pet_id,
-                pet_name=pet_names.get(pet_id, f"未知精灵#{pet_id}"),
+                pet_name=pet_names.get(pet_id, f'未知精灵#{pet_id}'),
                 effect_id=effect_id,
                 icon_asset_status=asset_check.status,
                 icon_asset_error=asset_check.error,
@@ -159,6 +161,8 @@ def publish_release_tables(
     now = time.time()
     asset_repository_snapshots = context.load_asset_repository_snapshots()
     with sqlite3.connect(db_path) as conn:
+        if release.config_data.peak is not None:
+            replace_official_peak(conn, release.config_data.peak)
         replace_config_package_tables(
             conn,
             release.config_data,
@@ -272,11 +276,11 @@ def publish_release_tables(
 def _load_pet_names(conn: sqlite3.Connection, pet_ids: list[int]) -> dict[int, str]:
     if not pet_ids:
         return {}
-    placeholders = ", ".join("?" for _ in pet_ids)
+    placeholders = ', '.join('?' for _ in pet_ids)
     return {
         int(pet_id): str(name)
         for pet_id, name in conn.execute(
-            f"SELECT id, name FROM pet WHERE id IN ({placeholders})",
+            f'SELECT id, name FROM pet WHERE id IN ({placeholders})',
             pet_ids,
         )
     }
