@@ -26,7 +26,13 @@ class PetSpecialEffectORM(SQLModel, table=True):
 
 
 class PetSpecialEffectSourceORM(SQLModel, table=True):
-    """A source record and resolution rule supporting a special-effect fact."""
+    """A source record and resolution rule supporting a special-effect fact.
+
+    For ``source_kind == 'glossary_link'``, ``source_id`` is the parent
+    glossary ID and ``effect_key`` identifies the child fact for this pet.
+    Multiple parents and direct evidence coexist as separate source rows;
+    ``primary_rule`` on the fact does not determine whether it has parents.
+    """
 
     __tablename__ = 'pet_special_effect_source'  # type: ignore[reportAssignmentType]
 

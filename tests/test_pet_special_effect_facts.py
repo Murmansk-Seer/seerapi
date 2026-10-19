@@ -96,6 +96,46 @@ def _connection() -> sqlite3.Connection:
     return connection
 
 
+def test_link_sources_preserve_shared_child_and_direct_evidence() -> None:
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (9000, 'Test pet')")
+    connection.executemany(
+        'INSERT INTO glossary_entry VALUES (?, ?, ?)',
+        [(10, 'Parent A', 'A'), (20, 'Parent B', 'B'), (30, 'Child', 'C')],
+    )
+    connection.executemany(
+        'INSERT INTO petglossaryentrylink VALUES (9000, ?)',
+        [(10,), (20,), (30,)],
+    )
+    connection.executemany(
+        'INSERT INTO glossaryentrylink VALUES (?, ?)',
+        [(10, 30), (20, 30), (10, 30), (30, 10), (30, 30)],
+    )
+
+    for now in (1.0, 2.0):
+        replace_pet_special_effect_facts(connection, now=now)
+        assert connection.execute(
+            'SELECT effect_key, primary_rule FROM pet_special_effect '
+            'ORDER BY effect_key'
+        ).fetchall() == [
+            ('g:10', 'direct_pet_glossary'),
+            ('g:20', 'direct_pet_glossary'),
+            ('g:30', 'direct_pet_glossary'),
+        ]
+        assert connection.execute(
+            'SELECT effect_key, source_id FROM pet_special_effect_source '
+            "WHERE source_kind = 'glossary_link' ORDER BY effect_key, source_id"
+        ).fetchall() == [('g:10', 30), ('g:30', 10), ('g:30', 20)]
+        assert connection.execute(
+            'SELECT source_kind, source_id FROM pet_special_effect_source '
+            "WHERE effect_key = 'g:30' ORDER BY source_kind, source_id"
+        ).fetchall() == [
+            ('glossary_link', 10),
+            ('glossary_link', 20),
+            ('pet_glossary', 30),
+        ]
+
+
 @pytest.mark.parametrize('linked', [False, True])
 def test_duplicate_effect_names_use_direct_glossary_or_record_ambiguity(
     linked: bool,
