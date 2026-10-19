@@ -52,6 +52,7 @@ GENERATED_RELEASE_TABLES = frozenset(
         'skin_item_tip',
         'skin_shop_price',
         'skin_store_price',
+        'skin_ticket_rule',
         'soulmark_icon',
         'soulmark_icon_render_issue',
         'special_effect_status',

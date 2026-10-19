@@ -145,6 +145,9 @@ def test_release_config_table_writer_replaces_all_config_package_tables() -> Non
     )
 
     with sqlite3.connect(':memory:') as connection:
+        connection.execute(
+            'CREATE TABLE item (id INTEGER PRIMARY KEY, name TEXT, desc TEXT)'
+        )
         release_config_tables.replace_config_package_tables(
             connection,
             config_data,
@@ -3436,6 +3439,10 @@ def test_replace_autocard_roles_rejects_legacy_schema() -> None:
 def test_merge_writes_item_exchange_prices(tmp_path) -> None:
     database = tmp_path / 'seerapi-data.sqlite'
     _create_special_effect_source_tables(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            'CREATE TABLE item (id INTEGER PRIMARY KEY, name TEXT, desc TEXT)'
+        )
     price = item_exchange_sources.ItemExchangePrice(
         source_key='battlepass_shop',
         source_name='战令商店',
