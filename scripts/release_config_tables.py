@@ -9,6 +9,7 @@ official pet-image probes.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+import re
 import sqlite3
 from typing import Protocol
 
@@ -17,6 +18,58 @@ SKIN_STORE_PRICE_TABLE = 'skin_store_price'
 SKIN_SHOP_PRICE_TABLE = 'skin_shop_price'
 SKIN_ITEM_TIP_TABLE = 'skin_item_tip'
 SKIN_IMAGE_RESOLUTION_TABLE = 'skin_image_resolution'
+SKIN_TICKET_RULE_TABLE = 'skin_ticket_rule'
+
+
+def replace_skin_ticket_rules(conn: sqlite3.Connection) -> int:
+    """Publish only explicit, unconditional per-ticket diamond deductions.
+
+    This recognized complete item-description grammar is deliberately narrow.
+    Other numbers, ticket types, shop prices, and conditional text are not
+    evidence of a per-ticket deduction.
+    """
+    rows = []
+    for item_id, name, description in conn.execute(
+        'SELECT DISTINCT item.id, item.name, item.desc FROM item '
+        'JOIN skin_store_price ON skin_store_price.ticket_id = item.id '
+        'ORDER BY item.id'
+    ):
+        if not name or not description:
+            continue
+        match = re.fullmatch(
+            r'通过“[^”\r\n]+”获得，可在幸运橱窗中使用，每张'
+            + re.escape(name)
+            + r'可抵扣([1-9][0-9]*)钻石。',
+            description,
+        )
+        if match is None:
+            continue
+        value = int(match[1])
+        if value > 9223372036854775807:
+            continue
+        rows.append(
+            (
+                item_id,
+                value,
+                'item.desc:lucky_window_per_ticket_diamonds_v1',
+                description,
+            )
+        )
+    conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {SKIN_TICKET_RULE_TABLE} (
+            ticket_id INTEGER PRIMARY KEY,
+            diamonds_per_ticket INTEGER NOT NULL CHECK (diamonds_per_ticket > 0),
+            source TEXT NOT NULL,
+            source_text TEXT NOT NULL
+        )
+    """)
+    conn.execute(f'DELETE FROM {SKIN_TICKET_RULE_TABLE}')
+    conn.executemany(
+        f'INSERT INTO {SKIN_TICKET_RULE_TABLE} '
+        '(ticket_id, diamonds_per_ticket, source, source_text) VALUES (?, ?, ?, ?)',
+        rows,
+    )
+    return len(rows)
 
 
 class _SkinStorePrice(Protocol):
@@ -166,6 +219,7 @@ def replace_config_package_tables(
         ON {SKIN_STORE_PRICE_TABLE} (skin_id)
         """
     )
+    replace_skin_ticket_rules(conn)
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {SKIN_SHOP_PRICE_TABLE} (
