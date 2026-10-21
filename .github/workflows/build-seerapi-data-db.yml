@@ -20,6 +20,9 @@ on:
       - "scripts/maintenance_*.py"
       - "scripts/preview_window_dll.py"
       - "scripts/release_*.py"
+      - "packages/**"
+      - "pyproject.toml"
+      - "uv.lock"
       - "scripts/check_api_data_publication.py"
       - "scripts/push_build_state.py"
       - "scripts/effect_icon_*.py"
@@ -77,6 +80,7 @@ jobs:
       remote_config_package_manifest_sha: ${{ steps.source_check.outputs.remote_config_package_manifest_sha }}
       remote_default_package_version: ${{ steps.source_check.outputs.remote_default_package_version }}
       build_sha: ${{ steps.build_ref.outputs.sha }}
+      generator_fingerprint: ${{ steps.source_check.outputs.generator_fingerprint }}
 
     steps:
       - name: Checkout
@@ -104,6 +108,13 @@ jobs:
           FLASH_MOUNT_ASSET_BASE_URL: https://seer.61.com/resource/item/cloth/swf
         run: |
           set -euo pipefail
+          generator_fingerprint="$(python scripts/release_build_fingerprint.py)"
+          echo "generator_fingerprint=${generator_fingerprint}" >> "$GITHUB_OUTPUT"
+          previous_generator_fingerprint="$(cat .build-state/generator-fingerprint 2>/dev/null || true)"
+          if [ "${generator_fingerprint}" != "${previous_generator_fingerprint}" ]; then
+            FORCE=true
+            echo "Database generator changed; rebuild required."
+          fi
           python scripts/check_api_data_publication.py
           if grep -q '^blocked=true$' "$GITHUB_OUTPUT"; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -914,6 +925,8 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           mkdir -p .build-state
+          printf '%s\n' "${{ needs.plan.outputs.generator_fingerprint }}" > .build-state/generator-fingerprint
+          git add .build-state/generator-fingerprint
           cp .cache/official-packages/maintenance-cycle.json .build-state/maintenance-cycle.json
           git add .build-state/maintenance-cycle.json
           printf '%s\n' "${{ needs.plan.outputs.maintenance_start }}" > .build-state/maintenance-published-start

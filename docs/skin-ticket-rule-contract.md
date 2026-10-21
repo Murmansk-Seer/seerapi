@@ -3,6 +3,14 @@
 The release builder publishes `skin_ticket_rule` as a SQLite sidecar fact table.
 It requires no seerapi-models change, PyPI package, or model dependency pin update.
 
+The build plan fingerprints committed generator scripts, model packages, dependency
+locks and the build workflow. Generator changes force a rebuild even if external
+data is unchanged. The fingerprint advances only after the uploaded database is
+downloaded and validated, so a failed publication is retried rather than skipped.
+Consumers may treat missing rules as an unavailable pricing capability: preserve
+quoted prices and ticket quantities, but never infer a deduction or minimum price.
+Missing rules must not disable unrelated pet queries.
+
 | Column | Contract |
 | --- | --- |
 | ticket_id | Integer primary key; the referenced item ID |
