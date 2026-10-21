@@ -67,7 +67,13 @@ jobs:
         run: uv run pytest packages/seerapi-models/tests packages/seerapi-python/tests packages/solaris/tests -v
 
       - name: Check database publication provenance regressions
-        run: uv run python -m pytest tests/test_api_data_publication_guard.py -v
+        run: >-
+          uv run python -m pytest
+          tests/test_api_data_publication_guard.py
+          tests/test_release_build_fingerprint.py
+          tests/test_ci_workflows.py
+          tests/test_release_contract.py
+          tests/test_skin_ticket_rules.py -v
 
   generate-schema:
     name: Generate schema data
