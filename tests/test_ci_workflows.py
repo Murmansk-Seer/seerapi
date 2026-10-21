@@ -25,7 +25,9 @@ def test_data_build_runs_for_release_contract_changes() -> None:
     assert '- "scripts/release_*.py"' in workflow
     assert '- "packages/**"' in workflow
     assert 'python scripts/release_build_fingerprint.py' in workflow
-    assert '"${generator_fingerprint}" != "${previous_generator_fingerprint}"' in workflow
+    assert (
+        '"${generator_fingerprint}" != "${previous_generator_fingerprint}"' in workflow
+    )
     assert workflow.index('id: verify_release') < workflow.index(
         '> .build-state/generator-fingerprint'
     )

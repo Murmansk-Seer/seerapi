@@ -9,8 +9,18 @@ import subprocess
 
 def build_fingerprint(repository: Path) -> str:
     tree = subprocess.check_output(
-        ['git', 'ls-tree', '-r', 'HEAD', '--', 'scripts', 'packages',
-         'pyproject.toml', 'uv.lock', '.github/workflows/build-seerapi-data-db.yml'],
+        [
+            'git',
+            'ls-tree',
+            '-r',
+            'HEAD',
+            '--',
+            'scripts',
+            'packages',
+            'pyproject.toml',
+            'uv.lock',
+            '.github/workflows/build-seerapi-data-db.yml',
+        ],
         cwd=repository,
     )
     return sha256(tree).hexdigest()
