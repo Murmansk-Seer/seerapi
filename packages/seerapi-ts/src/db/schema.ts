@@ -986,6 +986,9 @@ export const skillmintmarklink = sqliteTable("skillmintmarklink", {
 
 export const factorDesign = sqliteTable("factor_design", {
 	id: integer().primaryKey(),
+	timeValue: integer("time_value"),
+	progressValue: integer("progress_value"),
+	failTimes: integer("fail_times"),
 	achievementId: integer("achievement_id").references(() => achievement.id),
 	rewardId: integer("reward_id").notNull().references(() => factor.id),
 	mintmarkRewardId: integer("mintmark_reward_id").references(() => mintmark.id),

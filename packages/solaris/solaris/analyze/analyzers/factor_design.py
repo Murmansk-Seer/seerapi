@@ -56,6 +56,7 @@ class DesignAnalyzer(BaseDataSourcePostAnalyzer):
 
         for item in data['root']['design']:
             design_id = item['id']
+            configure = item['configure']
             reward = item['reward']
             if reward is None:
                 raise ValueError(f'Factor design {design_id} has no reward')
@@ -96,6 +97,11 @@ class DesignAnalyzer(BaseDataSourcePostAnalyzer):
 
             results[design_id] = FactorDesign(
                 id=design_id,
+                time_value=configure['time_value'] if configure is not None else None,
+                progress_value=configure['progress_value']
+                if configure is not None
+                else None,
+                fail_times=configure['fail_times'] if configure is not None else None,
                 achievement=achievement_ref,
                 difficulties=difficulties,
                 reward=ResourceRef.from_model(Factor, id=reward['item_id']),

@@ -2468,6 +2468,9 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
         examples=[
             {
                 'id': 5,
+                'time_value': 200723,
+                'progress_value': 200722,
+                'fail_times': 200720,
                 'achievement': {
                     'id': 3145004,
                     'url': 'https://api.seerapi.com/v1/achievement/3145004',
@@ -2724,7 +2727,7 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
                     'id': 42055,
                     'url': 'https://api.seerapi.com/v1/mintmark/42055',
                 },
-                'hash': '31ea0fd5',
+                'hash': 'b5d55895',
             }
         ],
         tags=['因子', '关卡', '精灵'],

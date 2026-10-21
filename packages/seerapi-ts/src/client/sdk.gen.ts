@@ -1222,7 +1222,7 @@ export const getErrorCodeList = <ThrowOnError extends boolean = false>(options?:
 /**
  * 获取因子关卡资源
  *
- * 因子关卡资源，包含通关奖励、可兑换刻印、关联成就和各难度的挑战信息。difficulties 按简单、普通、困难排列，仅包含配置中存在的难度；每个难度内嵌有序的 BOSS 列表、禁用精灵和规则。规则 ID 仅在当前关卡内有效，难度与 BOSS 不提供独立资源端点。
+ * 因子关卡资源，包含通关奖励、可兑换刻印、关联成就和各难度的挑战信息。difficulties 按简单、普通、困难排列，每个难度内嵌有序的 BOSS 列表、禁用精灵和规则。规则 ID 仅在当前关卡内有效。time_value、progress_value、fail_times 分别为挑战次数消耗、当前轮进度和本轮战败次数的玩家状态查询 ID，具体查询结果的解释见对应字段说明。
  */
 export const getFactorDesignById = <ThrowOnError extends boolean = false>(options: Options<GetFactorDesignByIdData, ThrowOnError>) => (options.client ?? client).get<GetFactorDesignByIdResponses, unknown, ThrowOnError>({
     responseType: 'json',
@@ -1233,7 +1233,7 @@ export const getFactorDesignById = <ThrowOnError extends boolean = false>(option
 /**
  * 获取因子关卡资源列表
  *
- * 因子关卡资源，包含通关奖励、可兑换刻印、关联成就和各难度的挑战信息。difficulties 按简单、普通、困难排列，仅包含配置中存在的难度；每个难度内嵌有序的 BOSS 列表、禁用精灵和规则。规则 ID 仅在当前关卡内有效，难度与 BOSS 不提供独立资源端点。
+ * 因子关卡资源，包含通关奖励、可兑换刻印、关联成就和各难度的挑战信息。difficulties 按简单、普通、困难排列，每个难度内嵌有序的 BOSS 列表、禁用精灵和规则。规则 ID 仅在当前关卡内有效。time_value、progress_value、fail_times 分别为挑战次数消耗、当前轮进度和本轮战败次数的玩家状态查询 ID，具体查询结果的解释见对应字段说明。
  */
 export const getFactorDesignList = <ThrowOnError extends boolean = false>(options?: Options<GetFactorDesignListData, ThrowOnError>) => (options?.client ?? client).get<GetFactorDesignListResponses, unknown, ThrowOnError>({
     responseType: 'json',
@@ -1398,7 +1398,7 @@ export const getItemCategoryList = <ThrowOnError extends boolean = false>(option
 /**
  * 获取因子道具资源
  *
- * 因子道具资源，包含兑换精灵、技能和魂印所需的数量及关联资源。pet_limit 表示兑换的精灵是否具有唯一性；need_pet 表示兑换所需的前置精灵。不可兑换的技能、魂印及其消耗数量为 null，未关联因子关卡时 design 为 null。
+ * 因子道具资源，包含兑换精灵、第五技能和魂印所需的数量及关联资源。pet_limit 表示兑换的精灵是否具有唯一性；need_pet 表示兑换所需的前置精灵。不可兑换的技能、魂印及其消耗数量为 null，未关联因子关卡时 design 为 null。
  */
 export const getFactorById = <ThrowOnError extends boolean = false>(options: Options<GetFactorByIdData, ThrowOnError>) => (options.client ?? client).get<GetFactorByIdResponses, unknown, ThrowOnError>({
     responseType: 'json',
@@ -1409,7 +1409,7 @@ export const getFactorById = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * 通过名称获取因子道具资源
  *
- * 因子道具资源，包含兑换精灵、技能和魂印所需的数量及关联资源。pet_limit 表示兑换的精灵是否具有唯一性；need_pet 表示兑换所需的前置精灵。不可兑换的技能、魂印及其消耗数量为 null，未关联因子关卡时 design 为 null。
+ * 因子道具资源，包含兑换精灵、第五技能和魂印所需的数量及关联资源。pet_limit 表示兑换的精灵是否具有唯一性；need_pet 表示兑换所需的前置精灵。不可兑换的技能、魂印及其消耗数量为 null，未关联因子关卡时 design 为 null。
  */
 export const getFactorByName = <ThrowOnError extends boolean = false>(options: Options<GetFactorByNameData, ThrowOnError>) => (options.client ?? client).get<GetFactorByNameResponses, unknown, ThrowOnError>({
     responseType: 'json',
@@ -1420,7 +1420,7 @@ export const getFactorByName = <ThrowOnError extends boolean = false>(options: O
 /**
  * 获取因子道具资源列表
  *
- * 因子道具资源，包含兑换精灵、技能和魂印所需的数量及关联资源。pet_limit 表示兑换的精灵是否具有唯一性；need_pet 表示兑换所需的前置精灵。不可兑换的技能、魂印及其消耗数量为 null，未关联因子关卡时 design 为 null。
+ * 因子道具资源，包含兑换精灵、第五技能和魂印所需的数量及关联资源。pet_limit 表示兑换的精灵是否具有唯一性；need_pet 表示兑换所需的前置精灵。不可兑换的技能、魂印及其消耗数量为 null，未关联因子关卡时 design 为 null。
  */
 export const getFactorList = <ThrowOnError extends boolean = false>(options?: Options<GetFactorListData, ThrowOnError>) => (options?.client ?? client).get<GetFactorListResponses, unknown, ThrowOnError>({
     responseType: 'json',

@@ -3490,6 +3490,24 @@ export type FactorDesign = HashPartial & {
      */
     id: number;
     /**
+     * Time Value
+     *
+     * 该ID用于查询当前剩余挑战次数
+     */
+    time_value?: number | null;
+    /**
+     * Progress Value
+     *
+     * 该ID用于查询当前轮挑战进度
+     */
+    progress_value?: number | null;
+    /**
+     * Fail Times
+     *
+     * 该ID用于查询本轮战败次数
+     */
+    fail_times?: number | null;
+    /**
      * 可通过该因子关卡获得的成就
      */
     achievement?: CommonResourceRef | null;

@@ -64,6 +64,19 @@ class FactorDesignDifficulty(BaseFactorDesignDifficulty):
 
 
 class BaseFactorDesign(BaseResModel):
+    time_value: int | None = Field(
+        default=None,
+        description='该ID用于查询当前剩余挑战次数',
+    )
+    progress_value: int | None = Field(
+        default=None,
+        description='该ID用于查询当前轮挑战进度',
+    )
+    fail_times: int | None = Field(
+        default=None,
+        description='该ID用于查询本轮战败次数',
+    )
+
     @classmethod
     def resource_name(cls) -> str:
         return 'factor_design'
@@ -109,6 +122,9 @@ class FactorDesign(BaseFactorDesign, ConvertToORM['FactorDesignORM']):
         }
         return FactorDesignORM(
             id=self.id,
+            time_value=self.time_value,
+            progress_value=self.progress_value,
+            fail_times=self.fail_times,
             achievement_id=self.achievement.id if self.achievement else None,
             reward_id=self.reward.id,
             mintmark_reward_id=self.mintmark_reward.id
