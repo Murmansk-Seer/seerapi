@@ -4,18 +4,19 @@
 from __future__ import annotations
 
 import argparse
+from datetime import timedelta, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
 import sqlite3
-from datetime import timezone, timedelta
 
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session, SQLModel, create_engine
+
+import seerapi_models  # noqa: F401
 from seerapi_models.activity import ActivityORM
 from seerapi_models.skill import SkillORM
 from seerapi_models.source_reference import validate_unresolved_pet_references
-
-import seerapi_models  # noqa: F401
+from solaris.utils import parse_unity_datetime
 
 SCHEMA_CONTRACT_VERSION = '2'
 SCHEMA_CONTRACT_VERSION_KEY = 'seerapi_schema_contract_version'
@@ -117,7 +118,9 @@ def finalize_release_contract(database: Path) -> tuple[str, ...]:
         )
         missing = sorted(required_release_tables() - set(tables))
         if missing:
-            raise ValueError(f'release is missing required tables: {", ".join(missing)}')
+            raise ValueError(
+                f'release is missing required tables: {", ".join(missing)}'
+            )
         version = connection.execute(
             'SELECT value FROM seerapi_metadata WHERE key = ?',
             (SCHEMA_CONTRACT_VERSION_KEY,),
@@ -145,9 +148,54 @@ def finalize_release_contract(database: Path) -> tuple[str, ...]:
     return tables
 
 
+def validate_skill_source(skill: SkillORM | None, source: dict) -> None:
+    """Follow the frozen official values, including empty and subsequently filled args."""
+    if skill is None or skill.id != source['id']:
+        raise ValueError(f'Official skill {source["id"]} is missing')
+    effects = list(skill.skill_effect)
+    if [row.effect_id for row in effects] != source['side_effect'] or [
+        arg for row in effects for arg in row.args
+    ] != source['side_effect_arg']:
+        raise ValueError(
+            f'Official skill {source["id"]} effects/parameters differ from source'
+        )
+    if not source['side_effect_arg'] and any(
+        row.info != row.effect.info for row in effects
+    ):
+        raise ValueError(
+            f'Official empty-argument skill {source["id"]} template was altered'
+        )
+
+
+def validate_regression_source(session: Session, source_dir: Path) -> None:
+    moves = json.loads((source_dir / 'unity/moves.json').read_text(encoding='utf-8'))[
+        'root'
+    ]['moves']['move']
+    by_id = {row['id']: row for row in moves}
+    for skill_id in (29481, 38595):
+        if skill_id not in by_id:
+            raise ValueError(f'Frozen official moves.json is missing skill {skill_id}')
+        validate_skill_source(session.get(SkillORM, skill_id), by_id[skill_id])
+    activities = json.loads(
+        (source_dir / 'unity/ActivityCenter.json').read_text(encoding='utf-8')
+    )['item']
+    source = next((row for row in activities if row['id'] == 592), None)
+    if source is None:
+        raise ValueError('Frozen official ActivityCenter.json is missing activity 592')
+    expected_end = parse_unity_datetime(source['ending'])
+    activity = session.get(ActivityORM, 592)
+    if (
+        activity is None
+        or activity.end_time is None
+        or activity.end_time.astimezone(timezone(timedelta(hours=8))) != expected_end
+    ):
+        raise ValueError('Activity 592 time differs from frozen official source')
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--database', type=Path, required=True)
+    parser.add_argument('--official-source-dir', type=Path, required=True)
     args = parser.parse_args()
     tables = finalize_release_contract(args.database)
     with sqlite3.connect(args.database) as connection:
@@ -159,19 +207,8 @@ def main() -> None:
         preserved = validate_unresolved_pet_references(connection)
         fingerprint = schema_fingerprint(connection, tables)
     with Session(create_engine(f'sqlite:///{args.database.as_posix()}')) as session:
-        for skill_id, effect_id in ((29481, 1866), (38595, 495)):
-            skill = session.get(SkillORM, skill_id)
-            if skill is None or not any(
-                row.effect_id == effect_id and row.args == [] and '{0}' in row.info
-                for row in skill.skill_effect
-            ):
-                raise ValueError(f'Official empty-argument skill {skill_id} was not preserved')
-        activity = session.get(ActivityORM, 592)
-        if activity is None or activity.end_time is None or activity.end_time.astimezone(
-            timezone(timedelta(hours=8))
-        ).isoformat() != '2026-11-06T00:00:00+08:00':
-            raise ValueError('Activity 592 midnight boundary regression')
-    print(  # noqa: T201 - CLI validation result
+        validate_regression_source(session, args.official_source_dir)
+    print(
         f'Final release contract validated: {len(tables)} tables, {fingerprint=}, {preserved=}'
     )
 
