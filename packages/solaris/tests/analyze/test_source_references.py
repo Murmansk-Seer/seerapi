@@ -14,7 +14,7 @@ from solaris.analyze.analyzers.unresolved_pet_reference import (
     UnresolvedPetReferenceAnalyzer,
 )
 from solaris.analyze.output.openapi_comments import get_api_comment
-from solaris.analyze.source_references import partition_pet_ids
+from solaris.analyze.source_references import official_pet_ids, partition_pet_ids
 
 
 def source():
@@ -44,6 +44,11 @@ def test_preservation_resource_has_required_openapi_contract():
     comment = get_api_comment(UnresolvedPetReference)
     assert comment.name_en == UnresolvedPetReference.resource_name()
     assert '原始字段' in comment.description
+
+
+def test_canonical_pet_scope_excludes_later_battle_copies():
+    data = {'monsters': {'monster': [{'id': 4542}, {'id': 15001}, {'id': 5270}]}}
+    assert official_pet_ids(data) == {4542}
 
 
 def analyze(cls, data, monkeypatch):

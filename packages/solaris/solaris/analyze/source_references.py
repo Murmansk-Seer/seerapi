@@ -9,7 +9,14 @@ from seerapi_models.source_reference import UnresolvedPetReference
 
 
 def official_pet_ids(data: dict[str, Any]) -> set[int]:
-    return {row['id'] for row in data['monsters']['monster'] if row['id'] <= 9999}
+    # Match BasePetAnalyzer.pet_origin_data: later sections contain battle copies,
+    # including IDs below 10000. Do not turn them into new canonical pets.
+    result = set()
+    for row in data['monsters']['monster']:
+        if row['id'] > 9999:
+            break
+        result.add(row['id'])
+    return result
 
 
 def partition_pet_ids(
