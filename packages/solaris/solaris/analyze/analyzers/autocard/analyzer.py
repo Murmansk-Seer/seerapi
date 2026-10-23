@@ -39,6 +39,8 @@ class AutocardCardAnalyzer(BaseAutocardAnalyzer):
             id_ = item['id']
             type_id = item['type']
             element_type_id = item['nature']
+            if element_type_id == 0:
+                element_type_id = 999
 
             awaken_card_id = None
             attack = None

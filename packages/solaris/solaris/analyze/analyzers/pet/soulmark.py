@@ -25,7 +25,12 @@ class SoulmarkAnalyzer(BasePetAnalyzer):
     def get_data_import_config(cls) -> DataImportConfig:
         return (
             DataImportConfig(
-                unity_paths=('effectag.json', 'effectIcon.json', 'petEffectIcon.json'),
+                unity_paths=(
+                    'effectag.json',
+                    'effectIcon.json',
+                    'petEffectIcon.json',
+                    'fragment.json',
+                ),
             )
             + super().get_data_import_config()
         )
@@ -66,10 +71,19 @@ class SoulmarkAnalyzer(BasePetAnalyzer):
             )
         )
         soulmark_intensify_map: dict[int, int] = {}
+        fragment_root = self._get_data('unity', 'fragment.json')['root']
+        referenced_soulmarks = (
+            {item['effect_id'] for item in fragment_root['fragment']}
+            if fragment_root
+            else set()
+        )
 
         for soulmark_dict in soulmark_data:
             id_ = soulmark_dict['id']
-            if not (pet_ids := soulmark_dict.get('pet_id')):
+            pet_ids = soulmark_dict.get('pet_id', [])
+            # Official factor references can target an intentionally empty source row.
+            # Retain that row verbatim, without inventing a pet or an effect.
+            if not pet_ids and id_ not in referenced_soulmarks:
                 continue
 
             pet_refs = [ResourceRef.from_model(Pet, id=pet_id) for pet_id in pet_ids]
