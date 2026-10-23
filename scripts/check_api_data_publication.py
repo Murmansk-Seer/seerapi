@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import argparse
 import json
 import os
 from pathlib import Path
@@ -59,6 +60,9 @@ def verified_publication_matches(state: dict, source_info: dict, digest: str) ->
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--official-version')
+    args = parser.parse_args()
     source_info = get_json('config-sources/commits/main')
     if source_info is None:
         raise RuntimeError('config-sources main is unavailable; cannot establish publication provenance')
@@ -73,6 +77,12 @@ def main():
     with urlopen(asset['browser_download_url'], timeout=60) as response:
         digest = response.read().decode().split()[0]
     blocked = not verified_publication_matches(state, source_info, digest)
+    if args.official_version:
+        config_version = get_json(f'config-sources/contents/unity/.version?ref={source}')
+        published_version = base64.b64decode(config_version['content']).decode().strip() if config_version else ''
+        if not published_version.isdecimal() or published_version != args.official_version:
+            blocked = True
+            print(f'::warning::Official ConfigPackage {args.official_version} is not yet represented by config-sources {published_version}; preserving the existing Release.')
     with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:
         output.write(f'blocked={str(blocked).lower()}\nconfig_source={source}\npublished_source={state.get("config", "")}\n')
     if blocked:

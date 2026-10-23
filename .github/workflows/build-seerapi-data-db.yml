@@ -115,11 +115,6 @@ jobs:
             FORCE=true
             echo "Database generator changed; rebuild required."
           fi
-          python scripts/check_api_data_publication.py
-          if grep -q '^blocked=true$' "$GITHUB_OUTPUT"; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           curl_retry=(
             curl -fsSL
             --connect-timeout 15
@@ -176,6 +171,11 @@ jobs:
           if ! [[ "${config_package_version}" =~ ^[0-9]+$ ]]; then
             echo "Unexpected ConfigPackage version: ${config_package_version}" >&2
             exit 1
+          fi
+          python scripts/check_api_data_publication.py --official-version "${config_package_version}"
+          if grep -q '^blocked=true$' "$GITHUB_OUTPUT"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           mkdir -p .cache/official-packages/ConfigPackage
           printf '%s' "${config_package_version}" > .cache/official-packages/ConfigPackage/PackageManifest_ConfigPackage.version
