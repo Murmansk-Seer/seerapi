@@ -36,7 +36,7 @@ def preserve_missing_pet_refs(
                 ],
                 'big',
             )
-            & ((1 << 63) - 1),
+            & ((1 << 53) - 1),
             owner_resource=resource,
             owner_id=row['id'],
             target_pet_id=pet_id,

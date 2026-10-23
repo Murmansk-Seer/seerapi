@@ -5,11 +5,15 @@ import sqlite3
 
 import pytest
 
-from seerapi_models.source_reference import validate_unresolved_pet_references
+from seerapi_models.source_reference import (
+    UnresolvedPetReference,
+    validate_unresolved_pet_references,
+)
 from solaris.analyze.analyzers.glossary import GlossaryAnalyzer
 from solaris.analyze.analyzers.unresolved_pet_reference import (
     UnresolvedPetReferenceAnalyzer,
 )
+from solaris.analyze.output.openapi_comments import get_api_comment
 from solaris.analyze.source_references import partition_pet_ids
 
 
@@ -36,6 +40,12 @@ def source():
     }
 
 
+def test_preservation_resource_has_required_openapi_contract():
+    comment = get_api_comment(UnresolvedPetReference)
+    assert comment.name_en == UnresolvedPetReference.resource_name()
+    assert '原始字段' in comment.description
+
+
 def analyze(cls, data, monkeypatch):
     analyzer = object.__new__(cls)
     monkeypatch.setattr(analyzer, '_get_data', lambda _, name: data[name])
@@ -49,6 +59,7 @@ def test_raw_evidence_and_resolved_json_partition_without_mutation(monkeypatch):
     assert len(records) == 2
     assert records == analyze(UnresolvedPetReferenceAnalyzer, data, monkeypatch)
     for row in records.values():
+        assert 0 < row.id <= (1 << 53) - 1
         assert row.target_pet_id == 4543
         assert row.source_sha256 == sha256(row.source_json.encode()).hexdigest()
         assert (
