@@ -13,6 +13,7 @@ from datetime import timezone, timedelta
 from sqlmodel import SQLModel, Session, create_engine
 from seerapi_models.activity import ActivityORM
 from seerapi_models.skill import SkillORM
+from seerapi_models.source_reference import validate_unresolved_pet_references
 
 import seerapi_models  # noqa: F401
 
@@ -155,6 +156,7 @@ def main() -> None:
             raise ValueError(f'Release foreign key violations: {violations!r}')
         if connection.execute('SELECT COUNT(*) FROM factor').fetchone()[0] == 0:
             raise ValueError('Current release must contain official factor records')
+        preserved = validate_unresolved_pet_references(connection)
         fingerprint = schema_fingerprint(connection, tables)
     with Session(create_engine(f'sqlite:///{args.database.as_posix()}')) as session:
         for skill_id, effect_id in ((29481, 1866), (38595, 495)):
@@ -170,7 +172,7 @@ def main() -> None:
         ).isoformat() != '2026-11-06T00:00:00+08:00':
             raise ValueError('Activity 592 midnight boundary regression')
     print(  # noqa: T201 - CLI validation result
-        f'Final release contract validated: {len(tables)} tables, {fingerprint=}'
+        f'Final release contract validated: {len(tables)} tables, {fingerprint=}, {preserved=}'
     )
 
 

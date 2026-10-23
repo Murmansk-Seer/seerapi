@@ -57,7 +57,9 @@ class SoulmarkBase(BaseResModel):
 class Soulmark(SoulmarkBase, ConvertToORM['SoulmarkORM']):
     __name_fields__: ClassVar[list[str]] = ['effect_alias']
 
-    pet: list[ResourceRef['Pet']] = Field(description='可持有该魂印的精灵ID')
+    pet: list[ResourceRef['Pet']] = Field(
+        description='可持有该魂印且主表存在的精灵ID；官方悬空引用见 unresolved_pet_reference'
+    )
     effect: EidEffectInUse | None = Field(description='魂印效果')
     effect_alias: str | None = Field(
         default=None,

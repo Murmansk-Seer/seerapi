@@ -164,6 +164,7 @@ ModelName: TypeAlias = Literal[
     'suit_bonus',
     'title',
     'universal_mintmark',
+    'unresolved_pet_reference',
 ]
 ModelInstance: TypeAlias = BaseResModel
 NamedModelInstance: TypeAlias = (

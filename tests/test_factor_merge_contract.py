@@ -48,6 +48,7 @@ def test_official_empty_soulmark_referenced_by_factor_is_retained(monkeypatch):
         'effectIcon.json': {'root': {'effect': [empty, dict(empty, id=770)]}},
         'effectag.json': {'data': []},
         'petEffectIcon.json': {'data': []},
+        'monsters.json': {'monsters': {'monster': []}},
     }
     analyzer = object.__new__(SoulmarkAnalyzer)
     monkeypatch.setattr(analyzer, '_get_data', lambda _, name: source[name])
