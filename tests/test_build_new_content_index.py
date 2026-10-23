@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import datetime
 import importlib.util
 import json
 from pathlib import Path
@@ -27,6 +28,12 @@ def test_legacy_source_date_does_not_infer_friday_cycle() -> None:
 
 
 def test_maintenance_index_remains_ready_after_preview_expired(tmp_path, monkeypatch):
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromisoformat('2026-10-09T18:00:00+08:00').astimezone(tz)
+
+    monkeypatch.setattr(indexer, 'datetime', Clock)
     baseline = tmp_path / 'baseline.sqlite'
     current = tmp_path / 'current.sqlite'
     _create_database(baseline, version='20261008204457', pet_ids=(1,))
