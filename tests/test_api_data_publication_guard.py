@@ -1,3 +1,7 @@
+import base64
+import io
+import json
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -14,6 +18,44 @@ def test_current_source_requires_matching_release_digest() -> None:
     assert not publication_matches(state, 'older-source', 'new-digest')
     assert not publication_matches(state, 'new-source', 'older-digest')
     assert not publication_matches({}, 'new-source', 'new-digest')
+
+
+@pytest.mark.parametrize(
+    ('version', 'blocked'), [('20261016152146', True), ('20261022220257', False)]
+)
+def test_live_official_version_must_match_published_source(
+    version, blocked, tmp_path, monkeypatch
+):
+    from scripts import check_api_data_publication as guard
+
+    checksum = 'a' * 64
+    state = {'config': 'source', 'sha256': checksum}
+    documents = {
+        'config-sources/commits/main': {'sha': 'source'},
+        'api-data/contents/.build-state/publication.json?ref=main': {
+            'content': base64.b64encode(json.dumps(state).encode()).decode()
+        },
+        'api-data/releases/tags/latest': {
+            'assets': [
+                {
+                    'name': 'seerapi-data.sqlite.sha256',
+                    'browser_download_url': 'https://test.invalid',
+                }
+            ]
+        },
+        'config-sources/contents/unity/.version?ref=source': {
+            'content': base64.b64encode(version.encode()).decode()
+        },
+    }
+    monkeypatch.setattr(guard, 'get_json', documents.__getitem__)
+    monkeypatch.setattr(
+        guard, 'urlopen', lambda *args, **kwargs: io.BytesIO(checksum.encode())
+    )
+    output = tmp_path / 'output'
+    monkeypatch.setenv('GITHUB_OUTPUT', str(output))
+    monkeypatch.setattr(sys, 'argv', ['guard', '--official-version', '20261022220257'])
+    guard.main()
+    assert f'blocked={str(blocked).lower()}' in output.read_text()
 
 
 def test_identical_trees_accept_history_merge_but_not_wrong_digest() -> None:
