@@ -13,10 +13,12 @@ import argparse
 from collections.abc import Iterable
 from dataclasses import replace
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
 
+from maintenance_cycle import cycle_identity, cycle_status
 from new_content_index_models import (
     AUTOCARD_CHIP_CATEGORY,
     CONTENT_CATEGORIES,
@@ -209,11 +211,13 @@ def _modified_items(
                             (item.category, item.entity_id)
                         ].semantic_payload,
                         'previous_description': str(
-                            previous_raw_by_id[(item.category, item.entity_id)]
-                            .payload.get('description', '')
-                        )
+                            previous_raw_by_id[
+                                (item.category, item.entity_id)
+                            ].payload.get('description', '')
+                        ),
                     }
-                    if item.category == AUTOCARD_CHIP_CATEGORY else {}
+                    if item.category == AUTOCARD_CHIP_CATEGORY
+                    else {}
                 ),
                 'change_summary': _content_change_summary(
                     previous_raw_by_id[(item.category, item.entity_id)], item
@@ -328,13 +332,22 @@ def _preserve_weekly_chip_origin(
         )
         if previous_item.semantic_key == current_item.semantic_key:
             continue
-        result.append(replace(item, payload={
-            **current_item.payload,
-            'previous_name': previous_name,
-            'previous_payload': previous_payload,
-            'previous_description': str(previous_payload.get('description', '')),
-            'change_summary': _content_change_summary(previous_item, current_item),
-        }))
+        result.append(
+            replace(
+                item,
+                payload={
+                    **current_item.payload,
+                    'previous_name': previous_name,
+                    'previous_payload': previous_payload,
+                    'previous_description': str(
+                        previous_payload.get('description', '')
+                    ),
+                    'change_summary': _content_change_summary(
+                        previous_item, current_item
+                    ),
+                },
+            )
+        )
     return tuple(result)
 
 
@@ -423,7 +436,8 @@ def build_release_state(
             (item.category, item.entity_id) for item in previous.source_items
         }
         history_items = tuple(
-            item for item in history_items
+            item
+            for item in history_items
             if (item.category, item.entity_id) not in baseline_keys
         )
     increment = _current_subset(
@@ -497,6 +511,8 @@ def main() -> None:
     parser.add_argument('--maintenance-end', default='')
     parser.add_argument('--maintenance-source', default='')
     parser.add_argument('--maintenance-notice-id', default='')
+    parser.add_argument('--maintenance-status', default='')
+    parser.add_argument('--maintenance-cycle-id', default='')
     parser.add_argument(
         '--github-output',
         type=Path,
@@ -507,8 +523,10 @@ def main() -> None:
         boundary = datetime.fromisoformat(args.maintenance_start)
         if boundary.tzinfo is None:
             parser.error('maintenance start requires a timezone')
-        if args.baseline is None:
-            parser.error('maintenance indexing requires a verified fixed baseline')
+        if args.maintenance_cycle_id and args.maintenance_cycle_id != cycle_identity(
+            args.maintenance_start
+        ):
+            parser.error('maintenance cycle identity disagrees with update date')
 
     if bool(args.cycle_start) != bool(args.cycle_end):
         parser.error('both --cycle-start and --cycle-end are required')
@@ -519,14 +537,19 @@ def main() -> None:
             parser.error('preview cycle requires ordered timezone-aware dates')
 
     previous = _load_previous_state(args.previous)
-    baseline = _load_previous_state(args.baseline) if args.maintenance_mode else previous
+    baseline = (
+        _load_previous_state(args.baseline) if args.maintenance_mode else previous
+    )
     history_additions = load_source_history_additions(args.source_history_additions)
     state = build_release_state(
         args.current,
         args.previous,
         args.current_git_sha,
         history_additions,
-        cycle_start=(args.maintenance_start if args.maintenance_mode else args.cycle_start) or None,
+        cycle_start=(
+            args.maintenance_start if args.maintenance_mode else args.cycle_start
+        )
+        or None,
         baseline_path=args.baseline,
     )
     status = 'ready'
@@ -534,11 +557,15 @@ def main() -> None:
         now = datetime.now(timezone.utc)
         if not args.maintenance_start:
             status = 'cycle_unavailable'
-        elif now < datetime.fromisoformat(args.maintenance_start):
-            status = 'scheduled'
+        elif cycle_status(args.maintenance_start, now) != 'confirmed':
+            status = cycle_status(args.maintenance_start, now)
+        elif args.maintenance_status == 'cycle_unavailable':
+            status = 'cycle_unavailable'
         elif not state.baseline_established:
             status = 'baseline_unavailable'
-        elif state.items or (baseline is not None and state.config_version != baseline.config_version):
+        elif state.items or (
+            baseline is not None and state.config_version != baseline.config_version
+        ):
             status = 'ready'
         else:
             status = 'syncing'
@@ -549,12 +576,16 @@ def main() -> None:
         start = datetime.fromisoformat(args.cycle_start)
         end = datetime.fromisoformat(args.cycle_end)
         status = (
-            'expired' if now >= end else
-            'scheduled' if now < start else
-            'baseline_unavailable' if not state.baseline_established else
-            'ready' if state.items or _source_has_reached_cycle(
-                state.config_version, args.cycle_start
-            ) else 'syncing'
+            'expired'
+            if now >= end
+            else 'scheduled'
+            if now < start
+            else 'baseline_unavailable'
+            if not state.baseline_established
+            else 'ready'
+            if state.items
+            or _source_has_reached_cycle(state.config_version, args.cycle_start)
+            else 'syncing'
         )
         if status != 'ready':
             state = replace(state, items=())
@@ -569,6 +600,18 @@ def main() -> None:
                     ('update_cycle_source', args.maintenance_source),
                     ('update_cycle_notice_id', args.maintenance_notice_id),
                     ('update_cycle_status', status),
+                    (
+                        'update_cycle_id',
+                        cycle_identity(args.maintenance_start)
+                        if args.maintenance_start
+                        else '',
+                    ),
+                    (
+                        'update_cycle_baseline_sha256',
+                        hashlib.sha256(args.baseline.read_bytes()).hexdigest()
+                        if args.baseline
+                        else '',
+                    ),
                 ),
             )
     if args.cycle_start:
@@ -593,7 +636,8 @@ def main() -> None:
     ready_categories = sum(
         1 for category in state.category_states if category.comparison_ready
     )
-    status = 'ready' if state.baseline_established else 'history-unavailable'
+    if not args.maintenance_mode and not args.cycle_start:
+        status = 'ready' if state.baseline_established else 'history-unavailable'
     print(  # noqa: T201 - CLI status is required by the GitHub Actions log.
         'new-content index: '
         f'status={status} cycle={state.weekly_cycle} '

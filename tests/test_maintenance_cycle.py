@@ -63,7 +63,7 @@ def test_future_announcement_is_not_active_before_publication():
     assert state['current'] is None
 
 
-def test_precise_maintenance_notice_has_priority_over_same_day_announcement():
+def test_late_precise_notice_preserves_same_day_anchor():
     now = datetime.fromisoformat('2026-10-23T16:00:00+08:00')
     announcement = select_cycle([_completed_notice()], {}, now)
     state = select_cycle(
@@ -81,8 +81,9 @@ def test_precise_maintenance_notice_has_priority_over_same_day_announcement():
         announcement,
         now,
     )
-    assert state['current']['notice_id'] == 'outage'
-    assert list(state['notices']) == ['2026-10-23T10:00:00+08:00']
+    assert state['current'] == announcement['current']
+    assert list(state['notices']) == ['2026-10-23']
+    assert state['update_cycle_id'] == announcement['update_cycle_id']
 
 
 def test_empty_response_preserves_started_batch_and_future_is_not_activated():
@@ -117,7 +118,7 @@ def test_invalid_notice_is_not_an_empty_success(value):
         select_cycle(value, {}, datetime.now(timezone.utc))
 
 
-def test_missing_confirmed_batch_stops_publication(tmp_path, monkeypatch):
+def test_missing_confirmed_batch_publishes_pending_status(tmp_path, monkeypatch):
     class EmptyResponse:
         def __enter__(self):
             return self
@@ -142,9 +143,13 @@ def test_missing_confirmed_batch_stops_publication(tmp_path, monkeypatch):
             str(tmp_path / 'result.json'),
         ],
     )
-    with pytest.raises(SystemExit) as error:
-        maintenance_cycle.main()
-    assert error.value.code == 2
+    maintenance_cycle.main()
+    import json
+
+    assert (
+        json.loads((tmp_path / 'result.json').read_text())['status']
+        == 'cycle_unavailable'
+    )
 
 
 def test_baseline_requires_checksum_and_aware_generated_time(tmp_path: Path):

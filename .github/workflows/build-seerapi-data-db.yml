@@ -70,6 +70,8 @@ jobs:
       maintenance_end: ${{ steps.source_check.outputs.maintenance_end }}
       maintenance_source: ${{ steps.source_check.outputs.maintenance_source }}
       maintenance_notice_id: ${{ steps.source_check.outputs.maintenance_notice_id }}
+      maintenance_cycle_id: ${{ steps.source_check.outputs.maintenance_cycle_id }}
+      maintenance_status: ${{ steps.source_check.outputs.maintenance_status }}
       remote_sha: ${{ steps.source_check.outputs.remote_sha }}
       api_data_asset_id: ${{ steps.source_check.outputs.api_data_asset_id }}
       expected_api_data_sha: ${{ steps.source_check.outputs.expected_api_data_sha }}
@@ -126,7 +128,7 @@ jobs:
             FORCE=true
             echo "Official maintenance batch changed; rebuilding content independently of preview windows."
           fi
-          maintenance_start="$(python -c 'import json; print(json.load(open(".cache/official-packages/maintenance-cycle.json"))["current"]["start"])')"
+          maintenance_start="$(python -c 'import json; print((json.load(open(".cache/official-packages/maintenance-cycle.json"))["current"] or {}).get("start", ""))')"
           if [ "$(cat .build-state/maintenance-published-start 2>/dev/null || true)" != "${maintenance_start}" ]; then
             FORCE=true
           fi
@@ -509,14 +511,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CYCLE_START: ${{ needs.plan.outputs.maintenance_start }}
+          CYCLE_STATUS: ${{ needs.plan.outputs.maintenance_status }}
         run: |
           set -euo pipefail
-          if [ -n "${CYCLE_START}" ]; then
+          if [ -n "${CYCLE_START}" ] && [ "${CYCLE_STATUS}" = "confirmed" ]; then
             baseline_path="${RUNNER_TEMP}/maintenance-baseline.sqlite"
             python scripts/maintenance_baseline.py \
               --start "${CYCLE_START}" --output "${baseline_path}" \
               --repository "${GITHUB_REPOSITORY}"
-            echo "PREVIEW_CYCLE_BASELINE=${baseline_path}" >> "$GITHUB_ENV"
+            if [ -f "${baseline_path}" ]; then
+              echo "PREVIEW_CYCLE_BASELINE=${baseline_path}" >> "$GITHUB_ENV"
+            fi
           fi
 
       - name: Collect API data source-history additions
@@ -585,6 +590,8 @@ jobs:
             --maintenance-end "${{ needs.plan.outputs.maintenance_end }}"
             --maintenance-source "${{ needs.plan.outputs.maintenance_source }}"
             --maintenance-notice-id "${{ needs.plan.outputs.maintenance_notice_id }}"
+            --maintenance-cycle-id "${{ needs.plan.outputs.maintenance_cycle_id }}"
+            --maintenance-status "${{ needs.plan.outputs.maintenance_status }}"
             --cycle-start "${{ needs.plan.outputs.preview_cycle_start }}"
             --cycle-end "${{ needs.plan.outputs.preview_cycle_end }}"
             --preview-manifest-version "${{ needs.plan.outputs.preview_manifest_version }}"
