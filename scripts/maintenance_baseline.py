@@ -149,7 +149,7 @@ def main() -> None:
         selected = pinned
     else:
         selected, stamp = select_history_baseline(args, download)
-        if selected is None:
+        if selected is None or stamp is None:
             args.output.unlink(missing_ok=True)
             if args.github_output:
                 with args.github_output.open('a') as stream:

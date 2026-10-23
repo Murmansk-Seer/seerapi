@@ -699,6 +699,7 @@ jobs:
             --official-source-dir "${source_dir}"
 
       - name: Stage versioned historical data snapshot
+        if: ${{ steps.new_content.outputs.cycle_status == 'ready' }}
         id: history_snapshot
         run: |
           set -euo pipefail
@@ -729,6 +730,7 @@ jobs:
           echo "asset=${asset}" >> "$GITHUB_OUTPUT"
 
       - name: Publish versioned historical data snapshot
+        if: ${{ steps.new_content.outputs.cycle_status == 'ready' }}
         env:
           GH_TOKEN: ${{ github.token }}
           HISTORY_ASSET: ${{ steps.history_snapshot.outputs.asset }}
@@ -749,6 +751,7 @@ jobs:
             --clobber
 
       - name: Retain five historical data snapshots
+        if: ${{ steps.new_content.outputs.cycle_status == 'ready' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

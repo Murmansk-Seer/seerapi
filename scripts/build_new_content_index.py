@@ -630,6 +630,7 @@ def main() -> None:
     if args.github_output is not None:
         with args.github_output.open('a', encoding='utf-8') as output:
             output.write(f'weekly_cycle={state.weekly_cycle}\n')
+            output.write(f'cycle_status={status}\n')
             output.write(
                 f'baseline_established={str(state.baseline_established).lower()}\n'
             )

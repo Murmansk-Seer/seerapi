@@ -90,6 +90,20 @@ def test_conflicting_title_dates_are_rejected():
     assert state['current'] is None
 
 
+def test_pending_publication_cannot_replace_confirmed_history():
+    workflow = (
+        Path(__file__).resolve().parents[1]
+        / '.github/workflows/build-seerapi-data-db.yml'
+    ).read_text()
+    for name in (
+        'Stage versioned historical data snapshot',
+        'Publish versioned historical data snapshot',
+        'Retain five historical data snapshots',
+    ):
+        block = workflow.split(f'- name: {name}', 1)[1].split('- name:', 1)[0]
+        assert "if: ${{ steps.new_content.outputs.cycle_status == 'ready' }}" in block
+
+
 def test_unconfirmed_future_observation_does_not_block_completed_evidence():
     early = datetime.fromisoformat('2026-10-23T09:00:00+08:00')
     future = dict(
