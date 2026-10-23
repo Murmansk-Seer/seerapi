@@ -1299,4 +1299,4 @@ def test_schema_six_recovers_expert_pool_from_previous_raw_database(
     state = indexer.build_release_state(current_path, previous_path, 'new-sha')
     change = next(item for item in state.items if item.category == 'peak_expert_pool')
     assert change.payload == {'previous_limit': None, 'current_limit': 0}
-    assert state.semantic_schema_version == 7
+    assert state.semantic_schema_version == indexer.SEMANTIC_SCHEMA_VERSION
