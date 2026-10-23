@@ -15,6 +15,32 @@ if str(SCRIPT_ROOT) not in sys.path:
 import release_api_data_source as source
 
 
+def test_md5_validation_retries_body_and_keeps_request_headers(tmp_path, monkeypatch):
+    attempts = []
+
+    def fake_run(command, **_kwargs):
+        attempts.append(command)
+        Path(command[command.index('--output') + 1]).write_bytes(
+            b'valid' if len(attempts) == 3 else b'corrupt'
+        )
+        return subprocess.CompletedProcess(command, 0, '200', '')
+
+    monkeypatch.setattr(source.subprocess, 'run', fake_run)
+    monkeypatch.setattr(source.time, 'sleep', lambda _: None)
+    output = tmp_path / 'bundle'
+    source.download_with_retries(
+        'https://official.example/bundle',
+        output,
+        accept='*/*',
+        extra_headers=['X-Test: value'],
+        expected_md5=hashlib.md5(b'valid').hexdigest(),
+    )
+    assert len(attempts) == 3
+    assert output.read_bytes() == b'valid'
+    assert all('X-Test: value' in command for command in attempts)
+    assert all(command[command.index('--retry') + 1] == '0' for command in attempts)
+
+
 def _asset(*, digest: str | None = None) -> dict[str, Any]:
     return {
         'assets': [
@@ -168,3 +194,28 @@ def test_database_hash_mismatch_retries_and_does_not_publish(
     assert attempts == 3
     assert not output.exists()
     assert not (tmp_path / 'api-data.sqlite.part').exists()
+
+
+def test_corrupt_optional_cache_retries_without_replacing_previous(
+    tmp_path, monkeypatch
+):
+    attempts = []
+
+    def fake_run(command, **kwargs):
+        attempts.append(1)
+        Path(command[command.index('--output') + 1]).write_bytes(b'not sqlite')
+        return subprocess.CompletedProcess(command, 0, '200', '')
+
+    monkeypatch.setattr(source.subprocess, 'run', fake_run)
+    monkeypatch.setattr(source.time, 'sleep', lambda _: None)
+    output = tmp_path / 'cache.sqlite'
+    output.write_bytes(b'previous')
+    with pytest.raises(RuntimeError, match='integrity_check'):
+        source.download_with_retries(
+            'https://test.invalid',
+            output,
+            accept='application/octet-stream',
+            validate_sqlite=True,
+        )
+    assert output.read_bytes() == b'previous'
+    assert len(attempts) == 3
