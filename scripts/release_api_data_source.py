@@ -59,6 +59,10 @@ def _warning(message: str) -> None:
     print(f'::warning title=api-data source retry::{safe}', file=sys.stderr, flush=True)
 
 
+class DownloadNotFoundError(RuntimeError):
+    pass
+
+
 def download_with_retries(
     url: str,
     destination: Path,
@@ -101,6 +105,8 @@ def download_with_retries(
             )
         partial.unlink(missing_ok=True)
         _warning(f'attempt {attempt}/{TOTAL_ATTEMPTS} failed: {failure}')
+        if status == 404:
+            raise DownloadNotFoundError(failure)
         if not retryable or attempt == TOTAL_ATTEMPTS:
             raise RuntimeError(f'api-data source unavailable: {failure}')
         time.sleep(2 * attempt)

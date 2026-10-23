@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 import io
+from http.client import IncompleteRead
 import logging
 from pathlib import Path
 import shutil
@@ -46,18 +47,24 @@ class BuildHttpClient:
             request_headers.update(headers)
         return Request(url, headers=request_headers, method=method)
 
-    def open_with_retries(self, request: Request):
-        attempts = max(1, self._config.retry_attempts)
+    def _perform(self, request: Request, consume=None):
+        attempts = self._config.retry_attempts
+        if type(attempts) is not int or not 1 <= attempts <= 3:
+            raise ValueError('retry_attempts must be between 1 and 3')
         last_error: Exception | None = None
 
         for attempt in range(1, attempts + 1):
             try:
-                return urlopen(request, timeout=self._config.timeout_seconds)
+                response = urlopen(request, timeout=min(self._config.timeout_seconds, 180))
+                if consume is None:
+                    return response
+                with response:
+                    return consume(response)
             except HTTPError as error:
                 last_error = error
-                if error.code < 500 and error.code != 429:
+                if error.code < 500 and error.code not in (408, 429):
                     raise
-            except (URLError, TimeoutError, OSError) as error:
+            except (URLError, TimeoutError, OSError, IncompleteRead) as error:
                 last_error = error
 
             if attempt >= attempts:
@@ -77,6 +84,9 @@ class BuildHttpClient:
             raise last_error
         raise RuntimeError("HTTP request failed without an exception")
 
+    def open_with_retries(self, request: Request):
+        return self._perform(request)
+
     def download_bytes(self, url: str) -> bytes:
         cache_dir = self._config.official_package_cache_dir
         if cache_dir is not None:
@@ -91,18 +101,24 @@ class BuildHttpClient:
                     cached = cache_dir / relative[0] / relative[1]
                     if cached.is_file():
                         return cached.read_bytes()
-        with self.open_with_retries(self.request(url)) as response:
-            return response.read()
+        return self._perform(self.request(url), lambda response: response.read())
 
     def download_file(self, url: str, path: Path) -> None:
         tmp_path = path.with_suffix(path.suffix + ".tmp")
         tmp_path.unlink(missing_ok=True)
-        with (
-            self.open_with_retries(self.request(url)) as response,
-            tmp_path.open("wb") as output,
-        ):
-            shutil.copyfileobj(response, output)
-        tmp_path.replace(path)
+        def consume(response):
+            started = time.monotonic()
+            with tmp_path.open('wb') as output:
+                read = getattr(response, 'read1', response.read)
+                while chunk := read(64 * 1024):
+                    if time.monotonic() - started > min(self._config.timeout_seconds, 180):
+                        raise TimeoutError('Download exceeded its attempt deadline')
+                    output.write(chunk)
+        try:
+            self._perform(self.request(url), consume)
+            tmp_path.replace(path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
     def copy_or_download_upstream_database(
         self,

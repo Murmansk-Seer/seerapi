@@ -124,7 +124,7 @@ jobs:
             curl -fsSL
             --connect-timeout 15
             --max-time 120
-            --retry 5
+            --retry 2
             --retry-all-errors
             --retry-delay 3
           )
@@ -278,7 +278,7 @@ jobs:
           mkdir -p .cache/official-packages/DefaultPackage
           printf '%s' "${DEFAULT_PACKAGE_VERSION}" > .cache/official-packages/DefaultPackage/PackageManifest_DefaultPackage.version
           curl -fsSL --connect-timeout 15 --max-time 120 \
-            --retry 5 --retry-all-errors --retry-delay 3 \
+            --retry 2 --retry-all-errors --retry-delay 3 \
             --output ".cache/official-packages/DefaultPackage/PackageManifest_DefaultPackage_${DEFAULT_PACKAGE_VERSION}.bytes" \
             "https://newseer.61.com/Assets/StandaloneWindows64/DefaultPackage/PackageManifest_DefaultPackage_${DEFAULT_PACKAGE_VERSION}.bytes"
           bundle_hash="$(python -c 'from pathlib import Path; from scripts.config_package_sources import parse_package_manifest; import os; version = os.environ["CONFIG_PACKAGE_VERSION"]; manifest = parse_package_manifest(Path(f".cache/official-packages/ConfigPackage/PackageManifest_ConfigPackage_{version}.bytes").read_bytes()); bundle = next((item for item in manifest.bundles if item.name == "pgame_configs_bytes"), None); bundle = bundle or (manifest.bundles[0] if len(manifest.bundles) == 1 else None); assert bundle is not None, "ConfigPackage bundle not found"; print(bundle.file_hash)')"
@@ -287,7 +287,7 @@ jobs:
             exit 1
           fi
           curl -fsSL --connect-timeout 15 --max-time 120 \
-            --retry 5 --retry-all-errors --retry-delay 3 \
+            --retry 2 --retry-all-errors --retry-delay 3 \
             --output ".cache/official-packages/ConfigPackage/${bundle_hash}" \
             "https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/${bundle_hash}"
           printf '%s  %s\n' "${bundle_hash}" ".cache/official-packages/ConfigPackage/${bundle_hash}" | md5sum --check
@@ -355,9 +355,9 @@ jobs:
         run: |
           mkdir -p .cache/effect-icon-png .previous
           previous_db=.previous/seerapi-data.sqlite
-          curl --fail --location --retry 3 \
-            --output "${previous_db}" \
-            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite || true
+          python scripts/download_optional_cache.py \
+            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite \
+            "${previous_db}"
           if [ -s "${previous_db}" ]; then
             SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR=.cache/effect-icon-png \
               python scripts/build_seerapi_data_db.py \
@@ -492,9 +492,9 @@ jobs:
         run: |
           set -euo pipefail
           previous_db="${RUNNER_TEMP}/previous-seerapi-data.sqlite"
-          curl -fL --retry 3 --retry-delay 2 \
-            -o "${previous_db}" \
-            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite || true
+          python scripts/download_optional_cache.py \
+            https://github.com/Murmansk-Seer/seerapi/releases/download/seerapi-data-latest/seerapi-data.sqlite \
+            "${previous_db}"
           if [ -s "${previous_db}" ]; then
             comparison_db="${previous_db}"
             version_info="$(
@@ -534,7 +534,7 @@ jobs:
           history_dir="${RUNNER_TEMP}/api-data-history"
           additions_path="${RUNNER_TEMP}/api-data-history-additions.json"
           asset_updated_at="$(
-            curl -fsSL \
+            curl -fsSL --connect-timeout 15 --max-time 120 --retry 2 --retry-all-errors \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest \
               | python -c 'import json, sys; print(next(asset["updated_at"] for asset in json.load(sys.stdin)["assets"] if asset["name"] == "seerapi-data.sqlite"))'
