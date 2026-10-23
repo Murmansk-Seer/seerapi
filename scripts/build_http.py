@@ -108,12 +108,18 @@ class BuildHttpClient:
         tmp_path.unlink(missing_ok=True)
         def consume(response):
             started = time.monotonic()
+            written = 0
             with tmp_path.open('wb') as output:
                 read = getattr(response, 'read1', response.read)
                 while chunk := read(64 * 1024):
                     if time.monotonic() - started > min(self._config.timeout_seconds, 180):
                         raise TimeoutError('Download exceeded its attempt deadline')
                     output.write(chunk)
+                    written += len(chunk)
+            headers = getattr(response, 'headers', {})
+            expected = headers.get('Content-Length')
+            if expected is not None and written != int(expected):
+                raise IncompleteRead(b'', int(expected) - written)
         try:
             self._perform(self.request(url), consume)
             tmp_path.replace(path)

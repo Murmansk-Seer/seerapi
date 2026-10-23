@@ -12,7 +12,7 @@ def main():
     parser.add_argument('output', type=Path)
     args = parser.parse_args()
     try:
-        download_with_retries(args.url, args.output, accept='application/octet-stream')
+        download_with_retries(args.url, args.output, accept='application/octet-stream', validate_sqlite=True)
     except DownloadNotFoundError:
         args.output.unlink(missing_ok=True)
         print('Optional cache explicitly unavailable (404); rebuilding without it.')

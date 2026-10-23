@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sqlite3
 import sys
 import tempfile
 import time
@@ -70,6 +71,7 @@ def download_with_retries(
     accept: str,
     expected_sha256: str | None = None,
     token: str = '',
+    validate_sqlite: bool = False,
 ) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + '.part')
@@ -90,9 +92,19 @@ def download_with_retries(
             status = 0
         if result.returncode == 0 and status == 200 and partial.is_file():
             if expected_sha256 is None or _sha256(partial) == expected_sha256:
-                partial.replace(destination)
-                return
-            failure = 'downloaded database SHA256 does not match the pinned Release asset'
+                valid = True
+                if validate_sqlite:
+                    try:
+                        with sqlite3.connect(f'file:{partial.resolve().as_posix()}?mode=ro', uri=True) as db:
+                            valid = db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+                    except sqlite3.DatabaseError:
+                        valid = False
+                if valid:
+                    partial.replace(destination)
+                    return
+                failure = 'downloaded cache failed SQLite integrity_check'
+            else:
+                failure = 'downloaded database SHA256 does not match the pinned Release asset'
             retryable = True
         else:
             failure = (
