@@ -74,6 +74,7 @@ jobs:
           tests/test_ci_workflows.py
           tests/test_release_contract.py
           tests/test_network_read_retry.py
+          tests/test_release_api_data_source.py
           tests/test_factor_merge_contract.py
           tests/test_skin_ticket_rules.py -v
 

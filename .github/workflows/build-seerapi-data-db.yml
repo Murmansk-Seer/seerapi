@@ -116,12 +116,7 @@ jobs:
             echo "Database generator changed; rebuild required."
           fi
           curl_retry=(
-            curl -fsSL
-            --connect-timeout 15
-            --max-time 120
-            --retry 2
-            --retry-all-errors
-            --retry-delay 3
+            python scripts/http_fetch.py
           )
           python scripts/maintenance_cycle.py \
             --state .build-state/maintenance-cycle.json \
@@ -277,8 +272,7 @@ jobs:
           fi
           mkdir -p .cache/official-packages/DefaultPackage
           printf '%s' "${DEFAULT_PACKAGE_VERSION}" > .cache/official-packages/DefaultPackage/PackageManifest_DefaultPackage.version
-          curl -fsSL --connect-timeout 15 --max-time 120 \
-            --retry 2 --retry-all-errors --retry-delay 3 \
+          python scripts/http_fetch.py \
             --output ".cache/official-packages/DefaultPackage/PackageManifest_DefaultPackage_${DEFAULT_PACKAGE_VERSION}.bytes" \
             "https://newseer.61.com/Assets/StandaloneWindows64/DefaultPackage/PackageManifest_DefaultPackage_${DEFAULT_PACKAGE_VERSION}.bytes"
           bundle_hash="$(python -c 'from pathlib import Path; from scripts.config_package_sources import parse_package_manifest; import os; version = os.environ["CONFIG_PACKAGE_VERSION"]; manifest = parse_package_manifest(Path(f".cache/official-packages/ConfigPackage/PackageManifest_ConfigPackage_{version}.bytes").read_bytes()); bundle = next((item for item in manifest.bundles if item.name == "pgame_configs_bytes"), None); bundle = bundle or (manifest.bundles[0] if len(manifest.bundles) == 1 else None); assert bundle is not None, "ConfigPackage bundle not found"; print(bundle.file_hash)')"
@@ -286,8 +280,7 @@ jobs:
             echo "Unexpected ConfigPackage bundle hash: ${bundle_hash}" >&2
             exit 1
           fi
-          curl -fsSL --connect-timeout 15 --max-time 120 \
-            --retry 2 --retry-all-errors --retry-delay 3 \
+          python scripts/http_fetch.py --md5 "${bundle_hash}" \
             --output ".cache/official-packages/ConfigPackage/${bundle_hash}" \
             "https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/${bundle_hash}"
           printf '%s  %s\n' "${bundle_hash}" ".cache/official-packages/ConfigPackage/${bundle_hash}" | md5sum --check
@@ -534,7 +527,7 @@ jobs:
           history_dir="${RUNNER_TEMP}/api-data-history"
           additions_path="${RUNNER_TEMP}/api-data-history-additions.json"
           asset_updated_at="$(
-            curl -fsSL --connect-timeout 15 --max-time 120 --retry 2 --retry-all-errors \
+            python scripts/http_fetch.py \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest \
               | python -c 'import json, sys; print(next(asset["updated_at"] for asset in json.load(sys.stdin)["assets"] if asset["name"] == "seerapi-data.sqlite"))'

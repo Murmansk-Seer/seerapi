@@ -9,8 +9,8 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import time
@@ -37,13 +37,18 @@ def parse_release_asset(document: dict[str, Any]) -> tuple[int, str]:
         and asset.get('state') == 'uploaded'
     ]
     if len(matches) != 1:
-        raise ValueError(f'api-data Release must contain exactly one uploaded {ASSET_NAME}')
+        raise ValueError(
+            f'api-data Release must contain exactly one uploaded {ASSET_NAME}'
+        )
     asset = matches[0]
     asset_id = asset.get('id')
     digest = asset.get('digest')
     if isinstance(asset_id, bool) or not isinstance(asset_id, int) or asset_id <= 0:
         raise ValueError('api-data Release asset ID is invalid')
-    if not isinstance(digest, str) or (match := SHA256_PATTERN.fullmatch(digest)) is None:
+    if (
+        not isinstance(digest, str)
+        or (match := SHA256_PATTERN.fullmatch(digest)) is None
+    ):
         raise ValueError('api-data Release asset SHA256 digest is missing or invalid')
     return asset_id, match.group(1)
 
@@ -73,18 +78,33 @@ def download_with_retries(
     expected_sha256: str | None = None,
     token: str = '',
     validate_sqlite: bool = False,
+    extra_headers: list[str] | None = None,
+    expected_md5: str | None = None,
 ) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + '.part')
     headers = ['--header', f'Accept: {accept}']
     if token:
         headers.extend(['--header', f'Authorization: Bearer {token}'])
+    for header in extra_headers or []:
+        headers.extend(['--header', header])
     for attempt in range(1, TOTAL_ATTEMPTS + 1):
         partial.unlink(missing_ok=True)
         command = [
-            'curl', '-fsSL', '--connect-timeout', '15', '--max-time',
-            '180' if expected_sha256 else '120', '--retry', '0',
-            *headers, '--output', str(partial), '--write-out', '%{http_code}', url,
+            'curl',
+            '-fsSL',
+            '--connect-timeout',
+            '15',
+            '--max-time',
+            '180' if expected_sha256 else '120',
+            '--retry',
+            '0',
+            *headers,
+            '--output',
+            str(partial),
+            '--write-out',
+            '%{http_code}',
+            url,
         ]
         result = subprocess.run(command, capture_output=True, text=True, check=False)
         try:
@@ -92,12 +112,23 @@ def download_with_retries(
         except ValueError:
             status = 0
         if result.returncode == 0 and status == 200 and partial.is_file():
-            if expected_sha256 is None or _sha256(partial) == expected_sha256:
+            sha_valid = expected_sha256 is None or _sha256(partial) == expected_sha256
+            md5_valid = (
+                expected_md5 is None
+                or hashlib.md5(partial.read_bytes()).hexdigest() == expected_md5
+            )
+            if sha_valid and md5_valid:
                 valid = True
                 if validate_sqlite:
                     try:
-                        with closing(sqlite3.connect(f'file:{partial.resolve().as_posix()}?mode=ro', uri=True)) as db:
-                            valid = db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+                        with closing(
+                            sqlite3.connect(
+                                f'file:{partial.resolve().as_posix()}?mode=ro', uri=True
+                            )
+                        ) as db:
+                            valid = db.execute('PRAGMA integrity_check').fetchone() == (
+                                'ok',
+                            )
                     except sqlite3.DatabaseError:
                         valid = False
                 if valid:
@@ -105,7 +136,7 @@ def download_with_retries(
                     return
                 failure = 'downloaded cache failed SQLite integrity_check'
             else:
-                failure = 'downloaded database SHA256 does not match the pinned Release asset'
+                failure = 'downloaded resource SHA256/MD5 does not match the expected checksum'
             retryable = True
         else:
             failure = (
