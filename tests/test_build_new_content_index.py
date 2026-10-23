@@ -99,6 +99,45 @@ def test_preview_cycle_recomputes_against_fixed_pre_window_baseline(
     )
 
 
+def test_new_maintenance_batch_drops_items_from_stale_published_cycle(
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / 'before-old-maintenance.sqlite'
+    baseline = tmp_path / 'last-update.sqlite'
+    current = tmp_path / 'current.sqlite'
+    _create_database(old, version='20261008204457', pet_ids=(1,))
+    _create_database(baseline, version='20261016152146', pet_ids=(1, 2))
+    _create_database(current, version='20261023135840', pet_ids=(1, 2, 3))
+    stale = indexer.build_release_state(
+        current,
+        old,
+        'stale',
+        cycle_start='2026-10-09T10:00:00+08:00',
+        baseline_path=old,
+    )
+    indexer.write_release_state(current, stale, None)
+    assert {item.entity_id for item in stale.items if item.category == 'pet'} == {2, 3}
+
+    refreshed = indexer.build_release_state(
+        current,
+        current,
+        'fixed',
+        cycle_start='2026-10-23T11:07:40+08:00',
+        baseline_path=baseline,
+    )
+    assert refreshed.weekly_cycle == '2026-10-23T11:07:40+08:00'
+    assert {item.entity_id for item in refreshed.items if item.category == 'pet'} == {3}
+    indexer.write_release_state(current, refreshed, stale)
+    repeated = indexer.build_release_state(
+        current,
+        current,
+        'repeat',
+        cycle_start=refreshed.weekly_cycle,
+        baseline_path=baseline,
+    )
+    assert repeated.items == refreshed.items
+
+
 def _create_database(path: Path, *, version: str, pet_ids: tuple[int, ...]) -> None:
     with sqlite3.connect(path) as conn:
         conn.executescript(

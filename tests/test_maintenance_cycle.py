@@ -11,6 +11,80 @@ from scripts.maintenance_baseline import verified_timestamp
 from scripts.maintenance_cycle import fingerprint, select_cycle
 
 
+def _completed_notice():
+    return {
+        'id': 'weekly-update',
+        'type': 2,
+        'main_title': '10月23日维护',
+        'page_title': '10月23日停服维护更新内容',
+        'start': datetime.fromisoformat('2026-10-23T11:07:40+08:00').timestamp(),
+        'end': datetime.fromisoformat('2026-10-30T00:00:00+08:00').timestamp(),
+        'text': '<n>《赛尔号巅峰之战》于10月23日进行了每周例行更新维护</n>',
+    }
+
+
+def test_completed_update_announcement_advances_stale_maintenance_cycle():
+    old = select_cycle(
+        [{'type': 3, 'id': 'old', 'start': 1791511200, 'end': 1791529200}],
+        {},
+        datetime.fromisoformat('2026-10-09T16:00:00+08:00'),
+    )
+    now = datetime.fromisoformat('2026-10-23T16:00:00+08:00')
+    state = select_cycle([_completed_notice()], old, now)
+    assert state['current']['start'] == '2026-10-23T11:07:40+08:00'
+    assert state['current']['end'] == ''
+    assert state['current']['start_basis'] == 'completed_update_announcement'
+    assert select_cycle([], state, now) == state
+
+
+@pytest.mark.parametrize(
+    'change',
+    [
+        {'text': '将于10月23日进行每周例行更新维护'},
+        {'text': '于10月16日进行了每周例行更新维护'},
+        {'page_title': '10月16日停服维护更新内容'},
+        {'type': 4},
+        {'text': '于2025年10月23日进行了每周例行更新维护'},
+    ],
+)
+def test_unconfirmed_or_mismatched_announcements_do_not_start_a_cycle(change):
+    state = select_cycle(
+        [dict(_completed_notice(), **change)],
+        {},
+        datetime.fromisoformat('2026-10-23T16:00:00+08:00'),
+    )
+    assert state['current'] is None
+
+
+def test_future_announcement_is_not_active_before_publication():
+    state = select_cycle(
+        [_completed_notice()], {}, datetime.fromisoformat('2026-10-23T09:00:00+08:00')
+    )
+    assert state['current'] is None
+
+
+def test_precise_maintenance_notice_has_priority_over_same_day_announcement():
+    now = datetime.fromisoformat('2026-10-23T16:00:00+08:00')
+    announcement = select_cycle([_completed_notice()], {}, now)
+    state = select_cycle(
+        [
+            {
+                'id': 'outage',
+                'type': 3,
+                'start': datetime.fromisoformat(
+                    '2026-10-23T10:00:00+08:00'
+                ).timestamp(),
+                'end': datetime.fromisoformat('2026-10-23T15:00:00+08:00').timestamp(),
+            },
+            _completed_notice(),
+        ],
+        announcement,
+        now,
+    )
+    assert state['current']['notice_id'] == 'outage'
+    assert list(state['notices']) == ['2026-10-23T10:00:00+08:00']
+
+
 def test_empty_response_preserves_started_batch_and_future_is_not_activated():
     now = datetime(2026, 10, 9, 2, tzinfo=timezone.utc)
     notices = [
