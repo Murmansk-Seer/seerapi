@@ -17,6 +17,11 @@ def test_release_is_verified_before_state_advances_and_outcome_is_explicit() -> 
     assert 'release_contract.py --database "$directory/seerapi-data.sqlite"' in workflow
     assert 'report-update@dadd404c9c0119e0326e1e4fb8fcdf3ef6330dab' in workflow
     assert 'needs.report.outputs.label' in workflow
+    assert 'CONFIG_SOURCE_COMMIT: ${{ needs.plan.outputs.config_source }}' in workflow
+    assert '${CONFIG_SOURCE_COMMIT}/unity/${filename}' in workflow
+    assert (
+        '--official-source-dir "${RUNNER_TEMP}/release-regression-source"' in workflow
+    )
 
 
 def test_data_build_runs_for_release_contract_changes() -> None:
