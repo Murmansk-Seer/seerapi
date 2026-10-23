@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -95,7 +96,7 @@ def download_with_retries(
                 valid = True
                 if validate_sqlite:
                     try:
-                        with sqlite3.connect(f'file:{partial.resolve().as_posix()}?mode=ro', uri=True) as db:
+                        with closing(sqlite3.connect(f'file:{partial.resolve().as_posix()}?mode=ro', uri=True)) as db:
                             valid = db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
                     except sqlite3.DatabaseError:
                         valid = False
