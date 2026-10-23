@@ -15,6 +15,7 @@ on:
       - "scripts/config_package_sources.py"
       - "scripts/autocard_asset_manifest.py"
       - "scripts/new_content_index_*.py"
+      - "scripts/new_content_field_changes.py"
       - "scripts/official_preview_cycle.py"
       - "scripts/preview_cycle_*.py"
       - "scripts/maintenance_*.py"

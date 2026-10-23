@@ -7,6 +7,8 @@ import hashlib
 import json
 from typing import Any
 
+from new_content_field_changes import PRESENTATION_FIELDS, canonical_value
+
 AUTOCARD_SANCTUARY_EFFECT_CATEGORY = 'autocard_sanctuary_effect'
 AUTOCARD_SANCTUARY_EFFECT_TABLE = 'autocard_season_effect'
 AUTOCARD_CHIP_CATEGORY = 'autocard_chip'
@@ -40,8 +42,24 @@ PET_SKILL_RELATION_FIELDS = (
     'is_advanced',
     'is_fifth',
 )
-SEMANTIC_SCHEMA_VERSION = 7
+SEMANTIC_SCHEMA_VERSION = 8
 SEMANTIC_MIGRATION_CATEGORIES_BY_VERSION: dict[int, frozenset[str]] = {
+    8: frozenset(
+        {
+            'achievement',
+            'pet',
+            'pet_skin',
+            'skill',
+            'mintmark',
+            'suit',
+            'equip',
+            'mount',
+            'autocard_card',
+            'autocard_role',
+            'autocard_chip',
+            'autocard_sanctuary_effect',
+        }
+    ),
     2: frozenset({'pet', 'skill', 'equip', 'mount'}),
     3: frozenset({'mintmark'}),
     4: frozenset({'equip', 'mount'}),
@@ -74,10 +92,7 @@ CONTENT_CATEGORIES = (
 CATEGORY_SOURCE_TABLES: dict[str, tuple[str, ...]] = {
     'achievement': ('achievement',),
     'pet': ('pet',),
-    **{
-        category: ('pet', table)
-        for category, table in PEAK_POOL_SOURCE_TABLES.items()
-    },
+    **{category: ('pet', table) for category, table in PEAK_POOL_SOURCE_TABLES.items()},
     'pet_skin': ('pet_skin',),
     'skill': ('skill',),
     'mintmark': ('mintmark',),
@@ -107,7 +122,14 @@ class ContentItem:
     @property
     def semantic_payload(self) -> dict[str, Any]:
         """Return the payload fields that define the item's business meaning."""
-        payload = dict(self.payload)
+        payload = {
+            key: value
+            for key, value in self.payload.items()
+            if key not in PRESENTATION_FIELDS
+        }
+        if self.category in {'pet', 'autocard_card'}:
+            # Skin associations belong to the skin, not a change to its owner.
+            payload.pop('skins', None)
         if self.category == 'pet_skin':
             payload = {
                 key: value for key, value in payload.items() if key != 'pet_name'
@@ -133,7 +155,7 @@ class ContentItem:
             payload.pop('pets', None)
         elif self.category == 'mintmark':
             payload.pop('rarity_id', None)
-        return payload
+        return canonical_value(payload)
 
     @property
     def semantic_key(self) -> str:

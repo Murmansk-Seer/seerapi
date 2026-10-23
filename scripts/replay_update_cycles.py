@@ -40,7 +40,7 @@ def main() -> None:
         verified(path)
     report = {'semantic_differences': [], 'simulations': {}}
     for previous, current, day, expected in zip(
-        paths, paths[1:], ('09', '16', '23'), (54, 111, 51), strict=False
+        paths, paths[1:], ('09', '16', '23'), (54, 111, 48), strict=False
     ):
         state = indexer.build_release_state(
             current,
@@ -150,12 +150,14 @@ def main() -> None:
         cycle_start=stable['current']['start'],
         baseline_path=args.oct16,
     )
-    assert len(state.items) == 51
+    assert len(state.items) == 48
     with sqlite3.connect(args.oct23) as conn:
         published = set(conn.execute('SELECT category,entity_id FROM new_content_item'))
+    # The original Oct 23 publication counted three skin-only owner updates.
+    published -= {('autocard_card', card_id) for card_id in (6, 30, 47)}
     assert {(item.category, item.entity_id) for item in state.items} == published
     report['simulations']['edited_notice'] = {
-        'count': 51,
+        'count': 48,
         'current_snapshot_rejected_as_baseline': True,
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))  # noqa: T201

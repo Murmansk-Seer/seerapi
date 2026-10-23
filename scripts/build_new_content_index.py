@@ -19,8 +19,8 @@ from pathlib import Path
 import sqlite3
 
 from maintenance_cycle import cycle_identity, cycle_status
+from new_content_field_changes import build_field_changes
 from new_content_index_models import (
-    AUTOCARD_CHIP_CATEGORY,
     CONTENT_CATEGORIES,
     PEAK_POOL_CATEGORIES,
     SEMANTIC_SCHEMA_VERSION,
@@ -216,11 +216,21 @@ def _modified_items(
                             ].payload.get('description', '')
                         ),
                     }
-                    if item.category == AUTOCARD_CHIP_CATEGORY
-                    else {}
                 ),
                 'change_summary': _content_change_summary(
                     previous_raw_by_id[(item.category, item.entity_id)], item
+                ),
+                'field_changes_version': 1,
+                'field_changes': build_field_changes(
+                    {
+                        'name': previous_raw_by_id[
+                            (item.category, item.entity_id)
+                        ].name,
+                        'payload': previous_raw_by_id[
+                            (item.category, item.entity_id)
+                        ].semantic_payload,
+                    },
+                    {'name': item.name, 'payload': item.semantic_payload},
                 ),
             },
             change_kind='modified',
@@ -291,45 +301,63 @@ def _current_subset(
     )
 
 
-def _preserve_weekly_chip_origin(
+def _preserve_weekly_origin(
     items: tuple[ContentItem, ...],
     carried: tuple[ContentItem, ...],
     current: tuple[ContentItem, ...],
 ) -> tuple[ContentItem, ...]:
     previous_by_id = {
-        item.entity_id: item
+        (item.category, item.entity_id): item
         for item in carried
-        if item.category == AUTOCARD_CHIP_CATEGORY and item.change_kind == 'modified'
+        if item.category not in PEAK_POOL_CATEGORIES and item.change_kind == 'modified'
     }
     current_by_id = {
-        item.entity_id: item
+        (item.category, item.entity_id): item
         for item in current
-        if item.category == AUTOCARD_CHIP_CATEGORY
+        if item.category not in PEAK_POOL_CATEGORIES
     }
     result: list[ContentItem] = []
     for item in items:
-        if item.category != AUTOCARD_CHIP_CATEGORY or item.change_kind != 'modified':
+        if item.category in PEAK_POOL_CATEGORIES or item.change_kind != 'modified':
             result.append(item)
             continue
-        current_item = current_by_id.get(item.entity_id)
+        current_item = current_by_id.get((item.category, item.entity_id))
         if current_item is None:
             continue
-        carried_item = previous_by_id.get(item.entity_id)
+        carried_item = previous_by_id.get((item.category, item.entity_id))
         origin = carried_item or item
         previous_payload = origin.payload.get('previous_payload')
         if not isinstance(previous_payload, dict):
-            previous_payload = {
-                **current_item.semantic_payload,
-                'description': str(origin.payload.get('previous_description', '')),
-            }
-        previous_name = str(origin.payload.get('previous_name', current_item.name))
+            result.append(
+                replace(
+                    item,
+                    payload={
+                        **current_item.payload,
+                        'field_changes_version': 0,
+                    },
+                )
+            )
+            continue
+        previous_name = origin.payload.get('previous_name')
+        if not isinstance(previous_name, str):
+            result.append(
+                replace(
+                    item,
+                    payload={
+                        **current_item.payload,
+                        'field_changes_version': 0,
+                    },
+                )
+            )
+            continue
         previous_item = ContentItem(
-            AUTOCARD_CHIP_CATEGORY,
+            item.category,
             item.entity_id,
             previous_name,
             current_item.sort_value,
             previous_payload,
         )
+        previous_payload = previous_item.semantic_payload
         if previous_item.semantic_key == current_item.semantic_key:
             continue
         result.append(
@@ -344,6 +372,14 @@ def _preserve_weekly_chip_origin(
                     ),
                     'change_summary': _content_change_summary(
                         previous_item, current_item
+                    ),
+                    'field_changes_version': 1,
+                    'field_changes': build_field_changes(
+                        {'name': previous_name, 'payload': previous_payload},
+                        {
+                            'name': current_item.name,
+                            'payload': current_item.semantic_payload,
+                        },
                     ),
                 },
             )
@@ -469,7 +505,7 @@ def build_release_state(
             )
         increment = merge_weekly_peak_pool_changes(carried_items, increment)
         items = _current_subset((*carried_items, *increment), current_items)
-        items = _preserve_weekly_chip_origin(items, carried_items, current_items)
+        items = _preserve_weekly_origin(items, carried_items, current_items)
         items = tuple(
             item
             for item in items
