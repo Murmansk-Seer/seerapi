@@ -92,4 +92,5 @@ MODEL_MAP: dict[ModelName, ModelType] = {
     'suit_bonus': M.SuitBonus,
     'title': M.Title,
     'universal_mintmark': M.UniversalMintmark,
+    'unresolved_pet_reference': M.UnresolvedPetReference,
 }

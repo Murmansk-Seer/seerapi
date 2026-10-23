@@ -221,6 +221,7 @@ from .skill import (
     SkillHideEffectORM,
     SkillORM,
 )
+from .source_reference import UnresolvedPetReference, UnresolvedPetReferenceORM
 
 SkillEffectInUse.model_rebuild(
     force=True,
@@ -443,6 +444,8 @@ __all__ = [
     'TypeCombinationORM',
     'UniversalMintmark',
     'UniversalPartORM',
+    'UnresolvedPetReference',
+    'UnresolvedPetReferenceORM',
     'VariationEffect',
     'VariationEffectORM',
     'YieldingEvORM',

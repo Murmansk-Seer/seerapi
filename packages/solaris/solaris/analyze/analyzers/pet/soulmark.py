@@ -4,6 +4,7 @@ from seerapi_models.common import EidEffect, EidEffectInUse, ResourceRef
 from seerapi_models.pet import Pet, PetAdvance, Soulmark, SoulmarkTagCategory
 from solaris.analyze.analyzers.pet._general import BasePetAnalyzer
 from solaris.analyze.base import DataImportConfig
+from solaris.analyze.source_references import official_pet_ids, partition_pet_ids
 from solaris.analyze.typing_ import AnalyzeResult
 from solaris.analyze.utils import CategoryMap, create_category_map
 from solaris.parse.parsers.effect_icon import EffectIconItem
@@ -60,6 +61,7 @@ class SoulmarkAnalyzer(BasePetAnalyzer):
             data['effecticonid']: data for data in pet_effect_icon_data
         }
         soulmark_map: dict[int, Soulmark] = {}
+        known = official_pet_ids(self._get_data('unity', 'monsters.json'))
         tag_map: CategoryMap[int, SoulmarkTagCategory, ResourceRef['Soulmark']] = (
             create_category_map(
                 {
@@ -86,7 +88,10 @@ class SoulmarkAnalyzer(BasePetAnalyzer):
             if not pet_ids and id_ not in referenced_soulmarks:
                 continue
 
-            pet_refs = [ResourceRef.from_model(Pet, id=pet_id) for pet_id in pet_ids]
+            valid_pet_ids, _ = partition_pet_ids(pet_ids, known)
+            pet_refs = [
+                ResourceRef.from_model(Pet, id=pet_id) for pet_id in valid_pet_ids
+            ]
 
             pve_effective = None
             tags = []

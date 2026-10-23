@@ -355,6 +355,10 @@ class SeerAPI:
     ) -> M.UniversalMintmark: ...
     @overload
     async def get(
+        self, resource_name: Literal['unresolved_pet_reference'], id: int
+    ) -> M.UnresolvedPetReference: ...
+    @overload
+    async def get(
         self, resource_name: type[T_ModelInstance], id: int
     ) -> T_ModelInstance: ...
     @overload
@@ -1061,6 +1065,14 @@ class SeerAPI:
         *,
         name: str | None = None,
     ) -> PagedResponse[M.UniversalMintmark]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['unresolved_pet_reference'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.UnresolvedPetReference]: ...
     @overload
     async def paginated_list(
         self,
@@ -1793,6 +1805,14 @@ class SeerAPI:
         expand: bool = True,
         name: str | None = None,
     ) -> AsyncIterator[M.UniversalMintmark]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['unresolved_pet_reference'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.UnresolvedPetReference]: ...
     @overload
     def list(
         self,

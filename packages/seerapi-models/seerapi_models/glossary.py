@@ -46,7 +46,8 @@ class GlossaryEntry(GlossaryEntryBase, ConvertToORM['GlossaryEntryORM']):
         description='术语链接，用于指示显示该术语时应同时显示的其他术语',
     )
     pet: list[ResourceRef['Pet']] | None = Field(
-        default=None, description='用于指示该术语是否是特定精灵专属的'
+        default=None,
+        description='该术语关联的有效精灵；官方悬空引用见 unresolved_pet_reference',
     )
 
     @classmethod

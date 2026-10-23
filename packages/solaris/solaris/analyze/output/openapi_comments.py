@@ -29,6 +29,17 @@ class APIComment(BaseModel):
 
 # API 注释字典：键为模型类名（字符串），值为 APIComment 对象
 API_COMMENTS: dict[type[BaseResModel], APIComment] = {
+    M.UnresolvedPetReference: APIComment(
+        name_en='unresolved_pet_reference',
+        name_cn='官方悬空精灵引用原始记录',
+        examples=[],
+        tags=['数据完整性', '原始配置'],
+        description=(
+            '完整保留官方魂印或词条中指向缺失精灵的原始条目与目标ID。'
+            'target_pet_id是原始字段，不表示有效精灵外键；正常pet关系仅包含已存在的精灵。'
+            'source_sha256校验source_json，官方补齐目标后会恢复正常关系并移除此保留记录。'
+        ),
+    ),
     # 成就相关
     M.Achievement: APIComment(
         name_en='achievement',
