@@ -154,13 +154,20 @@ def test_full_publication_gate_catches_stale_sidecars_and_accepts_aliases(tmp_pa
     unity = tmp_path / 'unity'
     unity.mkdir()
     for name, row in raw.items():
-        (unity / name).write_text(json.dumps({'data': [row]}), encoding='utf-8')
+        rows = [row]
+        if name == 'autocardRole.json':
+            rows += [dict(row, id=10001), dict(row, id=99999)]
+        (unity / name).write_text(json.dumps({'data': rows}), encoding='utf-8')
     with sqlite3.connect(':memory:') as conn:
         replace_autocard_tables(
             conn,
             AutocardData(
                 cards=[normalized['autocardContent.json']],
-                roles=[normalized['autocardRole.json']],
+                roles=[
+                    normalized['autocardRole.json'],
+                    dict(normalized['autocardRole.json'], id=10001),
+                    dict(normalized['autocardRole.json'], id=99999),
+                ],
                 natures=[normalized['autocardNature.json']],
                 buffs=[normalized['autocardBuff.json']],
                 source='official ConfigPackage',
@@ -168,6 +175,13 @@ def test_full_publication_gate_catches_stale_sidecars_and_accepts_aliases(tmp_pa
             0,
         )
         validate_autocard_source(conn, tmp_path)
+        assert conn.execute('SELECT role_id FROM autocard_role_raw').fetchall() == [
+            (1,)
+        ]
+        conn.execute('UPDATE autocard_role_raw SET role_id=2 WHERE role_id=1')
+        with pytest.raises(ValueError, match='autocard_role_raw differs'):
+            validate_autocard_source(conn, tmp_path)
+        conn.execute('UPDATE autocard_role_raw SET role_id=1 WHERE role_id=2')
         assert conn.execute(
             'SELECT object,param,param_description FROM autocard_buff'
         ).fetchone() == ('卡牌', 'a_b', 'effect')

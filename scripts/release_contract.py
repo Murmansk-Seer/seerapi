@@ -216,6 +216,9 @@ def validate_autocard_source(connection: sqlite3.Connection, source_dir: Path) -
             expected[entity_id] = normalize_autocard_row(row, filename=filename)
         if not expected or len(expected) != len(rows):
             raise ValueError(f'Invalid frozen Autocard source: {filename}')
+        if table == 'autocard_role_raw':
+            # Match the official role table's exclusion of skins/placeholders.
+            expected = {key: row for key, row in expected.items() if key < 10000}
         actual = {
             entity_id: normalize_autocard_row(json.loads(payload), filename=filename)
             for entity_id, payload in connection.execute(
