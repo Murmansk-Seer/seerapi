@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import sqlite3
 
+from autocard_sources import json_data_rows, normalize_autocard_row
 from sqlmodel import Session, SQLModel, create_engine
 
 import seerapi_models  # noqa: F401
@@ -192,6 +193,46 @@ def validate_regression_source(session: Session, source_dir: Path) -> None:
         raise ValueError('Activity 592 time differs from frozen official source')
 
 
+def validate_autocard_source(connection: sqlite3.Connection, source_dir: Path) -> None:
+    """Do not seal a current release containing stale Autocard sidecar tables."""
+    for filename, table, key in (
+        ('autocardContent.json', 'autocard_card', 'id'),
+        ('autocardRole.json', 'autocard_role_raw', 'role_id'),
+        ('autocardNature.json', 'autocard_nature', 'id'),
+        ('autocardBuff.json', 'autocard_buff', 'id'),
+    ):
+        rows = json_data_rows(
+            json.loads((source_dir / 'unity' / filename).read_text(encoding='utf-8'))
+        )
+        expected: dict[int, dict[str, object]] = {}
+        for row in rows:
+            entity_id = row.get('id')
+            if (
+                isinstance(entity_id, bool)
+                or not isinstance(entity_id, int)
+                or entity_id <= 0
+            ):
+                raise ValueError(f'Invalid frozen Autocard ID: {filename}')
+            expected[entity_id] = normalize_autocard_row(row, filename=filename)
+        if not expected or len(expected) != len(rows):
+            raise ValueError(f'Invalid frozen Autocard source: {filename}')
+        actual = {
+            entity_id: normalize_autocard_row(json.loads(payload), filename=filename)
+            for entity_id, payload in connection.execute(
+                f'SELECT {key}, raw_json FROM {table}'
+            )
+        }
+        if actual != expected:
+            changed = sorted(
+                entity_id
+                for entity_id in set(actual) | set(expected)
+                if actual.get(entity_id) != expected.get(entity_id)
+            )
+            raise ValueError(
+                f'{table} differs from frozen official source: {changed[:10]}'
+            )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--database', type=Path, required=True)
@@ -205,10 +246,11 @@ def main() -> None:
         if connection.execute('SELECT COUNT(*) FROM factor').fetchone()[0] == 0:
             raise ValueError('Current release must contain official factor records')
         preserved = validate_unresolved_pet_references(connection)
+        validate_autocard_source(connection, args.official_source_dir)
         fingerprint = schema_fingerprint(connection, tables)
     with Session(create_engine(f'sqlite:///{args.database.as_posix()}')) as session:
         validate_regression_source(session, args.official_source_dir)
-    print(
+    print(  # noqa: T201 - CLI publication diagnostic
         f'Final release contract validated: {len(tables)} tables, {fingerprint=}, {preserved=}'
     )
 

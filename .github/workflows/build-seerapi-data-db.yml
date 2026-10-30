@@ -14,6 +14,7 @@ on:
       - "scripts/backfill_autocard_chip_baseline.py"
       - "scripts/config_package_sources.py"
       - "scripts/autocard_asset_manifest.py"
+      - "scripts/autocard_sources.py"
       - "scripts/new_content_index_*.py"
       - "scripts/new_content_field_changes.py"
       - "scripts/official_preview_cycle.py"
@@ -691,7 +692,7 @@ jobs:
           set -euo pipefail
           source_dir="${RUNNER_TEMP}/release-regression-source"
           mkdir -p "${source_dir}/unity"
-          for filename in moves.json ActivityCenter.json; do
+          for filename in moves.json ActivityCenter.json autocardContent.json autocardRole.json autocardNature.json autocardBuff.json; do
             python scripts/http_fetch.py \
               "https://raw.githubusercontent.com/Murmansk-Seer/config-sources/${CONFIG_SOURCE_COMMIT}/unity/${filename}" \
               --output "${source_dir}/unity/${filename}"
