@@ -707,8 +707,8 @@ def main() -> None:
     if not config_data.mintmark_quality:
         raise ValueError('mintmark Quality map is empty')
     logger.info(
-        'Loading autocard JSON data: %s',
-        AUTOCARD_JSON_DIR or AUTOCARD_JSON_BASE_URL,
+        'Loading autocard data: %s',
+        AUTOCARD_JSON_DIR or f'verified ConfigPackage {config_data.version}',
     )
     autocard_data = load_autocard_data(
         sources.load_autocard_json,

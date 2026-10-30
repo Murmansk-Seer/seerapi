@@ -14,6 +14,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 
 if __package__:
+    from .autocard_sources import (
+        AUTOCARD_PARSERS,
+        AUTOCARD_TEXT_ASSETS,
+        parse_autocard_json,
+    )
     from .build_http import BuildHttpClient, extract_text_assets
     from .config_package_sources import (
         parse_autocard_chips,
@@ -41,6 +46,11 @@ if __package__:
     from .release_build_types import ConfigPackageData
     from .release_peak_sources import parse_official_peak
 else:
+    from autocard_sources import (
+        AUTOCARD_PARSERS,
+        AUTOCARD_TEXT_ASSETS,
+        parse_autocard_json,
+    )
     from build_http import (  # type: ignore[import-not-found]
         BuildHttpClient,
         extract_text_assets,
@@ -123,6 +133,8 @@ class ReleaseSourceLoader:
         self._http = http
         self._config = config
         self._logger = logger
+        self._autocard_assets: dict[str, bytes] | None = None
+        self._autocard_source = ''
 
     def fetch_config_package_data(self) -> ConfigPackageData:
         base_url = self._config.config_package_base_url.rstrip('/') + '/'
@@ -147,8 +159,11 @@ class ReleaseSourceLoader:
         assets = extract_text_assets(
             self._http.download_bytes(bundle_url),
             self._config.config_text_assets
-            | {'Activity_TimeUpdateConfig.bytes', 'pvpCostMode_cost.bytes'},
+            | {'Activity_TimeUpdateConfig.bytes', 'pvpCostMode_cost.bytes'}
+            | AUTOCARD_TEXT_ASSETS,
         )
+        self._autocard_assets = assets
+        self._autocard_source = f'{bundle_url}?config_version={version}'
         return ConfigPackageData(
             version=version,
             bundle_url=bundle_url,
@@ -180,6 +195,14 @@ class ReleaseSourceLoader:
             path = Path(self._config.autocard_json_dir) / filename
             if path.exists():
                 return json.loads(path.read_text(encoding='utf-8')), str(path)
+        if filename in AUTOCARD_PARSERS:
+            if self._autocard_assets is None:
+                raise ValueError('load the verified ConfigPackage before Autocard data')
+            asset = AUTOCARD_PARSERS[filename].source_config_filename()
+            return (
+                parse_autocard_json(filename, self._autocard_assets[asset]),
+                f'{self._autocard_source}#{asset}',
+            )
         url = urljoin(self._config.autocard_json_base_url.rstrip('/') + '/', filename)
         return json.loads(self._http.download_bytes(url).decode('utf-8-sig')), url
 

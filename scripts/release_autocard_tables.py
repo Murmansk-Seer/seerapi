@@ -1,4 +1,4 @@
-﻿# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT
 """SQLite writer for official Autocard release tables."""
 
 from __future__ import annotations
@@ -33,13 +33,13 @@ else:
         item_text as _item_text,
     )
 
-AUTOCARD_CARD_TABLE = "autocard_card"
-AUTOCARD_ROLE_TABLE = "autocard_role"
-AUTOCARD_ROLE_RAW_TABLE = "autocard_role_raw"
-AUTOCARD_NATURE_TABLE = "autocard_nature"
-AUTOCARD_BUFF_TABLE = "autocard_buff"
-AUTOCARD_SEASON_EFFECT_TABLE = "autocard_season_effect"
-AUTOCARD_CHIP_TABLE = "autocard_chip"
+AUTOCARD_CARD_TABLE = 'autocard_card'
+AUTOCARD_ROLE_TABLE = 'autocard_role'
+AUTOCARD_ROLE_RAW_TABLE = 'autocard_role_raw'
+AUTOCARD_NATURE_TABLE = 'autocard_nature'
+AUTOCARD_BUFF_TABLE = 'autocard_buff'
+AUTOCARD_SEASON_EFFECT_TABLE = 'autocard_season_effect'
+AUTOCARD_CHIP_TABLE = 'autocard_chip'
 
 
 def replace_autocard_chip_table(
@@ -64,7 +64,7 @@ def replace_autocard_chip_table(
         )
         """
     )
-    conn.execute(f"DELETE FROM {AUTOCARD_CHIP_TABLE}")
+    conn.execute(f'DELETE FROM {AUTOCARD_CHIP_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {AUTOCARD_CHIP_TABLE}
@@ -82,16 +82,18 @@ def replace_autocard_chip_table(
                 chip.config_ref_id,
                 chip.config_group_id,
                 chip.category,
-                _dump_json({
-                    'id': chip.chip_id,
-                    'name': chip.name,
-                    'description': chip.description,
-                    'config_type': chip.config_type,
-                    'rarity': chip.rarity,
-                    'config_ref_id': chip.config_ref_id,
-                    'config_group_id': chip.config_group_id,
-                    'category': chip.category,
-                }),
+                _dump_json(
+                    {
+                        'id': chip.chip_id,
+                        'name': chip.name,
+                        'description': chip.description,
+                        'config_type': chip.config_type,
+                        'rarity': chip.rarity,
+                        'config_ref_id': chip.config_ref_id,
+                        'config_group_id': chip.config_group_id,
+                        'category': chip.category,
+                    }
+                ),
                 'ConfigPackage/autocardChip.bytes',
                 updated_at,
             )
@@ -99,18 +101,18 @@ def replace_autocard_chip_table(
         ],
     )
     conn.execute(
-        f"CREATE INDEX IF NOT EXISTS idx_{AUTOCARD_CHIP_TABLE}_group "
-        f"ON {AUTOCARD_CHIP_TABLE} (config_group_id, rarity, id)"
+        f'CREATE INDEX IF NOT EXISTS idx_{AUTOCARD_CHIP_TABLE}_group '
+        f'ON {AUTOCARD_CHIP_TABLE} (config_group_id, rarity, id)'
     )
     conn.execute(
-        f"CREATE INDEX IF NOT EXISTS idx_{AUTOCARD_CHIP_TABLE}_name "
-        f"ON {AUTOCARD_CHIP_TABLE} (name)"
+        f'CREATE INDEX IF NOT EXISTS idx_{AUTOCARD_CHIP_TABLE}_name '
+        f'ON {AUTOCARD_CHIP_TABLE} (name)'
     )
+
 
 def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return {
-        str(row[1])
-        for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+        str(row[1]) for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()
     }
 
 
@@ -146,21 +148,21 @@ def replace_autocard_role_table(
     )
     columns = _table_columns(conn, AUTOCARD_ROLE_TABLE)
     official_columns = {
-        "id",
-        "name",
-        "description",
-        "health",
-        "skill_desc",
-        "is_passive_skill",
-        "skill_cost",
-        "skill_game_limit",
-        "skill_round_limit",
-        "element_type_id",
+        'id',
+        'name',
+        'description',
+        'health',
+        'skill_desc',
+        'is_passive_skill',
+        'skill_cost',
+        'skill_game_limit',
+        'skill_round_limit',
+        'element_type_id',
     }
     if columns != official_columns:
         raise RuntimeError(
-            "Unsupported autocard_role schema; expected official columns, got: "
-            + ", ".join(sorted(columns))
+            'Unsupported autocard_role schema; expected official columns, got: '
+            + ', '.join(sorted(columns))
         )
 
     conn.execute(
@@ -180,58 +182,48 @@ def replace_autocard_role_table(
     )
     raw_columns = _table_columns(conn, AUTOCARD_ROLE_RAW_TABLE)
     expected_raw_columns = {
-        "role_id",
-        "pic_id",
-        "skill_id",
-        "skill_name",
-        "skill_upgrade",
-        "raw_json",
-        "source",
-        "updated_at",
+        'role_id',
+        'pic_id',
+        'skill_id',
+        'skill_name',
+        'skill_upgrade',
+        'raw_json',
+        'source',
+        'updated_at',
     }
     if raw_columns != expected_raw_columns:
         raise RuntimeError(
-            "Unsupported autocard_role_raw schema; expected sidecar columns, got: "
-            + ", ".join(sorted(raw_columns))
+            'Unsupported autocard_role_raw schema; expected sidecar columns, got: '
+            + ', '.join(sorted(raw_columns))
         )
 
     element_type_rows = [
-        (_item_int(item, "id"), _item_text(item, "name"))
+        (_item_int(item, 'id'), _item_text(item, 'name'))
         for item in data.natures
-        if _item_int(item, "id") > 0
+        if _item_int(item, 'id') > 0
     ]
-    role_items = [
-        item
-        for item in data.roles
-        if 0 < _item_int(item, "id") < 10000
-    ]
+    role_items = [item for item in data.roles if 0 < _item_int(item, 'id') < 10000]
     official_role_rows: list[tuple[object, ...]] = []
     raw_role_rows: list[tuple[object, ...]] = []
     for item in role_items:
-        id_ = _item_int(item, "id")
-        nature = _item_int(item, "nature")
+        id_ = _item_int(item, 'id')
+        nature = _item_int(item, 'nature')
         element_type_id = nature or 999
-        is_passive_skill = not bool(
-            _item_int(item, "skillType", "skill_type")
-        )
+        is_passive_skill = not bool(_item_int(item, 'skillType', 'skill_type'))
         skill_cost = None
         skill_game_limit = None
         skill_round_limit = None
         if not is_passive_skill:
-            skill_cost = _item_int(item, "skillCostNum", "skill_cost_num")
-            skill_game_limit = _item_int(
-                item, "skillGameLimit", "skill_game_limit"
-            )
-            skill_round_limit = _item_int(
-                item, "skillRoundLimit", "skill_round_limit"
-            )
+            skill_cost = _item_int(item, 'skillCostNum', 'skill_cost_num')
+            skill_game_limit = _item_int(item, 'skillGameLimit', 'skill_game_limit')
+            skill_round_limit = _item_int(item, 'skillRoundLimit', 'skill_round_limit')
         official_role_rows.append(
             (
                 id_,
-                _item_text(item, "name"),
-                _item_text(item, "desc"),
-                _item_int(item, "health"),
-                _item_text(item, "skillTxt", "skill_txt"),
+                _item_text(item, 'name'),
+                _item_text(item, 'desc'),
+                _item_int(item, 'health'),
+                _item_text(item, 'skillTxt', 'skill_txt'),
                 int(is_passive_skill),
                 skill_cost,
                 skill_game_limit,
@@ -242,22 +234,22 @@ def replace_autocard_role_table(
         raw_role_rows.append(
             (
                 id_,
-                _item_int(item, "picID", "pic_id"),
-                _item_int(item, "skillID", "skill_id"),
-                _item_text(item, "skillName", "skill_name"),
-                _item_text(item, "skillUpgrade", "skill_upgrade"),
+                _item_int(item, 'picID', 'pic_id'),
+                _item_int(item, 'skillID', 'skill_id'),
+                _item_text(item, 'skillName', 'skill_name'),
+                _item_text(item, 'skillUpgrade', 'skill_upgrade'),
                 _dump_json(item),
                 data.source,
                 updated_at,
             )
         )
 
-    conn.execute(f"DELETE FROM {AUTOCARD_ROLE_RAW_TABLE}")
-    conn.execute(f"DELETE FROM {AUTOCARD_ROLE_TABLE}")
+    conn.execute(f'DELETE FROM {AUTOCARD_ROLE_RAW_TABLE}')
+    conn.execute(f'DELETE FROM {AUTOCARD_ROLE_TABLE}')
     if element_type_rows:
-        placeholders = ", ".join("?" for _ in element_type_rows)
+        placeholders = ', '.join('?' for _ in element_type_rows)
         conn.execute(
-            f"DELETE FROM autocard_element_type WHERE id NOT IN ({placeholders})",
+            f'DELETE FROM autocard_element_type WHERE id NOT IN ({placeholders})',
             tuple(id_ for id_, _ in element_type_rows),
         )
     conn.executemany(
@@ -336,7 +328,7 @@ def replace_autocard_tables(
         )
         """
     )
-    conn.execute(f"DELETE FROM {AUTOCARD_CARD_TABLE}")
+    conn.execute(f'DELETE FROM {AUTOCARD_CARD_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {AUTOCARD_CARD_TABLE}
@@ -360,23 +352,23 @@ def replace_autocard_tables(
         """,
         [
             (
-                _item_int(item, "id"),
-                _item_text(item, "name"),
-                _item_int(item, "type"),
-                _item_int(item, "nature"),
-                _item_int(item, "attack"),
-                _item_int(item, "health"),
-                _item_int(item, "level"),
-                _item_int(item, "cost"),
-                _item_int(item, "compose"),
-                _item_text(item, "cardTxt", "card_txt"),
-                _item_text(item, "des"),
+                _item_int(item, 'id'),
+                _item_text(item, 'name'),
+                _item_int(item, 'type'),
+                _item_int(item, 'nature'),
+                _item_int(item, 'attack'),
+                _item_int(item, 'health'),
+                _item_int(item, 'level'),
+                _item_int(item, 'cost'),
+                _item_int(item, 'compose'),
+                _item_text(item, 'cardTxt', 'card_txt'),
+                _item_text(item, 'des'),
                 _dump_json(item),
                 data.source,
                 updated_at,
             )
             for item in data.cards
-            if _item_int(item, "id") > 0
+            if _item_int(item, 'id') > 0
         ],
     )
     conn.execute(
@@ -399,7 +391,7 @@ def replace_autocard_tables(
         )
         """
     )
-    conn.execute(f"DELETE FROM {AUTOCARD_NATURE_TABLE}")
+    conn.execute(f'DELETE FROM {AUTOCARD_NATURE_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {AUTOCARD_NATURE_TABLE}
@@ -408,14 +400,14 @@ def replace_autocard_tables(
         """,
         [
             (
-                _item_int(item, "id"),
-                _item_text(item, "name"),
+                _item_int(item, 'id'),
+                _item_text(item, 'name'),
                 _dump_json(item),
                 data.source,
                 updated_at,
             )
             for item in data.natures
-            if _item_int(item, "id") > 0
+            if _item_int(item, 'id') > 0
         ],
     )
 
@@ -435,7 +427,7 @@ def replace_autocard_tables(
         )
         """
     )
-    conn.execute(f"DELETE FROM {AUTOCARD_BUFF_TABLE}")
+    conn.execute(f'DELETE FROM {AUTOCARD_BUFF_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {AUTOCARD_BUFF_TABLE}
@@ -455,19 +447,19 @@ def replace_autocard_tables(
         """,
         [
             (
-                _item_int(item, "id"),
-                _item_text(item, "object"),
-                _item_text(item, "param"),
-                _item_text(item, "paramDes", "param_des"),
-                _item_int(item, "IsDeathEffect", "is_death_effect"),
-                _item_int(item, "IsPlaceEffect", "is_place_effect"),
-                _item_text(item, "effectIcon", "effect_icon"),
+                _item_int(item, 'id'),
+                _item_text(item, 'buffObject', 'buff_object', 'object'),
+                _item_text(item, 'buffParam', 'buff_param', 'param'),
+                _item_text(item, 'buffDes', 'buff_des', 'paramDes', 'param_des'),
+                _item_int(item, 'IsDeathEffect', 'is_death_effect'),
+                _item_int(item, 'IsPlaceEffect', 'is_place_effect'),
+                _item_text(item, 'effectIcon', 'effect_icon'),
                 _dump_json(item),
                 data.source,
                 updated_at,
             )
             for item in data.buffs
-            if _item_int(item, "id") > 0
+            if _item_int(item, 'id') > 0
         ],
     )
 
@@ -499,7 +491,7 @@ def replace_autocard_season_effect_table(
         )
         """
     )
-    conn.execute(f"DELETE FROM {AUTOCARD_SEASON_EFFECT_TABLE}")
+    conn.execute(f'DELETE FROM {AUTOCARD_SEASON_EFFECT_TABLE}')
     conn.executemany(
         f"""
         INSERT INTO {AUTOCARD_SEASON_EFFECT_TABLE}
@@ -540,22 +532,22 @@ def replace_autocard_season_effect_table(
                 item.stage,
                 _dump_json(
                     {
-                        "id": item.effect_id,
-                        "sanctuary_id": item.sanctuary_id,
-                        "name": item.name,
-                        "description": item.description,
-                        "buff_id": item.buff_id,
-                        "buff_param": item.buff_param,
-                        "count_buff_id": item.count_buff_id,
-                        "count_type": item.count_type,
-                        "count_num": item.count_num,
-                        "unlock_round": item.unlock_round,
-                        "pic_id": item.pic_id,
-                        "season_id": item.season_id,
-                        "stage": item.stage,
+                        'id': item.effect_id,
+                        'sanctuary_id': item.sanctuary_id,
+                        'name': item.name,
+                        'description': item.description,
+                        'buff_id': item.buff_id,
+                        'buff_param': item.buff_param,
+                        'count_buff_id': item.count_buff_id,
+                        'count_type': item.count_type,
+                        'count_num': item.count_num,
+                        'unlock_round': item.unlock_round,
+                        'pic_id': item.pic_id,
+                        'season_id': item.season_id,
+                        'stage': item.stage,
                     }
                 ),
-                "ConfigPackage/autocardSeasonEffect.bytes",
+                'ConfigPackage/autocardSeasonEffect.bytes',
                 updated_at,
             )
             for item in effects
@@ -569,5 +561,3 @@ def replace_autocard_season_effect_table(
             (sanctuary_id, unlock_round, id)
         """
     )
-
-
