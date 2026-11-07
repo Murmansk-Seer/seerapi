@@ -12,7 +12,8 @@ class UnresolvedPetReferenceAnalyzer(BaseDataSourceAnalyzer):
     @classmethod
     def get_data_import_config(cls) -> DataImportConfig:
         return DataImportConfig(
-            unity_paths=('monsters.json', 'effectIcon.json', 'effectDes.json')
+            unity_paths=('monsters.json', 'effectIcon.json', 'effectDes.json'),
+            flash_paths=('config.xml.PetBookXMLInfo.xml',),
         )
 
     @classmethod
@@ -20,7 +21,15 @@ class UnresolvedPetReferenceAnalyzer(BaseDataSourceAnalyzer):
         return (UnresolvedPetReference,)
 
     def analyze(self) -> tuple[AnalyzeResult, ...]:
-        known = official_pet_ids(self._get_data('unity', 'monsters.json'))
+        known = official_pet_ids(
+            self._get_data('unity', 'monsters.json'),
+            (
+                row['ID']
+                for row in self._get_data('flash', 'config.xml.PetBookXMLInfo.xml')[
+                    'root'
+                ]['Monster']
+            ),
+        )
         sources = (
             ('soulmark', 'effectIcon.json', 'pet_id', 'effect'),
             ('glossary_entry', 'effectDes.json', 'monster', 'item'),

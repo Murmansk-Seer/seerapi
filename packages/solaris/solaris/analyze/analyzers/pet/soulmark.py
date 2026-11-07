@@ -61,7 +61,9 @@ class SoulmarkAnalyzer(BasePetAnalyzer):
             data['effecticonid']: data for data in pet_effect_icon_data
         }
         soulmark_map: dict[int, Soulmark] = {}
-        known = official_pet_ids(self._get_data('unity', 'monsters.json'))
+        known = official_pet_ids(
+            self._get_data('unity', 'monsters.json'), self.pet_encyclopedia_data
+        )
         tag_map: CategoryMap[int, SoulmarkTagCategory, ResourceRef['Soulmark']] = (
             create_category_map(
                 {

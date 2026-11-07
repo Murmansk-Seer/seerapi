@@ -18,6 +18,7 @@ class GlossaryAnalyzer(BaseDataSourceAnalyzer):
     def get_data_import_config(cls) -> DataImportConfig:
         return DataImportConfig(
             unity_paths=('effectDes.json', 'monsters.json'),
+            flash_paths=('config.xml.PetBookXMLInfo.xml',),
         )
 
     @classmethod
@@ -27,7 +28,15 @@ class GlossaryAnalyzer(BaseDataSourceAnalyzer):
     def analyze(self) -> tuple[AnalyzeResult, ...]:
         effect_des: EffectDesConfig = self._get_data('unity', 'effectDes.json')
         result: dict[int, GlossaryEntry] = {}
-        known = official_pet_ids(self._get_data('unity', 'monsters.json'))
+        known = official_pet_ids(
+            self._get_data('unity', 'monsters.json'),
+            (
+                row['ID']
+                for row in self._get_data('flash', 'config.xml.PetBookXMLInfo.xml')[
+                    'root'
+                ]['Monster']
+            ),
+        )
         for item in effect_des['root']['item']:
             id_ = item['id']
             raw = item['monster']
