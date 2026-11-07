@@ -33,6 +33,7 @@ class DecorationAnalyzer(BaseDataSourceAnalyzer):
             NamecardBackground,
             NicknameBackground,
             HomepageBackground,
+            Emoji,
         )
 
     def analyze(self) -> tuple[AnalyzeResult, ...]:
