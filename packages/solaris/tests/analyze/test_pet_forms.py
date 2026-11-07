@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Any
 
 import pytest
 
@@ -18,7 +19,7 @@ def fixture_source():
         'spd': 140,
         'evolving_lv': 0,
     }
-    rows = [
+    rows: list[dict[str, Any]] = [
         dict(common, id=id_, def_name=name)
         for id_, name in [(13311, '圣光灵神SP'), (5270, '战斗副本'), (3311, '圣光灵神')]
     ]
