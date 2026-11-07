@@ -8,15 +8,20 @@ from typing import Any
 from seerapi_models.source_reference import UnresolvedPetReference
 
 
-def official_pet_ids(data: dict[str, Any]) -> set[int]:
-    # Match BasePetAnalyzer.pet_origin_data: later sections contain battle copies,
-    # including IDs below 10000. Do not turn them into new canonical pets.
-    result = set()
-    for row in data['monsters']['monster']:
-        if row['id'] > 9999:
-            break
-        result.add(row['id'])
-    return result
+def official_pet_ids(data: dict[str, Any], encyclopedia_ids: Iterable[int]) -> set[int]:
+    """Include official encyclopedia forms, not arbitrary high-ID battle copies."""
+    available = {row['id'] for row in data['monsters']['monster']}
+    encyclopedia = set(encyclopedia_ids)
+    missing = encyclopedia - available
+    if missing:
+        raise ValueError(
+            f'Official encyclopedia entries missing monster records: {sorted(missing)}'
+        )
+    # Battle copies also have low IDs beyond the ordinary encyclopedia range.
+    # Keep legacy ordinary monsters without their own book entry inside that
+    # range, and admit higher forms only with explicit official book evidence.
+    ordinary_limit = max((id_ for id_ in encyclopedia if id_ <= 9999), default=0)
+    return {id_ for id_ in available if id_ <= ordinary_limit} | encyclopedia
 
 
 def partition_pet_ids(

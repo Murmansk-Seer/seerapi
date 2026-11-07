@@ -20,6 +20,7 @@ from solaris.analyze.source_references import official_pet_ids, partition_pet_id
 def source():
     return {
         'monsters.json': {'monsters': {'monster': [{'id': 4542}]}},
+        'config.xml.PetBookXMLInfo.xml': {'root': {'Monster': [{'ID': 4542}]}},
         'effectIcon.json': {
             'root': {'effect': [{'id': 1753, 'pet_id': [4543], 'tips': '', 'args': ''}]}
         },
@@ -46,9 +47,20 @@ def test_preservation_resource_has_required_openapi_contract():
     assert '原始字段' in comment.description
 
 
-def test_canonical_pet_scope_excludes_later_battle_copies():
+def test_canonical_pet_scope_is_order_independent_and_excludes_battle_copies():
     data = {'monsters': {'monster': [{'id': 4542}, {'id': 15001}, {'id': 5270}]}}
-    assert official_pet_ids(data) == {4542}
+    assert official_pet_ids(data, [4542]) == {4542}
+    assert official_pet_ids(data, [5270]) == {4542, 5270}
+    assert official_pet_ids(
+        {'monsters': {'monster': list(reversed(data['monsters']['monster']))}}, [4542]
+    ) == {4542}
+
+
+def test_official_forms_require_both_encyclopedia_and_monster():
+    data = {'monsters': {'monster': [{'id': 13311}, {'id': 15001}, {'id': 3311}]}}
+    assert official_pet_ids(data, [3311, 13311]) == {3311, 13311}
+    with pytest.raises(ValueError, match='13312'):
+        official_pet_ids(data, [13312])
 
 
 def analyze(cls, data, monkeypatch):
@@ -78,6 +90,7 @@ def test_raw_evidence_and_resolved_json_partition_without_mutation(monkeypatch):
     assert data == original
     # When the official pet really appears, no raw tombstone remains.
     data['monsters.json']['monsters']['monster'].append({'id': 4543})
+    data['config.xml.PetBookXMLInfo.xml']['root']['Monster'].append({'ID': 4543})
     assert analyze(UnresolvedPetReferenceAnalyzer, data, monkeypatch) == {}
     assert [
         ref.id for ref in analyze(GlossaryAnalyzer, data, monkeypatch)[117].pet

@@ -10,6 +10,7 @@ from solaris.analyze.base import (
     BaseDataSourcePostAnalyzer,
     DataImportConfig,
 )
+from solaris.analyze.source_references import official_pet_ids
 from solaris.analyze.utils import merge_dict_item
 
 if TYPE_CHECKING:
@@ -97,11 +98,16 @@ class BasePetAnalyzer(BaseDataSourcePostAnalyzer, ABC):
             'VipBtlAdj',
         )
         flash_map = {pet['ID']: pet for pet in flash_data}
+        known = official_pet_ids(
+            {'monsters': {'monster': unity_data}}, self.pet_encyclopedia_data
+        )
         result = {}
         for pet in unity_data:
             pet_id = pet['id']
-            if pet_id > 9999:
-                break
+            if pet_id not in known or pet_id in result:
+                continue
+
+            pet = dict(pet)
 
             for key in keys:
                 merge_dict_item(cast(dict, pet), flash_map.get(pet_id, {}), key)
