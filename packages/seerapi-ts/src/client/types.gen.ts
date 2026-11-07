@@ -2252,6 +2252,82 @@ export type HomepageBackgroundListExpanded = {
 };
 
 /**
+ * 表情资源
+ */
+export type Emoji = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * 资源名称
+     */
+    name: string;
+    /**
+     * Desc
+     *
+     * 资源描述
+     */
+    desc: string;
+    /**
+     * Icon Id
+     *
+     * 资源ID（对应profilephoto配置中的icon字段）
+     */
+    icon_id: number;
+};
+
+/**
+ * 名称映射表情资源
+ */
+export type EmojiNamedData = HashPartial & {
+    data: {
+        [key: string]: Emoji;
+    };
+};
+
+/**
+ * 表情资源列表
+ */
+export type EmojiList = CommonApiResourceList;
+
+/**
+ * 表情资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type EmojiListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Emoji>;
+};
+
+/**
  * 特性资源
  */
 export type PetEffect = HashPartial & {
@@ -10633,6 +10709,10 @@ export type RootIndex = HashPartial & {
      */
     homepage_background: string;
     /**
+     * emoji Path
+     */
+    emoji: string;
+    /**
      * pet_effect Path
      */
     pet_effect: string;
@@ -12798,6 +12878,83 @@ export type GetHomepageBackgroundListResponses = {
 };
 
 export type GetHomepageBackgroundListResponse = GetHomepageBackgroundListResponses[keyof GetHomepageBackgroundListResponses];
+
+export type GetEmojiByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/emoji/{id}';
+};
+
+export type GetEmojiByIdResponses = {
+    /**
+     * OK
+     */
+    200: Emoji;
+};
+
+export type GetEmojiByIdResponse = GetEmojiByIdResponses[keyof GetEmojiByIdResponses];
+
+export type GetEmojiByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/emoji/{name}';
+};
+
+export type GetEmojiByNameResponses = {
+    /**
+     * OK
+     */
+    200: EmojiNamedData;
+};
+
+export type GetEmojiByNameResponse = GetEmojiByNameResponses[keyof GetEmojiByNameResponses];
+
+export type GetEmojiListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/emoji/';
+};
+
+export type GetEmojiListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: EmojiList | EmojiListExpanded;
+};
+
+export type GetEmojiListResponse = GetEmojiListResponses[keyof GetEmojiListResponses];
 
 export type GetPetEffectByIdData = {
     body?: never;
