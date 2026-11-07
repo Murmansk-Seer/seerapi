@@ -174,7 +174,10 @@ class PydanticJsFunctionInjector:
         # 遍历注册表，匹配第一个符合的类型
         for type_, functions in self.injected_functions.items():
             if issubclass(model_cls, type_):
-                metadata['pydantic_js_functions'].extend(functions)
+                handlers = metadata.setdefault('pydantic_js_functions', [])
+                for function in functions:
+                    if function not in handlers:
+                        handlers.append(function)
                 break
 
         return schema
