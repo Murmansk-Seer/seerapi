@@ -692,7 +692,8 @@ jobs:
           set -euo pipefail
           source_dir="${RUNNER_TEMP}/release-regression-source"
           mkdir -p "${source_dir}/unity"
-          for filename in moves.json ActivityCenter.json autocardContent.json autocardRole.json autocardNature.json autocardBuff.json; do
+          somua_files="$(python -c 'from seerapi_models.somua import SOMUA_RESOURCES; print(" ".join(SOMUA_RESOURCES))')"
+          for filename in moves.json ActivityCenter.json autocardContent.json autocardRole.json autocardNature.json autocardBuff.json ${somua_files}; do
             python scripts/http_fetch.py \
               "https://raw.githubusercontent.com/Murmansk-Seer/config-sources/${CONFIG_SOURCE_COMMIT}/unity/${filename}" \
               --output "${source_dir}/unity/${filename}"

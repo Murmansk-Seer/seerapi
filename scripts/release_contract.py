@@ -16,6 +16,7 @@ from sqlmodel import Session, SQLModel, create_engine
 import seerapi_models  # noqa: F401
 from seerapi_models.activity import ActivityORM
 from seerapi_models.skill import SkillORM
+from seerapi_models.somua_source import validate_somua_source
 from seerapi_models.source_reference import validate_unresolved_pet_references
 from solaris.utils import parse_unity_datetime
 
@@ -250,6 +251,7 @@ def main() -> None:
             raise ValueError('Current release must contain official factor records')
         preserved = validate_unresolved_pet_references(connection)
         validate_autocard_source(connection, args.official_source_dir)
+        validate_somua_source(connection, args.official_source_dir)
         fingerprint = schema_fingerprint(connection, tables)
     with Session(create_engine(f'sqlite:///{args.database.as_posix()}')) as session:
         validate_regression_source(session, args.official_source_dir)

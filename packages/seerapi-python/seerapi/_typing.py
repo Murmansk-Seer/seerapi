@@ -23,6 +23,13 @@ NamedModelName: TypeAlias = Literal[
     'avatar_head',
     'battle_effect',
     'battle_effect_type',
+    'dango',
+    'dango_gene',
+    'dango_guide',
+    'dango_house',
+    'dango_shop',
+    'dango_slot',
+    'dango_task',
     'element_type',
     'element_type_combination',
     'emoji',
@@ -69,6 +76,15 @@ NamedModelName: TypeAlias = Literal[
     'skill_mintmark',
     'skill_stone',
     'skill_stone_category',
+    'somua_achievement',
+    'somua_dispatch',
+    'somua_entry',
+    'somua_gene',
+    'somua_house',
+    'somua_model',
+    'somua_ranking',
+    'somua_shop',
+    'somua_status_effect',
     'soulmark',
     'soulmark_tag',
     'suit',
@@ -96,6 +112,19 @@ ModelName: TypeAlias = Literal[
     'battle_effect_type',
     'buff',
     'buff_type',
+    'dango',
+    'dango_action',
+    'dango_chess',
+    'dango_chess_stage',
+    'dango_gene',
+    'dango_gold',
+    'dango_guide',
+    'dango_house',
+    'dango_level',
+    'dango_shop',
+    'dango_slot',
+    'dango_story',
+    'dango_task',
     'eid_effect',
     'element_type',
     'element_type_combination',
@@ -158,6 +187,20 @@ ModelName: TypeAlias = Literal[
     'skill_mintmark',
     'skill_stone',
     'skill_stone_category',
+    'somua_achievement',
+    'somua_basic_attribute',
+    'somua_dispatch',
+    'somua_entry',
+    'somua_gene',
+    'somua_house',
+    'somua_keeper',
+    'somua_model',
+    'somua_ranking',
+    'somua_shop',
+    'somua_status_effect',
+    'somua_task',
+    'somua_tutorial',
+    'somua_weapon',
     'soulmark',
     'soulmark_tag',
     'suit',
@@ -185,6 +228,13 @@ NamedModelInstance: TypeAlias = (
     | M.AvatarHead
     | M.BattleEffect
     | M.BattleEffectCategory
+    | M.Dango
+    | M.DangoGene
+    | M.DangoGuide
+    | M.DangoHouse
+    | M.DangoShop
+    | M.DangoSlot
+    | M.DangoTask
     | M.ElementType
     | M.TypeCombination
     | M.Emoji
@@ -231,6 +281,15 @@ NamedModelInstance: TypeAlias = (
     | M.SkillMintmark
     | M.SkillStone
     | M.SkillStoneCategory
+    | M.SomuaAchievement
+    | M.SomuaDispatch
+    | M.SomuaEntry
+    | M.SomuaGene
+    | M.SomuaHouse
+    | M.SomuaModel
+    | M.SomuaRanking
+    | M.SomuaShop
+    | M.SomuaStatusEffect
     | M.Soulmark
     | M.SoulmarkTagCategory
     | M.Suit

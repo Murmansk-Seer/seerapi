@@ -3,7 +3,7 @@
 import { client } from './client.gen.js';
 import type { Client, Options as Options2, TDataShape } from './client/index.js';
 import { getActivityByIdResponseTransformer, getPeakCostPoolByIdResponseTransformer, getPeakExpertPoolByIdResponseTransformer, getPeakPoolByIdResponseTransformer, getPeakPoolVoteByIdResponseTransformer, getPeakSeasonByIdResponseTransformer } from './transformers.gen.js';
-import type { GetAbilityMintmarkByIdData, GetAbilityMintmarkByIdResponses, GetAbilityMintmarkByNameData, GetAbilityMintmarkByNameResponses, GetAbilityMintmarkListData, GetAbilityMintmarkListResponses, GetAchievementBranchByIdData, GetAchievementBranchByIdResponses, GetAchievementBranchByNameData, GetAchievementBranchByNameResponses, GetAchievementBranchListData, GetAchievementBranchListResponses, GetAchievementByIdData, GetAchievementByIdResponses, GetAchievementByNameData, GetAchievementByNameResponses, GetAchievementCategoryByIdData, GetAchievementCategoryByIdResponses, GetAchievementCategoryByNameData, GetAchievementCategoryByNameResponses, GetAchievementCategoryListData, GetAchievementCategoryListResponses, GetAchievementListData, GetAchievementListResponses, GetAchievementTypeByIdData, GetAchievementTypeByIdResponses, GetAchievementTypeByNameData, GetAchievementTypeByNameResponses, GetAchievementTypeListData, GetAchievementTypeListResponses, GetActivityByIdData, GetActivityByIdResponses, GetActivityByNameData, GetActivityByNameResponses, GetActivityListData, GetActivityListResponses, GetActivityTypeByIdData, GetActivityTypeByIdResponses, GetActivityTypeListData, GetActivityTypeListResponses, GetAutocardByIdData, GetAutocardByIdResponses, GetAutocardByNameData, GetAutocardByNameResponses, GetAutocardCardtypeByIdData, GetAutocardCardtypeByIdResponses, GetAutocardCardtypeByNameData, GetAutocardCardtypeByNameResponses, GetAutocardCardtypeListData, GetAutocardCardtypeListResponses, GetAutocardElementTypeByIdData, GetAutocardElementTypeByIdResponses, GetAutocardElementTypeByNameData, GetAutocardElementTypeByNameResponses, GetAutocardElementTypeListData, GetAutocardElementTypeListResponses, GetAutocardFieldByIdData, GetAutocardFieldByIdResponses, GetAutocardFieldByNameData, GetAutocardFieldByNameResponses, GetAutocardFieldListData, GetAutocardFieldListResponses, GetAutocardListData, GetAutocardListResponses, GetAutocardPetcardByIdData, GetAutocardPetcardByIdResponses, GetAutocardPetcardByNameData, GetAutocardPetcardByNameResponses, GetAutocardPetcardListData, GetAutocardPetcardListResponses, GetAutocardRoleByIdData, GetAutocardRoleByIdResponses, GetAutocardRoleByNameData, GetAutocardRoleByNameResponses, GetAutocardRoleListData, GetAutocardRoleListResponses, GetAutocardSpellcardByIdData, GetAutocardSpellcardByIdResponses, GetAutocardSpellcardByNameData, GetAutocardSpellcardByNameResponses, GetAutocardSpellcardListData, GetAutocardSpellcardListResponses, GetAvatarFrameByIdData, GetAvatarFrameByIdResponses, GetAvatarFrameByNameData, GetAvatarFrameByNameResponses, GetAvatarFrameListData, GetAvatarFrameListResponses, GetAvatarHeadByIdData, GetAvatarHeadByIdResponses, GetAvatarHeadByNameData, GetAvatarHeadByNameResponses, GetAvatarHeadListData, GetAvatarHeadListResponses, GetBattleEffectByIdData, GetBattleEffectByIdResponses, GetBattleEffectByNameData, GetBattleEffectByNameResponses, GetBattleEffectListData, GetBattleEffectListResponses, GetBattleEffectTypeByIdData, GetBattleEffectTypeByIdResponses, GetBattleEffectTypeByNameData, GetBattleEffectTypeByNameResponses, GetBattleEffectTypeListData, GetBattleEffectTypeListResponses, GetBuffByIdData, GetBuffByIdResponses, GetBuffListData, GetBuffListResponses, GetBuffTypeByIdData, GetBuffTypeByIdResponses, GetBuffTypeListData, GetBuffTypeListResponses, GetEidEffectByIdData, GetEidEffectByIdResponses, GetEidEffectListData, GetEidEffectListResponses, GetElementTypeByIdData, GetElementTypeByIdResponses, GetElementTypeByNameData, GetElementTypeByNameResponses, GetElementTypeCombinationByIdData, GetElementTypeCombinationByIdResponses, GetElementTypeCombinationByNameData, GetElementTypeCombinationByNameResponses, GetElementTypeCombinationListData, GetElementTypeCombinationListResponses, GetElementTypeListData, GetElementTypeListResponses, GetEnergyBeadByIdData, GetEnergyBeadByIdResponses, GetEnergyBeadByNameData, GetEnergyBeadByNameResponses, GetEnergyBeadListData, GetEnergyBeadListResponses, GetEquipByIdData, GetEquipByIdResponses, GetEquipByNameData, GetEquipByNameResponses, GetEquipEffectiveOccasionByIdData, GetEquipEffectiveOccasionByIdResponses, GetEquipEffectiveOccasionListData, GetEquipEffectiveOccasionListResponses, GetEquipListData, GetEquipListResponses, GetEquipTypeByIdData, GetEquipTypeByIdResponses, GetEquipTypeByNameData, GetEquipTypeByNameResponses, GetEquipTypeListData, GetEquipTypeListResponses, GetErrorCodeByIdData, GetErrorCodeByIdResponses, GetErrorCodeByNameData, GetErrorCodeByNameResponses, GetErrorCodeListData, GetErrorCodeListResponses, GetFactorByIdData, GetFactorByIdResponses, GetFactorByNameData, GetFactorByNameResponses, GetFactorDesignByIdData, GetFactorDesignByIdResponses, GetFactorDesignListData, GetFactorDesignListResponses, GetFactorListData, GetFactorListResponses, GetFieldEffectByIdData, GetFieldEffectByIdResponses, GetFieldEffectByNameData, GetFieldEffectByNameResponses, GetFieldEffectListData, GetFieldEffectListResponses, GetFieldEffectTypeByIdData, GetFieldEffectTypeByIdResponses, GetFieldEffectTypeListData, GetFieldEffectTypeListResponses, GetGemByIdData, GetGemByIdResponses, GetGemByNameData, GetGemByNameResponses, GetGemCategoryByIdData, GetGemCategoryByIdResponses, GetGemCategoryByNameData, GetGemCategoryByNameResponses, GetGemCategoryListData, GetGemCategoryListResponses, GetGemGen1ByIdData, GetGemGen1ByIdResponses, GetGemGen1ByNameData, GetGemGen1ByNameResponses, GetGemGen1ListData, GetGemGen1ListResponses, GetGemGen2ByIdData, GetGemGen2ByIdResponses, GetGemGen2ByNameData, GetGemGen2ByNameResponses, GetGemGen2ListData, GetGemGen2ListResponses, GetGemGenerationCategoryByIdData, GetGemGenerationCategoryByIdResponses, GetGemGenerationCategoryListData, GetGemGenerationCategoryListResponses, GetGemListData, GetGemListResponses, GetGlossaryEntryByIdData, GetGlossaryEntryByIdResponses, GetGlossaryEntryByNameData, GetGlossaryEntryByNameResponses, GetGlossaryEntryListData, GetGlossaryEntryListResponses, GetHomepageBackgroundByIdData, GetHomepageBackgroundByIdResponses, GetHomepageBackgroundByNameData, GetHomepageBackgroundByNameResponses, GetHomepageBackgroundListData, GetHomepageBackgroundListResponses, GetItemByIdData, GetItemByIdResponses, GetItemByNameData, GetItemByNameResponses, GetItemCategoryByIdData, GetItemCategoryByIdResponses, GetItemCategoryByNameData, GetItemCategoryByNameResponses, GetItemCategoryListData, GetItemCategoryListResponses, GetItemListData, GetItemListResponses, GetMintmarkByIdData, GetMintmarkByIdResponses, GetMintmarkByNameData, GetMintmarkByNameResponses, GetMintmarkClassByIdData, GetMintmarkClassByIdResponses, GetMintmarkClassByNameData, GetMintmarkClassByNameResponses, GetMintmarkClassListData, GetMintmarkClassListResponses, GetMintmarkListData, GetMintmarkListResponses, GetMintmarkRarityByIdData, GetMintmarkRarityByIdResponses, GetMintmarkRarityListData, GetMintmarkRarityListResponses, GetMintmarkTypeByIdData, GetMintmarkTypeByIdResponses, GetMintmarkTypeByNameData, GetMintmarkTypeByNameResponses, GetMintmarkTypeListData, GetMintmarkTypeListResponses, GetNamecardBackgroundByIdData, GetNamecardBackgroundByIdResponses, GetNamecardBackgroundByNameData, GetNamecardBackgroundByNameResponses, GetNamecardBackgroundListData, GetNamecardBackgroundListResponses, GetNatureByIdData, GetNatureByIdResponses, GetNatureByNameData, GetNatureByNameResponses, GetNatureListData, GetNatureListResponses, GetNicknameBackgroundByIdData, GetNicknameBackgroundByIdResponses, GetNicknameBackgroundByNameData, GetNicknameBackgroundByNameResponses, GetNicknameBackgroundListData, GetNicknameBackgroundListResponses, GetPeakCostPoolByIdData, GetPeakCostPoolByIdResponses, GetPeakCostPoolByNameData, GetPeakCostPoolByNameResponses, GetPeakCostPoolListData, GetPeakCostPoolListResponses, GetPeakExpertPoolByIdData, GetPeakExpertPoolByIdResponses, GetPeakExpertPoolListData, GetPeakExpertPoolListResponses, GetPeakPoolByIdData, GetPeakPoolByIdResponses, GetPeakPoolListData, GetPeakPoolListResponses, GetPeakPoolVoteByIdData, GetPeakPoolVoteByIdResponses, GetPeakPoolVoteListData, GetPeakPoolVoteListResponses, GetPeakSeasonByIdData, GetPeakSeasonByIdResponses, GetPeakSeasonListData, GetPeakSeasonListResponses, GetPetAdvanceByIdData, GetPetAdvanceByIdResponses, GetPetAdvanceListData, GetPetAdvanceListResponses, GetPetArchiveStoryBookByIdData, GetPetArchiveStoryBookByIdResponses, GetPetArchiveStoryBookByNameData, GetPetArchiveStoryBookByNameResponses, GetPetArchiveStoryBookListData, GetPetArchiveStoryBookListResponses, GetPetArchiveStoryEntryByIdData, GetPetArchiveStoryEntryByIdResponses, GetPetArchiveStoryEntryListData, GetPetArchiveStoryEntryListResponses, GetPetByIdData, GetPetByIdResponses, GetPetByNameData, GetPetByNameResponses, GetPetClassByIdData, GetPetClassByIdResponses, GetPetClassListData, GetPetClassListResponses, GetPetEffectByIdData, GetPetEffectByIdResponses, GetPetEffectByNameData, GetPetEffectByNameResponses, GetPetEffectGroupByIdData, GetPetEffectGroupByIdResponses, GetPetEffectGroupByNameData, GetPetEffectGroupByNameResponses, GetPetEffectGroupListData, GetPetEffectGroupListResponses, GetPetEffectListData, GetPetEffectListResponses, GetPetEncyclopediaEntryByIdData, GetPetEncyclopediaEntryByIdResponses, GetPetEncyclopediaEntryByNameData, GetPetEncyclopediaEntryByNameResponses, GetPetEncyclopediaEntryListData, GetPetEncyclopediaEntryListResponses, GetPetGenderByIdData, GetPetGenderByIdResponses, GetPetGenderByNameData, GetPetGenderByNameResponses, GetPetGenderListData, GetPetGenderListResponses, GetPetListData, GetPetListResponses, GetPetMountTypeByIdData, GetPetMountTypeByIdResponses, GetPetMountTypeByNameData, GetPetMountTypeByNameResponses, GetPetMountTypeListData, GetPetMountTypeListResponses, GetPetSkinByIdData, GetPetSkinByIdResponses, GetPetSkinByNameData, GetPetSkinByNameResponses, GetPetSkinCategoryByIdData, GetPetSkinCategoryByIdResponses, GetPetSkinCategoryListData, GetPetSkinCategoryListResponses, GetPetSkinListData, GetPetSkinListResponses, GetPetSkinSeriesByIdData, GetPetSkinSeriesByIdResponses, GetPetSkinSeriesByNameData, GetPetSkinSeriesByNameResponses, GetPetSkinSeriesListData, GetPetSkinSeriesListResponses, GetPetSkinSeriesSubTypeByIdData, GetPetSkinSeriesSubTypeByIdResponses, GetPetSkinSeriesSubTypeByNameData, GetPetSkinSeriesSubTypeByNameResponses, GetPetSkinSeriesSubTypeListData, GetPetSkinSeriesSubTypeListResponses, GetPetVariationByIdData, GetPetVariationByIdResponses, GetPetVariationByNameData, GetPetVariationByNameResponses, GetPetVariationListData, GetPetVariationListResponses, GetPetVipbuffByIdData, GetPetVipbuffByIdResponses, GetPetVipbuffByNameData, GetPetVipbuffByNameResponses, GetPetVipbuffListData, GetPetVipbuffListResponses, GetResistanceCategoryByIdData, GetResistanceCategoryByIdResponses, GetResistanceCategoryByNameData, GetResistanceCategoryByNameResponses, GetResistanceCategoryListData, GetResistanceCategoryListResponses, GetSignByIdData, GetSignByIdResponses, GetSignByNameData, GetSignByNameResponses, GetSignListData, GetSignListResponses, GetSkillActivationItemByIdData, GetSkillActivationItemByIdResponses, GetSkillActivationItemByNameData, GetSkillActivationItemByNameResponses, GetSkillActivationItemListData, GetSkillActivationItemListResponses, GetSkillByIdData, GetSkillByIdResponses, GetSkillByNameData, GetSkillByNameResponses, GetSkillCategoryByIdData, GetSkillCategoryByIdResponses, GetSkillCategoryByNameData, GetSkillCategoryByNameResponses, GetSkillCategoryListData, GetSkillCategoryListResponses, GetSkillEffectParamByIdData, GetSkillEffectParamByIdResponses, GetSkillEffectParamListData, GetSkillEffectParamListResponses, GetSkillEffectTypeByIdData, GetSkillEffectTypeByIdResponses, GetSkillEffectTypeListData, GetSkillEffectTypeListResponses, GetSkillEffectTypeTagByIdData, GetSkillEffectTypeTagByIdResponses, GetSkillEffectTypeTagByNameData, GetSkillEffectTypeTagByNameResponses, GetSkillEffectTypeTagListData, GetSkillEffectTypeTagListResponses, GetSkillHideEffectByIdData, GetSkillHideEffectByIdResponses, GetSkillHideEffectByNameData, GetSkillHideEffectByNameResponses, GetSkillHideEffectListData, GetSkillHideEffectListResponses, GetSkillListData, GetSkillListResponses, GetSkillMintmarkByIdData, GetSkillMintmarkByIdResponses, GetSkillMintmarkByNameData, GetSkillMintmarkByNameResponses, GetSkillMintmarkListData, GetSkillMintmarkListResponses, GetSkillStoneByIdData, GetSkillStoneByIdResponses, GetSkillStoneByNameData, GetSkillStoneByNameResponses, GetSkillStoneCategoryByIdData, GetSkillStoneCategoryByIdResponses, GetSkillStoneCategoryByNameData, GetSkillStoneCategoryByNameResponses, GetSkillStoneCategoryListData, GetSkillStoneCategoryListResponses, GetSkillStoneListData, GetSkillStoneListResponses, GetSoulmarkByIdData, GetSoulmarkByIdResponses, GetSoulmarkByNameData, GetSoulmarkByNameResponses, GetSoulmarkListData, GetSoulmarkListResponses, GetSoulmarkTagByIdData, GetSoulmarkTagByIdResponses, GetSoulmarkTagByNameData, GetSoulmarkTagByNameResponses, GetSoulmarkTagListData, GetSoulmarkTagListResponses, GetSuitByIdData, GetSuitByIdResponses, GetSuitByNameData, GetSuitByNameResponses, GetSuitListData, GetSuitListResponses, GetTitleByIdData, GetTitleByIdResponses, GetTitleByNameData, GetTitleByNameResponses, GetTitleListData, GetTitleListResponses, GetUniversalMintmarkByIdData, GetUniversalMintmarkByIdResponses, GetUniversalMintmarkByNameData, GetUniversalMintmarkByNameResponses, GetUniversalMintmarkListData, GetUniversalMintmarkListResponses } from './types.gen.js';
+import type { GetAbilityMintmarkByIdData, GetAbilityMintmarkByIdResponses, GetAbilityMintmarkByNameData, GetAbilityMintmarkByNameResponses, GetAbilityMintmarkListData, GetAbilityMintmarkListResponses, GetAchievementBranchByIdData, GetAchievementBranchByIdResponses, GetAchievementBranchByNameData, GetAchievementBranchByNameResponses, GetAchievementBranchListData, GetAchievementBranchListResponses, GetAchievementByIdData, GetAchievementByIdResponses, GetAchievementByNameData, GetAchievementByNameResponses, GetAchievementCategoryByIdData, GetAchievementCategoryByIdResponses, GetAchievementCategoryByNameData, GetAchievementCategoryByNameResponses, GetAchievementCategoryListData, GetAchievementCategoryListResponses, GetAchievementListData, GetAchievementListResponses, GetAchievementTypeByIdData, GetAchievementTypeByIdResponses, GetAchievementTypeByNameData, GetAchievementTypeByNameResponses, GetAchievementTypeListData, GetAchievementTypeListResponses, GetActivityByIdData, GetActivityByIdResponses, GetActivityByNameData, GetActivityByNameResponses, GetActivityListData, GetActivityListResponses, GetActivityTypeByIdData, GetActivityTypeByIdResponses, GetActivityTypeListData, GetActivityTypeListResponses, GetAutocardByIdData, GetAutocardByIdResponses, GetAutocardByNameData, GetAutocardByNameResponses, GetAutocardCardtypeByIdData, GetAutocardCardtypeByIdResponses, GetAutocardCardtypeByNameData, GetAutocardCardtypeByNameResponses, GetAutocardCardtypeListData, GetAutocardCardtypeListResponses, GetAutocardElementTypeByIdData, GetAutocardElementTypeByIdResponses, GetAutocardElementTypeByNameData, GetAutocardElementTypeByNameResponses, GetAutocardElementTypeListData, GetAutocardElementTypeListResponses, GetAutocardFieldByIdData, GetAutocardFieldByIdResponses, GetAutocardFieldByNameData, GetAutocardFieldByNameResponses, GetAutocardFieldListData, GetAutocardFieldListResponses, GetAutocardListData, GetAutocardListResponses, GetAutocardPetcardByIdData, GetAutocardPetcardByIdResponses, GetAutocardPetcardByNameData, GetAutocardPetcardByNameResponses, GetAutocardPetcardListData, GetAutocardPetcardListResponses, GetAutocardRoleByIdData, GetAutocardRoleByIdResponses, GetAutocardRoleByNameData, GetAutocardRoleByNameResponses, GetAutocardRoleListData, GetAutocardRoleListResponses, GetAutocardSpellcardByIdData, GetAutocardSpellcardByIdResponses, GetAutocardSpellcardByNameData, GetAutocardSpellcardByNameResponses, GetAutocardSpellcardListData, GetAutocardSpellcardListResponses, GetAvatarFrameByIdData, GetAvatarFrameByIdResponses, GetAvatarFrameByNameData, GetAvatarFrameByNameResponses, GetAvatarFrameListData, GetAvatarFrameListResponses, GetAvatarHeadByIdData, GetAvatarHeadByIdResponses, GetAvatarHeadByNameData, GetAvatarHeadByNameResponses, GetAvatarHeadListData, GetAvatarHeadListResponses, GetBattleEffectByIdData, GetBattleEffectByIdResponses, GetBattleEffectByNameData, GetBattleEffectByNameResponses, GetBattleEffectListData, GetBattleEffectListResponses, GetBattleEffectTypeByIdData, GetBattleEffectTypeByIdResponses, GetBattleEffectTypeByNameData, GetBattleEffectTypeByNameResponses, GetBattleEffectTypeListData, GetBattleEffectTypeListResponses, GetBuffByIdData, GetBuffByIdResponses, GetBuffListData, GetBuffListResponses, GetBuffTypeByIdData, GetBuffTypeByIdResponses, GetBuffTypeListData, GetBuffTypeListResponses, GetDangoActionByIdData, GetDangoActionByIdResponses, GetDangoActionListData, GetDangoActionListResponses, GetDangoByIdData, GetDangoByIdResponses, GetDangoByNameData, GetDangoByNameResponses, GetDangoChessByIdData, GetDangoChessByIdResponses, GetDangoChessListData, GetDangoChessListResponses, GetDangoChessStageByIdData, GetDangoChessStageByIdResponses, GetDangoChessStageListData, GetDangoChessStageListResponses, GetDangoGeneByIdData, GetDangoGeneByIdResponses, GetDangoGeneByNameData, GetDangoGeneByNameResponses, GetDangoGeneListData, GetDangoGeneListResponses, GetDangoGoldByIdData, GetDangoGoldByIdResponses, GetDangoGoldListData, GetDangoGoldListResponses, GetDangoGuideByIdData, GetDangoGuideByIdResponses, GetDangoGuideByNameData, GetDangoGuideByNameResponses, GetDangoGuideListData, GetDangoGuideListResponses, GetDangoHouseByIdData, GetDangoHouseByIdResponses, GetDangoHouseByNameData, GetDangoHouseByNameResponses, GetDangoHouseListData, GetDangoHouseListResponses, GetDangoLevelByIdData, GetDangoLevelByIdResponses, GetDangoLevelListData, GetDangoLevelListResponses, GetDangoListData, GetDangoListResponses, GetDangoShopByIdData, GetDangoShopByIdResponses, GetDangoShopByNameData, GetDangoShopByNameResponses, GetDangoShopListData, GetDangoShopListResponses, GetDangoSlotByIdData, GetDangoSlotByIdResponses, GetDangoSlotByNameData, GetDangoSlotByNameResponses, GetDangoSlotListData, GetDangoSlotListResponses, GetDangoStoryByIdData, GetDangoStoryByIdResponses, GetDangoStoryListData, GetDangoStoryListResponses, GetDangoTaskByIdData, GetDangoTaskByIdResponses, GetDangoTaskByNameData, GetDangoTaskByNameResponses, GetDangoTaskListData, GetDangoTaskListResponses, GetEidEffectByIdData, GetEidEffectByIdResponses, GetEidEffectListData, GetEidEffectListResponses, GetElementTypeByIdData, GetElementTypeByIdResponses, GetElementTypeByNameData, GetElementTypeByNameResponses, GetElementTypeCombinationByIdData, GetElementTypeCombinationByIdResponses, GetElementTypeCombinationByNameData, GetElementTypeCombinationByNameResponses, GetElementTypeCombinationListData, GetElementTypeCombinationListResponses, GetElementTypeListData, GetElementTypeListResponses, GetEnergyBeadByIdData, GetEnergyBeadByIdResponses, GetEnergyBeadByNameData, GetEnergyBeadByNameResponses, GetEnergyBeadListData, GetEnergyBeadListResponses, GetEquipByIdData, GetEquipByIdResponses, GetEquipByNameData, GetEquipByNameResponses, GetEquipEffectiveOccasionByIdData, GetEquipEffectiveOccasionByIdResponses, GetEquipEffectiveOccasionListData, GetEquipEffectiveOccasionListResponses, GetEquipListData, GetEquipListResponses, GetEquipTypeByIdData, GetEquipTypeByIdResponses, GetEquipTypeByNameData, GetEquipTypeByNameResponses, GetEquipTypeListData, GetEquipTypeListResponses, GetErrorCodeByIdData, GetErrorCodeByIdResponses, GetErrorCodeByNameData, GetErrorCodeByNameResponses, GetErrorCodeListData, GetErrorCodeListResponses, GetFactorByIdData, GetFactorByIdResponses, GetFactorByNameData, GetFactorByNameResponses, GetFactorDesignByIdData, GetFactorDesignByIdResponses, GetFactorDesignListData, GetFactorDesignListResponses, GetFactorListData, GetFactorListResponses, GetFieldEffectByIdData, GetFieldEffectByIdResponses, GetFieldEffectByNameData, GetFieldEffectByNameResponses, GetFieldEffectListData, GetFieldEffectListResponses, GetFieldEffectTypeByIdData, GetFieldEffectTypeByIdResponses, GetFieldEffectTypeListData, GetFieldEffectTypeListResponses, GetGemByIdData, GetGemByIdResponses, GetGemByNameData, GetGemByNameResponses, GetGemCategoryByIdData, GetGemCategoryByIdResponses, GetGemCategoryByNameData, GetGemCategoryByNameResponses, GetGemCategoryListData, GetGemCategoryListResponses, GetGemGen1ByIdData, GetGemGen1ByIdResponses, GetGemGen1ByNameData, GetGemGen1ByNameResponses, GetGemGen1ListData, GetGemGen1ListResponses, GetGemGen2ByIdData, GetGemGen2ByIdResponses, GetGemGen2ByNameData, GetGemGen2ByNameResponses, GetGemGen2ListData, GetGemGen2ListResponses, GetGemGenerationCategoryByIdData, GetGemGenerationCategoryByIdResponses, GetGemGenerationCategoryListData, GetGemGenerationCategoryListResponses, GetGemListData, GetGemListResponses, GetGlossaryEntryByIdData, GetGlossaryEntryByIdResponses, GetGlossaryEntryByNameData, GetGlossaryEntryByNameResponses, GetGlossaryEntryListData, GetGlossaryEntryListResponses, GetHomepageBackgroundByIdData, GetHomepageBackgroundByIdResponses, GetHomepageBackgroundByNameData, GetHomepageBackgroundByNameResponses, GetHomepageBackgroundListData, GetHomepageBackgroundListResponses, GetItemByIdData, GetItemByIdResponses, GetItemByNameData, GetItemByNameResponses, GetItemCategoryByIdData, GetItemCategoryByIdResponses, GetItemCategoryByNameData, GetItemCategoryByNameResponses, GetItemCategoryListData, GetItemCategoryListResponses, GetItemListData, GetItemListResponses, GetMintmarkByIdData, GetMintmarkByIdResponses, GetMintmarkByNameData, GetMintmarkByNameResponses, GetMintmarkClassByIdData, GetMintmarkClassByIdResponses, GetMintmarkClassByNameData, GetMintmarkClassByNameResponses, GetMintmarkClassListData, GetMintmarkClassListResponses, GetMintmarkListData, GetMintmarkListResponses, GetMintmarkRarityByIdData, GetMintmarkRarityByIdResponses, GetMintmarkRarityListData, GetMintmarkRarityListResponses, GetMintmarkTypeByIdData, GetMintmarkTypeByIdResponses, GetMintmarkTypeByNameData, GetMintmarkTypeByNameResponses, GetMintmarkTypeListData, GetMintmarkTypeListResponses, GetNamecardBackgroundByIdData, GetNamecardBackgroundByIdResponses, GetNamecardBackgroundByNameData, GetNamecardBackgroundByNameResponses, GetNamecardBackgroundListData, GetNamecardBackgroundListResponses, GetNatureByIdData, GetNatureByIdResponses, GetNatureByNameData, GetNatureByNameResponses, GetNatureListData, GetNatureListResponses, GetNicknameBackgroundByIdData, GetNicknameBackgroundByIdResponses, GetNicknameBackgroundByNameData, GetNicknameBackgroundByNameResponses, GetNicknameBackgroundListData, GetNicknameBackgroundListResponses, GetPeakCostPoolByIdData, GetPeakCostPoolByIdResponses, GetPeakCostPoolByNameData, GetPeakCostPoolByNameResponses, GetPeakCostPoolListData, GetPeakCostPoolListResponses, GetPeakExpertPoolByIdData, GetPeakExpertPoolByIdResponses, GetPeakExpertPoolListData, GetPeakExpertPoolListResponses, GetPeakPoolByIdData, GetPeakPoolByIdResponses, GetPeakPoolListData, GetPeakPoolListResponses, GetPeakPoolVoteByIdData, GetPeakPoolVoteByIdResponses, GetPeakPoolVoteListData, GetPeakPoolVoteListResponses, GetPeakSeasonByIdData, GetPeakSeasonByIdResponses, GetPeakSeasonListData, GetPeakSeasonListResponses, GetPetAdvanceByIdData, GetPetAdvanceByIdResponses, GetPetAdvanceListData, GetPetAdvanceListResponses, GetPetArchiveStoryBookByIdData, GetPetArchiveStoryBookByIdResponses, GetPetArchiveStoryBookByNameData, GetPetArchiveStoryBookByNameResponses, GetPetArchiveStoryBookListData, GetPetArchiveStoryBookListResponses, GetPetArchiveStoryEntryByIdData, GetPetArchiveStoryEntryByIdResponses, GetPetArchiveStoryEntryListData, GetPetArchiveStoryEntryListResponses, GetPetByIdData, GetPetByIdResponses, GetPetByNameData, GetPetByNameResponses, GetPetClassByIdData, GetPetClassByIdResponses, GetPetClassListData, GetPetClassListResponses, GetPetEffectByIdData, GetPetEffectByIdResponses, GetPetEffectByNameData, GetPetEffectByNameResponses, GetPetEffectGroupByIdData, GetPetEffectGroupByIdResponses, GetPetEffectGroupByNameData, GetPetEffectGroupByNameResponses, GetPetEffectGroupListData, GetPetEffectGroupListResponses, GetPetEffectListData, GetPetEffectListResponses, GetPetEncyclopediaEntryByIdData, GetPetEncyclopediaEntryByIdResponses, GetPetEncyclopediaEntryByNameData, GetPetEncyclopediaEntryByNameResponses, GetPetEncyclopediaEntryListData, GetPetEncyclopediaEntryListResponses, GetPetGenderByIdData, GetPetGenderByIdResponses, GetPetGenderByNameData, GetPetGenderByNameResponses, GetPetGenderListData, GetPetGenderListResponses, GetPetListData, GetPetListResponses, GetPetMountTypeByIdData, GetPetMountTypeByIdResponses, GetPetMountTypeByNameData, GetPetMountTypeByNameResponses, GetPetMountTypeListData, GetPetMountTypeListResponses, GetPetSkinByIdData, GetPetSkinByIdResponses, GetPetSkinByNameData, GetPetSkinByNameResponses, GetPetSkinCategoryByIdData, GetPetSkinCategoryByIdResponses, GetPetSkinCategoryListData, GetPetSkinCategoryListResponses, GetPetSkinListData, GetPetSkinListResponses, GetPetSkinSeriesByIdData, GetPetSkinSeriesByIdResponses, GetPetSkinSeriesByNameData, GetPetSkinSeriesByNameResponses, GetPetSkinSeriesListData, GetPetSkinSeriesListResponses, GetPetSkinSeriesSubTypeByIdData, GetPetSkinSeriesSubTypeByIdResponses, GetPetSkinSeriesSubTypeByNameData, GetPetSkinSeriesSubTypeByNameResponses, GetPetSkinSeriesSubTypeListData, GetPetSkinSeriesSubTypeListResponses, GetPetVariationByIdData, GetPetVariationByIdResponses, GetPetVariationByNameData, GetPetVariationByNameResponses, GetPetVariationListData, GetPetVariationListResponses, GetPetVipbuffByIdData, GetPetVipbuffByIdResponses, GetPetVipbuffByNameData, GetPetVipbuffByNameResponses, GetPetVipbuffListData, GetPetVipbuffListResponses, GetResistanceCategoryByIdData, GetResistanceCategoryByIdResponses, GetResistanceCategoryByNameData, GetResistanceCategoryByNameResponses, GetResistanceCategoryListData, GetResistanceCategoryListResponses, GetSignByIdData, GetSignByIdResponses, GetSignByNameData, GetSignByNameResponses, GetSignListData, GetSignListResponses, GetSkillActivationItemByIdData, GetSkillActivationItemByIdResponses, GetSkillActivationItemByNameData, GetSkillActivationItemByNameResponses, GetSkillActivationItemListData, GetSkillActivationItemListResponses, GetSkillByIdData, GetSkillByIdResponses, GetSkillByNameData, GetSkillByNameResponses, GetSkillCategoryByIdData, GetSkillCategoryByIdResponses, GetSkillCategoryByNameData, GetSkillCategoryByNameResponses, GetSkillCategoryListData, GetSkillCategoryListResponses, GetSkillEffectParamByIdData, GetSkillEffectParamByIdResponses, GetSkillEffectParamListData, GetSkillEffectParamListResponses, GetSkillEffectTypeByIdData, GetSkillEffectTypeByIdResponses, GetSkillEffectTypeListData, GetSkillEffectTypeListResponses, GetSkillEffectTypeTagByIdData, GetSkillEffectTypeTagByIdResponses, GetSkillEffectTypeTagByNameData, GetSkillEffectTypeTagByNameResponses, GetSkillEffectTypeTagListData, GetSkillEffectTypeTagListResponses, GetSkillHideEffectByIdData, GetSkillHideEffectByIdResponses, GetSkillHideEffectByNameData, GetSkillHideEffectByNameResponses, GetSkillHideEffectListData, GetSkillHideEffectListResponses, GetSkillListData, GetSkillListResponses, GetSkillMintmarkByIdData, GetSkillMintmarkByIdResponses, GetSkillMintmarkByNameData, GetSkillMintmarkByNameResponses, GetSkillMintmarkListData, GetSkillMintmarkListResponses, GetSkillStoneByIdData, GetSkillStoneByIdResponses, GetSkillStoneByNameData, GetSkillStoneByNameResponses, GetSkillStoneCategoryByIdData, GetSkillStoneCategoryByIdResponses, GetSkillStoneCategoryByNameData, GetSkillStoneCategoryByNameResponses, GetSkillStoneCategoryListData, GetSkillStoneCategoryListResponses, GetSkillStoneListData, GetSkillStoneListResponses, GetSomuaAchievementByIdData, GetSomuaAchievementByIdResponses, GetSomuaAchievementByNameData, GetSomuaAchievementByNameResponses, GetSomuaAchievementListData, GetSomuaAchievementListResponses, GetSomuaBasicAttributeByIdData, GetSomuaBasicAttributeByIdResponses, GetSomuaBasicAttributeListData, GetSomuaBasicAttributeListResponses, GetSomuaDispatchByIdData, GetSomuaDispatchByIdResponses, GetSomuaDispatchByNameData, GetSomuaDispatchByNameResponses, GetSomuaDispatchListData, GetSomuaDispatchListResponses, GetSomuaEntryByIdData, GetSomuaEntryByIdResponses, GetSomuaEntryByNameData, GetSomuaEntryByNameResponses, GetSomuaEntryListData, GetSomuaEntryListResponses, GetSomuaGeneByIdData, GetSomuaGeneByIdResponses, GetSomuaGeneByNameData, GetSomuaGeneByNameResponses, GetSomuaGeneListData, GetSomuaGeneListResponses, GetSomuaHouseByIdData, GetSomuaHouseByIdResponses, GetSomuaHouseByNameData, GetSomuaHouseByNameResponses, GetSomuaHouseListData, GetSomuaHouseListResponses, GetSomuaKeeperByIdData, GetSomuaKeeperByIdResponses, GetSomuaKeeperListData, GetSomuaKeeperListResponses, GetSomuaModelByIdData, GetSomuaModelByIdResponses, GetSomuaModelByNameData, GetSomuaModelByNameResponses, GetSomuaModelListData, GetSomuaModelListResponses, GetSomuaRankingByIdData, GetSomuaRankingByIdResponses, GetSomuaRankingByNameData, GetSomuaRankingByNameResponses, GetSomuaRankingListData, GetSomuaRankingListResponses, GetSomuaShopByIdData, GetSomuaShopByIdResponses, GetSomuaShopByNameData, GetSomuaShopByNameResponses, GetSomuaShopListData, GetSomuaShopListResponses, GetSomuaStatusEffectByIdData, GetSomuaStatusEffectByIdResponses, GetSomuaStatusEffectByNameData, GetSomuaStatusEffectByNameResponses, GetSomuaStatusEffectListData, GetSomuaStatusEffectListResponses, GetSomuaTaskByIdData, GetSomuaTaskByIdResponses, GetSomuaTaskListData, GetSomuaTaskListResponses, GetSomuaTutorialByIdData, GetSomuaTutorialByIdResponses, GetSomuaTutorialListData, GetSomuaTutorialListResponses, GetSomuaWeaponByIdData, GetSomuaWeaponByIdResponses, GetSomuaWeaponListData, GetSomuaWeaponListResponses, GetSoulmarkByIdData, GetSoulmarkByIdResponses, GetSoulmarkByNameData, GetSoulmarkByNameResponses, GetSoulmarkListData, GetSoulmarkListResponses, GetSoulmarkTagByIdData, GetSoulmarkTagByIdResponses, GetSoulmarkTagByNameData, GetSoulmarkTagByNameResponses, GetSoulmarkTagListData, GetSoulmarkTagListResponses, GetSuitByIdData, GetSuitByIdResponses, GetSuitByNameData, GetSuitByNameResponses, GetSuitListData, GetSuitListResponses, GetTitleByIdData, GetTitleByIdResponses, GetTitleByNameData, GetTitleByNameResponses, GetTitleListData, GetTitleListResponses, GetUniversalMintmarkByIdData, GetUniversalMintmarkByIdResponses, GetUniversalMintmarkByNameData, GetUniversalMintmarkByNameResponses, GetUniversalMintmarkListData, GetUniversalMintmarkListResponses, GetUnresolvedPetReferenceByIdData, GetUnresolvedPetReferenceByIdResponses, GetUnresolvedPetReferenceListData, GetUnresolvedPetReferenceListResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -1222,7 +1222,7 @@ export const getErrorCodeList = <ThrowOnError extends boolean = false>(options?:
 /**
  * 获取因子关卡资源
  *
- * 因子关卡资源，包含通关奖励、可兑换刻印、关联成就和各难度的挑战信息。difficulties 按简单、普通、困难排列，每个难度内嵌有序的 BOSS 列表、禁用精灵和规则。规则 ID 仅在当前关卡内有效。time_value、progress_value、fail_times 分别为挑战次数消耗、当前轮进度和本轮战败次数的玩家状态查询 ID，具体查询结果的解释见对应字段说明。
+ * 因子关卡资源，包含通关奖励、可兑换刻印、关联成就和各难度的挑战信息。difficulties 按简单、普通、困难排列，每个难度内嵌有序的 BOSS 列表、禁用精灵和规则。规则 ID 仅在当前关卡内有效。
  */
 export const getFactorDesignById = <ThrowOnError extends boolean = false>(options: Options<GetFactorDesignByIdData, ThrowOnError>) => (options.client ?? client).get<GetFactorDesignByIdResponses, unknown, ThrowOnError>({
     responseType: 'json',
@@ -1233,7 +1233,7 @@ export const getFactorDesignById = <ThrowOnError extends boolean = false>(option
 /**
  * 获取因子关卡资源列表
  *
- * 因子关卡资源，包含通关奖励、可兑换刻印、关联成就和各难度的挑战信息。difficulties 按简单、普通、困难排列，每个难度内嵌有序的 BOSS 列表、禁用精灵和规则。规则 ID 仅在当前关卡内有效。time_value、progress_value、fail_times 分别为挑战次数消耗、当前轮进度和本轮战败次数的玩家状态查询 ID，具体查询结果的解释见对应字段说明。
+ * 因子关卡资源，包含通关奖励、可兑换刻印、关联成就和各难度的挑战信息。difficulties 按简单、普通、困难排列，每个难度内嵌有序的 BOSS 列表、禁用精灵和规则。规则 ID 仅在当前关卡内有效。
  */
 export const getFactorDesignList = <ThrowOnError extends boolean = false>(options?: Options<GetFactorDesignListData, ThrowOnError>) => (options?.client ?? client).get<GetFactorDesignListResponses, unknown, ThrowOnError>({
     responseType: 'json',
@@ -2651,5 +2651,797 @@ export const getSkillEffectTypeTagByName = <ThrowOnError extends boolean = false
 export const getSkillEffectTypeTagList = <ThrowOnError extends boolean = false>(options?: Options<GetSkillEffectTypeTagListData, ThrowOnError>) => (options?.client ?? client).get<GetSkillEffectTypeTagListResponses, unknown, ThrowOnError>({
     responseType: 'json',
     url: 'v1/skill_effect_type_tag/',
+    ...options
+});
+
+/**
+ * 获取somua_achievement资源
+ *
+ * Official SomuaAchievementConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaAchievementById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaAchievementByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaAchievementByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_achievement/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_achievement资源
+ *
+ * Official SomuaAchievementConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaAchievementByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaAchievementByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaAchievementByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_achievement/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_achievement资源列表
+ *
+ * Official SomuaAchievementConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaAchievementList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaAchievementListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaAchievementListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_achievement/',
+    ...options
+});
+
+/**
+ * 获取somua_basic_attribute资源
+ *
+ * Official SomuaBasicAttritube.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaBasicAttributeById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaBasicAttributeByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaBasicAttributeByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_basic_attribute/{id}',
+    ...options
+});
+
+/**
+ * 获取somua_basic_attribute资源列表
+ *
+ * Official SomuaBasicAttritube.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaBasicAttributeList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaBasicAttributeListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaBasicAttributeListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_basic_attribute/',
+    ...options
+});
+
+/**
+ * 获取somua_dispatch资源
+ *
+ * Official SomuaDispatchConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaDispatchById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaDispatchByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaDispatchByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_dispatch/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_dispatch资源
+ *
+ * Official SomuaDispatchConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaDispatchByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaDispatchByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaDispatchByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_dispatch/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_dispatch资源列表
+ *
+ * Official SomuaDispatchConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaDispatchList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaDispatchListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaDispatchListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_dispatch/',
+    ...options
+});
+
+/**
+ * 获取somua_entry资源
+ *
+ * Official SomuaEntryConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaEntryById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaEntryByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaEntryByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_entry/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_entry资源
+ *
+ * Official SomuaEntryConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaEntryByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaEntryByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaEntryByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_entry/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_entry资源列表
+ *
+ * Official SomuaEntryConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaEntryList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaEntryListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaEntryListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_entry/',
+    ...options
+});
+
+/**
+ * 获取somua_gene资源
+ *
+ * Official SomuaGeneConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaGeneById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaGeneByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaGeneByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_gene/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_gene资源
+ *
+ * Official SomuaGeneConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaGeneByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaGeneByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaGeneByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_gene/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_gene资源列表
+ *
+ * Official SomuaGeneConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaGeneList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaGeneListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaGeneListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_gene/',
+    ...options
+});
+
+/**
+ * 获取somua_house资源
+ *
+ * Official SomuaHouseConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaHouseById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaHouseByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaHouseByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_house/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_house资源
+ *
+ * Official SomuaHouseConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaHouseByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaHouseByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaHouseByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_house/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_house资源列表
+ *
+ * Official SomuaHouseConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaHouseList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaHouseListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaHouseListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_house/',
+    ...options
+});
+
+/**
+ * 获取somua_keeper资源
+ *
+ * Official SomuaKeeperConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaKeeperById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaKeeperByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaKeeperByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_keeper/{id}',
+    ...options
+});
+
+/**
+ * 获取somua_keeper资源列表
+ *
+ * Official SomuaKeeperConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaKeeperList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaKeeperListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaKeeperListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_keeper/',
+    ...options
+});
+
+/**
+ * 获取somua_model资源
+ *
+ * Official SomuaModelConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaModelById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaModelByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaModelByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_model/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_model资源
+ *
+ * Official SomuaModelConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaModelByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaModelByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaModelByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_model/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_model资源列表
+ *
+ * Official SomuaModelConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaModelList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaModelListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaModelListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_model/',
+    ...options
+});
+
+/**
+ * 获取somua_ranking资源
+ *
+ * Official SomuaRankingConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaRankingById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaRankingByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaRankingByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_ranking/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_ranking资源
+ *
+ * Official SomuaRankingConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaRankingByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaRankingByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaRankingByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_ranking/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_ranking资源列表
+ *
+ * Official SomuaRankingConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaRankingList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaRankingListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaRankingListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_ranking/',
+    ...options
+});
+
+/**
+ * 获取somua_shop资源
+ *
+ * Official SomuaShopConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaShopById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaShopByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaShopByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_shop/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_shop资源
+ *
+ * Official SomuaShopConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaShopByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaShopByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaShopByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_shop/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_shop资源列表
+ *
+ * Official SomuaShopConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaShopList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaShopListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaShopListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_shop/',
+    ...options
+});
+
+/**
+ * 获取somua_status_effect资源
+ *
+ * Official SomuaStatusEffectConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaStatusEffectById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaStatusEffectByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaStatusEffectByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_status_effect/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取somua_status_effect资源
+ *
+ * Official SomuaStatusEffectConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaStatusEffectByName = <ThrowOnError extends boolean = false>(options: Options<GetSomuaStatusEffectByNameData, ThrowOnError>) => (options.client ?? client).get<GetSomuaStatusEffectByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_status_effect/{name}',
+    ...options
+});
+
+/**
+ * 获取somua_status_effect资源列表
+ *
+ * Official SomuaStatusEffectConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaStatusEffectList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaStatusEffectListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaStatusEffectListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_status_effect/',
+    ...options
+});
+
+/**
+ * 获取somua_task资源
+ *
+ * Official SomuaTaskConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaTaskById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaTaskByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaTaskByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_task/{id}',
+    ...options
+});
+
+/**
+ * 获取somua_task资源列表
+ *
+ * Official SomuaTaskConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaTaskList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaTaskListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaTaskListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_task/',
+    ...options
+});
+
+/**
+ * 获取somua_tutorial资源
+ *
+ * Official SomuaToturialConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaTutorialById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaTutorialByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaTutorialByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_tutorial/{id}',
+    ...options
+});
+
+/**
+ * 获取somua_tutorial资源列表
+ *
+ * Official SomuaToturialConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaTutorialList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaTutorialListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaTutorialListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_tutorial/',
+    ...options
+});
+
+/**
+ * 获取somua_weapon资源
+ *
+ * Official SomuaWeaponConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaWeaponById = <ThrowOnError extends boolean = false>(options: Options<GetSomuaWeaponByIdData, ThrowOnError>) => (options.client ?? client).get<GetSomuaWeaponByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_weapon/{id}',
+    ...options
+});
+
+/**
+ * 获取somua_weapon资源列表
+ *
+ * Official SomuaWeaponConfig.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getSomuaWeaponList = <ThrowOnError extends boolean = false>(options?: Options<GetSomuaWeaponListData, ThrowOnError>) => (options?.client ?? client).get<GetSomuaWeaponListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/somua_weapon/',
+    ...options
+});
+
+/**
+ * 获取dango资源
+ *
+ * Official dango.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoById = <ThrowOnError extends boolean = false>(options: Options<GetDangoByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取dango资源
+ *
+ * Official dango.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoByName = <ThrowOnError extends boolean = false>(options: Options<GetDangoByNameData, ThrowOnError>) => (options.client ?? client).get<GetDangoByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango/{name}',
+    ...options
+});
+
+/**
+ * 获取dango资源列表
+ *
+ * Official dango.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango/',
+    ...options
+});
+
+/**
+ * 获取dango_action资源
+ *
+ * Official dangoAction.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoActionById = <ThrowOnError extends boolean = false>(options: Options<GetDangoActionByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoActionByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_action/{id}',
+    ...options
+});
+
+/**
+ * 获取dango_action资源列表
+ *
+ * Official dangoAction.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoActionList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoActionListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoActionListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_action/',
+    ...options
+});
+
+/**
+ * 获取dango_gene资源
+ *
+ * Official dangoGene.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoGeneById = <ThrowOnError extends boolean = false>(options: Options<GetDangoGeneByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoGeneByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_gene/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取dango_gene资源
+ *
+ * Official dangoGene.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoGeneByName = <ThrowOnError extends boolean = false>(options: Options<GetDangoGeneByNameData, ThrowOnError>) => (options.client ?? client).get<GetDangoGeneByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_gene/{name}',
+    ...options
+});
+
+/**
+ * 获取dango_gene资源列表
+ *
+ * Official dangoGene.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoGeneList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoGeneListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoGeneListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_gene/',
+    ...options
+});
+
+/**
+ * 获取dango_gold资源
+ *
+ * Official dangoGold.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoGoldById = <ThrowOnError extends boolean = false>(options: Options<GetDangoGoldByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoGoldByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_gold/{id}',
+    ...options
+});
+
+/**
+ * 获取dango_gold资源列表
+ *
+ * Official dangoGold.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoGoldList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoGoldListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoGoldListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_gold/',
+    ...options
+});
+
+/**
+ * 获取dango_guide资源
+ *
+ * Official dangoGuide.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoGuideById = <ThrowOnError extends boolean = false>(options: Options<GetDangoGuideByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoGuideByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_guide/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取dango_guide资源
+ *
+ * Official dangoGuide.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoGuideByName = <ThrowOnError extends boolean = false>(options: Options<GetDangoGuideByNameData, ThrowOnError>) => (options.client ?? client).get<GetDangoGuideByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_guide/{name}',
+    ...options
+});
+
+/**
+ * 获取dango_guide资源列表
+ *
+ * Official dangoGuide.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoGuideList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoGuideListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoGuideListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_guide/',
+    ...options
+});
+
+/**
+ * 获取dango_house资源
+ *
+ * Official dangoHouse.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoHouseById = <ThrowOnError extends boolean = false>(options: Options<GetDangoHouseByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoHouseByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_house/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取dango_house资源
+ *
+ * Official dangoHouse.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoHouseByName = <ThrowOnError extends boolean = false>(options: Options<GetDangoHouseByNameData, ThrowOnError>) => (options.client ?? client).get<GetDangoHouseByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_house/{name}',
+    ...options
+});
+
+/**
+ * 获取dango_house资源列表
+ *
+ * Official dangoHouse.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoHouseList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoHouseListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoHouseListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_house/',
+    ...options
+});
+
+/**
+ * 获取dango_level资源
+ *
+ * Official dangoLv.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoLevelById = <ThrowOnError extends boolean = false>(options: Options<GetDangoLevelByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoLevelByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_level/{id}',
+    ...options
+});
+
+/**
+ * 获取dango_level资源列表
+ *
+ * Official dangoLv.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoLevelList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoLevelListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoLevelListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_level/',
+    ...options
+});
+
+/**
+ * 获取dango_shop资源
+ *
+ * Official dangoShop.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoShopById = <ThrowOnError extends boolean = false>(options: Options<GetDangoShopByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoShopByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_shop/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取dango_shop资源
+ *
+ * Official dangoShop.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoShopByName = <ThrowOnError extends boolean = false>(options: Options<GetDangoShopByNameData, ThrowOnError>) => (options.client ?? client).get<GetDangoShopByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_shop/{name}',
+    ...options
+});
+
+/**
+ * 获取dango_shop资源列表
+ *
+ * Official dangoShop.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoShopList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoShopListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoShopListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_shop/',
+    ...options
+});
+
+/**
+ * 获取dango_slot资源
+ *
+ * Official dangoSlot.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoSlotById = <ThrowOnError extends boolean = false>(options: Options<GetDangoSlotByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoSlotByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_slot/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取dango_slot资源
+ *
+ * Official dangoSlot.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoSlotByName = <ThrowOnError extends boolean = false>(options: Options<GetDangoSlotByNameData, ThrowOnError>) => (options.client ?? client).get<GetDangoSlotByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_slot/{name}',
+    ...options
+});
+
+/**
+ * 获取dango_slot资源列表
+ *
+ * Official dangoSlot.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoSlotList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoSlotListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoSlotListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_slot/',
+    ...options
+});
+
+/**
+ * 获取dango_story资源
+ *
+ * Official dangoStory.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoStoryById = <ThrowOnError extends boolean = false>(options: Options<GetDangoStoryByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoStoryByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_story/{id}',
+    ...options
+});
+
+/**
+ * 获取dango_story资源列表
+ *
+ * Official dangoStory.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoStoryList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoStoryListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoStoryListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_story/',
+    ...options
+});
+
+/**
+ * 获取dango_task资源
+ *
+ * Official dangoTask.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoTaskById = <ThrowOnError extends boolean = false>(options: Options<GetDangoTaskByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoTaskByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_task/{id}',
+    ...options
+});
+
+/**
+ * 通过名称获取dango_task资源
+ *
+ * Official dangoTask.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoTaskByName = <ThrowOnError extends boolean = false>(options: Options<GetDangoTaskByNameData, ThrowOnError>) => (options.client ?? client).get<GetDangoTaskByNameResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_task/{name}',
+    ...options
+});
+
+/**
+ * 获取dango_task资源列表
+ *
+ * Official dangoTask.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoTaskList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoTaskListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoTaskListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_task/',
+    ...options
+});
+
+/**
+ * 获取dango_chess资源
+ *
+ * Official dangochess.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoChessById = <ThrowOnError extends boolean = false>(options: Options<GetDangoChessByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoChessByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_chess/{id}',
+    ...options
+});
+
+/**
+ * 获取dango_chess资源列表
+ *
+ * Official dangochess.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoChessList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoChessListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoChessListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_chess/',
+    ...options
+});
+
+/**
+ * 获取dango_chess_stage资源
+ *
+ * Official dangochessstage.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoChessStageById = <ThrowOnError extends boolean = false>(options: Options<GetDangoChessStageByIdData, ThrowOnError>) => (options.client ?? client).get<GetDangoChessStageByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_chess_stage/{id}',
+    ...options
+});
+
+/**
+ * 获取dango_chess_stage资源列表
+ *
+ * Official dangochessstage.json configuration. All fields are losslessly preserved; raw numeric values have no inferred units or scaling.
+ */
+export const getDangoChessStageList = <ThrowOnError extends boolean = false>(options?: Options<GetDangoChessStageListData, ThrowOnError>) => (options?.client ?? client).get<GetDangoChessStageListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/dango_chess_stage/',
+    ...options
+});
+
+/**
+ * 获取官方悬空精灵引用原始记录资源
+ *
+ * 完整保留官方魂印或词条中指向缺失精灵的原始条目与目标ID。target_pet_id是原始字段，不表示有效精灵外键；正常pet关系仅包含已存在的精灵。source_sha256校验source_json，官方补齐目标后会恢复正常关系并移除此保留记录。
+ */
+export const getUnresolvedPetReferenceById = <ThrowOnError extends boolean = false>(options: Options<GetUnresolvedPetReferenceByIdData, ThrowOnError>) => (options.client ?? client).get<GetUnresolvedPetReferenceByIdResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/unresolved_pet_reference/{id}',
+    ...options
+});
+
+/**
+ * 获取官方悬空精灵引用原始记录资源列表
+ *
+ * 完整保留官方魂印或词条中指向缺失精灵的原始条目与目标ID。target_pet_id是原始字段，不表示有效精灵外键；正常pet关系仅包含已存在的精灵。source_sha256校验source_json，官方补齐目标后会恢复正常关系并移除此保留记录。
+ */
+export const getUnresolvedPetReferenceList = <ThrowOnError extends boolean = false>(options?: Options<GetUnresolvedPetReferenceListData, ThrowOnError>) => (options?.client ?? client).get<GetUnresolvedPetReferenceListResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: 'v1/unresolved_pet_reference/',
     ...options
 });

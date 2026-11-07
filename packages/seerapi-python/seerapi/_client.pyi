@@ -118,6 +118,56 @@ class SeerAPI:
     @overload
     async def get(self, resource_name: Literal['buff_type'], id: int) -> M.BuffType: ...
     @overload
+    async def get(self, resource_name: Literal['dango'], id: int) -> M.Dango: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_action'], id: int
+    ) -> M.DangoAction: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_chess'], id: int
+    ) -> M.DangoChess: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_chess_stage'], id: int
+    ) -> M.DangoChessStage: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_gene'], id: int
+    ) -> M.DangoGene: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_gold'], id: int
+    ) -> M.DangoGold: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_guide'], id: int
+    ) -> M.DangoGuide: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_house'], id: int
+    ) -> M.DangoHouse: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_level'], id: int
+    ) -> M.DangoLevel: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_shop'], id: int
+    ) -> M.DangoShop: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_slot'], id: int
+    ) -> M.DangoSlot: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_story'], id: int
+    ) -> M.DangoStory: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['dango_task'], id: int
+    ) -> M.DangoTask: ...
+    @overload
     async def get(
         self, resource_name: Literal['eid_effect'], id: int
     ) -> M.EidEffect: ...
@@ -336,6 +386,62 @@ class SeerAPI:
         self, resource_name: Literal['skill_stone_category'], id: int
     ) -> M.SkillStoneCategory: ...
     @overload
+    async def get(
+        self, resource_name: Literal['somua_achievement'], id: int
+    ) -> M.SomuaAchievement: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_basic_attribute'], id: int
+    ) -> M.SomuaBasicAttribute: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_dispatch'], id: int
+    ) -> M.SomuaDispatch: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_entry'], id: int
+    ) -> M.SomuaEntry: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_gene'], id: int
+    ) -> M.SomuaGene: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_house'], id: int
+    ) -> M.SomuaHouse: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_keeper'], id: int
+    ) -> M.SomuaKeeper: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_model'], id: int
+    ) -> M.SomuaModel: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_ranking'], id: int
+    ) -> M.SomuaRanking: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_shop'], id: int
+    ) -> M.SomuaShop: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_status_effect'], id: int
+    ) -> M.SomuaStatusEffect: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_task'], id: int
+    ) -> M.SomuaTask: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_tutorial'], id: int
+    ) -> M.SomuaTutorial: ...
+    @overload
+    async def get(
+        self, resource_name: Literal['somua_weapon'], id: int
+    ) -> M.SomuaWeapon: ...
+    @overload
     async def get(self, resource_name: Literal['soulmark'], id: int) -> M.Soulmark: ...
     @overload
     async def get(
@@ -521,6 +627,110 @@ class SeerAPI:
         *,
         name: None = None,
     ) -> PagedResponse[M.BuffType]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.Dango]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_action'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.DangoAction]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_chess'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.DangoChess]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_chess_stage'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.DangoChessStage]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_gene'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.DangoGene]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_gold'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.DangoGold]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_guide'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.DangoGuide]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_house'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.DangoHouse]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_level'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.DangoLevel]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_shop'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.DangoShop]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_slot'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.DangoSlot]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_story'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.DangoStory]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['dango_task'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.DangoTask]: ...
     @overload
     async def paginated_list(
         self,
@@ -1020,6 +1230,118 @@ class SeerAPI:
     @overload
     async def paginated_list(
         self,
+        resource_name: Literal['somua_achievement'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaAchievement]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_basic_attribute'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.SomuaBasicAttribute]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_dispatch'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaDispatch]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_entry'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaEntry]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_gene'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaGene]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_house'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaHouse]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_keeper'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.SomuaKeeper]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_model'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaModel]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_ranking'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaRanking]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_shop'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaShop]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_status_effect'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaStatusEffect]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_task'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.SomuaTask]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_tutorial'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.SomuaTutorial]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_weapon'],
+        page_info: PageInfo,
+        *,
+        name: None = None,
+    ) -> PagedResponse[M.SomuaWeapon]: ...
+    @overload
+    async def paginated_list(
+        self,
         resource_name: Literal['soulmark'],
         page_info: PageInfo,
         *,
@@ -1261,6 +1583,110 @@ class SeerAPI:
         expand: bool = True,
         name: None = None,
     ) -> AsyncIterator[M.BuffType]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.Dango]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_action'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.DangoAction]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_chess'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.DangoChess]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_chess_stage'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.DangoChessStage]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_gene'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.DangoGene]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_gold'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.DangoGold]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_guide'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.DangoGuide]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_house'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.DangoHouse]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_level'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.DangoLevel]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_shop'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.DangoShop]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_slot'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.DangoSlot]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_story'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.DangoStory]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['dango_task'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.DangoTask]: ...
     @overload
     def list(
         self,
@@ -1760,6 +2186,118 @@ class SeerAPI:
     @overload
     def list(
         self,
+        resource_name: Literal['somua_achievement'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaAchievement]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_basic_attribute'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.SomuaBasicAttribute]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_dispatch'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaDispatch]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_entry'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaEntry]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_gene'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaGene]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_house'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaHouse]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_keeper'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.SomuaKeeper]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_model'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaModel]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_ranking'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaRanking]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_shop'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaShop]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_status_effect'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaStatusEffect]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_task'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.SomuaTask]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_tutorial'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.SomuaTutorial]: ...
+    @overload
+    def list(
+        self,
+        resource_name: Literal['somua_weapon'],
+        *,
+        expand: bool = True,
+        name: None = None,
+    ) -> AsyncIterator[M.SomuaWeapon]: ...
+    @overload
+    def list(
+        self,
         resource_name: Literal['soulmark'],
         *,
         expand: bool = True,
@@ -1960,6 +2498,34 @@ class SeerAPI:
         *,
         expand: bool = True,
     ) -> AsyncIterator[M.BattleEffectCategory]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['dango'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.Dango]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['dango_gene'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.DangoGene]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['dango_guide'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.DangoGuide]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['dango_house'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.DangoHouse]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['dango_shop'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.DangoShop]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['dango_slot'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.DangoSlot]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['dango_task'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.DangoTask]: ...
     @overload
     def search_by_name(
         self, resource_name: Literal['element_type'], name: str, *, expand: bool = True
@@ -2226,6 +2792,54 @@ class SeerAPI:
     ) -> AsyncIterator[M.SkillStoneCategory]: ...
     @overload
     def search_by_name(
+        self,
+        resource_name: Literal['somua_achievement'],
+        name: str,
+        *,
+        expand: bool = True,
+    ) -> AsyncIterator[M.SomuaAchievement]: ...
+    @overload
+    def search_by_name(
+        self,
+        resource_name: Literal['somua_dispatch'],
+        name: str,
+        *,
+        expand: bool = True,
+    ) -> AsyncIterator[M.SomuaDispatch]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['somua_entry'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.SomuaEntry]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['somua_gene'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.SomuaGene]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['somua_house'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.SomuaHouse]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['somua_model'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.SomuaModel]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['somua_ranking'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.SomuaRanking]: ...
+    @overload
+    def search_by_name(
+        self, resource_name: Literal['somua_shop'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.SomuaShop]: ...
+    @overload
+    def search_by_name(
+        self,
+        resource_name: Literal['somua_status_effect'],
+        name: str,
+        *,
+        expand: bool = True,
+    ) -> AsyncIterator[M.SomuaStatusEffect]: ...
+    @overload
+    def search_by_name(
         self, resource_name: Literal['soulmark'], name: str, *, expand: bool = True
     ) -> AsyncIterator[M.Soulmark]: ...
     @overload
@@ -2332,6 +2946,34 @@ class SeerAPI:
     async def get_by_name(
         self, resource_name: Literal['battle_effect_type'], name: str
     ) -> NamedData[M.BattleEffectCategory]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['dango'], name: str
+    ) -> NamedData[M.Dango]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['dango_gene'], name: str
+    ) -> NamedData[M.DangoGene]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['dango_guide'], name: str
+    ) -> NamedData[M.DangoGuide]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['dango_house'], name: str
+    ) -> NamedData[M.DangoHouse]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['dango_shop'], name: str
+    ) -> NamedData[M.DangoShop]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['dango_slot'], name: str
+    ) -> NamedData[M.DangoSlot]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['dango_task'], name: str
+    ) -> NamedData[M.DangoTask]: ...
     @overload
     async def get_by_name(
         self, resource_name: Literal['element_type'], name: str
@@ -2516,6 +3158,42 @@ class SeerAPI:
     async def get_by_name(
         self, resource_name: Literal['skill_stone_category'], name: str
     ) -> NamedData[M.SkillStoneCategory]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_achievement'], name: str
+    ) -> NamedData[M.SomuaAchievement]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_dispatch'], name: str
+    ) -> NamedData[M.SomuaDispatch]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_entry'], name: str
+    ) -> NamedData[M.SomuaEntry]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_gene'], name: str
+    ) -> NamedData[M.SomuaGene]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_house'], name: str
+    ) -> NamedData[M.SomuaHouse]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_model'], name: str
+    ) -> NamedData[M.SomuaModel]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_ranking'], name: str
+    ) -> NamedData[M.SomuaRanking]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_shop'], name: str
+    ) -> NamedData[M.SomuaShop]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_status_effect'], name: str
+    ) -> NamedData[M.SomuaStatusEffect]: ...
     @overload
     async def get_by_name(
         self, resource_name: Literal['soulmark'], name: str

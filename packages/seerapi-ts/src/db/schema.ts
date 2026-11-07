@@ -45,6 +45,147 @@ export const buffType = sqliteTable("buff_type", {
 	id: integer().primaryKey(),
 });
 
+export const dango = sqliteTable("dango", {
+	id: integer().primaryKey(),
+	describe: text().notNull(),
+	gene: text().notNull(),
+	grade: integer().notNull(),
+	name: text().notNull(),
+	petId: integer("pet_id").notNull(),
+	skin: text().notNull(),
+	value: integer().notNull(),
+});
+
+export const dangoAction = sqliteTable("dango_action", {
+	id: integer().primaryKey(),
+	action: text().notNull(),
+	actionTeam: integer("action_team").notNull(),
+	dangoId: customType({ dataType: () => 'JSON' })("dango_id"),
+	describ: text().notNull(),
+	limitDango: integer("limit_dango").notNull(),
+	limitType: integer("limit_type").notNull(),
+	value: integer().notNull(),
+});
+
+export const dangoGene = sqliteTable("dango_gene", {
+	id: integer().primaryKey(),
+	geneId: integer("gene_id").notNull(),
+	name: text().notNull(),
+	skinbaby: text().notNull(),
+	skinteen: text().notNull(),
+	value: integer().notNull(),
+});
+
+export const dangoGold = sqliteTable("dango_gold", {
+	id: integer().primaryKey(),
+	dangoGold: integer("dango_gold").notNull(),
+	dangoNumMax: integer("dango_num_max").notNull(),
+	dangoNumMix: integer("dango_num_mix").notNull(),
+});
+
+export const dangoGuide = sqliteTable("dango_guide", {
+	id: integer().primaryKey(),
+	dangoMovie: text("dango_movie").notNull(),
+	describe: text().notNull(),
+	reward: text().notNull(),
+	titile: text().notNull(),
+	type: integer().notNull(),
+});
+
+export const dangoHouse = sqliteTable("dango_house", {
+	id: integer().primaryKey(),
+	limitCost: integer("limit_cost").notNull(),
+	name: text().notNull(),
+	roomId: integer("room_id").notNull(),
+});
+
+export const dangoLevel = sqliteTable("dango_level", {
+	id: integer().primaryKey(),
+	benefit1: integer().notNull(),
+	benefit2: integer().notNull(),
+	benefit3: integer().notNull(),
+	dangoTask: customType({ dataType: () => 'JSON' })("dango_task"),
+	describe1: text().notNull(),
+	describe2: text().notNull(),
+	describe3: text().notNull(),
+	minorNum: integer("minor_num").notNull(),
+	reward: integer().notNull(),
+	taskNum: integer("task_num").notNull(),
+});
+
+export const dangoShop = sqliteTable("dango_shop", {
+	id: integer().primaryKey(),
+	newMsglogId: integer("new_msglog_id").notNull(),
+	price: integer().notNull(),
+	describe1: text().notNull(),
+	describe2: text().notNull(),
+	forever: integer().notNull(),
+	limit: integer().notNull(),
+	quantity: integer().notNull(),
+	rewardinfo: text().notNull(),
+	shopType1: integer("shop_type1").notNull(),
+	shopType2: integer("shop_type2").notNull(),
+	title: text().notNull(),
+	userinfo: integer().notNull(),
+	value: integer().notNull(),
+});
+
+export const dangoSlot = sqliteTable("dango_slot", {
+	id: integer().primaryKey(),
+	name: text().notNull(),
+	petId: integer("pet_id").notNull(),
+	value: integer().notNull(),
+});
+
+export const dangoStory = sqliteTable("dango_story", {
+	id: integer().primaryKey(),
+	dangoId: integer("dango_id").notNull(),
+	dangoTask: integer("dango_task").notNull(),
+	describe: text().notNull(),
+});
+
+export const dangoTask = sqliteTable("dango_task", {
+	id: integer().primaryKey(),
+	newMsglogId: integer("new_msglog_id").notNull(),
+	describe: text().notNull(),
+	limit: integer().notNull(),
+	planet: text().notNull(),
+	rewardinfo: integer().notNull(),
+	taskSkin: text("task_skin").notNull(),
+	taskTeam: integer("task_team").notNull(),
+	tasktype: integer().notNull(),
+	time: integer().notNull(),
+	title: text().notNull(),
+	value: integer().notNull(),
+});
+
+export const dangoChess = sqliteTable("dango_chess", {
+	id: integer().primaryKey(),
+	guideCard: text("guide_card").notNull(),
+	cardid: text().notNull(),
+	chapterid: integer().notNull(),
+	dangoId: integer("dango_id").notNull(),
+	firstreward: text().notNull(),
+	stageid: integer().notNull(),
+	starttime: text().notNull(),
+});
+
+export const dangoChessStage = sqliteTable("dango_chess_stage", {
+	id: integer().primaryKey(),
+	chapterid: integer().notNull(),
+	hangid: integer().notNull(),
+	lieid1: integer().notNull(),
+	lieid2: integer().notNull(),
+	lieid3: integer().notNull(),
+	lieid4: integer().notNull(),
+	lieid5: integer().notNull(),
+	lieid6: integer().notNull(),
+	lieid7: integer().notNull(),
+	lieid8: integer().notNull(),
+	lieid9: integer().notNull(),
+	stageid: integer().notNull(),
+});
+
 export const avatarHead = sqliteTable("avatar_head", {
 	id: integer().notNull(),
 	name: text().notNull(),
@@ -428,6 +569,18 @@ export const peakPoolVote = sqliteTable("peak_pool_vote", {
 	subkey: integer().notNull(),
 });
 
+export const renderAssetManifest = sqliteTable("render_asset_manifest", {
+	assetKind: text("asset_kind").notNull(),
+	assetKey: text("asset_key").notNull(),
+	sha256: text().notNull(),
+	releaseRevision: text("release_revision").notNull(),
+	available: numeric().notNull(),
+	source: text().notNull(),
+	updatedAt: real("updated_at").notNull(),
+},
+(table) => [primaryKey({ columns: [table.assetKind, table.assetKey], name: "render_asset_manifest_pk"}),
+]);
+
 export const sign = sqliteTable("sign", {
 	id: integer().primaryKey(),
 	name: text().notNull(),
@@ -435,6 +588,190 @@ export const sign = sqliteTable("sign", {
 	sort: integer().notNull(),
 	isShowNum: numeric("is_show_num").notNull(),
 	numDes: text("num_des"),
+});
+
+export const somuaAchievement = sqliteTable("somua_achievement", {
+	id: integer().primaryKey(),
+	condition: integer().notNull(),
+	desc: text().notNull(),
+	icon: integer().notNull(),
+	name: text().notNull(),
+	type: integer().notNull(),
+});
+
+export const somuaBasicAttribute = sqliteTable("somua_basic_attribute", {
+	id: integer().primaryKey(),
+	attackRatio: integer("attack_ratio").notNull(),
+	attackValue: integer("attack_value").notNull(),
+	criticalChance: integer("critical_chance").notNull(),
+	criticalDamageRatio: integer("critical_damage_ratio").notNull(),
+	defenseRatio: integer("defense_ratio").notNull(),
+	healthValue: integer("health_value").notNull(),
+	knockRatio: integer("knock_ratio").notNull(),
+	speedValue: integer("speed_value").notNull(),
+});
+
+export const somuaDispatch = sqliteTable("somua_dispatch", {
+	id: integer().primaryKey(),
+	award: text().notNull(),
+	bonus1: text().notNull(),
+	bonus2: text().notNull(),
+	bonus3: text().notNull(),
+	name: text().notNull(),
+	tasktype: integer().notNull(),
+	value: integer().notNull(),
+});
+
+export const somuaEntry = sqliteTable("somua_entry", {
+	id: integer().primaryKey(),
+	desc: text().notNull(),
+	name: text().notNull(),
+	rarity: integer().notNull(),
+	type: integer().notNull(),
+	value1: integer().notNull(),
+	value2: integer().notNull(),
+	value3: integer().notNull(),
+	value4: integer().notNull(),
+	value5: integer().notNull(),
+	value6: integer().notNull(),
+});
+
+export const somuaGene = sqliteTable("somua_gene", {
+	id: integer().primaryKey(),
+	foodid: integer().notNull(),
+	gene: text().notNull(),
+	rarity: integer().notNull(),
+	shopId: integer("shop_id").notNull(),
+	skinbaby: text().notNull(),
+	skinteen: text().notNull(),
+	sort: integer().notNull(),
+});
+
+export const somuaHouse = sqliteTable("somua_house", {
+	id: integer().primaryKey(),
+	limitCost: integer("limit_cost").notNull(),
+	name: text().notNull(),
+	roomId: integer("room_id").notNull(),
+});
+
+export const somuaKeeper = sqliteTable("somua_keeper", {
+	id: integer().primaryKey(),
+	benefit1: integer().notNull(),
+	benefit2: integer().notNull(),
+	benefit3: integer().notNull(),
+	benefit4: integer().notNull(),
+	benefit5: integer().notNull(),
+	benefit6: integer().notNull(),
+	benefit7: integer().notNull(),
+	dangoGold: integer("dango_gold").notNull(),
+	dangoTask: text("dango_task").notNull(),
+	describe1: text().notNull(),
+	describe2: text().notNull(),
+	describe3: text().notNull(),
+	minorNum: integer("minor_num").notNull(),
+	reward: text().notNull(),
+	storeMax: integer("store_max").notNull(),
+	taskNum: integer("task_num").notNull(),
+});
+
+export const somuaModel = sqliteTable("somua_model", {
+	id: integer().primaryKey(),
+	attackMode: integer("attack_mode").notNull(),
+	attackModeSp: integer("attack_mode_sp").notNull(),
+	describe: text().notNull(),
+	isBack: integer("is_back").notNull(),
+	isBody: integer("is_body").notNull(),
+	isEar: integer("is_ear").notNull(),
+	isExpression: integer("is_expression").notNull(),
+	isHand: integer("is_hand").notNull(),
+	isHead: integer("is_head").notNull(),
+	isSurrounding: integer("is_surrounding").notNull(),
+	isTail: integer("is_tail").notNull(),
+	isTopwear: integer("is_topwear").notNull(),
+	name: text().notNull(),
+	petId: integer("pet_id").notNull(),
+	prefix: text().notNull(),
+	season: text().notNull(),
+	suffix: text().notNull(),
+});
+
+export const somuaRanking = sqliteTable("somua_ranking", {
+	id: integer().primaryKey(),
+	icon: integer().notNull(),
+	isFalling: integer("is_falling").notNull(),
+	level: text().notNull(),
+	minscore: text().notNull(),
+	name: text().notNull(),
+	phase: integer().notNull(),
+});
+
+export const somuaShop = sqliteTable("somua_shop", {
+	id: integer().primaryKey(),
+	newMsglogId: integer("new_msglog_id").notNull(),
+	price: integer().notNull(),
+	describe1: text().notNull(),
+	describe2: text().notNull(),
+	forever: integer().notNull(),
+	limit: integer().notNull(),
+	limitType: integer("limit_type").notNull(),
+	quantity: integer().notNull(),
+	rewardinfo: text().notNull(),
+	shopType1: integer("shop_type1").notNull(),
+	title: text().notNull(),
+	userinfo: integer().notNull(),
+	value: integer().notNull(),
+});
+
+export const somuaStatusEffect = sqliteTable("somua_status_effect", {
+	id: integer().primaryKey(),
+	fxOnGet: text("fx_on_get").notNull(),
+	fxOnTrig: text("fx_on_trig").notNull(),
+	icon: integer().notNull(),
+	maxStack: integer("max_stack").notNull(),
+	stackRule: text("stack_rule").notNull(),
+	statusDesc: text("status_desc").notNull(),
+	statusName: text("status_name").notNull(),
+	type: integer().notNull(),
+	valueRule: text("value_rule").notNull(),
+});
+
+export const somuaTask = sqliteTable("somua_task", {
+	id: integer().primaryKey(),
+	describe: text().notNull(),
+	group: integer().notNull(),
+	period: integer().notNull(),
+	rewardinfo: text().notNull(),
+	season: integer().notNull(),
+	tasktype: integer().notNull(),
+	value: integer().notNull(),
+});
+
+export const somuaTutorial = sqliteTable("somua_tutorial", {
+	id: integer().primaryKey(),
+	img: text().notNull(),
+	module: text().notNull(),
+	page: integer().notNull(),
+	txt: text().notNull(),
+});
+
+export const somuaWeapon = sqliteTable("somua_weapon", {
+	id: integer().primaryKey(),
+	fxOnHit: text("fx_on_hit").notNull(),
+	prefab: text().notNull(),
+	shape: integer().notNull(),
+	type: integer().notNull(),
+});
+
+export const unresolvedPetReference = sqliteTable("unresolved_pet_reference", {
+	id: integer().primaryKey(),
+	ownerResource: text("owner_resource").notNull(),
+	ownerId: integer("owner_id").notNull(),
+	targetPetId: integer("target_pet_id").notNull(),
+	sourceFile: text("source_file").notNull(),
+	sourceField: text("source_field").notNull(),
+	sourceJson: text("source_json").notNull(),
+	sourceSha256: text("source_sha256").notNull(),
+	reason: text().notNull(),
 });
 
 export const eidEffectInUse = sqliteTable("eid_effect_in_use", {
@@ -597,6 +934,63 @@ export const petArchiveStoryEntry = sqliteTable("pet_archive_story_entry", {
 	petId: integer("pet_id").notNull().references(() => pet.id),
 	bookId: integer("book_id").notNull().references(() => petArchiveStoryBook.id),
 });
+
+export const petSpecialEffect = sqliteTable("pet_special_effect", {
+	petId: integer("pet_id").notNull().references(() => pet.id),
+	effectKey: text("effect_key").notNull(),
+	glossaryId: integer("glossary_id").references(() => glossaryEntry.id),
+	statusId: integer("status_id"),
+	name: text().notNull(),
+	description: text(),
+	sortId: integer("sort_id"),
+	sortKind: text("sort_kind").notNull(),
+	primaryRule: text("primary_rule").notNull(),
+	updatedAt: real("updated_at").notNull(),
+},
+(table) => [primaryKey({ columns: [table.petId, table.effectKey], name: "pet_special_effect_pk"}),
+]);
+
+export const petSpecialEffectSource = sqliteTable("pet_special_effect_source", {
+	petId: integer("pet_id").notNull().references(() => pet.id),
+	effectKey: text("effect_key").notNull(),
+	sourceKind: text("source_kind").notNull(),
+	sourceId: integer("source_id").notNull(),
+	resolutionRule: text("resolution_rule").notNull(),
+	sourceDetail: text("source_detail"),
+	updatedAt: real("updated_at").notNull(),
+},
+(table) => [primaryKey({ columns: [table.petId, table.effectKey, table.sourceKind, table.sourceId, table.resolutionRule], name: "pet_special_effect_source_pk"}),
+]);
+
+export const petSpecialEffectIssue = sqliteTable("pet_special_effect_issue", {
+	petId: integer("pet_id").notNull().references(() => pet.id),
+	effectName: text("effect_name").notNull(),
+	candidateKind: text("candidate_kind").notNull(),
+	candidateId: integer("candidate_id").notNull(),
+	reason: text().notNull(),
+	context: text(),
+	updatedAt: real("updated_at").notNull(),
+},
+(table) => [primaryKey({ columns: [table.petId, table.effectName, table.candidateKind, table.candidateId, table.reason], name: "pet_special_effect_issue_pk"}),
+]);
+
+export const petSoulmarkDisplayAddition = sqliteTable("pet_soulmark_display_addition", {
+	petId: integer("pet_id").notNull().references(() => pet.id),
+	displayId: integer("display_id").notNull(),
+	description: text().notNull(),
+	analyzeDescription: text("analyze_description"),
+	formattingAdjustment: text("formatting_adjustment"),
+	intensified: numeric().notNull(),
+	intensifiedToId: integer("intensified_to_id"),
+	isAdv: numeric("is_adv").notNull(),
+	pveEffective: numeric("pve_effective"),
+	tagsJson: text("tags_json").notNull(),
+	displayOrder: integer("display_order").notNull(),
+	source: text().notNull(),
+	updatedAt: real("updated_at").notNull(),
+},
+(table) => [primaryKey({ columns: [table.petId, table.displayId], name: "pet_soulmark_display_addition_pk"}),
+]);
 
 export const skilleffecttypetaglink = sqliteTable("skilleffecttypetaglink", {
 	effectId: integer("effect_id").notNull().references(() => skillEffectType.id),
@@ -872,9 +1266,21 @@ export const soulmarktaglink = sqliteTable("soulmarktaglink", {
 (table) => [primaryKey({ columns: [table.soulmarkId, table.tagId], name: "soulmarktaglink_pk"}),
 ]);
 
+export const petSoulmarkDisplay = sqliteTable("pet_soulmark_display", {
+	petId: integer("pet_id").notNull().references(() => pet.id),
+	soulmarkId: integer("soulmark_id").notNull().references(() => soulmark.id),
+	rootSoulmarkId: integer("root_soulmark_id").notNull().references(() => soulmark.id),
+	displayOrder: integer("display_order").notNull(),
+	displayKind: text("display_kind").notNull(),
+	updatedAt: real("updated_at").notNull(),
+},
+(table) => [primaryKey({ columns: [table.petId, table.soulmarkId], name: "pet_soulmark_display_pk"}),
+]);
+
 export const skillStone = sqliteTable("skill_stone", {
 	id: integer().primaryKey(),
 	name: text().notNull(),
+	moveName: text("move_name"),
 	rank: integer().notNull(),
 	power: integer().notNull(),
 	maxPp: integer("max_pp").notNull(),
@@ -927,7 +1333,7 @@ export const skill = sqliteTable("skill", {
 export const skillStoneEffect = sqliteTable("skill_stone_effect", {
 	id: integer().primaryKey(),
 	innerId: integer("inner_id").notNull(),
-	prob: real().notNull(),
+	prob: real(),
 	skillStoneId: integer("skill_stone_id").notNull().references(() => skillStone.id),
 });
 

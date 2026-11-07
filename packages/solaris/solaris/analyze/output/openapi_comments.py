@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 import seerapi_models as M
 from seerapi_models.build_model import BaseResModel
+from seerapi_models.somua import SOMUA_RESOURCES
 
 
 class APIComment(BaseModel):
@@ -3576,6 +3577,19 @@ API_COMMENTS: dict[type[BaseResModel], APIComment] = {
         description='活动类型资源，用于表示活动中心侧边栏的活动类型。',
     ),
 }
+
+
+for _filename, _model in SOMUA_RESOURCES.items():
+    API_COMMENTS[_model] = APIComment(
+        name_en=_model.resource_name(),
+        name_cn=_model.resource_name(),
+        examples=[],
+        tags=['Somua' if _model.resource_name().startswith('somua_') else 'dango'],
+        description=(
+            f'Official {_filename} configuration. All fields are losslessly '
+            'preserved; raw numeric values have no inferred units or scaling.'
+        ),
+    )
 
 
 def get_api_comment(model_class: type[BaseResModel]) -> APIComment:

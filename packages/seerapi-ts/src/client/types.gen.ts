@@ -3097,7 +3097,7 @@ export type Soulmark = HashPartial & {
     /**
      * Pet
      *
-     * 可持有该魂印的精灵ID
+     * 可持有该魂印且主表存在的精灵ID；官方悬空引用见 unresolved_pet_reference
      */
     pet: Array<CommonResourceRef>;
     /**
@@ -3806,7 +3806,7 @@ export type GlossaryEntry = HashPartial & {
     /**
      * Pet
      *
-     * 用于指示该术语是否是特定精灵专属的
+     * 该术语关联的有效精灵；官方悬空引用见 unresolved_pet_reference
      */
     pet?: Array<CommonResourceRef> | null;
 };
@@ -4667,6 +4667,12 @@ export type SkillStone = HashPartial & {
      */
     name: string;
     /**
+     * Move Name
+     *
+     * 当前Unity技能配置中的招式名称，例如“电石之力-S”
+     */
+    move_name?: string | null;
+    /**
      * Rank
      *
      * 技能石等级，1到5分别对应D, C, B, A, S
@@ -4711,9 +4717,9 @@ export type SkillStone = HashPartial & {
         /**
          * Prob
          *
-         * 技能石效果激活概率，0到1之间
+         * 技能石效果激活概率，0到1之间；官方旧版配置缺失时为null
          */
-        prob: number;
+        prob?: number | null;
         /**
          * Effect
          *
@@ -7678,6 +7684,2800 @@ export type SkillEffectTypeTagListExpanded = {
     results: Array<SkillEffectTypeTag>;
 };
 
+/**
+ * somua_achievement资源
+ */
+export type SomuaAchievement = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Condition
+     *
+     * Client SomuaAchievementConfig.condition; raw int32
+     */
+    condition: number;
+    /**
+     * Desc
+     *
+     * Client SomuaAchievementConfig.desc; raw string
+     */
+    desc: string;
+    /**
+     * Icon
+     *
+     * Client SomuaAchievementConfig.icon; raw int32
+     */
+    icon: number;
+    /**
+     * Name
+     *
+     * Client SomuaAchievementConfig.name; raw string
+     */
+    name: string;
+    /**
+     * Type
+     *
+     * Client SomuaAchievementConfig.type; raw int32
+     */
+    type: number;
+};
+
+/**
+ * 名称映射somua_achievement资源
+ */
+export type SomuaAchievementNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaAchievement;
+    };
+};
+
+/**
+ * somua_achievement资源列表
+ */
+export type SomuaAchievementList = CommonApiResourceList;
+
+/**
+ * somua_achievement资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaAchievementListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaAchievement>;
+};
+
+/**
+ * somua_basic_attribute资源
+ */
+export type SomuaBasicAttribute = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Attack Ratio
+     *
+     * Client SomuaBasicAttritube.attackRatio; raw int32
+     */
+    attack_ratio: number;
+    /**
+     * Attack Value
+     *
+     * Client SomuaBasicAttritube.attackValue; raw int32
+     */
+    attack_value: number;
+    /**
+     * Critical Chance
+     *
+     * Client SomuaBasicAttritube.criticalChance; raw int32
+     */
+    critical_chance: number;
+    /**
+     * Critical Damage Ratio
+     *
+     * Client SomuaBasicAttritube.criticalDamageRatio; raw int32
+     */
+    critical_damage_ratio: number;
+    /**
+     * Defense Ratio
+     *
+     * Client SomuaBasicAttritube.defenseRatio; raw int32
+     */
+    defense_ratio: number;
+    /**
+     * Health Value
+     *
+     * Client SomuaBasicAttritube.healthValue; raw int32
+     */
+    health_value: number;
+    /**
+     * Knock Ratio
+     *
+     * Client SomuaBasicAttritube.knockRatio; raw int32
+     */
+    knock_ratio: number;
+    /**
+     * Speed Value
+     *
+     * Client SomuaBasicAttritube.speedValue; raw int32
+     */
+    speed_value: number;
+};
+
+/**
+ * somua_basic_attribute资源列表
+ */
+export type SomuaBasicAttributeList = CommonApiResourceList;
+
+/**
+ * somua_basic_attribute资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaBasicAttributeListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaBasicAttribute>;
+};
+
+/**
+ * somua_dispatch资源
+ */
+export type SomuaDispatch = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Award
+     *
+     * Client SomuaDispatchConfig.award; raw string
+     */
+    award: string;
+    /**
+     * Bonus1
+     *
+     * Client SomuaDispatchConfig.bonus1; raw string
+     */
+    bonus1: string;
+    /**
+     * Bonus2
+     *
+     * Client SomuaDispatchConfig.bonus2; raw string
+     */
+    bonus2: string;
+    /**
+     * Bonus3
+     *
+     * Client SomuaDispatchConfig.bonus3; raw string
+     */
+    bonus3: string;
+    /**
+     * Name
+     *
+     * Client SomuaDispatchConfig.name; raw string
+     */
+    name: string;
+    /**
+     * Tasktype
+     *
+     * Client SomuaDispatchConfig.tasktype; raw int32
+     */
+    tasktype: number;
+    /**
+     * Value
+     *
+     * Client SomuaDispatchConfig.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * 名称映射somua_dispatch资源
+ */
+export type SomuaDispatchNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaDispatch;
+    };
+};
+
+/**
+ * somua_dispatch资源列表
+ */
+export type SomuaDispatchList = CommonApiResourceList;
+
+/**
+ * somua_dispatch资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaDispatchListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaDispatch>;
+};
+
+/**
+ * somua_entry资源
+ */
+export type SomuaEntry = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Desc
+     *
+     * Client SomuaEntryConfig.desc; raw string
+     */
+    desc: string;
+    /**
+     * Name
+     *
+     * Client SomuaEntryConfig.name; raw string
+     */
+    name: string;
+    /**
+     * Rarity
+     *
+     * Client SomuaEntryConfig.rarity; raw int32
+     */
+    rarity: number;
+    /**
+     * Type
+     *
+     * Client SomuaEntryConfig.type; raw int32
+     */
+    type: number;
+    /**
+     * Value1
+     *
+     * Client SomuaEntryConfig.value1; raw int32
+     */
+    value1: number;
+    /**
+     * Value2
+     *
+     * Client SomuaEntryConfig.value2; raw int32
+     */
+    value2: number;
+    /**
+     * Value3
+     *
+     * Client SomuaEntryConfig.value3; raw int32
+     */
+    value3: number;
+    /**
+     * Value4
+     *
+     * Client SomuaEntryConfig.value4; raw int32
+     */
+    value4: number;
+    /**
+     * Value5
+     *
+     * Client SomuaEntryConfig.value5; raw int32
+     */
+    value5: number;
+    /**
+     * Value6
+     *
+     * Client SomuaEntryConfig.value6; raw int32
+     */
+    value6: number;
+};
+
+/**
+ * 名称映射somua_entry资源
+ */
+export type SomuaEntryNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaEntry;
+    };
+};
+
+/**
+ * somua_entry资源列表
+ */
+export type SomuaEntryList = CommonApiResourceList;
+
+/**
+ * somua_entry资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaEntryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaEntry>;
+};
+
+/**
+ * somua_gene资源
+ */
+export type SomuaGene = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Foodid
+     *
+     * Client SomuaGeneConfig.foodid; raw int32
+     */
+    foodid: number;
+    /**
+     * Gene
+     *
+     * Client SomuaGeneConfig.gene; raw string
+     */
+    gene: string;
+    /**
+     * Rarity
+     *
+     * Client SomuaGeneConfig.rarity; raw int32
+     */
+    rarity: number;
+    /**
+     * Shop Id
+     *
+     * Client SomuaGeneConfig.shopID; raw int32
+     */
+    shop_id: number;
+    /**
+     * Skinbaby
+     *
+     * Client SomuaGeneConfig.skinbaby; raw string
+     */
+    skinbaby: string;
+    /**
+     * Skinteen
+     *
+     * Client SomuaGeneConfig.skinteen; raw string
+     */
+    skinteen: string;
+    /**
+     * Sort
+     *
+     * Client SomuaGeneConfig.sort; raw int32
+     */
+    sort: number;
+};
+
+/**
+ * 名称映射somua_gene资源
+ */
+export type SomuaGeneNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaGene;
+    };
+};
+
+/**
+ * somua_gene资源列表
+ */
+export type SomuaGeneList = CommonApiResourceList;
+
+/**
+ * somua_gene资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaGeneListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaGene>;
+};
+
+/**
+ * somua_house资源
+ */
+export type SomuaHouse = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Limit Cost
+     *
+     * Client SomuaHouseConfig.limitCost; raw int32
+     */
+    limit_cost: number;
+    /**
+     * Name
+     *
+     * Client SomuaHouseConfig.name; raw string
+     */
+    name: string;
+    /**
+     * Room Id
+     *
+     * Client SomuaHouseConfig.roomID; raw int32
+     */
+    room_id: number;
+};
+
+/**
+ * 名称映射somua_house资源
+ */
+export type SomuaHouseNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaHouse;
+    };
+};
+
+/**
+ * somua_house资源列表
+ */
+export type SomuaHouseList = CommonApiResourceList;
+
+/**
+ * somua_house资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaHouseListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaHouse>;
+};
+
+/**
+ * somua_keeper资源
+ */
+export type SomuaKeeper = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Benefit1
+     *
+     * Client SomuaKeeperConfig.benefit1; raw int32
+     */
+    benefit1: number;
+    /**
+     * Benefit2
+     *
+     * Client SomuaKeeperConfig.benefit2; raw int32
+     */
+    benefit2: number;
+    /**
+     * Benefit3
+     *
+     * Client SomuaKeeperConfig.benefit3; raw int32
+     */
+    benefit3: number;
+    /**
+     * Benefit4
+     *
+     * Client SomuaKeeperConfig.benefit4; raw int32
+     */
+    benefit4: number;
+    /**
+     * Benefit5
+     *
+     * Client SomuaKeeperConfig.benefit5; raw int32
+     */
+    benefit5: number;
+    /**
+     * Benefit6
+     *
+     * Client SomuaKeeperConfig.benefit6; raw int32
+     */
+    benefit6: number;
+    /**
+     * Benefit7
+     *
+     * Client SomuaKeeperConfig.benefit7; raw int32
+     */
+    benefit7: number;
+    /**
+     * Dango Gold
+     *
+     * Client SomuaKeeperConfig.dangoGold; raw int32
+     */
+    dango_gold: number;
+    /**
+     * Dango Task
+     *
+     * Client SomuaKeeperConfig.dangoTask; raw string
+     */
+    dango_task: string;
+    /**
+     * Describe1
+     *
+     * Client SomuaKeeperConfig.describe1; raw string
+     */
+    describe1: string;
+    /**
+     * Describe2
+     *
+     * Client SomuaKeeperConfig.describe2; raw string
+     */
+    describe2: string;
+    /**
+     * Describe3
+     *
+     * Client SomuaKeeperConfig.describe3; raw string
+     */
+    describe3: string;
+    /**
+     * Minor Num
+     *
+     * Client SomuaKeeperConfig.minorNum; raw int32
+     */
+    minor_num: number;
+    /**
+     * Reward
+     *
+     * Client SomuaKeeperConfig.reward; raw string
+     */
+    reward: string;
+    /**
+     * Store Max
+     *
+     * Client SomuaKeeperConfig.storeMax; raw int32
+     */
+    store_max: number;
+    /**
+     * Task Num
+     *
+     * Client SomuaKeeperConfig.taskNum; raw int32
+     */
+    task_num: number;
+};
+
+/**
+ * somua_keeper资源列表
+ */
+export type SomuaKeeperList = CommonApiResourceList;
+
+/**
+ * somua_keeper资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaKeeperListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaKeeper>;
+};
+
+/**
+ * somua_model资源
+ */
+export type SomuaModel = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Attack Mode
+     *
+     * Client SomuaModelConfig.attackMode; raw int32
+     */
+    attack_mode: number;
+    /**
+     * Attack Mode Sp
+     *
+     * Client SomuaModelConfig.attackModeSP; raw int32
+     */
+    attack_mode_sp: number;
+    /**
+     * Describe
+     *
+     * Client SomuaModelConfig.describe; raw string
+     */
+    describe: string;
+    /**
+     * Is Back
+     *
+     * Client SomuaModelConfig.isBack; raw int32
+     */
+    is_back: number;
+    /**
+     * Is Body
+     *
+     * Client SomuaModelConfig.isBody; raw int32
+     */
+    is_body: number;
+    /**
+     * Is Ear
+     *
+     * Client SomuaModelConfig.isEar; raw int32
+     */
+    is_ear: number;
+    /**
+     * Is Expression
+     *
+     * Client SomuaModelConfig.isExpression; raw int32
+     */
+    is_expression: number;
+    /**
+     * Is Hand
+     *
+     * Client SomuaModelConfig.isHand; raw int32
+     */
+    is_hand: number;
+    /**
+     * Is Head
+     *
+     * Client SomuaModelConfig.isHead; raw int32
+     */
+    is_head: number;
+    /**
+     * Is Surrounding
+     *
+     * Client SomuaModelConfig.isSurrounding; raw int32
+     */
+    is_surrounding: number;
+    /**
+     * Is Tail
+     *
+     * Client SomuaModelConfig.isTail; raw int32
+     */
+    is_tail: number;
+    /**
+     * Is Topwear
+     *
+     * Client SomuaModelConfig.isTopwear; raw int32
+     */
+    is_topwear: number;
+    /**
+     * Name
+     *
+     * Client SomuaModelConfig.name; raw string
+     */
+    name: string;
+    /**
+     * Pet Id
+     *
+     * Client SomuaModelConfig.petID; raw int32
+     */
+    pet_id: number;
+    /**
+     * Prefix
+     *
+     * Client SomuaModelConfig.prefix; raw string
+     */
+    prefix: string;
+    /**
+     * Season
+     *
+     * Client SomuaModelConfig.season; raw string
+     */
+    season: string;
+    /**
+     * Suffix
+     *
+     * Client SomuaModelConfig.suffix; raw string
+     */
+    suffix: string;
+};
+
+/**
+ * 名称映射somua_model资源
+ */
+export type SomuaModelNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaModel;
+    };
+};
+
+/**
+ * somua_model资源列表
+ */
+export type SomuaModelList = CommonApiResourceList;
+
+/**
+ * somua_model资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaModelListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaModel>;
+};
+
+/**
+ * somua_ranking资源
+ */
+export type SomuaRanking = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Icon
+     *
+     * Client SomuaRankingConfig.icon; raw int32
+     */
+    icon: number;
+    /**
+     * Is Falling
+     *
+     * Client SomuaRankingConfig.isFalling; raw int32
+     */
+    is_falling: number;
+    /**
+     * Level
+     *
+     * Client SomuaRankingConfig.level; raw string
+     */
+    level: string;
+    /**
+     * Minscore
+     *
+     * Client SomuaRankingConfig.minscore; raw string
+     */
+    minscore: string;
+    /**
+     * Name
+     *
+     * Client SomuaRankingConfig.name; raw string
+     */
+    name: string;
+    /**
+     * Phase
+     *
+     * Client SomuaRankingConfig.phase; raw int32
+     */
+    phase: number;
+};
+
+/**
+ * 名称映射somua_ranking资源
+ */
+export type SomuaRankingNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaRanking;
+    };
+};
+
+/**
+ * somua_ranking资源列表
+ */
+export type SomuaRankingList = CommonApiResourceList;
+
+/**
+ * somua_ranking资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaRankingListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaRanking>;
+};
+
+/**
+ * somua_shop资源
+ */
+export type SomuaShop = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * New Msglog Id
+     *
+     * Client SomuaShopConfig.NewMsglogId; raw int32
+     */
+    new_msglog_id: number;
+    /**
+     * Price
+     *
+     * Client SomuaShopConfig.Price; raw int32
+     */
+    price: number;
+    /**
+     * Describe1
+     *
+     * Client SomuaShopConfig.describe1; raw string
+     */
+    describe1: string;
+    /**
+     * Describe2
+     *
+     * Client SomuaShopConfig.describe2; raw string
+     */
+    describe2: string;
+    /**
+     * Forever
+     *
+     * Client SomuaShopConfig.forever; raw int32
+     */
+    forever: number;
+    /**
+     * Limit
+     *
+     * Client SomuaShopConfig.limit; raw int32
+     */
+    limit: number;
+    /**
+     * Limit Type
+     *
+     * Client SomuaShopConfig.limitType; raw int32
+     */
+    limit_type: number;
+    /**
+     * Quantity
+     *
+     * Client SomuaShopConfig.quantity; raw int32
+     */
+    quantity: number;
+    /**
+     * Rewardinfo
+     *
+     * Client SomuaShopConfig.rewardinfo; raw string
+     */
+    rewardinfo: string;
+    /**
+     * Shop Type1
+     *
+     * Client SomuaShopConfig.shopType1; raw int32
+     */
+    shop_type1: number;
+    /**
+     * Title
+     *
+     * Client SomuaShopConfig.title; raw string
+     */
+    title: string;
+    /**
+     * Userinfo
+     *
+     * Client SomuaShopConfig.userinfo; raw int32
+     */
+    userinfo: number;
+    /**
+     * Value
+     *
+     * Client SomuaShopConfig.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * 名称映射somua_shop资源
+ */
+export type SomuaShopNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaShop;
+    };
+};
+
+/**
+ * somua_shop资源列表
+ */
+export type SomuaShopList = CommonApiResourceList;
+
+/**
+ * somua_shop资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaShopListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaShop>;
+};
+
+/**
+ * somua_status_effect资源
+ */
+export type SomuaStatusEffect = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Fx On Get
+     *
+     * Client SomuaStatusEffectConfig.fxOnGet; raw string
+     */
+    fx_on_get: string;
+    /**
+     * Fx On Trig
+     *
+     * Client SomuaStatusEffectConfig.fxOnTrig; raw string
+     */
+    fx_on_trig: string;
+    /**
+     * Icon
+     *
+     * Client SomuaStatusEffectConfig.icon; raw int32
+     */
+    icon: number;
+    /**
+     * Max Stack
+     *
+     * Client SomuaStatusEffectConfig.maxStack; raw int32
+     */
+    max_stack: number;
+    /**
+     * Stack Rule
+     *
+     * Client SomuaStatusEffectConfig.stackRule; raw string
+     */
+    stack_rule: string;
+    /**
+     * Status Desc
+     *
+     * Client SomuaStatusEffectConfig.statusDesc; raw string
+     */
+    status_desc: string;
+    /**
+     * Status Name
+     *
+     * Client SomuaStatusEffectConfig.statusName; raw string
+     */
+    status_name: string;
+    /**
+     * Type
+     *
+     * Client SomuaStatusEffectConfig.type; raw int32
+     */
+    type: number;
+    /**
+     * Value Rule
+     *
+     * Client SomuaStatusEffectConfig.valueRule; raw string
+     */
+    value_rule: string;
+};
+
+/**
+ * 名称映射somua_status_effect资源
+ */
+export type SomuaStatusEffectNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaStatusEffect;
+    };
+};
+
+/**
+ * somua_status_effect资源列表
+ */
+export type SomuaStatusEffectList = CommonApiResourceList;
+
+/**
+ * somua_status_effect资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaStatusEffectListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaStatusEffect>;
+};
+
+/**
+ * somua_task资源
+ */
+export type SomuaTask = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Describe
+     *
+     * Client SomuaTaskConfig.describe; raw string
+     */
+    describe: string;
+    /**
+     * Group
+     *
+     * Client SomuaTaskConfig.group; raw int32
+     */
+    group: number;
+    /**
+     * Period
+     *
+     * Client SomuaTaskConfig.period; raw int32
+     */
+    period: number;
+    /**
+     * Rewardinfo
+     *
+     * Client SomuaTaskConfig.rewardinfo; raw string
+     */
+    rewardinfo: string;
+    /**
+     * Season
+     *
+     * Client SomuaTaskConfig.season; raw int32
+     */
+    season: number;
+    /**
+     * Tasktype
+     *
+     * Client SomuaTaskConfig.tasktype; raw int32
+     */
+    tasktype: number;
+    /**
+     * Value
+     *
+     * Client SomuaTaskConfig.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * somua_task资源列表
+ */
+export type SomuaTaskList = CommonApiResourceList;
+
+/**
+ * somua_task资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaTaskListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaTask>;
+};
+
+/**
+ * somua_tutorial资源
+ */
+export type SomuaTutorial = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Img
+     *
+     * Client SomuaToturialConfig.img; raw string
+     */
+    img: string;
+    /**
+     * Module
+     *
+     * Client SomuaToturialConfig.module; raw string
+     */
+    module: string;
+    /**
+     * Page
+     *
+     * Client SomuaToturialConfig.page; raw int32
+     */
+    page: number;
+    /**
+     * Txt
+     *
+     * Client SomuaToturialConfig.txt; raw string
+     */
+    txt: string;
+};
+
+/**
+ * somua_tutorial资源列表
+ */
+export type SomuaTutorialList = CommonApiResourceList;
+
+/**
+ * somua_tutorial资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaTutorialListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaTutorial>;
+};
+
+/**
+ * somua_weapon资源
+ */
+export type SomuaWeapon = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Fx On Hit
+     *
+     * Client SomuaWeaponConfig.fxOnHit; raw string
+     */
+    fx_on_hit: string;
+    /**
+     * Prefab
+     *
+     * Client SomuaWeaponConfig.prefab; raw string
+     */
+    prefab: string;
+    /**
+     * Shape
+     *
+     * Client SomuaWeaponConfig.shape; raw int32
+     */
+    shape: number;
+    /**
+     * Type
+     *
+     * Client SomuaWeaponConfig.type; raw int32
+     */
+    type: number;
+};
+
+/**
+ * somua_weapon资源列表
+ */
+export type SomuaWeaponList = CommonApiResourceList;
+
+/**
+ * somua_weapon资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaWeaponListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaWeapon>;
+};
+
+/**
+ * dango资源
+ */
+export type Dango = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Describe
+     *
+     * Client dango.describe; raw string
+     */
+    describe: string;
+    /**
+     * Gene
+     *
+     * Client dango.gene; raw string
+     */
+    gene: string;
+    /**
+     * Grade
+     *
+     * Client dango.grade; raw int32
+     */
+    grade: number;
+    /**
+     * Name
+     *
+     * Client dango.name; raw string
+     */
+    name: string;
+    /**
+     * Pet Id
+     *
+     * Client dango.petID; raw int32
+     */
+    pet_id: number;
+    /**
+     * Skin
+     *
+     * Client dango.skin; raw string
+     */
+    skin: string;
+    /**
+     * Value
+     *
+     * Client dango.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * 名称映射dango资源
+ */
+export type DangoNamedData = HashPartial & {
+    data: {
+        [key: string]: Dango;
+    };
+};
+
+/**
+ * dango资源列表
+ */
+export type DangoList = CommonApiResourceList;
+
+/**
+ * dango资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<Dango>;
+};
+
+/**
+ * dango_action资源
+ */
+export type DangoAction = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Action
+     *
+     * Client dangoAction.action; raw string
+     */
+    action: string;
+    /**
+     * Action Team
+     *
+     * Client dangoAction.actionTeam; raw int32
+     */
+    action_team: number;
+    /**
+     * Dango Id
+     *
+     * Client dangoAction.dangoID; raw int32[]
+     */
+    dango_id: Array<number> | null;
+    /**
+     * Describ
+     *
+     * Client dangoAction.describ; raw string
+     */
+    describ: string;
+    /**
+     * Limit Dango
+     *
+     * Client dangoAction.limitDango; raw int32
+     */
+    limit_dango: number;
+    /**
+     * Limit Type
+     *
+     * Client dangoAction.limitType; raw int32
+     */
+    limit_type: number;
+    /**
+     * Value
+     *
+     * Client dangoAction.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * dango_action资源列表
+ */
+export type DangoActionList = CommonApiResourceList;
+
+/**
+ * dango_action资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoActionListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoAction>;
+};
+
+/**
+ * dango_gene资源
+ */
+export type DangoGene = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Gene Id
+     *
+     * Client dangoGene.geneID; raw int32
+     */
+    gene_id: number;
+    /**
+     * Name
+     *
+     * Client dangoGene.name; raw string
+     */
+    name: string;
+    /**
+     * Skinbaby
+     *
+     * Client dangoGene.skinbaby; raw string
+     */
+    skinbaby: string;
+    /**
+     * Skinteen
+     *
+     * Client dangoGene.skinteen; raw string
+     */
+    skinteen: string;
+    /**
+     * Value
+     *
+     * Client dangoGene.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * 名称映射dango_gene资源
+ */
+export type DangoGeneNamedData = HashPartial & {
+    data: {
+        [key: string]: DangoGene;
+    };
+};
+
+/**
+ * dango_gene资源列表
+ */
+export type DangoGeneList = CommonApiResourceList;
+
+/**
+ * dango_gene资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoGeneListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoGene>;
+};
+
+/**
+ * dango_gold资源
+ */
+export type DangoGold = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Dango Gold
+     *
+     * Client dangoGold.dangoGold; raw int32
+     */
+    dango_gold: number;
+    /**
+     * Dango Num Max
+     *
+     * Client dangoGold.dangoNumMax; raw int32
+     */
+    dango_num_max: number;
+    /**
+     * Dango Num Mix
+     *
+     * Client dangoGold.dangoNumMix; raw int32
+     */
+    dango_num_mix: number;
+};
+
+/**
+ * dango_gold资源列表
+ */
+export type DangoGoldList = CommonApiResourceList;
+
+/**
+ * dango_gold资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoGoldListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoGold>;
+};
+
+/**
+ * dango_guide资源
+ */
+export type DangoGuide = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Dango Movie
+     *
+     * Client dangoGuide.dangoMovie; raw string
+     */
+    dango_movie: string;
+    /**
+     * Describe
+     *
+     * Client dangoGuide.describe; raw string
+     */
+    describe: string;
+    /**
+     * Reward
+     *
+     * Client dangoGuide.reward; raw string
+     */
+    reward: string;
+    /**
+     * Titile
+     *
+     * Client dangoGuide.titile; raw string
+     */
+    titile: string;
+    /**
+     * Type
+     *
+     * Client dangoGuide.type; raw int32
+     */
+    type: number;
+};
+
+/**
+ * 名称映射dango_guide资源
+ */
+export type DangoGuideNamedData = HashPartial & {
+    data: {
+        [key: string]: DangoGuide;
+    };
+};
+
+/**
+ * dango_guide资源列表
+ */
+export type DangoGuideList = CommonApiResourceList;
+
+/**
+ * dango_guide资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoGuideListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoGuide>;
+};
+
+/**
+ * dango_house资源
+ */
+export type DangoHouse = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Limit Cost
+     *
+     * Client dangoHouse.limitCost; raw int32
+     */
+    limit_cost: number;
+    /**
+     * Name
+     *
+     * Client dangoHouse.name; raw string
+     */
+    name: string;
+    /**
+     * Room Id
+     *
+     * Client dangoHouse.roomID; raw int32
+     */
+    room_id: number;
+};
+
+/**
+ * 名称映射dango_house资源
+ */
+export type DangoHouseNamedData = HashPartial & {
+    data: {
+        [key: string]: DangoHouse;
+    };
+};
+
+/**
+ * dango_house资源列表
+ */
+export type DangoHouseList = CommonApiResourceList;
+
+/**
+ * dango_house资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoHouseListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoHouse>;
+};
+
+/**
+ * dango_level资源
+ */
+export type DangoLevel = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Benefit1
+     *
+     * Client dangoLv.benefit1; raw int32
+     */
+    benefit1: number;
+    /**
+     * Benefit2
+     *
+     * Client dangoLv.benefit2; raw int32
+     */
+    benefit2: number;
+    /**
+     * Benefit3
+     *
+     * Client dangoLv.benefit3; raw int32
+     */
+    benefit3: number;
+    /**
+     * Dango Task
+     *
+     * Client dangoLv.dangoTask; raw int32[]
+     */
+    dango_task: Array<number> | null;
+    /**
+     * Describe1
+     *
+     * Client dangoLv.describe1; raw string
+     */
+    describe1: string;
+    /**
+     * Describe2
+     *
+     * Client dangoLv.describe2; raw string
+     */
+    describe2: string;
+    /**
+     * Describe3
+     *
+     * Client dangoLv.describe3; raw string
+     */
+    describe3: string;
+    /**
+     * Minor Num
+     *
+     * Client dangoLv.minorNum; raw int32
+     */
+    minor_num: number;
+    /**
+     * Reward
+     *
+     * Client dangoLv.reward; raw int32
+     */
+    reward: number;
+    /**
+     * Task Num
+     *
+     * Client dangoLv.taskNum; raw int32
+     */
+    task_num: number;
+};
+
+/**
+ * dango_level资源列表
+ */
+export type DangoLevelList = CommonApiResourceList;
+
+/**
+ * dango_level资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoLevelListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoLevel>;
+};
+
+/**
+ * dango_shop资源
+ */
+export type DangoShop = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * New Msglog Id
+     *
+     * Client dangoShop.NewMsglogId; raw int32
+     */
+    new_msglog_id: number;
+    /**
+     * Price
+     *
+     * Client dangoShop.Price; raw int32
+     */
+    price: number;
+    /**
+     * Describe1
+     *
+     * Client dangoShop.describe1; raw string
+     */
+    describe1: string;
+    /**
+     * Describe2
+     *
+     * Client dangoShop.describe2; raw string
+     */
+    describe2: string;
+    /**
+     * Forever
+     *
+     * Client dangoShop.forever; raw int32
+     */
+    forever: number;
+    /**
+     * Limit
+     *
+     * Client dangoShop.limit; raw int32
+     */
+    limit: number;
+    /**
+     * Quantity
+     *
+     * Client dangoShop.quantity; raw int32
+     */
+    quantity: number;
+    /**
+     * Rewardinfo
+     *
+     * Client dangoShop.rewardinfo; raw string
+     */
+    rewardinfo: string;
+    /**
+     * Shop Type1
+     *
+     * Client dangoShop.shopType1; raw int32
+     */
+    shop_type1: number;
+    /**
+     * Shop Type2
+     *
+     * Client dangoShop.shopType2; raw int32
+     */
+    shop_type2: number;
+    /**
+     * Title
+     *
+     * Client dangoShop.title; raw string
+     */
+    title: string;
+    /**
+     * Userinfo
+     *
+     * Client dangoShop.userinfo; raw int32
+     */
+    userinfo: number;
+    /**
+     * Value
+     *
+     * Client dangoShop.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * 名称映射dango_shop资源
+ */
+export type DangoShopNamedData = HashPartial & {
+    data: {
+        [key: string]: DangoShop;
+    };
+};
+
+/**
+ * dango_shop资源列表
+ */
+export type DangoShopList = CommonApiResourceList;
+
+/**
+ * dango_shop资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoShopListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoShop>;
+};
+
+/**
+ * dango_slot资源
+ */
+export type DangoSlot = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Name
+     *
+     * Client dangoSlot.name; raw string
+     */
+    name: string;
+    /**
+     * Pet Id
+     *
+     * Client dangoSlot.petID; raw int32
+     */
+    pet_id: number;
+    /**
+     * Value
+     *
+     * Client dangoSlot.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * 名称映射dango_slot资源
+ */
+export type DangoSlotNamedData = HashPartial & {
+    data: {
+        [key: string]: DangoSlot;
+    };
+};
+
+/**
+ * dango_slot资源列表
+ */
+export type DangoSlotList = CommonApiResourceList;
+
+/**
+ * dango_slot资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoSlotListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoSlot>;
+};
+
+/**
+ * dango_story资源
+ */
+export type DangoStory = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Dango Id
+     *
+     * Client dangoStory.dangoID; raw int32
+     */
+    dango_id: number;
+    /**
+     * Dango Task
+     *
+     * Client dangoStory.dangoTask; raw int32
+     */
+    dango_task: number;
+    /**
+     * Describe
+     *
+     * Client dangoStory.describe; raw string
+     */
+    describe: string;
+};
+
+/**
+ * dango_story资源列表
+ */
+export type DangoStoryList = CommonApiResourceList;
+
+/**
+ * dango_story资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoStoryListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoStory>;
+};
+
+/**
+ * dango_task资源
+ */
+export type DangoTask = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * New Msglog Id
+     *
+     * Client dangoTask.NewMsglogId; raw int32
+     */
+    new_msglog_id: number;
+    /**
+     * Describe
+     *
+     * Client dangoTask.describe; raw string
+     */
+    describe: string;
+    /**
+     * Limit
+     *
+     * Client dangoTask.limit; raw int32
+     */
+    limit: number;
+    /**
+     * Planet
+     *
+     * Client dangoTask.planet; raw string
+     */
+    planet: string;
+    /**
+     * Rewardinfo
+     *
+     * Client dangoTask.rewardinfo; raw int32
+     */
+    rewardinfo: number;
+    /**
+     * Task Skin
+     *
+     * Client dangoTask.taskSkin; raw string
+     */
+    task_skin: string;
+    /**
+     * Task Team
+     *
+     * Client dangoTask.taskTeam; raw int32
+     */
+    task_team: number;
+    /**
+     * Tasktype
+     *
+     * Client dangoTask.tasktype; raw int32
+     */
+    tasktype: number;
+    /**
+     * Time
+     *
+     * Client dangoTask.time; raw int32
+     */
+    time: number;
+    /**
+     * Title
+     *
+     * Client dangoTask.title; raw string
+     */
+    title: string;
+    /**
+     * Value
+     *
+     * Client dangoTask.value; raw int32
+     */
+    value: number;
+};
+
+/**
+ * 名称映射dango_task资源
+ */
+export type DangoTaskNamedData = HashPartial & {
+    data: {
+        [key: string]: DangoTask;
+    };
+};
+
+/**
+ * dango_task资源列表
+ */
+export type DangoTaskList = CommonApiResourceList;
+
+/**
+ * dango_task资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoTaskListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoTask>;
+};
+
+/**
+ * dango_chess资源
+ */
+export type DangoChess = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Guide Card
+     *
+     * Client dangochess.GuideCard; raw string
+     */
+    guide_card: string;
+    /**
+     * Cardid
+     *
+     * Client dangochess.cardid; raw string
+     */
+    cardid: string;
+    /**
+     * Chapterid
+     *
+     * Client dangochess.chapterid; raw int32
+     */
+    chapterid: number;
+    /**
+     * Dango Id
+     *
+     * Client dangochess.dangoID; raw int32
+     */
+    dango_id: number;
+    /**
+     * Firstreward
+     *
+     * Client dangochess.firstreward; raw string
+     */
+    firstreward: string;
+    /**
+     * Stageid
+     *
+     * Client dangochess.stageid; raw int32
+     */
+    stageid: number;
+    /**
+     * Starttime
+     *
+     * Client dangochess.starttime; raw string
+     */
+    starttime: string;
+};
+
+/**
+ * dango_chess资源列表
+ */
+export type DangoChessList = CommonApiResourceList;
+
+/**
+ * dango_chess资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoChessListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoChess>;
+};
+
+/**
+ * dango_chess_stage资源
+ */
+export type DangoChessStage = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Chapterid
+     *
+     * Client dangochessstage.chapterid; raw int32
+     */
+    chapterid: number;
+    /**
+     * Hangid
+     *
+     * Client dangochessstage.hangid; raw int32
+     */
+    hangid: number;
+    /**
+     * Lieid1
+     *
+     * Client dangochessstage.lieid1; raw int32
+     */
+    lieid1: number;
+    /**
+     * Lieid2
+     *
+     * Client dangochessstage.lieid2; raw int32
+     */
+    lieid2: number;
+    /**
+     * Lieid3
+     *
+     * Client dangochessstage.lieid3; raw int32
+     */
+    lieid3: number;
+    /**
+     * Lieid4
+     *
+     * Client dangochessstage.lieid4; raw int32
+     */
+    lieid4: number;
+    /**
+     * Lieid5
+     *
+     * Client dangochessstage.lieid5; raw int32
+     */
+    lieid5: number;
+    /**
+     * Lieid6
+     *
+     * Client dangochessstage.lieid6; raw int32
+     */
+    lieid6: number;
+    /**
+     * Lieid7
+     *
+     * Client dangochessstage.lieid7; raw int32
+     */
+    lieid7: number;
+    /**
+     * Lieid8
+     *
+     * Client dangochessstage.lieid8; raw int32
+     */
+    lieid8: number;
+    /**
+     * Lieid9
+     *
+     * Client dangochessstage.lieid9; raw int32
+     */
+    lieid9: number;
+    /**
+     * Stageid
+     *
+     * Client dangochessstage.stageid; raw int32
+     */
+    stageid: number;
+};
+
+/**
+ * dango_chess_stage资源列表
+ */
+export type DangoChessStageList = CommonApiResourceList;
+
+/**
+ * dango_chess_stage资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type DangoChessStageListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<DangoChessStage>;
+};
+
+/**
+ * 官方悬空精灵引用原始记录资源
+ */
+export type UnresolvedPetReference = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Owner Resource
+     *
+     * 原始引用所属资源类型
+     */
+    owner_resource: string;
+    /**
+     * Owner Id
+     *
+     * 原始引用所属条目ID
+     */
+    owner_id: number;
+    /**
+     * Target Pet Id
+     *
+     * 官方原始目标ID，不代表有效精灵外键
+     */
+    target_pet_id: number;
+    /**
+     * Source File
+     *
+     * Unity配置文件名
+     */
+    source_file: string;
+    /**
+     * Source Field
+     *
+     * 原始引用字段
+     */
+    source_field: string;
+    /**
+     * Source Json
+     *
+     * 完整原始条目JSON，保留空值和全部引用
+     */
+    source_json: string;
+    /**
+     * Source Sha256
+     *
+     * source_json的UTF-8 SHA256
+     */
+    source_sha256: string;
+    /**
+     * Reason
+     *
+     * 未能建立有效关联的原因
+     */
+    reason?: string;
+};
+
+/**
+ * 官方悬空精灵引用原始记录资源列表
+ */
+export type UnresolvedPetReferenceList = CommonApiResourceList;
+
+/**
+ * 官方悬空精灵引用原始记录资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type UnresolvedPetReferenceListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<UnresolvedPetReference>;
+};
+
 export type ApiMetadata = HashPartial & {
     /**
      * Api Url
@@ -8080,6 +10880,118 @@ export type RootIndex = HashPartial & {
      * skill_effect_type_tag Path
      */
     skill_effect_type_tag: string;
+    /**
+     * somua_achievement Path
+     */
+    somua_achievement: string;
+    /**
+     * somua_basic_attribute Path
+     */
+    somua_basic_attribute: string;
+    /**
+     * somua_dispatch Path
+     */
+    somua_dispatch: string;
+    /**
+     * somua_entry Path
+     */
+    somua_entry: string;
+    /**
+     * somua_gene Path
+     */
+    somua_gene: string;
+    /**
+     * somua_house Path
+     */
+    somua_house: string;
+    /**
+     * somua_keeper Path
+     */
+    somua_keeper: string;
+    /**
+     * somua_model Path
+     */
+    somua_model: string;
+    /**
+     * somua_ranking Path
+     */
+    somua_ranking: string;
+    /**
+     * somua_shop Path
+     */
+    somua_shop: string;
+    /**
+     * somua_status_effect Path
+     */
+    somua_status_effect: string;
+    /**
+     * somua_task Path
+     */
+    somua_task: string;
+    /**
+     * somua_tutorial Path
+     */
+    somua_tutorial: string;
+    /**
+     * somua_weapon Path
+     */
+    somua_weapon: string;
+    /**
+     * dango Path
+     */
+    dango: string;
+    /**
+     * dango_action Path
+     */
+    dango_action: string;
+    /**
+     * dango_gene Path
+     */
+    dango_gene: string;
+    /**
+     * dango_gold Path
+     */
+    dango_gold: string;
+    /**
+     * dango_guide Path
+     */
+    dango_guide: string;
+    /**
+     * dango_house Path
+     */
+    dango_house: string;
+    /**
+     * dango_level Path
+     */
+    dango_level: string;
+    /**
+     * dango_shop Path
+     */
+    dango_shop: string;
+    /**
+     * dango_slot Path
+     */
+    dango_slot: string;
+    /**
+     * dango_story Path
+     */
+    dango_story: string;
+    /**
+     * dango_task Path
+     */
+    dango_task: string;
+    /**
+     * dango_chess Path
+     */
+    dango_chess: string;
+    /**
+     * dango_chess_stage Path
+     */
+    dango_chess_stage: string;
+    /**
+     * unresolved_pet_reference Path
+     */
+    unresolved_pet_reference: string;
 };
 
 /**
@@ -14260,3 +17172,1859 @@ export type GetSkillEffectTypeTagListResponses = {
 };
 
 export type GetSkillEffectTypeTagListResponse = GetSkillEffectTypeTagListResponses[keyof GetSkillEffectTypeTagListResponses];
+
+export type GetSomuaAchievementByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_achievement/{id}';
+};
+
+export type GetSomuaAchievementByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaAchievement;
+};
+
+export type GetSomuaAchievementByIdResponse = GetSomuaAchievementByIdResponses[keyof GetSomuaAchievementByIdResponses];
+
+export type GetSomuaAchievementByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_achievement/{name}';
+};
+
+export type GetSomuaAchievementByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaAchievementNamedData;
+};
+
+export type GetSomuaAchievementByNameResponse = GetSomuaAchievementByNameResponses[keyof GetSomuaAchievementByNameResponses];
+
+export type GetSomuaAchievementListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_achievement/';
+};
+
+export type GetSomuaAchievementListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaAchievementList | SomuaAchievementListExpanded;
+};
+
+export type GetSomuaAchievementListResponse = GetSomuaAchievementListResponses[keyof GetSomuaAchievementListResponses];
+
+export type GetSomuaBasicAttributeByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_basic_attribute/{id}';
+};
+
+export type GetSomuaBasicAttributeByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaBasicAttribute;
+};
+
+export type GetSomuaBasicAttributeByIdResponse = GetSomuaBasicAttributeByIdResponses[keyof GetSomuaBasicAttributeByIdResponses];
+
+export type GetSomuaBasicAttributeListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/somua_basic_attribute/';
+};
+
+export type GetSomuaBasicAttributeListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaBasicAttributeList | SomuaBasicAttributeListExpanded;
+};
+
+export type GetSomuaBasicAttributeListResponse = GetSomuaBasicAttributeListResponses[keyof GetSomuaBasicAttributeListResponses];
+
+export type GetSomuaDispatchByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_dispatch/{id}';
+};
+
+export type GetSomuaDispatchByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaDispatch;
+};
+
+export type GetSomuaDispatchByIdResponse = GetSomuaDispatchByIdResponses[keyof GetSomuaDispatchByIdResponses];
+
+export type GetSomuaDispatchByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_dispatch/{name}';
+};
+
+export type GetSomuaDispatchByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaDispatchNamedData;
+};
+
+export type GetSomuaDispatchByNameResponse = GetSomuaDispatchByNameResponses[keyof GetSomuaDispatchByNameResponses];
+
+export type GetSomuaDispatchListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_dispatch/';
+};
+
+export type GetSomuaDispatchListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaDispatchList | SomuaDispatchListExpanded;
+};
+
+export type GetSomuaDispatchListResponse = GetSomuaDispatchListResponses[keyof GetSomuaDispatchListResponses];
+
+export type GetSomuaEntryByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_entry/{id}';
+};
+
+export type GetSomuaEntryByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaEntry;
+};
+
+export type GetSomuaEntryByIdResponse = GetSomuaEntryByIdResponses[keyof GetSomuaEntryByIdResponses];
+
+export type GetSomuaEntryByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_entry/{name}';
+};
+
+export type GetSomuaEntryByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaEntryNamedData;
+};
+
+export type GetSomuaEntryByNameResponse = GetSomuaEntryByNameResponses[keyof GetSomuaEntryByNameResponses];
+
+export type GetSomuaEntryListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_entry/';
+};
+
+export type GetSomuaEntryListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaEntryList | SomuaEntryListExpanded;
+};
+
+export type GetSomuaEntryListResponse = GetSomuaEntryListResponses[keyof GetSomuaEntryListResponses];
+
+export type GetSomuaGeneByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_gene/{id}';
+};
+
+export type GetSomuaGeneByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaGene;
+};
+
+export type GetSomuaGeneByIdResponse = GetSomuaGeneByIdResponses[keyof GetSomuaGeneByIdResponses];
+
+export type GetSomuaGeneByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_gene/{name}';
+};
+
+export type GetSomuaGeneByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaGeneNamedData;
+};
+
+export type GetSomuaGeneByNameResponse = GetSomuaGeneByNameResponses[keyof GetSomuaGeneByNameResponses];
+
+export type GetSomuaGeneListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_gene/';
+};
+
+export type GetSomuaGeneListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaGeneList | SomuaGeneListExpanded;
+};
+
+export type GetSomuaGeneListResponse = GetSomuaGeneListResponses[keyof GetSomuaGeneListResponses];
+
+export type GetSomuaHouseByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_house/{id}';
+};
+
+export type GetSomuaHouseByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaHouse;
+};
+
+export type GetSomuaHouseByIdResponse = GetSomuaHouseByIdResponses[keyof GetSomuaHouseByIdResponses];
+
+export type GetSomuaHouseByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_house/{name}';
+};
+
+export type GetSomuaHouseByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaHouseNamedData;
+};
+
+export type GetSomuaHouseByNameResponse = GetSomuaHouseByNameResponses[keyof GetSomuaHouseByNameResponses];
+
+export type GetSomuaHouseListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_house/';
+};
+
+export type GetSomuaHouseListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaHouseList | SomuaHouseListExpanded;
+};
+
+export type GetSomuaHouseListResponse = GetSomuaHouseListResponses[keyof GetSomuaHouseListResponses];
+
+export type GetSomuaKeeperByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_keeper/{id}';
+};
+
+export type GetSomuaKeeperByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaKeeper;
+};
+
+export type GetSomuaKeeperByIdResponse = GetSomuaKeeperByIdResponses[keyof GetSomuaKeeperByIdResponses];
+
+export type GetSomuaKeeperListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/somua_keeper/';
+};
+
+export type GetSomuaKeeperListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaKeeperList | SomuaKeeperListExpanded;
+};
+
+export type GetSomuaKeeperListResponse = GetSomuaKeeperListResponses[keyof GetSomuaKeeperListResponses];
+
+export type GetSomuaModelByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_model/{id}';
+};
+
+export type GetSomuaModelByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaModel;
+};
+
+export type GetSomuaModelByIdResponse = GetSomuaModelByIdResponses[keyof GetSomuaModelByIdResponses];
+
+export type GetSomuaModelByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_model/{name}';
+};
+
+export type GetSomuaModelByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaModelNamedData;
+};
+
+export type GetSomuaModelByNameResponse = GetSomuaModelByNameResponses[keyof GetSomuaModelByNameResponses];
+
+export type GetSomuaModelListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_model/';
+};
+
+export type GetSomuaModelListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaModelList | SomuaModelListExpanded;
+};
+
+export type GetSomuaModelListResponse = GetSomuaModelListResponses[keyof GetSomuaModelListResponses];
+
+export type GetSomuaRankingByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_ranking/{id}';
+};
+
+export type GetSomuaRankingByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaRanking;
+};
+
+export type GetSomuaRankingByIdResponse = GetSomuaRankingByIdResponses[keyof GetSomuaRankingByIdResponses];
+
+export type GetSomuaRankingByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_ranking/{name}';
+};
+
+export type GetSomuaRankingByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaRankingNamedData;
+};
+
+export type GetSomuaRankingByNameResponse = GetSomuaRankingByNameResponses[keyof GetSomuaRankingByNameResponses];
+
+export type GetSomuaRankingListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_ranking/';
+};
+
+export type GetSomuaRankingListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaRankingList | SomuaRankingListExpanded;
+};
+
+export type GetSomuaRankingListResponse = GetSomuaRankingListResponses[keyof GetSomuaRankingListResponses];
+
+export type GetSomuaShopByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_shop/{id}';
+};
+
+export type GetSomuaShopByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaShop;
+};
+
+export type GetSomuaShopByIdResponse = GetSomuaShopByIdResponses[keyof GetSomuaShopByIdResponses];
+
+export type GetSomuaShopByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_shop/{name}';
+};
+
+export type GetSomuaShopByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaShopNamedData;
+};
+
+export type GetSomuaShopByNameResponse = GetSomuaShopByNameResponses[keyof GetSomuaShopByNameResponses];
+
+export type GetSomuaShopListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_shop/';
+};
+
+export type GetSomuaShopListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaShopList | SomuaShopListExpanded;
+};
+
+export type GetSomuaShopListResponse = GetSomuaShopListResponses[keyof GetSomuaShopListResponses];
+
+export type GetSomuaStatusEffectByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_status_effect/{id}';
+};
+
+export type GetSomuaStatusEffectByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaStatusEffect;
+};
+
+export type GetSomuaStatusEffectByIdResponse = GetSomuaStatusEffectByIdResponses[keyof GetSomuaStatusEffectByIdResponses];
+
+export type GetSomuaStatusEffectByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_status_effect/{name}';
+};
+
+export type GetSomuaStatusEffectByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaStatusEffectNamedData;
+};
+
+export type GetSomuaStatusEffectByNameResponse = GetSomuaStatusEffectByNameResponses[keyof GetSomuaStatusEffectByNameResponses];
+
+export type GetSomuaStatusEffectListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_status_effect/';
+};
+
+export type GetSomuaStatusEffectListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaStatusEffectList | SomuaStatusEffectListExpanded;
+};
+
+export type GetSomuaStatusEffectListResponse = GetSomuaStatusEffectListResponses[keyof GetSomuaStatusEffectListResponses];
+
+export type GetSomuaTaskByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_task/{id}';
+};
+
+export type GetSomuaTaskByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaTask;
+};
+
+export type GetSomuaTaskByIdResponse = GetSomuaTaskByIdResponses[keyof GetSomuaTaskByIdResponses];
+
+export type GetSomuaTaskListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/somua_task/';
+};
+
+export type GetSomuaTaskListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaTaskList | SomuaTaskListExpanded;
+};
+
+export type GetSomuaTaskListResponse = GetSomuaTaskListResponses[keyof GetSomuaTaskListResponses];
+
+export type GetSomuaTutorialByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_tutorial/{id}';
+};
+
+export type GetSomuaTutorialByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaTutorial;
+};
+
+export type GetSomuaTutorialByIdResponse = GetSomuaTutorialByIdResponses[keyof GetSomuaTutorialByIdResponses];
+
+export type GetSomuaTutorialListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/somua_tutorial/';
+};
+
+export type GetSomuaTutorialListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaTutorialList | SomuaTutorialListExpanded;
+};
+
+export type GetSomuaTutorialListResponse = GetSomuaTutorialListResponses[keyof GetSomuaTutorialListResponses];
+
+export type GetSomuaWeaponByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_weapon/{id}';
+};
+
+export type GetSomuaWeaponByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaWeapon;
+};
+
+export type GetSomuaWeaponByIdResponse = GetSomuaWeaponByIdResponses[keyof GetSomuaWeaponByIdResponses];
+
+export type GetSomuaWeaponListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/somua_weapon/';
+};
+
+export type GetSomuaWeaponListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaWeaponList | SomuaWeaponListExpanded;
+};
+
+export type GetSomuaWeaponListResponse = GetSomuaWeaponListResponses[keyof GetSomuaWeaponListResponses];
+
+export type GetDangoByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango/{id}';
+};
+
+export type GetDangoByIdResponses = {
+    /**
+     * OK
+     */
+    200: Dango;
+};
+
+export type GetDangoByIdResponse = GetDangoByIdResponses[keyof GetDangoByIdResponses];
+
+export type GetDangoByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/dango/{name}';
+};
+
+export type GetDangoByNameResponses = {
+    /**
+     * OK
+     */
+    200: DangoNamedData;
+};
+
+export type GetDangoByNameResponse = GetDangoByNameResponses[keyof GetDangoByNameResponses];
+
+export type GetDangoListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/dango/';
+};
+
+export type GetDangoListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoList | DangoListExpanded;
+};
+
+export type GetDangoListResponse = GetDangoListResponses[keyof GetDangoListResponses];
+
+export type GetDangoActionByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_action/{id}';
+};
+
+export type GetDangoActionByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoAction;
+};
+
+export type GetDangoActionByIdResponse = GetDangoActionByIdResponses[keyof GetDangoActionByIdResponses];
+
+export type GetDangoActionListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/dango_action/';
+};
+
+export type GetDangoActionListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoActionList | DangoActionListExpanded;
+};
+
+export type GetDangoActionListResponse = GetDangoActionListResponses[keyof GetDangoActionListResponses];
+
+export type GetDangoGeneByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_gene/{id}';
+};
+
+export type GetDangoGeneByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoGene;
+};
+
+export type GetDangoGeneByIdResponse = GetDangoGeneByIdResponses[keyof GetDangoGeneByIdResponses];
+
+export type GetDangoGeneByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/dango_gene/{name}';
+};
+
+export type GetDangoGeneByNameResponses = {
+    /**
+     * OK
+     */
+    200: DangoGeneNamedData;
+};
+
+export type GetDangoGeneByNameResponse = GetDangoGeneByNameResponses[keyof GetDangoGeneByNameResponses];
+
+export type GetDangoGeneListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/dango_gene/';
+};
+
+export type GetDangoGeneListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoGeneList | DangoGeneListExpanded;
+};
+
+export type GetDangoGeneListResponse = GetDangoGeneListResponses[keyof GetDangoGeneListResponses];
+
+export type GetDangoGoldByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_gold/{id}';
+};
+
+export type GetDangoGoldByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoGold;
+};
+
+export type GetDangoGoldByIdResponse = GetDangoGoldByIdResponses[keyof GetDangoGoldByIdResponses];
+
+export type GetDangoGoldListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/dango_gold/';
+};
+
+export type GetDangoGoldListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoGoldList | DangoGoldListExpanded;
+};
+
+export type GetDangoGoldListResponse = GetDangoGoldListResponses[keyof GetDangoGoldListResponses];
+
+export type GetDangoGuideByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_guide/{id}';
+};
+
+export type GetDangoGuideByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoGuide;
+};
+
+export type GetDangoGuideByIdResponse = GetDangoGuideByIdResponses[keyof GetDangoGuideByIdResponses];
+
+export type GetDangoGuideByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/dango_guide/{name}';
+};
+
+export type GetDangoGuideByNameResponses = {
+    /**
+     * OK
+     */
+    200: DangoGuideNamedData;
+};
+
+export type GetDangoGuideByNameResponse = GetDangoGuideByNameResponses[keyof GetDangoGuideByNameResponses];
+
+export type GetDangoGuideListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/dango_guide/';
+};
+
+export type GetDangoGuideListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoGuideList | DangoGuideListExpanded;
+};
+
+export type GetDangoGuideListResponse = GetDangoGuideListResponses[keyof GetDangoGuideListResponses];
+
+export type GetDangoHouseByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_house/{id}';
+};
+
+export type GetDangoHouseByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoHouse;
+};
+
+export type GetDangoHouseByIdResponse = GetDangoHouseByIdResponses[keyof GetDangoHouseByIdResponses];
+
+export type GetDangoHouseByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/dango_house/{name}';
+};
+
+export type GetDangoHouseByNameResponses = {
+    /**
+     * OK
+     */
+    200: DangoHouseNamedData;
+};
+
+export type GetDangoHouseByNameResponse = GetDangoHouseByNameResponses[keyof GetDangoHouseByNameResponses];
+
+export type GetDangoHouseListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/dango_house/';
+};
+
+export type GetDangoHouseListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoHouseList | DangoHouseListExpanded;
+};
+
+export type GetDangoHouseListResponse = GetDangoHouseListResponses[keyof GetDangoHouseListResponses];
+
+export type GetDangoLevelByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_level/{id}';
+};
+
+export type GetDangoLevelByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoLevel;
+};
+
+export type GetDangoLevelByIdResponse = GetDangoLevelByIdResponses[keyof GetDangoLevelByIdResponses];
+
+export type GetDangoLevelListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/dango_level/';
+};
+
+export type GetDangoLevelListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoLevelList | DangoLevelListExpanded;
+};
+
+export type GetDangoLevelListResponse = GetDangoLevelListResponses[keyof GetDangoLevelListResponses];
+
+export type GetDangoShopByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_shop/{id}';
+};
+
+export type GetDangoShopByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoShop;
+};
+
+export type GetDangoShopByIdResponse = GetDangoShopByIdResponses[keyof GetDangoShopByIdResponses];
+
+export type GetDangoShopByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/dango_shop/{name}';
+};
+
+export type GetDangoShopByNameResponses = {
+    /**
+     * OK
+     */
+    200: DangoShopNamedData;
+};
+
+export type GetDangoShopByNameResponse = GetDangoShopByNameResponses[keyof GetDangoShopByNameResponses];
+
+export type GetDangoShopListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/dango_shop/';
+};
+
+export type GetDangoShopListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoShopList | DangoShopListExpanded;
+};
+
+export type GetDangoShopListResponse = GetDangoShopListResponses[keyof GetDangoShopListResponses];
+
+export type GetDangoSlotByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_slot/{id}';
+};
+
+export type GetDangoSlotByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoSlot;
+};
+
+export type GetDangoSlotByIdResponse = GetDangoSlotByIdResponses[keyof GetDangoSlotByIdResponses];
+
+export type GetDangoSlotByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/dango_slot/{name}';
+};
+
+export type GetDangoSlotByNameResponses = {
+    /**
+     * OK
+     */
+    200: DangoSlotNamedData;
+};
+
+export type GetDangoSlotByNameResponse = GetDangoSlotByNameResponses[keyof GetDangoSlotByNameResponses];
+
+export type GetDangoSlotListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/dango_slot/';
+};
+
+export type GetDangoSlotListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoSlotList | DangoSlotListExpanded;
+};
+
+export type GetDangoSlotListResponse = GetDangoSlotListResponses[keyof GetDangoSlotListResponses];
+
+export type GetDangoStoryByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_story/{id}';
+};
+
+export type GetDangoStoryByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoStory;
+};
+
+export type GetDangoStoryByIdResponse = GetDangoStoryByIdResponses[keyof GetDangoStoryByIdResponses];
+
+export type GetDangoStoryListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/dango_story/';
+};
+
+export type GetDangoStoryListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoStoryList | DangoStoryListExpanded;
+};
+
+export type GetDangoStoryListResponse = GetDangoStoryListResponses[keyof GetDangoStoryListResponses];
+
+export type GetDangoTaskByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_task/{id}';
+};
+
+export type GetDangoTaskByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoTask;
+};
+
+export type GetDangoTaskByIdResponse = GetDangoTaskByIdResponses[keyof GetDangoTaskByIdResponses];
+
+export type GetDangoTaskByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/dango_task/{name}';
+};
+
+export type GetDangoTaskByNameResponses = {
+    /**
+     * OK
+     */
+    200: DangoTaskNamedData;
+};
+
+export type GetDangoTaskByNameResponse = GetDangoTaskByNameResponses[keyof GetDangoTaskByNameResponses];
+
+export type GetDangoTaskListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/dango_task/';
+};
+
+export type GetDangoTaskListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoTaskList | DangoTaskListExpanded;
+};
+
+export type GetDangoTaskListResponse = GetDangoTaskListResponses[keyof GetDangoTaskListResponses];
+
+export type GetDangoChessByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_chess/{id}';
+};
+
+export type GetDangoChessByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoChess;
+};
+
+export type GetDangoChessByIdResponse = GetDangoChessByIdResponses[keyof GetDangoChessByIdResponses];
+
+export type GetDangoChessListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/dango_chess/';
+};
+
+export type GetDangoChessListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoChessList | DangoChessListExpanded;
+};
+
+export type GetDangoChessListResponse = GetDangoChessListResponses[keyof GetDangoChessListResponses];
+
+export type GetDangoChessStageByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/dango_chess_stage/{id}';
+};
+
+export type GetDangoChessStageByIdResponses = {
+    /**
+     * OK
+     */
+    200: DangoChessStage;
+};
+
+export type GetDangoChessStageByIdResponse = GetDangoChessStageByIdResponses[keyof GetDangoChessStageByIdResponses];
+
+export type GetDangoChessStageListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/dango_chess_stage/';
+};
+
+export type GetDangoChessStageListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: DangoChessStageList | DangoChessStageListExpanded;
+};
+
+export type GetDangoChessStageListResponse = GetDangoChessStageListResponses[keyof GetDangoChessStageListResponses];
+
+export type GetUnresolvedPetReferenceByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/unresolved_pet_reference/{id}';
+};
+
+export type GetUnresolvedPetReferenceByIdResponses = {
+    /**
+     * OK
+     */
+    200: UnresolvedPetReference;
+};
+
+export type GetUnresolvedPetReferenceByIdResponse = GetUnresolvedPetReferenceByIdResponses[keyof GetUnresolvedPetReferenceByIdResponses];
+
+export type GetUnresolvedPetReferenceListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+    };
+    url: 'v1/unresolved_pet_reference/';
+};
+
+export type GetUnresolvedPetReferenceListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: UnresolvedPetReferenceList | UnresolvedPetReferenceListExpanded;
+};
+
+export type GetUnresolvedPetReferenceListResponse = GetUnresolvedPetReferenceListResponses[keyof GetUnresolvedPetReferenceListResponses];

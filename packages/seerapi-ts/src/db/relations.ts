@@ -73,9 +73,17 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.pet.typeId,
 			to: r.elementTypeCombination.id
 		}),
-		glossaryEntries: r.many.glossaryEntry(),
+		glossaryEntriesViaPetglossaryentrylink: r.many.glossaryEntry({
+			alias: "glossaryEntry_id_pet_id_via_petglossaryentrylink"
+		}),
 		petEncyclopediaEntries: r.many.petEncyclopediaEntry(),
 		petArchiveStoryBooks: r.many.petArchiveStoryBook(),
+		glossaryEntriesViaPetSpecialEffect: r.many.glossaryEntry({
+			alias: "glossaryEntry_id_pet_id_via_petSpecialEffect"
+		}),
+		petSpecialEffectSources: r.many.petSpecialEffectSource(),
+		petSpecialEffectIssues: r.many.petSpecialEffectIssue(),
+		petSoulmarkDisplayAdditions: r.many.petSoulmarkDisplayAddition(),
 		petSkins: r.many.petSkin(),
 		mintmarks: r.many.mintmark(),
 		suitBonuses: r.many.suitBonus(),
@@ -85,6 +93,7 @@ export const relations = defineRelations(schema, (r) => ({
 		soulmarksViaPetsoulmarklink: r.many.soulmark({
 			alias: "soulmark_id_pet_id_via_petsoulmarklink"
 		}),
+		petSoulmarkDisplays: r.many.petSoulmarkDisplay(),
 		factorsPetId: r.many.factor({
 			alias: "factor_petId_pet_id"
 		}),
@@ -292,9 +301,15 @@ export const relations = defineRelations(schema, (r) => ({
 		fieldEffects: r.many.fieldEffect(),
 	},
 	glossaryEntry: {
-		pets: r.many.pet({
+		petsViaPetglossaryentrylink: r.many.pet({
 			from: r.glossaryEntry.id.through(r.petglossaryentrylink.glossaryEntryId),
-			to: r.pet.id.through(r.petglossaryentrylink.petId)
+			to: r.pet.id.through(r.petglossaryentrylink.petId),
+			alias: "glossaryEntry_id_pet_id_via_petglossaryentrylink"
+		}),
+		petsViaPetSpecialEffect: r.many.pet({
+			from: r.glossaryEntry.id.through(r.petSpecialEffect.glossaryId),
+			to: r.pet.id.through(r.petSpecialEffect.petId),
+			alias: "glossaryEntry_id_pet_id_via_petSpecialEffect"
 		}),
 	},
 	item: {
@@ -347,6 +362,24 @@ export const relations = defineRelations(schema, (r) => ({
 		pets: r.many.pet({
 			from: r.petArchiveStoryBook.id.through(r.petArchiveStoryEntry.bookId),
 			to: r.pet.id.through(r.petArchiveStoryEntry.petId)
+		}),
+	},
+	petSpecialEffectSource: {
+		pet: r.one.pet({
+			from: r.petSpecialEffectSource.petId,
+			to: r.pet.id
+		}),
+	},
+	petSpecialEffectIssue: {
+		pet: r.one.pet({
+			from: r.petSpecialEffectIssue.petId,
+			to: r.pet.id
+		}),
+	},
+	petSoulmarkDisplayAddition: {
+		pet: r.one.pet({
+			from: r.petSoulmarkDisplayAddition.petId,
+			to: r.pet.id
 		}),
 	},
 	skillEffectTypeTag: {
@@ -533,6 +566,12 @@ export const relations = defineRelations(schema, (r) => ({
 			alias: "soulmark_id_pet_id_via_petsoulmarklink"
 		}),
 		soulmarkTags: r.many.soulmarkTag(),
+		petSoulmarkDisplaysRootSoulmarkId: r.many.petSoulmarkDisplay({
+			alias: "petSoulmarkDisplay_rootSoulmarkId_soulmark_id"
+		}),
+		petSoulmarkDisplaysSoulmarkId: r.many.petSoulmarkDisplay({
+			alias: "petSoulmarkDisplay_soulmarkId_soulmark_id"
+		}),
 		factors: r.many.factor(),
 	},
 	skillActivationItem: {
@@ -681,6 +720,22 @@ export const relations = defineRelations(schema, (r) => ({
 		soulmarks: r.many.soulmark({
 			from: r.soulmarkTag.id.through(r.soulmarktaglink.tagId),
 			to: r.soulmark.id.through(r.soulmarktaglink.soulmarkId)
+		}),
+	},
+	petSoulmarkDisplay: {
+		soulmarkRootSoulmarkId: r.one.soulmark({
+			from: r.petSoulmarkDisplay.rootSoulmarkId,
+			to: r.soulmark.id,
+			alias: "petSoulmarkDisplay_rootSoulmarkId_soulmark_id"
+		}),
+		soulmarkSoulmarkId: r.one.soulmark({
+			from: r.petSoulmarkDisplay.soulmarkId,
+			to: r.soulmark.id,
+			alias: "petSoulmarkDisplay_soulmarkId_soulmark_id"
+		}),
+		pet: r.one.pet({
+			from: r.petSoulmarkDisplay.petId,
+			to: r.pet.id
 		}),
 	},
 	titleAttrBonus: {
