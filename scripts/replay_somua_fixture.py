@@ -69,6 +69,7 @@ def replay(output: Path) -> dict[str, int]:
             metadata=metadata,
             base_output_dir=output,
             data_output_dir=directory,
+            base_data_url='https://api.seerapi.com/v1',
             # Names such as "赛尔豆*10000" are valid on CI Linux, not Windows.
             # Merged/sharded name indexes preserve and validate all names locally.
             json_format=cast(JsonFormat, json_format),
