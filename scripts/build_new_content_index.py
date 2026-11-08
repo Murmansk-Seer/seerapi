@@ -51,20 +51,23 @@ from new_content_index_snapshot import (
 def load_source_history_additions(
     path: Path | None,
 ) -> tuple[SourceHistoryAddition, ...]:
-    """Load Git-confirmed additions without treating source-file edits as changes.
+    """Load validated explicit-generation additions without inventing file edits.
 
-    The API data repository records both real content additions and broad schema
-    rewrites. The workflow only writes numeric entities created by Git, so this
-    input may safely repair a rolling SQLite baseline that was overwritten after
-    an official update became available.
+    The producer validates complete numeric inventories. The workflow binds the
+    selected generation to the exact published database and source revisions.
+    Missing an explicitly requested document must not silently drop additions.
     """
-    if path is None or not path.is_file():
+    if path is None:
         return ()
+    if not path.is_file():
+        raise ValueError(f'missing source-history additions: {path}')
     try:
         document = json.loads(path.read_text(encoding='utf-8'))
     except json.JSONDecodeError as error:
         raise ValueError(f'invalid source-history additions: {path}') from error
-    raw_additions = document.get('additions', []) if isinstance(document, dict) else []
+    if not isinstance(document, dict) or 'additions' not in document:
+        raise ValueError(f'invalid source-history additions: {path}')
+    raw_additions = document['additions']
     if not isinstance(raw_additions, list):
         raise ValueError(f'invalid source-history additions: {path}')
     additions: set[SourceHistoryAddition] = set()

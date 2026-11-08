@@ -565,49 +565,24 @@ jobs:
       - name: Collect API data source-history additions
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_API_DATA_SHA: ${{ needs.plan.outputs.expected_api_data_sha }}
         run: |
           set -euo pipefail
-          history_dir="${RUNNER_TEMP}/api-data-history"
+          state_path="${RUNNER_TEMP}/api-data-publication.json"
+          index_path="${RUNNER_TEMP}/api-data-source-history-index.json"
           additions_path="${RUNNER_TEMP}/api-data-history-additions.json"
-          asset_updated_at="$(
-            python scripts/http_fetch.py \
-              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest \
-              | python -c 'import json, sys; print(next(asset["updated_at"] for asset in json.load(sys.stdin)["assets"] if asset["name"] == "seerapi-data.sqlite"))'
-          )"
-          git clone --quiet --filter=blob:none --no-checkout --depth=128 \
-            https://github.com/Murmansk-Seer/api-data.git "${history_dir}"
-          source_paths=(
-            data/v1/data/achievement
-            data/v1/data/pet
-            data/v1/data/pet_skin
-            data/v1/data/skill
-            data/v1/data/mintmark
-            data/v1/data/suit
-            data/v1/data/equip
-          )
-          source_head="$(
-            git -C "${history_dir}" log -1 --before="${asset_updated_at}" \
-              --format=%H origin/main -- "${source_paths[@]}"
-          )"
-          if [ -z "${source_head}" ]; then
-            echo "No API data entity revision was found before ${asset_updated_at}."
-            exit 0
-          fi
-          source_base="$(
-            git -C "${history_dir}" log --first-parent -1 \
-              --format=%H --grep='^Auto update config ' "${source_head}^"
-          )"
-          if [ -z "${source_base}" ]; then
-            source_base="$(git -C "${history_dir}" rev-parse "${source_head}^")"
-          fi
+          python scripts/http_fetch.py \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            'https://api.github.com/repos/Murmansk-Seer/api-data/contents/.build-state/publication.json?ref=pipeline-state' \
+            | python -c 'import base64,json,sys; open(sys.argv[1],"wb").write(base64.b64decode(json.load(sys.stdin)["content"]))' "$state_path"
+          index_revision="$(python -c 'import json,re,sys; d=json.load(open(sys.argv[1])); r=d.get("source_history_index_revision", ""); assert re.fullmatch("[0-9a-f]{40}",r), "Await a verified indexed API rebuild"; print(r)' "$state_path")"
+          python scripts/http_fetch.py \
+            "https://raw.githubusercontent.com/Murmansk-Seer/api-data/${index_revision}/data/v1/source-history-index.json" \
+            --output "$index_path"
           python scripts/build_source_history_additions.py \
-            --repository "${history_dir}" \
-            --base "${source_base}" \
-            --head "${source_head}" \
-            --output "${additions_path}"
-          echo "API data history baseline: ${source_base}"
-          echo "API data history revision: ${source_head}"
+            --index "$index_path" --publication-state "$state_path" \
+            --index-revision "$index_revision" --database-sha256 "$EXPECTED_API_DATA_SHA" \
+            --output "$additions_path"
 
       - name: Build new content release index
         id: new_content
@@ -615,7 +590,7 @@ jobs:
           PREVIOUS_SEERAPI_DATA_DB: ${{ env.PREVIOUS_SEERAPI_DATA_DB }}
         run: |
           set -e
-          args=(--current seerapi-data.sqlite --current-git-sha "${GITHUB_SHA}")
+          args=(--current seerapi-data.sqlite --current-git-sha "${{ needs.plan.outputs.build_sha }}")
           if [ -n "${PREVIOUS_SEERAPI_DATA_DB:-}" ] && [ -f "${PREVIOUS_SEERAPI_DATA_DB}" ]; then
             args+=(--previous "${PREVIOUS_SEERAPI_DATA_DB}")
           fi
