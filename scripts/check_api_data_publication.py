@@ -67,7 +67,7 @@ def main():
     if source_info is None:
         raise RuntimeError('config-sources main is unavailable; cannot establish publication provenance')
     source = source_info['sha']
-    content = get_json('api-data/contents/.build-state/publication.json?ref=main')
+    content = get_json('api-data/contents/.build-state/publication.json?ref=pipeline-state')
     state = json.loads(base64.b64decode(content['content'])) if content else {}
     checksum = get_json('api-data/releases/tags/latest')
     if checksum is None:

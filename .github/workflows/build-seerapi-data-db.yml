@@ -26,7 +26,6 @@ on:
       - "pyproject.toml"
       - "uv.lock"
       - "scripts/check_api_data_publication.py"
-      - "scripts/push_build_state.py"
       - "scripts/effect_icon_*.py"
       - "scripts/render_flash_mount_images.py"
       - "scripts/finalize_render_asset_manifest.py"
@@ -83,6 +82,7 @@ jobs:
       remote_config_package_version: ${{ steps.source_check.outputs.remote_config_package_version }}
       remote_config_package_manifest_sha: ${{ steps.source_check.outputs.remote_config_package_manifest_sha }}
       remote_default_package_version: ${{ steps.source_check.outputs.remote_default_package_version }}
+      pipeline_state_sha: ${{ steps.pipeline_state_ref.outputs.sha }}
       build_sha: ${{ steps.build_ref.outputs.sha }}
       generator_fingerprint: ${{ steps.source_check.outputs.generator_fingerprint }}
 
@@ -92,6 +92,26 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Require migrated pipeline checkpoint
+        run: |
+          set -euo pipefail
+          git ls-remote --exit-code --heads origin refs/heads/pipeline-state >/dev/null || {
+            echo "::error::Publish the verified original pipeline-state seed before enabling this workflow. No build or release was attempted."
+            exit 1
+          }
+
+      - name: Restore verified pipeline checkpoint
+        uses: Murmansk-Seer/.github/.github/actions/pipeline-state@e50f91b8dc44002ce0e15cad50e88f2bd34d6210
+        with:
+          mode: restore
+
+      - name: Record planned checkpoint revision
+        id: pipeline_state_ref
+        run: |
+          state_sha="$(cat "$(git rev-parse --git-path pipeline-state-base)")"
+          test -n "$state_sha"
+          echo "sha=$state_sha" >> "$GITHUB_OUTPUT"
 
       - name: Record build revision
         id: build_ref
@@ -328,7 +348,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.plan.outputs.build_sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -430,8 +450,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.plan.outputs.build_sha }}
           fetch-depth: 0
+
+      - name: Restore planned pipeline checkpoint
+        uses: Murmansk-Seer/.github/.github/actions/pipeline-state@e50f91b8dc44002ce0e15cad50e88f2bd34d6210
+        with:
+          mode: restore
+
+      - name: Verify planned checkpoint is unchanged
+        env:
+          EXPECTED_PIPELINE_STATE: ${{ needs.plan.outputs.pipeline_state_sha }}
+        run: |
+          set -euo pipefail
+          observed="$(cat "$(git rev-parse --git-path pipeline-state-base)")"
+          if [ -z "$EXPECTED_PIPELINE_STATE" ] || [ "$observed" != "$EXPECTED_PIPELINE_STATE" ]; then
+            echo "::error::Pipeline checkpoint changed after planning; rerun from a fresh plan. No release was attempted."
+            exit 1
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -939,15 +975,10 @@ jobs:
       - name: Record data source checksums
         run: |
           set -e
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
           mkdir -p .build-state
           printf '%s\n' "${{ needs.plan.outputs.generator_fingerprint }}" > .build-state/generator-fingerprint
-          git add .build-state/generator-fingerprint
           cp .cache/official-packages/maintenance-cycle.json .build-state/maintenance-cycle.json
-          git add .build-state/maintenance-cycle.json
           printf '%s\n' "${{ needs.plan.outputs.maintenance_start }}" > .build-state/maintenance-published-start
-          git add .build-state/maintenance-published-start
           printf '%s\n' "${{ needs.plan.outputs.remote_sha }}" > .build-state/api-data-sha256
           printf '%s\n' "${{ needs.plan.outputs.remote_partner_sha }}" > .build-state/partner-contracts-sha256
           printf '%s\n' "${{ needs.plan.outputs.remote_item_catalog_sha }}" > .build-state/unity-item-catalog-sha256
@@ -965,11 +996,12 @@ jobs:
             printf 'unavailable\n' > .build-state/preview-cycle-phase
           fi
           cp "${FLASH_MOUNT_PENDING_FILE}" .build-state/flash-mount-image-pending-ids
-          git add .build-state/api-data-sha256 .build-state/partner-contracts-sha256 .build-state/unity-item-catalog-sha256 .build-state/special-effect-status-sha256 .build-state/config-package-version .build-state/config-package-manifest-sha256 .build-state/default-package-version .build-state/preview-cycle-start .build-state/preview-cycle-end .build-state/preview-cycle-phase .build-state/flash-mount-image-pending-ids
-          if ! git diff --cached --quiet; then
-            git commit -m "Record SeerAPI data source checksums"
-            python scripts/push_build_state.py
-          fi
+
+      - name: Persist verified publication checkpoint
+        if: steps.verify_release.outcome == 'success'
+        uses: Murmansk-Seer/.github/.github/actions/pipeline-state@e50f91b8dc44002ce0e15cad50e88f2bd34d6210
+        with:
+          mode: publish
 
   report:
     if: ${{ always() }}

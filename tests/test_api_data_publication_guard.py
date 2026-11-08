@@ -32,7 +32,7 @@ def test_live_official_version_must_match_published_source(
     state = {'config': 'source', 'sha256': checksum}
     documents = {
         'config-sources/commits/main': {'sha': 'source'},
-        'api-data/contents/.build-state/publication.json?ref=main': {
+        'api-data/contents/.build-state/publication.json?ref=pipeline-state': {
             'content': base64.b64encode(json.dumps(state).encode()).decode()
         },
         'api-data/releases/tags/latest': {

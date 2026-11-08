@@ -39,3 +39,6 @@ aliases-data.sqlite.sha256
 
 # Claude Code
 .claude/
+
+# Verified runtime checkpoints are maintained on pipeline-state.
+/.build-state/

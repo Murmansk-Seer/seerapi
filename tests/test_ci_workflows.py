@@ -59,10 +59,12 @@ def test_data_build_pins_api_data_release_asset() -> None:
     assert 'releases/download/latest/seerapi-data.sqlite.sha256' not in workflow
 
 
-def test_data_build_uses_safe_state_push() -> None:
+def test_data_build_uses_isolated_verified_state_checkpoints() -> None:
     workflow = DATA_BUILD_WORKFLOW.read_text(encoding='utf-8')
 
-    assert 'python scripts/push_build_state.py' in workflow
+    assert 'python scripts/push_build_state.py' not in workflow
+    assert 'git add .build-state' not in workflow
+    assert 'pipeline-state@e50f91b8dc44002ce0e15cad50e88f2bd34d6210' in workflow
     assert 'git push origin main' not in workflow
 
 
