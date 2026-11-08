@@ -987,7 +987,7 @@ jobs:
       failed: ${{ steps.report.outputs.failed }}
     steps:
       - id: report
-        uses: Murmansk-Seer/.github/.github/actions/report-update@dadd404c9c0119e0326e1e4fb8fcdf3ef6330dab
+        uses: Murmansk-Seer/.github/.github/actions/report-update@f83131a6f07754a48611946af1494e3b516b4571
         env:
           GH_TOKEN: ${{ github.token }}
         with:

@@ -15,7 +15,7 @@ def test_release_is_verified_before_state_advances_and_outcome_is_explicit() -> 
     )
     assert 'cmp seerapi-data.sqlite.sha256' in workflow
     assert 'release_contract.py --database "$directory/seerapi-data.sqlite"' in workflow
-    assert 'report-update@dadd404c9c0119e0326e1e4fb8fcdf3ef6330dab' in workflow
+    assert 'report-update@f83131a6f07754a48611946af1494e3b516b4571' in workflow
     assert 'needs.report.outputs.label' in workflow
     assert 'CONFIG_SOURCE_COMMIT: ${{ needs.plan.outputs.config_source }}' in workflow
     assert '${CONFIG_SOURCE_COMMIT}/unity/${filename}' in workflow
