@@ -35,11 +35,17 @@ on:
       - ".github/workflows/build-seerapi-data-db.yml"
   schedule:
     - cron: "5,35 * * * *"
+    - cron: "0 18 * * 5"
   workflow_dispatch:
     inputs:
       force:
         type: boolean
         description: "Force rebuild even when api-data release is unchanged"
+        required: false
+        default: false
+      full_effect_icon_refresh:
+        type: boolean
+        description: "Verify every effect icon source before rebuilding the cache"
         required: false
         default: false
       rebuild_weekly_index:
@@ -58,6 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.source_check.outputs.skip }}
+      full_effect_icon_refresh: ${{ steps.source_check.outputs.full_effect_icon_refresh }}
       blocked: ${{ steps.source_check.outputs.blocked }}
       config_source: ${{ steps.source_check.outputs.config_source }}
       published_source: ${{ steps.source_check.outputs.published_source }}
@@ -122,6 +129,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && (inputs.force == true || inputs.rebuild_weekly_index == true) }}
+          FULL_EFFECT_ICON_REFRESH: ${{ (github.event_name == 'schedule' && github.event.schedule == '0 18 * * 5') || (github.event_name == 'workflow_dispatch' && inputs.full_effect_icon_refresh == true) }}
           DISPATCHED_API_DATA_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha256 || '' }}
           DISPATCHED_SOURCE_COMMIT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_commit || '' }}
           PARTNER_CONTRACTS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/partner_contracts.json
@@ -275,7 +283,8 @@ jobs:
           echo "previous_config_package_version=${previous_config_package_version}" >> "$GITHUB_OUTPUT"
           echo "flash_mount_retry=${flash_mount_retry}" >> "$GITHUB_OUTPUT"
 
-          if [ "${FORCE}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ -n "${previous_default_package_version}" ] && [ -n "${current_preview_cycle_phase}" ] && [ "${current_preview_cycle_phase}" = "${previous_preview_cycle_phase}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ] && [ "${default_package_version}" = "${previous_default_package_version}" ]; then
+          echo "full_effect_icon_refresh=${FULL_EFFECT_ICON_REFRESH}" >> "$GITHUB_OUTPUT"
+          if [ "${FORCE}" != "true" ] && [ "${FULL_EFFECT_ICON_REFRESH}" != "true" ] && [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${flash_mount_retry}" != "true" ] && [ -n "${previous_sha}" ] && [ -n "${previous_partner_sha}" ] && [ -n "${previous_item_catalog_sha}" ] && [ -n "${previous_special_effect_status_sha}" ] && [ -n "${previous_config_package_version}" ] && [ -n "${previous_config_package_manifest_sha}" ] && [ -n "${previous_default_package_version}" ] && [ -n "${current_preview_cycle_phase}" ] && [ "${current_preview_cycle_phase}" = "${previous_preview_cycle_phase}" ] && [ "${remote_sha}" = "${previous_sha}" ] && [ "${remote_partner_sha}" = "${previous_partner_sha}" ] && [ "${remote_item_catalog_sha}" = "${previous_item_catalog_sha}" ] && [ "${remote_special_effect_status_sha}" = "${previous_special_effect_status_sha}" ] && [ "${config_package_version}" = "${previous_config_package_version}" ] && [ "${remote_config_package_manifest_sha}" = "${previous_config_package_manifest_sha}" ] && [ "${default_package_version}" = "${previous_default_package_version}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "api-data release, official ConfigPackage manifest, partner contracts, Unity item catalog, special effect statuses, and pending Flash mount availability are unchanged; skipping SeerAPI DB build."
           else
@@ -390,7 +399,12 @@ jobs:
           SEERAPI_DATA_EFFECT_ICON_PNG_CACHE_DIR: .cache/effect-icon-png
           SEERAPI_DATA_OFFICIAL_PACKAGE_CACHE_DIR: .cache/official-packages
         run: |
+          refresh_args=()
+          if [ "${{ needs.plan.outputs.full_effect_icon_refresh }}" = "true" ]; then
+            refresh_args+=(--refresh-effect-icon-cache)
+          fi
           python scripts/build_seerapi_data_db.py \
+            "${refresh_args[@]}" \
             --plan-effect-icon-shard ${{ matrix.shard }} \
             --effect-icon-shard-count 16 \
             --export-effect-icon-cache-shard .artifacts/effect-icon-cache \

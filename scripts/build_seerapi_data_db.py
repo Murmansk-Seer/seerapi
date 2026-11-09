@@ -656,6 +656,7 @@ def main() -> None:
             ),
             export_cache=_export_effect_icon_cache,
             logger=logger,
+            refresh=arguments.refresh_effect_icon_cache,
         )
         write_effect_icon_cache_shard_plan(
             plan,

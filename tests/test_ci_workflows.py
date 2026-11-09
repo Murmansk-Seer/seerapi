@@ -115,3 +115,15 @@ def test_python_release_excludes_source_consumed_models() -> None:
     assert 'uv publish' not in workflow
     assert 'environment:\n      name: pypi' not in workflow
     assert 'id-token: write' not in workflow
+
+
+def test_full_effect_icon_refresh_keeps_skip_and_planner_wiring() -> None:
+    workflow = DATA_BUILD_WORKFLOW.read_text(encoding='utf-8')
+    assert 'cron: "0 18 * * 5"' in workflow
+    assert 'inputs.full_effect_icon_refresh == true' in workflow
+    assert '[ "${FULL_EFFECT_ICON_REFRESH}" != "true" ]' in workflow
+    assert 'full_effect_icon_refresh: ${{ steps.source_check.outputs.full_effect_icon_refresh }}' in workflow
+    assert 'needs.plan.outputs.full_effect_icon_refresh' in workflow
+    assert 'refresh_args+=(--refresh-effect-icon-cache)' in workflow
+    assert '"${refresh_args[@]}"' in workflow
+    assert "if grep -q '^blocked=true$' \"$GITHUB_OUTPUT\";" in workflow

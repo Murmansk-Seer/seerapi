@@ -66,6 +66,11 @@ def add_effect_icon_cache_cli_arguments(parser: argparse.ArgumentParser) -> None
         help="inspect one zero-based effect icon cache shard without invoking FFDec",
     )
     parser.add_argument(
+        "--refresh-effect-icon-cache",
+        action="store_true",
+        help="require a complete source check of the planned shard",
+    )
+    parser.add_argument(
         "--effect-icon-shard-count",
         type=int,
         default=1,
@@ -102,6 +107,8 @@ def validate_effect_icon_cache_cli_arguments(
     parser: argparse.ArgumentParser,
     arguments: argparse.Namespace,
 ) -> None:
+    if arguments.refresh_effect_icon_cache and arguments.plan_effect_icon_shard is None:
+        parser.error("--refresh-effect-icon-cache requires --plan-effect-icon-shard")
     shard_operations = sum(
         operation is not None
         for operation in (
@@ -336,6 +343,7 @@ def plan_effect_icon_png_cache_shard(
     ],
     export_cache: Callable[[Sequence[int], Path], int],
     logger: logging.Logger,
+    refresh: bool = False,
 ) -> EffectIconCacheShardPlan:
     """Inspect one shard and report only cache entries that require repair."""
 
@@ -345,6 +353,8 @@ def plan_effect_icon_png_cache_shard(
         icon_ids=find_fallback_icon_ids(fetch_icon_ids()),
     )
     checks, renders = inspect_icons(set(shard_icon_ids))
+    if refresh and set(shard_icon_ids).difference(checks):
+        raise ValueError("Full effect icon refresh requires a check for every shard icon")
     repair_icon_ids = tuple(
         icon_id
         for icon_id in shard_icon_ids
