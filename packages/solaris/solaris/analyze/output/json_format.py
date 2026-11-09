@@ -113,15 +113,24 @@ class SplitJsonOutputFormat(JsonOutputFormat):
         data: Mapping[int, TResModelRequiredId],
         output_named_data: bool,
     ) -> None:
-        outputter._output_individual_json(data, resource_name)
-        _write_named_data(
-            outputter,
-            model=model,
-            data=data,
-            resource_name=resource_name,
-            output_named_data=output_named_data,
-            merged=False,
+        from .output_helpers import is_named_model
+
+        name_data = (
+            _collect_name_data(outputter, model, data)
+            if output_named_data and is_named_model(model)
+            else {}
         )
+        canonical_ids = {str(id_): id_ for id_ in data}
+        for name, named in name_data.items():
+            if name in canonical_ids:
+                raise ValueError(
+                    f'Split JSON resource {resource_name!r} name {name!r} '
+                    f'collides with canonical ID {canonical_ids[name]!r}; '
+                    f'named IDs {sorted(named.data)!r}'
+                )
+        outputter._output_individual_json(data, resource_name)
+        if name_data:
+            outputter._output_named_json(name_data, resource_name)
 
 
 @register_json_format
