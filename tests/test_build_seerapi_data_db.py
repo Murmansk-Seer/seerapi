@@ -3683,27 +3683,44 @@ def test_merge_writes_item_exchange_prices(tmp_path) -> None:
 
 def test_full_effect_icon_refresh_requires_every_shard_source_check(tmp_path) -> None:
     captured = []
+
     def inspect(ids):
         captured.extend(sorted(ids))
         return ({}, {})
-    with pytest.raises(ValueError, match="check for every shard icon"):
+
+    with pytest.raises(ValueError, match='check for every shard icon'):
         effect_icon_cache_cli.plan_effect_icon_png_cache_shard(
-            shard_index=0, shard_count=1, output_dir=tmp_path,
+            shard_index=0,
+            shard_count=1,
+            output_dir=tmp_path,
             fetch_icon_ids=lambda: {100, 101},
             find_fallback_icon_ids=lambda ids: sorted(ids),
-            inspect_icons=inspect, export_cache=lambda ids, path: 0,
-            logger=builder.logger, refresh=True,
+            inspect_icons=inspect,
+            export_cache=lambda ids, path: 0,
+            logger=builder.logger,
+            refresh=True,
         )
     assert captured == [100, 101]
 
 
 def test_full_effect_icon_refresh_cli_requires_plan(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(sys, 'argv', [
-        'build_seerapi_data_db.py', '--refresh-effect-icon-cache',
-        '--plan-effect-icon-shard', '0', '--export-effect-icon-cache-shard',
-        str(tmp_path), '--effect-icon-shard-plan-output', str(tmp_path / 'out'),
-    ])
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'build_seerapi_data_db.py',
+            '--refresh-effect-icon-cache',
+            '--plan-effect-icon-shard',
+            '0',
+            '--export-effect-icon-cache-shard',
+            str(tmp_path),
+            '--effect-icon-shard-plan-output',
+            str(tmp_path / 'out'),
+        ],
+    )
     assert builder._parse_cli_args().refresh_effect_icon_cache is True
-    monkeypatch.setattr(sys, 'argv', ['build_seerapi_data_db.py', '--refresh-effect-icon-cache'])
+    monkeypatch.setattr(
+        sys, 'argv', ['build_seerapi_data_db.py', '--refresh-effect-icon-cache']
+    )
     with pytest.raises(SystemExit):
         builder._parse_cli_args()
