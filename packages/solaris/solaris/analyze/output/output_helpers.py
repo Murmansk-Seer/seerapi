@@ -41,7 +41,11 @@ def generate_api_resource_list(
             NamedResourceRef.from_res_name(
                 id=item.id,
                 resource_name=item.resource_name(),
-                name=getattr(item, 'name', None),
+                name=(
+                    getattr(item, get_name_fields(type(item))[0])
+                    if is_named_model(type(item))
+                    else None
+                ),
             )
             for item in data.values()
         ],

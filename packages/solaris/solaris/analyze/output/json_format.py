@@ -74,7 +74,8 @@ def _collect_name_data(
             return getattr(m, field, None)
 
         name_data = outputter._generate_name_data(data, name_generator=_name_generator)
-        merged_name_data.update(name_data)
+        for name, named in name_data.items():
+            merged_name_data.setdefault(name, NamedData(data={})).data.update(named.data)
     return merged_name_data
 
 

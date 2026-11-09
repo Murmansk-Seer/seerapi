@@ -19,6 +19,19 @@
 - Current namespace: `module.dangoActivity`. Old dango tables are not declared deprecated.
   A missing direct call in this bounded IL scan is not proof of non-use.
 
+## Resource names
+
+Standard API resource lists use the first declared name field. Dango keeps its
+raw client `name` as the primary label; `gene` remains an additional lookup key.
+An empty primary name stays empty. If different lookup fields share an alias,
+its named response includes every matching ID. These keys identify records in
+the same resource; they do not associate a Dango or Somua record with a Seer pet.
+
+标准 API 列表使用模型声明的第一个名称字段。Dango 以客户端原始 `name` 为主名称，
+并保留 `gene` 作为额外查询键；主名称为空时保留空字符串，不用基因编码猜测填充。
+不同字段命中同一个查询键时，名称响应保留所有匹配 ID。查询只在同一资源内匹配，
+不会由名称或基因编码推断 Dango、Somua 与精灵的关系。
+
 ## Tables and Read Order
 
 ### Loading Evidence

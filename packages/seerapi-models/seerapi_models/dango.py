@@ -9,7 +9,7 @@ from seerapi_models.build_model import BaseResModel, ConvertToORM
 
 
 class BaseDango(BaseResModel):
-    __name_fields__: ClassVar[list[str]] = ['gene']
+    __name_fields__: ClassVar[list[str]] = ['name', 'gene']
     describe: str = Field(description='Client dango.describe; raw string')
     gene: str = Field(description='Client dango.gene; raw string')
     grade: int = Field(description='Client dango.grade; raw int32')
