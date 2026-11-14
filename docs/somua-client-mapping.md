@@ -2,8 +2,8 @@
 
 ## Provenance
 
-- ConfigPackage: `20261105230633`, bundle MD5 `55844b037e83296b14ae77b70e85a1b0`.
-- DefaultPackage: `20261105235600`, GameLogic DLL MD5 `8694d8e59fd06de9fafa5895650ea25d`.
+- ConfigPackage: `20261113190033`, bundle MD5 `08dfdb04c492b4a26d0547bae5b585d0`.
+- DefaultPackage: `20261113205057`, GameLogic DLL MD5 `201be92a7356eb8422fe2e48a3bcc339`.
 - Official package base: `https://newseer.61.com/Assets/StandaloneWindows64/`.
 - Golden bytes, every decoded row, per-file SHA256, method tokens and Parse IL:
   `packages/solaris/tests/fixtures/somua/client-evidence.json` and sibling `.bytes` files.
@@ -37,7 +37,7 @@ the same resource; they do not associate a Dango or Somua record with a Seer pet
 ### Loading Evidence
 
 GameLogic DLL SHA256:
-`ba1112f30d8a0a5dd1543ce256ad9078a9a379587566a4df4604d9d8ecf17e1e`.
+`eb88a014b399b3021cdca4da8990ecd18741c374d017db3d7ac052840f0e78aa`.
 For every table below, the matching `core.config.<Class>.get_fileName`
 loads its exact original asset stem at IL offset 0, and
 `core.config.<Class>.Parse` calls the row-info Parse at IL offset 56.
@@ -76,7 +76,7 @@ The captured `loading_evidence` entries record both locations independently.
 ### SomuaAchievementConfig
 
 Resource/table: `somua_achievement`; 40 records in this fixture (not a future limit).
-Client: `core.config.ISomuaAchievementConfigInfo`, Parse token `0x6017f1e`.
+Client: `core.config.ISomuaAchievementConfigInfo`, Parse token `0x6018212`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -87,31 +87,32 @@ Client: `core.config.ISomuaAchievementConfigInfo`, Parse token `0x6017f1e`.
 | 5 | name | name | string |
 | 6 | type | type | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaBasicAttritube
 
 Resource/table: `somua_basic_attribute`; 21 records in this fixture (not a future limit).
-Client: `core.config.ISomuaBasicAttritubeInfo`, Parse token `0x6017f36`.
+Client: `core.config.ISomuaBasicAttritubeInfo`, Parse token `0x601822c`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
 | 1 | attackRatio | attack_ratio | int32 |
 | 2 | attackValue | attack_value | int32 |
-| 3 | criticalChance | critical_chance | int32 |
-| 4 | criticalDamageRatio | critical_damage_ratio | int32 |
-| 5 | defenseRatio | defense_ratio | int32 |
-| 6 | healthValue | health_value | int32 |
-| 7 | id | id | int32 |
-| 8 | knockRatio | knock_ratio | int32 |
-| 9 | speedValue | speed_value | int32 |
+| 3 | bodyRatio | body_ratio | int32 |
+| 4 | criticalChance | critical_chance | int32 |
+| 5 | criticalDamageRatio | critical_damage_ratio | int32 |
+| 6 | defenseRatio | defense_ratio | int32 |
+| 7 | healthValue | health_value | int32 |
+| 8 | id | id | int32 |
+| 9 | knockRatio | knock_ratio | int32 |
+| 10 | speedValue | speed_value | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoActivityDataMgr.GetSumoAttributes`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaDispatchConfig
 
 Resource/table: `somua_dispatch`; 7 records in this fixture (not a future limit).
-Client: `core.config.ISomuaDispatchConfigInfo`, Parse token `0x6017f4c`.
+Client: `core.config.ISomuaDispatchConfigInfo`, Parse token `0x6018242`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -124,12 +125,12 @@ Client: `core.config.ISomuaDispatchConfigInfo`, Parse token `0x6017f4c`.
 | 7 | tasktype | tasktype | int32 |
 | 8 | value | value | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoActivityDataMgr.updateDispatchFlag`, `module.dangoActivity.DangoActivityDataMgr.RefreshMultDic`, `module.dangoActivity.DangoActivityDataMgr.RefreshRewardInfo`, `module.dangoActivity.DangoDispatchPanel.selectedTaskItem`, `module.dangoActivity.DangoDispatchPanel.StatLogger_Log_Complete`, `module.dangoActivity.DangoDispatchPanel.<addEvent>b__7_2`, `module.dangoActivity.DangoDispatchTaskItem.setData`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaEntryConfig
 
-Resource/table: `somua_entry`; 370 records in this fixture (not a future limit).
-Client: `core.config.ISomuaEntryConfigInfo`, Parse token `0x6017f68`.
+Resource/table: `somua_entry`; 373 records in this fixture (not a future limit).
+Client: `core.config.ISomuaEntryConfigInfo`, Parse token `0x601825e`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -145,12 +146,12 @@ Client: `core.config.ISomuaEntryConfigInfo`, Parse token `0x6017f68`.
 | 10 | value5 | value5 | int32 |
 | 11 | value6 | value6 | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoActivityDataMgr.GetSumoAtk`, `module.dangoActivity.DangoActivityDataMgr.GetSumoDef`, `module.dangoActivity.DangoActivityDataMgr.GetSumoHp`, `module.dangoActivity.DangoActivityDataMgr.GetSumoCRT`, `module.dangoActivity.DangoActivityDataMgr.GetSumoSpd`, `module.dangoActivity.DangoBagItem.RefreshAblity`, `module.dangoActivity.SomuaBoxMain.updateSumoaInfo`, `module.dangoActivity.SomuaBoxMain.RefreshAblity`, `module.dangoActivity.SomuaBattleAbilityItem.SetData`, `module.dangoActivity.SomuaCombineInfoPop.RefreshSumoInfo`, `module.dangoActivity.SomuaCombineResultPopUp.refreshSumoInfo`, `module.dangoActivity.SumuaCombineItem.SetData`, `module.dangoActivity.SumuaCombineItem.RefreshAblity`, `module.dangoActivity.SomuaAbilityItem.SetData`, `module.dangoActivity.SomuaAbilityItem.ApplyConfig`, `module.dangoActivity.SomuaBattleDetailView.updateView`, `module.dangoActivity.DangoHandBookIntroducePop.RefreshEntryByTab`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaGeneConfig
 
 Resource/table: `somua_gene`; 15 records in this fixture (not a future limit).
-Client: `core.config.ISomuaGeneConfigInfo`, Parse token `0x6017f7e`.
+Client: `core.config.ISomuaGeneConfigInfo`, Parse token `0x6018274`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -163,12 +164,12 @@ Client: `core.config.ISomuaGeneConfigInfo`, Parse token `0x6017f7e`.
 | 7 | skinteen | skinteen | string |
 | 8 | sort | sort | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoActivityDataMgr.GetSomuaSkin`, `module.dangoActivity.DangoActivityDataMgr.GetSomuaShowGene`, `module.dangoActivity.SomuaGeneItem.ApplyGeneContent`, `module.dangoActivity.SomuaDetailChildPanel.InitFoodShopList`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaHouseConfig
 
 Resource/table: `somua_house`; 10 records in this fixture (not a future limit).
-Client: `core.config.ISomuaHouseConfigInfo`, Parse token `0x6017f8c`.
+Client: `core.config.ISomuaHouseConfigInfo`, Parse token `0x6018282`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -177,12 +178,12 @@ Client: `core.config.ISomuaHouseConfigInfo`, Parse token `0x6017f8c`.
 | 3 | name | name | string |
 | 4 | roomID | room_id | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoActivityDataMgr.HaveHomebaseLock`, `module.dangoActivity.SomuaBoxMain.getPlaceHouseName`, `module.dangoActivity.DangoWarehousePanel.onShow`, `module.dangoActivity.DangoWarehousePanel.OnItemClick`, `module.dangoActivity.DangoWarhouseItem.SetData`, `module.dangoActivity.DangoWarhouseItem.IsUnlock`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaKeeperConfig
 
 Resource/table: `somua_keeper`; 6 records in this fixture (not a future limit).
-Client: `core.config.ISomuaKeeperConfigInfo`, Parse token `0x6017fb4`.
+Client: `core.config.ISomuaKeeperConfigInfo`, Parse token `0x60182aa`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -204,40 +205,41 @@ Client: `core.config.ISomuaKeeperConfigInfo`, Parse token `0x6017fb4`.
 | 16 | storeMax | store_max | int32 |
 | 17 | taskNum | task_num | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoActivityDataMgr.GetGolddropEfficiency`, `module.dangoActivity.DangoActivityDataMgr.GetMaxNotAdultDangoCount`, `module.dangoActivity.DangoActivityDataMgr.NextUnlockPrivilegeLevel`, `module.dangoActivity.DangoActivityDataMgr.IsNannyLevelRewardCanGet`, `module.dangoActivity.DangoNannyPanel.SetNannyInfo`, `module.dangoActivity.DangoNannyPanel.HaveLvupTask`, `module.dangoActivity.DangoNannyPanel.CanLevelUp`, `module.dangoActivity.DangoNannyPreviewItem.SetData`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaModelConfig
 
 Resource/table: `somua_model`; 68 records in this fixture (not a future limit).
-Client: `core.config.ISomuaModelConfigInfo`, Parse token `0x6017fde`.
+Client: `core.config.ISomuaModelConfigInfo`, Parse token `0x60182d6`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
-| 1 | attackMode | attack_mode | int32 |
-| 2 | attackModeSP | attack_mode_sp | int32 |
-| 3 | describe | describe | string |
-| 4 | id | id | int32 |
-| 5 | isBack | is_back | int32 |
-| 6 | isBody | is_body | int32 |
-| 7 | isEar | is_ear | int32 |
-| 8 | isExpression | is_expression | int32 |
-| 9 | isHand | is_hand | int32 |
-| 10 | isHead | is_head | int32 |
-| 11 | isSurrounding | is_surrounding | int32 |
-| 12 | isTail | is_tail | int32 |
-| 13 | isTopwear | is_topwear | int32 |
-| 14 | name | name | string |
-| 15 | petID | pet_id | int32 |
-| 16 | prefix | prefix | string |
-| 17 | season | season | string |
-| 18 | suffix | suffix | string |
+| 1 | addonPool | addon_pool | string |
+| 2 | addonPoolSP | addon_pool_sp | string |
+| 3 | attackMode | attack_mode | int32 |
+| 4 | attackModeSP | attack_mode_sp | int32 |
+| 5 | describe | describe | string |
+| 6 | id | id | int32 |
+| 7 | isBack | is_back | int32 |
+| 8 | isBody | is_body | int32 |
+| 9 | isEar | is_ear | int32 |
+| 10 | isExpression | is_expression | int32 |
+| 11 | isHand | is_hand | int32 |
+| 12 | isHead | is_head | int32 |
+| 13 | isSurrounding | is_surrounding | int32 |
+| 14 | isTail | is_tail | int32 |
+| 15 | isTopwear | is_topwear | int32 |
+| 16 | name | name | string |
+| 17 | naturePool | nature_pool | string |
+| 18 | petID | pet_id | int32 |
+| 19 | season | season | string |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoHandBookIntroducePop.RefreshEntryByTab`, `module.dangoActivity.SomaAvatarSkinUtil.BuildPartsCacheKey`, `module.dangoActivity.SomaAvatarSkinUtil.CollectSkinNames`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaRankingConfig
 
 Resource/table: `somua_ranking`; 16 records in this fixture (not a future limit).
-Client: `core.config.ISomuaRankingConfigInfo`, Parse token `0x6017ff2`.
+Client: `core.config.ISomuaRankingConfigInfo`, Parse token `0x60182ea`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -249,12 +251,12 @@ Client: `core.config.ISomuaRankingConfigInfo`, Parse token `0x6017ff2`.
 | 6 | name | name | string |
 | 7 | phase | phase | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaShopConfig
 
 Resource/table: `somua_shop`; 14 records in this fixture (not a future limit).
-Client: `core.config.ISomuaShopConfigInfo`, Parse token `0x6018014`.
+Client: `core.config.ISomuaShopConfigInfo`, Parse token `0x601830c`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -273,12 +275,12 @@ Client: `core.config.ISomuaShopConfigInfo`, Parse token `0x6018014`.
 | 13 | userinfo | userinfo | int32 |
 | 14 | value | value | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.SomuaDetailChildPanel.InitFoodShopList`, `module.dangoActivity.SomuaDetailChildPanel.RefreshFoodInfo`, `module.dangoActivity.SomuaDetailChildPanel.RefreshBuyBtnState`, `module.dangoActivity.SomuaDetailChildPanel.OnClickBuy`, `module.dangoActivity.DangoShopItem.<Awake>b__14_1`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaStatusEffectConfig
 
 Resource/table: `somua_status_effect`; 24 records in this fixture (not a future limit).
-Client: `core.config.ISomuaStatusEffectConfigInfo`, Parse token `0x601802e`.
+Client: `core.config.ISomuaStatusEffectConfigInfo`, Parse token `0x6018326`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -293,12 +295,12 @@ Client: `core.config.ISomuaStatusEffectConfigInfo`, Parse token `0x601802e`.
 | 9 | type | type | int32 |
 | 10 | valueRule | value_rule | string |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaTaskConfig
 
 Resource/table: `somua_task`; 49 records in this fixture (not a future limit).
-Client: `core.config.ISomuaTaskConfigInfo`, Parse token `0x6018044`.
+Client: `core.config.ISomuaTaskConfigInfo`, Parse token `0x601833c`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -311,12 +313,12 @@ Client: `core.config.ISomuaTaskConfigInfo`, Parse token `0x6018044`.
 | 7 | tasktype | tasktype | int32 |
 | 8 | value | value | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.SomuaArenaTaskPopUp.GetTaskItem`, `module.dangoActivity.SomuaArenaTaskPopUp.RefreshTaskInfo`, `module.dangoActivity.SomuaArenaTaskPopUp.<RefreshTaskList>b__11_0`, `module.dangoActivity.DangoNannyTaskItem.SetData`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaToturialConfig
 
 Resource/table: `somua_tutorial`; 9 records in this fixture (not a future limit).
-Client: `core.config.ISomuaToturialConfigInfo`, Parse token `0x6018054`.
+Client: `core.config.ISomuaToturialConfigInfo`, Parse token `0x601834c`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -326,12 +328,12 @@ Client: `core.config.ISomuaToturialConfigInfo`, Parse token `0x6018054`.
 | 4 | page | page | int32 |
 | 5 | txt | txt | string |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### SomuaWeaponConfig
 
 Resource/table: `somua_weapon`; 73 records in this fixture (not a future limit).
-Client: `core.config.ISomuaWeaponConfigInfo`, Parse token `0x6018064`.
+Client: `core.config.ISomuaWeaponConfigInfo`, Parse token `0x601835c`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -341,12 +343,12 @@ Client: `core.config.ISomuaWeaponConfigInfo`, Parse token `0x6018064`.
 | 4 | shape | shape | int32 |
 | 5 | type | type | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dango
 
 Resource/table: `dango`; 57 records in this fixture (not a future limit).
-Client: `core.config.IDangoInfo`, Parse token `0x6016ea6`.
+Client: `core.config.IDangoInfo`, Parse token `0x6017138`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -359,12 +361,12 @@ Client: `core.config.IDangoInfo`, Parse token `0x6016ea6`.
 | 7 | skin | skin | string |
 | 8 | value | value | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoAction
 
 Resource/table: `dango_action`; 300 records in this fixture (not a future limit).
-Client: `core.config.IDangoActionInfo`, Parse token `0x6016ebc`.
+Client: `core.config.IDangoActionInfo`, Parse token `0x601714e`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -377,12 +379,12 @@ Client: `core.config.IDangoActionInfo`, Parse token `0x6016ebc`.
 | 7 | limitType | limit_type | int32 |
 | 8 | value | value | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoActivityDataMgr.GetRandomEmojiAction`, `module.dangoActivity.DangoActivityDataMgr.GetRandomIntervalAction`, `module.dangoActivity.DangoActivityDataMgr.InitMeetActionMap`, `module.dangoActivity.DangoActivityDataMgr.GetMeetActionByTargetId`, `module.dangoActivity.DangoModelUIDisplay.ExcuteAction`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoGene
 
 Resource/table: `dango_gene`; 15 records in this fixture (not a future limit).
-Client: `core.config.IDangoGeneInfo`, Parse token `0x6016f04`.
+Client: `core.config.IDangoGeneInfo`, Parse token `0x6017196`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -393,12 +395,12 @@ Client: `core.config.IDangoGeneInfo`, Parse token `0x6016f04`.
 | 5 | skinteen | skinteen | string |
 | 6 | value | value | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoGold
 
 Resource/table: `dango_gold`; 6 records in this fixture (not a future limit).
-Client: `core.config.IDangoGoldInfo`, Parse token `0x6016f12`.
+Client: `core.config.IDangoGoldInfo`, Parse token `0x60171a4`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -407,12 +409,12 @@ Client: `core.config.IDangoGoldInfo`, Parse token `0x6016f12`.
 | 3 | dangoNumMix | dango_num_mix | int32 |
 | 4 | id | id | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoGuide
 
 Resource/table: `dango_guide`; 14 records in this fixture (not a future limit).
-Client: `core.config.IDangoGuideInfo`, Parse token `0x6016f24`.
+Client: `core.config.IDangoGuideInfo`, Parse token `0x60171b6`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -423,12 +425,12 @@ Client: `core.config.IDangoGuideInfo`, Parse token `0x6016f24`.
 | 5 | titile | titile | string |
 | 6 | type | type | int32 |
 
-Direct field consumers in the captured scan: `module.dangoActivity.DangoGuidePop.OnGetItemByIndex`, `module.dangoActivity.DangoGuidePop.OnClickGetReward`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoHouse
 
 Resource/table: `dango_house`; 10 records in this fixture (not a future limit).
-Client: `core.config.IDangoHouseInfo`, Parse token `0x6016f32`.
+Client: `core.config.IDangoHouseInfo`, Parse token `0x60171c4`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -437,12 +439,12 @@ Client: `core.config.IDangoHouseInfo`, Parse token `0x6016f32`.
 | 3 | name | name | string |
 | 4 | roomID | room_id | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoLv
 
 Resource/table: `dango_level`; 6 records in this fixture (not a future limit).
-Client: `core.config.IDangoLvInfo`, Parse token `0x6016f4e`.
+Client: `core.config.IDangoLvInfo`, Parse token `0x60171e0`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -458,12 +460,12 @@ Client: `core.config.IDangoLvInfo`, Parse token `0x6016f4e`.
 | 10 | reward | reward | int32 |
 | 11 | taskNum | task_num | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoShop
 
 Resource/table: `dango_shop`; 26 records in this fixture (not a future limit).
-Client: `core.config.IDangoShopInfo`, Parse token `0x6016f70`.
+Client: `core.config.IDangoShopInfo`, Parse token `0x6017202`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -482,12 +484,12 @@ Client: `core.config.IDangoShopInfo`, Parse token `0x6016f70`.
 | 13 | userinfo | userinfo | int32 |
 | 14 | value | value | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoSlot
 
 Resource/table: `dango_slot`; 60 records in this fixture (not a future limit).
-Client: `core.config.IDangoSlotInfo`, Parse token `0x6016f7e`.
+Client: `core.config.IDangoSlotInfo`, Parse token `0x6017210`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -496,12 +498,12 @@ Client: `core.config.IDangoSlotInfo`, Parse token `0x6016f7e`.
 | 3 | petID | pet_id | int32 |
 | 4 | value | value | int32 |
 
-Direct field consumers in the captured scan: `module.dangoSlotMain.DangoSlotDataMgr.IsGetAllPet`.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoStory
 
 Resource/table: `dango_story`; 15 records in this fixture (not a future limit).
-Client: `core.config.IDangoStoryInfo`, Parse token `0x6016f8c`.
+Client: `core.config.IDangoStoryInfo`, Parse token `0x601721e`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -510,12 +512,12 @@ Client: `core.config.IDangoStoryInfo`, Parse token `0x6016f8c`.
 | 3 | describe | describe | string |
 | 4 | id | id | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangoTask
 
 Resource/table: `dango_task`; 27 records in this fixture (not a future limit).
-Client: `core.config.IDangoTaskInfo`, Parse token `0x6016faa`.
+Client: `core.config.IDangoTaskInfo`, Parse token `0x601723c`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -532,12 +534,12 @@ Client: `core.config.IDangoTaskInfo`, Parse token `0x6016faa`.
 | 11 | title | title | string |
 | 12 | value | value | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangochess
 
 Resource/table: `dango_chess`; 32 records in this fixture (not a future limit).
-Client: `core.config.IDangochessInfo`, Parse token `0x6016ed2`.
+Client: `core.config.IDangochessInfo`, Parse token `0x6017164`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -550,12 +552,12 @@ Client: `core.config.IDangochessInfo`, Parse token `0x6016ed2`.
 | 7 | stageid | stageid | int32 |
 | 8 | starttime | starttime | string |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
 ### dangochessstage
 
 Resource/table: `dango_chess_stage`; 96 records in this fixture (not a future limit).
-Client: `core.config.IDangochessstageInfo`, Parse token `0x6016ef2`.
+Client: `core.config.IDangochessstageInfo`, Parse token `0x6017184`.
 
 | Order | Client Field | API Field | Binary Type |
 | --- | --- | --- | --- |
@@ -573,29 +575,20 @@ Client: `core.config.IDangochessstageInfo`, Parse token `0x6016ef2`.
 | 12 | lieid9 | lieid9 | int32 |
 | 13 | stageid | stageid | int32 |
 
-Direct field consumers in the captured scan: none found; do not infer that this table is unused.
+Direct field consumer scan is not part of this layout capture; do not infer non-use.
 
-## Build and Release Handoff
+## Current-layout boundary
 
-No commit or production release is performed by this implementation.
-After the feature is reviewed and committed, set organization Actions variable
-`SEERAPI_TOOLING_REVISION` to that **full 40-character feature commit SHA**, visible to
-both config-sources and api-data. Both pipelines install Solaris and models from that SHA.
-There is deliberately no fallback to PyPI or the old pre-feature SHA.
+Only the verified November 13 layout is supported. Basic attributes add `bodyRatio`; models add `addonPool`, `addonPoolSP`, `naturePool` and remove `prefix`, `suffix`. Incompatible November 5 samples are retained solely as rejection fixtures, not supported legacy formats. Raw official fields are not inferred from usage.
 
-Run config-sources refresh first. Its skip condition includes official version,
-parser revision and Somua export version. All 27 tables are parsed before outputs
-are written, and the workflow commits only after success. A failure leaves the
-last remote publication intact. Disabled tables export empty rows rather than old data.
+## Complete current configuration snapshot
 
-api-data verifies the frozen source's `.parser-revision` and `.somua-version`, and
-includes parser SHA in its publication fingerprint. It generates standard JSON,
-SQLite, JSON Schema and OpenAPI through the existing analyzer/output machinery.
-Both intermediate and final publishers compare every Somua field/row to the frozen
-source before uploading. Final SeerAPI schema requirements include these 27 ORM tables.
-
-Python client outputs are generated with
-`python packages/seerapi-python/scripts/generate_client.py`.
-TypeScript generation uses the existing local OpenAPI/schema DB workflow, not the
-currently deployed official service. API v1, physical contract 2 and weekly semantic
-schema 8 remain unchanged. There is no new weekly-content category or HTTP server.
+`solaris.parse.snapshot` is the shared production export/promotion implementation.
+The verified ConfigPackage contains 294 currently registered parser inputs, including
+gems and all 27 Somua/dango tables. The other 49 historical registered inputs are
+explicitly inventoried in `RETIRED_UNITY_SOURCES` from the package above; this is
+not an exemption inferred from a failed download. Their historical JSON is kept
+unchanged, not presented as newly parsed data. Any missing current input fails.
+All current outputs must parse and round-trip through strict JSON before the
+candidate directory and its three version markers can be promoted together.
+Fork-only files are preserved; failures cannot substitute old required outputs.

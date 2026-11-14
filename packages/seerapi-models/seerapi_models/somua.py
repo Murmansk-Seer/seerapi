@@ -43,6 +43,9 @@ class BaseSomuaBasicAttribute(BaseResModel):
     attack_value: int = Field(
         description='Client SomuaBasicAttritube.attackValue; raw int32'
     )
+    body_ratio: int = Field(
+        description='Client SomuaBasicAttritube.bodyRatio; raw int32'
+    )
     critical_chance: int = Field(
         description='Client SomuaBasicAttritube.criticalChance; raw int32'
     )
@@ -234,6 +237,10 @@ class SomuaKeeperORM(BaseSomuaKeeper, table=True):
 
 class BaseSomuaModel(BaseResModel):
     __name_fields__: ClassVar[list[str]] = ['name']
+    addon_pool: str = Field(description='Client SomuaModelConfig.addonPool; raw string')
+    addon_pool_sp: str = Field(
+        description='Client SomuaModelConfig.addonPoolSP; raw string'
+    )
     attack_mode: int = Field(
         description='Client SomuaModelConfig.attackMode; raw int32'
     )
@@ -255,10 +262,11 @@ class BaseSomuaModel(BaseResModel):
     is_tail: int = Field(description='Client SomuaModelConfig.isTail; raw int32')
     is_topwear: int = Field(description='Client SomuaModelConfig.isTopwear; raw int32')
     name: str = Field(description='Client SomuaModelConfig.name; raw string')
+    nature_pool: str = Field(
+        description='Client SomuaModelConfig.naturePool; raw string'
+    )
     pet_id: int = Field(description='Client SomuaModelConfig.petID; raw int32')
-    prefix: str = Field(description='Client SomuaModelConfig.prefix; raw string')
     season: str = Field(description='Client SomuaModelConfig.season; raw string')
-    suffix: str = Field(description='Client SomuaModelConfig.suffix; raw string')
 
     @classmethod
     def resource_name(cls) -> str:

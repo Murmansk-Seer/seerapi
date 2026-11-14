@@ -28,6 +28,31 @@ def snake(value):
     return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', value).lower()
 
 
+@pytest.mark.parametrize('stem', ['SomuaBasicAttritube', 'SomuaModelConfig'])
+def test_incompatible_old_layout_is_rejected(stem):
+    raw = (FIXTURES / 'obsolete-20261105' / f'{stem}.bytes').read_bytes()
+    with pytest.raises((ValueError, IndexError)):
+        PARSERS[stem]().parse(raw)
+
+
+@pytest.mark.parametrize('payload', [b'\xff', b'\xff\xff\x00'])
+def test_current_model_rejects_invalid_utf8_and_string_length(payload):
+    raw = b'\x01' + struct.pack('<iH', 1, len(payload)) + payload + b'\x00' * 8
+    with pytest.raises(
+        ValueError, match=r'row=0 .*field=addon_pool offset=5'
+    ) as caught:
+        PARSERS['SomuaModelConfig']().parse(raw)
+    assert isinstance(caught.value.__cause__, UnicodeError)
+
+
+def test_current_model_rejects_truncated_string_without_fallback():
+    with pytest.raises(ValueError, match='field=addon_pool offset=5') as caught:
+        PARSERS['SomuaModelConfig']().parse(
+            b'\x01' + struct.pack('<iH', 1, 65535) + b'\x00' * 8
+        )
+    assert isinstance(caught.value.__cause__, IndexError)
+
+
 @pytest.mark.parametrize('stem', EVIDENCE['tables'])
 def test_full_client_fixture(stem):
     evidence = EVIDENCE['tables'][stem]

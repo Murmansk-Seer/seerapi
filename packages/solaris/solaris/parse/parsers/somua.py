@@ -1,4 +1,4 @@
-"""Static layouts verified against GameLogic 20261105235600 Parse methods."""
+"""Current-only layouts verified against GameLogic 20261113205057 Parse methods."""
 
 from typing import TypedDict, cast
 
@@ -14,27 +14,38 @@ def _parse(data: bytes, fields: tuple[tuple[str, str], ...]) -> dict:
         count = reader.ReadSignedInt()
         if count < 0 or count > reader.remaining() // 4:
             raise ValueError('Invalid Somua record count')
-        for _ in range(count):
+        for index in range(count):
             row = {}
             for name, kind in fields:
-                if kind == 'string':
-                    value = reader.ReadUTFBytesWithLength()
-                elif kind == 'int32[]':
-                    value = None
-                    if reader.ReadBoolean():
-                        size = reader.ReadSignedInt()
-                        if size < 0 or size > reader.remaining() // 4:
-                            raise ValueError('Invalid Somua array length')
-                        value = [reader.ReadSignedInt() for _ in range(size)]
-                else:
-                    value = reader.ReadSignedInt()
+                offset = reader.position
+                try:
+                    if kind == 'string':
+                        value = reader.ReadUTFBytesWithLength()
+                    elif kind == 'int32[]':
+                        value = None
+                        if reader.ReadBoolean():
+                            size = reader.ReadSignedInt()
+                            if size < 0 or size > reader.remaining() // 4:
+                                raise ValueError('Invalid Somua array length')
+                            value = [reader.ReadSignedInt() for _ in range(size)]
+                    else:
+                        value = reader.ReadSignedInt()
+                except (ValueError, IndexError) as error:
+                    raise ValueError(
+                        f'Somua row={index} id={row.get("id", "unread")} '
+                        f'field={name} offset={offset}: {error}'
+                    ) from error
                 row[name] = value
             if row['id'] in seen:
-                raise ValueError('Duplicate Somua primary key')
+                raise ValueError(
+                    f'Duplicate Somua primary key {row["id"]} at row={index}'
+                )
             seen.add(row['id'])
             rows.append(row)
     if not reader.eof():
-        raise ValueError('Unconsumed Somua bytes')
+        raise ValueError(
+            f'Unconsumed Somua bytes at offset={reader.position}/{len(data)}'
+        )
     return {'data': rows}
 
 
@@ -80,6 +91,7 @@ class SomuaAchievementParser(BaseParser[SomuaAchievementConfig]):
 class SomuaBasicAttributeInfo(TypedDict):
     attack_ratio: int
     attack_value: int
+    body_ratio: int
     critical_chance: int
     critical_damage_ratio: int
     defense_ratio: int
@@ -110,6 +122,7 @@ class SomuaBasicAttributeParser(BaseParser[SomuaBasicAttributeConfig]):
                 (
                     ('attack_ratio', 'int32'),
                     ('attack_value', 'int32'),
+                    ('body_ratio', 'int32'),
                     ('critical_chance', 'int32'),
                     ('critical_damage_ratio', 'int32'),
                     ('defense_ratio', 'int32'),
@@ -354,6 +367,8 @@ class SomuaKeeperParser(BaseParser[SomuaKeeperConfig]):
 
 
 class SomuaModelInfo(TypedDict):
+    addon_pool: str
+    addon_pool_sp: str
     attack_mode: int
     attack_mode_sp: int
     describe: str
@@ -368,10 +383,9 @@ class SomuaModelInfo(TypedDict):
     is_tail: int
     is_topwear: int
     name: str
+    nature_pool: str
     pet_id: int
-    prefix: str
     season: str
-    suffix: str
 
 
 class SomuaModelConfig(TypedDict):
@@ -393,6 +407,8 @@ class SomuaModelParser(BaseParser[SomuaModelConfig]):
             _parse(
                 data,
                 (
+                    ('addon_pool', 'string'),
+                    ('addon_pool_sp', 'string'),
                     ('attack_mode', 'int32'),
                     ('attack_mode_sp', 'int32'),
                     ('describe', 'string'),
@@ -407,10 +423,9 @@ class SomuaModelParser(BaseParser[SomuaModelConfig]):
                     ('is_tail', 'int32'),
                     ('is_topwear', 'int32'),
                     ('name', 'string'),
+                    ('nature_pool', 'string'),
                     ('pet_id', 'int32'),
-                    ('prefix', 'string'),
                     ('season', 'string'),
-                    ('suffix', 'string'),
                 ),
             ),
         )
