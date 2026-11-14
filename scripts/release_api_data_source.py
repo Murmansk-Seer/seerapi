@@ -80,7 +80,10 @@ def download_with_retries(
     validate_sqlite: bool = False,
     extra_headers: list[str] | None = None,
     expected_md5: str | None = None,
+    max_time: int | None = None,
 ) -> None:
+    if max_time is not None and (type(max_time) is not int or not 1 <= max_time <= 180):
+        raise ValueError('max_time must be between 1 and 180 seconds')
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + '.part')
     headers = ['--header', f'Accept: {accept}']
@@ -96,7 +99,9 @@ def download_with_retries(
             '--connect-timeout',
             '15',
             '--max-time',
-            '180' if expected_sha256 else '120',
+            str(max_time)
+            if max_time is not None
+            else ('180' if expected_sha256 else '120'),
             '--retry',
             '0',
             *headers,

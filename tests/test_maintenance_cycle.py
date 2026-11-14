@@ -34,7 +34,9 @@ def test_completed_update_announcement_advances_stale_maintenance_cycle():
     assert state['current']['start'] == '2026-10-23T11:07:40+08:00'
     assert state['current']['end'] == ''
     assert state['current']['start_basis'] == 'completed_update_announcement'
-    assert select_cycle([], state, now) == state
+    retained = select_cycle([], state, now)
+    assert retained['current'] == state['current']
+    assert retained['official_update_timing']['next_update'] is None
 
 
 @pytest.mark.parametrize(
@@ -104,12 +106,16 @@ def test_empty_response_preserves_started_batch_and_future_is_not_activated():
     ]
     state = select_cycle(notices, {}, now)
     assert state['current']['start'] == '2026-10-09T10:00:00+08:00'
-    assert select_cycle([], state, now) == state
+    withdrawn = select_cycle([], state, now)
+    assert withdrawn['current'] == state['current']
+    assert withdrawn['official_update_timing']['next_update'] is None
     after_end = datetime(2026, 10, 9, 20, tzinfo=timezone.utc)
     assert select_cycle([], state, after_end)['current'] == state['current']
     next_day = datetime(2026, 10, 10, 2, tzinfo=timezone.utc)
     assert select_cycle([], state, next_day)['current']['notice_id'] == 'future'
-    assert fingerprint(select_cycle([], state, now)) == fingerprint(state)
+    assert fingerprint(withdrawn) != fingerprint(
+        state
+    )  # Withdrawal is a real metadata change.
 
 
 @pytest.mark.parametrize('value', [{}, None, [{'type': 3, 'start': True, 'end': 5}]])
@@ -119,19 +125,10 @@ def test_invalid_notice_is_not_an_empty_success(value):
 
 
 def test_missing_confirmed_batch_publishes_pending_status(tmp_path, monkeypatch):
-    class EmptyResponse:
-        def __enter__(self):
-            return self
+    def empty(url, output, **kwargs):
+        output.write_text('[]')
 
-        def __exit__(self, *args):
-            return None
-
-        def read(self):
-            return b'[]'
-
-    monkeypatch.setattr(
-        maintenance_cycle, 'urlopen', lambda *args, **kwargs: EmptyResponse()
-    )
+    monkeypatch.setattr(maintenance_cycle, 'download_with_retries', empty)
     monkeypatch.setattr(
         sys,
         'argv',

@@ -9,9 +9,15 @@ from html import unescape
 import json
 from pathlib import Path
 import re
-import sys
-from urllib.request import urlopen
+from tempfile import TemporaryDirectory
 from zoneinfo import ZoneInfo
+
+if __package__:
+    from .official_update_timing import select_timing, validate_timing
+    from .release_api_data_source import download_with_retries
+else:
+    from official_update_timing import select_timing, validate_timing
+    from release_api_data_source import download_with_retries
 
 NOTICE_URL = 'https://unity-notice.61.com/unity_notice/'
 LOCAL_TZ = ZoneInfo('Asia/Shanghai')
@@ -101,8 +107,10 @@ def select_cycle(document: object, previous: dict, now: datetime) -> dict:
         notices.setdefault(cycle_identity(value['start']), dict(value))
     if not isinstance(document, list):
         raise ValueError('official maintenance response must be a list')
+    observations = []
 
     def observe(value: dict) -> None:
+        observations.append(value)
         key = cycle_identity(value['start'])
         saved = notices.get(key)
         if saved is None or (
@@ -150,6 +158,9 @@ def select_cycle(document: object, previous: dict, now: datetime) -> dict:
         else None
     )
     return {
+        'official_update_timing': validate_timing(
+            select_timing(observations, previous.get('official_update_timing', {}), now)
+        ),
         'notices': notices,
         'current': current,
         'update_cycle_id': cycle_identity(current['start']) if current else '',
@@ -170,16 +181,13 @@ def main() -> None:
     parser.add_argument('--github-output', type=Path)
     args = parser.parse_args()
     previous = json.loads(args.state.read_text()) if args.state.exists() else {}
-    try:
-        with urlopen(NOTICE_URL, timeout=20) as response:
-            document = json.load(response)
-        state = select_cycle(document, previous, datetime.now(timezone.utc))
-    except (OSError, ValueError) as error:
-        print(  # noqa: T201 - CLI diagnostic on stderr
-            f'Maintenance source unavailable: {type(error).__name__}; preserving verified observations',
-            file=sys.stderr,
+    with TemporaryDirectory(prefix='official-maintenance-') as temporary:
+        response = Path(temporary) / 'notice.json'
+        download_with_retries(
+            NOTICE_URL, response, accept='application/json', max_time=60
         )
-        state = select_cycle([], previous, datetime.now(timezone.utc))
+        document = json.loads(response.read_text('utf-8'))
+    state = select_cycle(document, previous, datetime.now(timezone.utc))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(state, ensure_ascii=False, sort_keys=True))
     current = state['current'] or {}
@@ -197,7 +205,7 @@ def main() -> None:
         with args.github_output.open('a') as stream:
             for key, value in outputs.items():
                 stream.write(f'{key}={value}\n')
-    print(json.dumps(outputs, ensure_ascii=False))  # noqa: T201 - workflow output
+    print(json.dumps(outputs, ensure_ascii=False))
 
 
 if __name__ == '__main__':

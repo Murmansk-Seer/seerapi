@@ -15,6 +15,49 @@ if str(SCRIPT_ROOT) not in sys.path:
 import release_api_data_source as source
 
 
+def test_metadata_deadline_keeps_one_retry_layer(tmp_path, monkeypatch):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 3:
+            Path(command[command.index('--output') + 1]).write_bytes(b'[]')
+            return subprocess.CompletedProcess(command, 0, '200', '')
+        return subprocess.CompletedProcess(command, 28, '000', 'timeout')
+
+    monkeypatch.setattr(source.subprocess, 'run', run)
+    monkeypatch.setattr(source.time, 'sleep', lambda _: None)
+    source.download_with_retries(
+        'https://official.invalid/notice',
+        tmp_path / 'notice',
+        accept='application/json',
+        max_time=60,
+    )
+    assert len(calls) == 3
+    for command in calls:
+        assert command[command.index('--max-time') + 1] == '60'
+        assert command[command.index('--connect-timeout') + 1] == '15'
+        assert command[command.index('--retry') + 1] == '0'
+
+
+@pytest.mark.parametrize('deadline', [0, 181, -1, True])
+def test_invalid_metadata_deadline_fails_before_request(
+    tmp_path, monkeypatch, deadline
+):
+    monkeypatch.setattr(
+        source.subprocess,
+        'run',
+        lambda *_args, **_kwargs: pytest.fail('must not request'),
+    )
+    with pytest.raises(ValueError, match='max_time'):
+        source.download_with_retries(
+            'https://official.invalid/notice',
+            tmp_path / 'notice',
+            accept='application/json',
+            max_time=deadline,
+        )
+
+
 def test_md5_validation_retries_body_and_keeps_request_headers(tmp_path, monkeypatch):
     attempts = []
 

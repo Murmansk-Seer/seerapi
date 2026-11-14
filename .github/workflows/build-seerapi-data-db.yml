@@ -613,6 +613,7 @@ jobs:
           fi
           args+=(
             --maintenance-mode
+            --maintenance-state .cache/official-packages/maintenance-cycle.json
             --maintenance-start "${{ needs.plan.outputs.maintenance_start }}"
             --maintenance-end "${{ needs.plan.outputs.maintenance_end }}"
             --maintenance-source "${{ needs.plan.outputs.maintenance_source }}"
@@ -711,6 +712,7 @@ jobs:
             --mount-revision "${{ steps.mount_assets.outputs.revision }}"
 
       - name: Validate final release contract
+        id: source_quality
         env:
           CONFIG_SOURCE_COMMIT: ${{ needs.plan.outputs.config_source }}
         run: |
@@ -718,13 +720,16 @@ jobs:
           source_dir="${RUNNER_TEMP}/release-regression-source"
           mkdir -p "${source_dir}/unity"
           somua_files="$(python -c 'from seerapi_models.somua import SOMUA_RESOURCES; print(" ".join(SOMUA_RESOURCES))')"
-          for filename in moves.json ActivityCenter.json autocardContent.json autocardRole.json autocardNature.json autocardBuff.json ${somua_files}; do
+          for filename in .version pvpCostMode_cost.json activityTimeUpdateConfig.json moves.json ActivityCenter.json autocardContent.json autocardRole.json autocardNature.json autocardBuff.json ${somua_files}; do
             python scripts/http_fetch.py \
               "https://raw.githubusercontent.com/Murmansk-Seer/config-sources/${CONFIG_SOURCE_COMMIT}/unity/${filename}" \
               --output "${source_dir}/unity/${filename}"
           done
           python scripts/release_contract.py --database seerapi-data.sqlite \
-            --official-source-dir "${source_dir}"
+            --official-source-dir "${source_dir}" \
+            --official-package-cache-dir .cache/official-packages \
+            --maintenance-state .cache/official-packages/maintenance-cycle.json \
+            --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Stage versioned historical data snapshot
         if: ${{ steps.new_content.outputs.cycle_status == 'ready' }}
@@ -941,6 +946,9 @@ jobs:
             Source special effect statuses sha256: ${{ needs.plan.outputs.remote_special_effect_status_sha }}
             Source ConfigPackage version: ${{ needs.plan.outputs.remote_config_package_version }}
             Source ConfigPackage manifest sha256: ${{ needs.plan.outputs.remote_config_package_manifest_sha }}
+
+            Official cost time anomalies: ${{ steps.source_quality.outputs.peak_time_anomaly_count }}
+            官方 cost 日期原值完整保留；若存在上述异常，对应配额时间区间不可信，未推算或修造日期。
           files: |
             seerapi-data.sqlite
             seerapi-data.sqlite.sha256
@@ -959,7 +967,9 @@ jobs:
           cmp seerapi-data.sqlite.sha256 "$directory/seerapi-data.sqlite.sha256"
           (cd "$directory" && sha256sum --check seerapi-data.sqlite.sha256)
           python scripts/release_contract.py --database "$directory/seerapi-data.sqlite" \
-            --official-source-dir "${RUNNER_TEMP}/release-regression-source"
+            --official-source-dir "${RUNNER_TEMP}/release-regression-source" \
+            --official-package-cache-dir .cache/official-packages \
+            --maintenance-state .cache/official-packages/maintenance-cycle.json
 
       - name: Record data source checksums
         run: |

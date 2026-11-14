@@ -162,7 +162,12 @@ def publish_release_tables(
     asset_repository_snapshots = context.load_asset_repository_snapshots()
     with sqlite3.connect(db_path) as conn:
         if release.config_data.peak is not None:
-            replace_official_peak(conn, release.config_data.peak)
+            replace_official_peak(
+                conn,
+                release.config_data.peak,
+                source_version=release.config_data.version,
+                source_url=release.config_data.bundle_url,
+            )
         replace_config_package_tables(
             conn,
             release.config_data,

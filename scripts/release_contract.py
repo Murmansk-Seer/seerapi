@@ -11,6 +11,8 @@ from pathlib import Path
 import sqlite3
 
 from autocard_sources import json_data_rows, normalize_autocard_row
+from official_update_timing import release_summary, validate_published_timing
+from release_peak_sources import validate_official_peak_source, verified_peak_source_url
 from sqlmodel import Session, SQLModel, create_engine
 
 import seerapi_models  # noqa: F401
@@ -241,6 +243,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--database', type=Path, required=True)
     parser.add_argument('--official-source-dir', type=Path, required=True)
+    parser.add_argument('--official-package-cache-dir', type=Path, required=True)
+    parser.add_argument('--maintenance-state', type=Path, required=True)
+    parser.add_argument('--github-output', type=Path)
+    parser.add_argument('--summary', type=Path)
     args = parser.parse_args()
     tables = finalize_release_contract(args.database)
     with sqlite3.connect(args.database) as connection:
@@ -250,12 +256,25 @@ def main() -> None:
         if connection.execute('SELECT COUNT(*) FROM factor').fetchone()[0] == 0:
             raise ValueError('Current release must contain official factor records')
         preserved = validate_unresolved_pet_references(connection)
+        version = (
+            (args.official_source_dir / 'unity' / '.version').read_text('utf-8').strip()
+        )
+        validate_official_peak_source(
+            connection,
+            args.official_source_dir,
+            expected_source_url=verified_peak_source_url(
+                args.official_package_cache_dir, version
+            ),
+        )
+        validate_published_timing(connection, args.maintenance_state)
         validate_autocard_source(connection, args.official_source_dir)
         validate_somua_source(connection, args.official_source_dir)
         fingerprint = schema_fingerprint(connection, tables)
     with Session(create_engine(f'sqlite:///{args.database.as_posix()}')) as session:
         validate_regression_source(session, args.official_source_dir)
-    print(  # noqa: T201 - CLI publication diagnostic
+    with sqlite3.connect(args.database) as connection:
+        release_summary(connection, summary=args.summary, output=args.github_output)
+    print(
         f'Final release contract validated: {len(tables)} tables, {fingerprint=}, {preserved=}'
     )
 

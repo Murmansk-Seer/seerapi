@@ -73,6 +73,10 @@ jobs:
           tests/test_release_build_fingerprint.py
           tests/test_ci_workflows.py
           tests/test_release_contract.py
+          tests/test_release_peak_sources.py
+          tests/test_official_update_timing.py
+          tests/test_maintenance_cycle.py
+          tests/test_maintenance_regressions.py
           tests/test_network_read_retry.py
           tests/test_release_api_data_source.py
           tests/test_factor_merge_contract.py

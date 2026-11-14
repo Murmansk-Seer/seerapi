@@ -46,6 +46,7 @@ from new_content_index_release import (
 from new_content_index_snapshot import (
     load_current_items,
 )
+from official_update_timing import timing_from_state
 
 
 def load_source_history_additions(
@@ -546,6 +547,7 @@ def main() -> None:
     parser.add_argument('--preview-ui-hash', default='')
     parser.add_argument('--baseline', type=Path)
     parser.add_argument('--maintenance-mode', action='store_true')
+    parser.add_argument('--maintenance-state', type=Path)
     parser.add_argument('--maintenance-start', default='')
     parser.add_argument('--maintenance-end', default='')
     parser.add_argument('--maintenance-source', default='')
@@ -631,6 +633,18 @@ def main() -> None:
     write_release_state(args.current, state, previous)
     if args.maintenance_mode:
         with sqlite3.connect(args.current) as conn:
+            if args.maintenance_state:
+                conn.execute(
+                    'INSERT OR REPLACE INTO seerapi_metadata (key,value) VALUES (?,?)',
+                    (
+                        'official_update_timing',
+                        json.dumps(
+                            timing_from_state(args.maintenance_state),
+                            ensure_ascii=False,
+                            sort_keys=True,
+                        ),
+                    ),
+                )
             conn.executemany(
                 'INSERT OR REPLACE INTO seerapi_metadata (key, value) VALUES (?, ?)',
                 (
@@ -678,7 +692,7 @@ def main() -> None:
     )
     if not args.maintenance_mode and not args.cycle_start:
         status = 'ready' if state.baseline_established else 'history-unavailable'
-    print(  # noqa: T201 - CLI status is required by the GitHub Actions log.
+    print(
         'new-content index: '
         f'status={status} cycle={state.weekly_cycle} '
         f'items={len(state.items)} comparable_categories={ready_categories}'
