@@ -1,4 +1,4 @@
-"""Current-only layouts verified against GameLogic 20261113205057 Parse methods."""
+"""Current-only layouts verified against GameLogic 20261119215136 Parse methods."""
 
 from typing import TypedDict, cast
 
@@ -382,6 +382,7 @@ class SomuaModelInfo(TypedDict):
     is_surrounding: int
     is_tail: int
     is_topwear: int
+    main_att: str
     name: str
     nature_pool: str
     pet_id: int
@@ -422,6 +423,7 @@ class SomuaModelParser(BaseParser[SomuaModelConfig]):
                     ('is_surrounding', 'int32'),
                     ('is_tail', 'int32'),
                     ('is_topwear', 'int32'),
+                    ('main_att', 'string'),
                     ('name', 'string'),
                     ('nature_pool', 'string'),
                     ('pet_id', 'int32'),
@@ -529,6 +531,7 @@ class SomuaShopParser(BaseParser[SomuaShopConfig]):
 
 class SomuaStatusEffectInfo(TypedDict):
     fx_on_get: str
+    fx_on_load: str
     fx_on_trig: str
     icon: int
     id: int
@@ -560,6 +563,7 @@ class SomuaStatusEffectParser(BaseParser[SomuaStatusEffectConfig]):
                 data,
                 (
                     ('fx_on_get', 'string'),
+                    ('fx_on_load', 'string'),
                     ('fx_on_trig', 'string'),
                     ('icon', 'int32'),
                     ('id', 'int32'),

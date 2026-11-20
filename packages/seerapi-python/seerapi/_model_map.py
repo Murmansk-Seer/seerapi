@@ -103,6 +103,7 @@ MODEL_MAP: dict[ModelName, ModelType] = {
     'somua_basic_attribute': M.SomuaBasicAttribute,
     'somua_dispatch': M.SomuaDispatch,
     'somua_entry': M.SomuaEntry,
+    'somua_filter': M.SomuaFilter,
     'somua_gene': M.SomuaGene,
     'somua_house': M.SomuaHouse,
     'somua_keeper': M.SomuaKeeper,

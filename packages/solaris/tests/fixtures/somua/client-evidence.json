@@ -1,14 +1,14 @@
 {
-  "config_version": "20261113190033",
-  "client_version": "20261113205057",
-  "config_hash": "08dfdb04c492b4a26d0547bae5b585d0",
-  "client_hash": "201be92a7356eb8422fe2e48a3bcc339",
-  "client_sha256": "eb88a014b399b3021cdca4da8990ecd18741c374d017db3d7ac052840f0e78aa",
+  "config_version": "20261119223319",
+  "client_version": "20261119215136",
+  "config_hash": "49a7b94e5dd3b515479b3245ebc276a7",
+  "client_hash": "7e979edf33912548cdda454a18d90e3a",
+  "client_sha256": "888cd5de8d4bf08513c8cf3c8a11ba23262d74922e0a9f310c9a21b6c5175b10",
   "tables": {
     "SomuaAchievementConfig": {
       "client_type": "core.config.ISomuaAchievementConfigInfo",
-      "parse_method_token": "0x6018212",
-      "parse_il": "020304287c35000a280b8201060203030428aa38000a0428ab38000a2807820106020304287c35000a280d820106020304287c35000a280f8201060203030428aa38000a0428ab38000a2809820106020304287c35000a28118201062a",
+      "parse_method_token": "0x6018470",
+      "parse_il": "020304286b36000a286984010602030304289639000a04289739000a2865840106020304286b36000a286b840106020304286b36000a286d84010602030304289639000a04289739000a2867840106020304286b36000a286f8401062a",
       "fields": [
         {
           "source": "condition",
@@ -400,8 +400,8 @@
     },
     "SomuaBasicAttritube": {
       "client_type": "core.config.ISomuaBasicAttritubeInfo",
-      "parse_method_token": "0x601822c",
-      "parse_il": "020304287c35000a2819820106020304287c35000a281b820106020304287c35000a281d820106020304287c35000a281f820106020304287c35000a2821820106020304287c35000a2823820106020304287c35000a2825820106020304287c35000a2827820106020304287c35000a2829820106020304287c35000a282b8201062a",
+      "parse_method_token": "0x601848a",
+      "parse_il": "020304286b36000a2877840106020304286b36000a2879840106020304286b36000a287b840106020304286b36000a287d840106020304286b36000a287f840106020304286b36000a2881840106020304286b36000a2883840106020304286b36000a2885840106020304286b36000a2887840106020304286b36000a28898401062a",
       "fields": [
         {
           "source": "attackRatio",
@@ -476,7 +476,9 @@
         "ReadSignedInt",
         "set_speedValue"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoActivityDataMgr.GetSumoAttributes"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaBasicAttritube.get_fileName",
@@ -751,8 +753,8 @@
     },
     "SomuaDispatchConfig": {
       "client_type": "core.config.ISomuaDispatchConfigInfo",
-      "parse_method_token": "0x6018242",
-      "parse_il": "0203030428aa38000a0428ab38000a28338201060203030428aa38000a0428ab38000a28358201060203030428aa38000a0428ab38000a28378201060203030428aa38000a0428ab38000a2839820106020304287c35000a283d8201060203030428aa38000a0428ab38000a283b820106020304287c35000a283f820106020304287c35000a28418201062a",
+      "parse_method_token": "0x60184a0",
+      "parse_il": "02030304289639000a04289739000a289184010602030304289639000a04289739000a289384010602030304289639000a04289739000a289584010602030304289639000a04289739000a2897840106020304286b36000a289b84010602030304289639000a04289739000a2899840106020304286b36000a289d840106020304286b36000a289f8401062a",
       "fields": [
         {
           "source": "award",
@@ -818,7 +820,15 @@
         "ReadSignedInt",
         "set_value"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoActivityDataMgr.updateDispatchFlag",
+        "module.dangoActivity.DangoActivityDataMgr.RefreshMultDic",
+        "module.dangoActivity.DangoActivityDataMgr.RefreshRewardInfo",
+        "module.dangoActivity.DangoDispatchPanel.selectedTaskItem",
+        "module.dangoActivity.DangoDispatchPanel.StatLogger_Log_Complete",
+        "module.dangoActivity.DangoDispatchPanel.<addEvent>b__7_2",
+        "module.dangoActivity.DangoDispatchTaskItem.setData"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaDispatchConfig.get_fileName",
@@ -911,8 +921,8 @@
     },
     "SomuaEntryConfig": {
       "client_type": "core.config.ISomuaEntryConfigInfo",
-      "parse_method_token": "0x601825e",
-      "parse_il": "0203030428aa38000a0428ab38000a2849820106020304287c35000a284d8201060203030428aa38000a0428ab38000a284b820106020304287c35000a284f820106020304287c35000a2851820106020304287c35000a2853820106020304287c35000a2855820106020304287c35000a2857820106020304287c35000a2859820106020304287c35000a285b820106020304287c35000a285d8201062a",
+      "parse_method_token": "0x60184bc",
+      "parse_il": "02030304289639000a04289739000a28a7840106020304286b36000a28ab84010602030304289639000a04289739000a28a9840106020304286b36000a28ad840106020304286b36000a28af840106020304286b36000a28b1840106020304286b36000a28b3840106020304286b36000a28b5840106020304286b36000a28b7840106020304286b36000a28b9840106020304286b36000a28bb8401062a",
       "fields": [
         {
           "source": "desc",
@@ -996,7 +1006,27 @@
         "ReadSignedInt",
         "set_value6"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoActivityDataMgr.GetSumoAtk",
+        "module.dangoActivity.DangoActivityDataMgr.GetSumoDef",
+        "module.dangoActivity.DangoActivityDataMgr.GetSumoHp",
+        "module.dangoActivity.DangoActivityDataMgr.GetSumoCRT",
+        "module.dangoActivity.DangoActivityDataMgr.GetSumoSpd",
+        "module.dangoActivity.DangoBagItem.RefreshAblity",
+        "module.dangoActivity.SomuaBoxMain.updateSumoaInfo",
+        "module.dangoActivity.SomuaBoxMain.RefreshAblity",
+        "module.dangoActivity.SomuaBattleAbilityItem.SetData",
+        "module.dangoActivity.SomuaCombineInfoPop.RefreshSumoInfo",
+        "module.dangoActivity.SomuaCombineResultPopUp.refreshSumoInfo",
+        "module.dangoActivity.SumuaCombineItem.SetData",
+        "module.dangoActivity.SumuaCombineItem.RefreshAblity",
+        "module.dangoActivity.SomuaAbilityItem.SetData",
+        "module.dangoActivity.SomuaAbilityItem.ApplyConfig",
+        "module.dangoActivity.SomuaBattleDetailView.updateView",
+        "module.dangoActivity.DangoHandBookIntroducePop.refreshSoulmark",
+        "module.dangoActivity.DangoHandBookIntroducePop.OnGetItemByIndex",
+        "module.dangoActivity.SomuaCharacterItem.ApplyConfig"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaEntryConfig.get_fileName",
@@ -5866,10 +5896,460 @@
         }
       ]
     },
+    "SomuaFilterConfig": {
+      "client_type": "core.config.ISomuaFilterConfigInfo",
+      "parse_method_token": "0x60184ce",
+      "parse_il": "020304286b36000a28cb84010602030304289639000a04289739000a28c384010602030304289639000a04289739000a28c5840106020304286b36000a28cd84010602030304289639000a04289739000a28c784010602030304289639000a04289739000a28c98401062a",
+      "fields": [
+        {
+          "source": "category",
+          "type": "int32",
+          "reader": "ReadSignedInt"
+        },
+        {
+          "source": "entrys",
+          "type": "string",
+          "reader": "ReadUTFByte"
+        },
+        {
+          "source": "icon",
+          "type": "string",
+          "reader": "ReadUTFByte"
+        },
+        {
+          "source": "id",
+          "type": "int32",
+          "reader": "ReadSignedInt"
+        },
+        {
+          "source": "mutual",
+          "type": "string",
+          "reader": "ReadUTFByte"
+        },
+        {
+          "source": "name",
+          "type": "string",
+          "reader": "ReadUTFByte"
+        }
+      ],
+      "calls": [
+        "ReadSignedInt",
+        "set_category",
+        "ReadUnsignedShort",
+        "ReadUTFByte",
+        "set_entrys",
+        "ReadUnsignedShort",
+        "ReadUTFByte",
+        "set_icon",
+        "ReadSignedInt",
+        "set_id",
+        "ReadUnsignedShort",
+        "ReadUTFByte",
+        "set_mutual",
+        "ReadUnsignedShort",
+        "ReadUTFByte",
+        "set_name"
+      ],
+      "consumers": [
+        "module.dangoActivity.SomuaFilterItem.Bind",
+        "module.dangoActivity.SomuaFilterPop.BindGroup",
+        "module.dangoActivity.SomuaFilterPop.OnSelectionChanged",
+        "module.dangoActivity.SomuaFilterPop.RefreshMutualState",
+        "module.dangoActivity.SomuaFilterPop.OnConfirm",
+        "module.dangoActivity.SomuaFilterPop.Filter"
+      ],
+      "loading_evidence": [
+        {
+          "method": "core.config.SomuaFilterConfig.get_fileName",
+          "offset": 0,
+          "kind": "config asset literal",
+          "value": "SomuaFilterConfig"
+        },
+        {
+          "method": "core.config.SomuaFilterConfig.Parse",
+          "offset": 56,
+          "kind": "Parse caller"
+        }
+      ],
+      "enabled": true,
+      "count": 46,
+      "byte_length": 4573,
+      "sha256": "50774c7056caa8c93859da569372f494618a483765a4b0a1e0f94bada69f25c3",
+      "rows": [
+        {
+          "category": 1,
+          "entrys": "20001;20002;20003;20004;20005;20006;20007;20008",
+          "icon": "",
+          "id": 1,
+          "mutual": "6;8;10",
+          "name": "攻击++"
+        },
+        {
+          "category": 1,
+          "entrys": "20013;20014;20015;20016;20029;20030;20031;20032",
+          "icon": "",
+          "id": 2,
+          "mutual": "6;7;9",
+          "name": "生命++"
+        },
+        {
+          "category": 1,
+          "entrys": "20017;20018;20019;20020;20021;20022;20023;20024",
+          "icon": "",
+          "id": 3,
+          "mutual": "8;9;10",
+          "name": "防御++"
+        },
+        {
+          "category": 1,
+          "entrys": "20025;20026;20027;20028;20037;20038;20039;20040",
+          "icon": "",
+          "id": 4,
+          "mutual": "7;8;9",
+          "name": "暴击++"
+        },
+        {
+          "category": 1,
+          "entrys": "20009;20010;20011;20012;20033;20034;20035;20036",
+          "icon": "",
+          "id": 5,
+          "mutual": "6;7;10",
+          "name": "速度++"
+        },
+        {
+          "category": 2,
+          "entrys": "20017;20018;20019;20020;20025;20026;20027;20028",
+          "icon": "",
+          "id": 6,
+          "mutual": "1;2;5",
+          "name": "攻击+"
+        },
+        {
+          "category": 2,
+          "entrys": "20001;20002;20003;20004;20021;20022;20023;20024",
+          "icon": "",
+          "id": 7,
+          "mutual": "2;4;5",
+          "name": "生命+"
+        },
+        {
+          "category": 2,
+          "entrys": "20009;20010;20011;20012;20033;20034;20035;20036",
+          "icon": "",
+          "id": 8,
+          "mutual": "1;3;4",
+          "name": "防御+"
+        },
+        {
+          "category": 2,
+          "entrys": "20005;20006;20007;20008;20029;20030;20031;20032",
+          "icon": "",
+          "id": 9,
+          "mutual": "2;3;4",
+          "name": "暴击+"
+        },
+        {
+          "category": 2,
+          "entrys": "20013;20014;20015;20016;20037;20038;20039;20040",
+          "icon": "",
+          "id": 10,
+          "mutual": "1;3;5",
+          "name": "速度+"
+        },
+        {
+          "category": 100,
+          "entrys": "10001;10002;10003;10004;10005;10006;10007;10008;10009;10010;10011;10012;10013;10014;10015;10016;10017;10018;10019;10020;10021;10022;10023;10024;10025;10026;10027;10028;10029;10030;10031;10032;10033;10034;10035;10036;10037;10038;10039;10040;10041;10042;10043;10044;10045;10046;10047;10048;10049;10050;10051;10052;10053;10054;10055;10056;10057;10058;10059;10060;10061;10062;10063;10064;10065;10066;10067;10068",
+          "icon": "",
+          "id": 500,
+          "mutual": "",
+          "name": "魂印"
+        },
+        {
+          "category": 100,
+          "entrys": "11001;11002;11003;11004;11005;11006;11007;11008;11009;11010;11011;11012;11013;11014;11015;11016;11017;11018;11019;11020;11021;11022;11023;11024;11025;11026;11027;11028;11029;11030;11031;11032;11033;11034;11035;11036;11037;11038;11039;11040;11041;11042;11043;11044;11045;11046;11047;11048;11049;11050;11051;11052;11053;11054;11055;11056;11057;11058;11059;11060;11061;11062;11063;11064;11065;11066;11067;11068",
+          "icon": "",
+          "id": 501,
+          "mutual": "",
+          "name": "真·魂印"
+        },
+        {
+          "category": 110,
+          "entrys": "",
+          "icon": "",
+          "id": 502,
+          "mutual": "",
+          "name": "收藏"
+        },
+        {
+          "category": 3,
+          "entrys": "10001;10007;10008;10010;10015;10019;10020;10025;10027;10032;10034;10037;10043;10044;10045;10053;10056;10060;10061;10063;11001;11007;11008;11010;11015;11019;11020;11025;11027;11032;11034;11037;11043;11045;11053;11056;11060;11061;11063;11044",
+          "icon": "",
+          "id": 100,
+          "mutual": "",
+          "name": "远程"
+        },
+        {
+          "category": 3,
+          "entrys": "10003;10006;10009;10014;10017;10047;10051;10052;10059;10067;11003;11006;11009;11014;11017;11047;11051;11052;11059;11067",
+          "icon": "",
+          "id": 101,
+          "mutual": "",
+          "name": "近战"
+        },
+        {
+          "category": 3,
+          "entrys": "10013;10021;10031;10035;10048;10062;10064;10066;11013;11021;11031;11035;11048;11062;11064;11066",
+          "icon": "",
+          "id": 102,
+          "mutual": "",
+          "name": "光环"
+        },
+        {
+          "category": 3,
+          "entrys": "10005;10011;10016;10022;10024;10026;10038;10042;10054;10068;11005;11011;11016;11022;11024;11026;11038;11042;11054;11068",
+          "icon": "",
+          "id": 103,
+          "mutual": "",
+          "name": "技能"
+        },
+        {
+          "category": 3,
+          "entrys": "10002;10004;10023;10029;10040;10046;10057;10065;11002;11004;11023;11029;11040;11046;11057;11065",
+          "icon": "",
+          "id": 104,
+          "mutual": "",
+          "name": "陷阱"
+        },
+        {
+          "category": 3,
+          "entrys": "10030;10033;10039;10041;10049;10055;10058;11030;11033;11039;11041;11049;11055;11058",
+          "icon": "",
+          "id": 105,
+          "mutual": "",
+          "name": "召唤"
+        },
+        {
+          "category": 3,
+          "entrys": "10012;10018;10036;10050;11012;11018;11036;11050",
+          "icon": "",
+          "id": 106,
+          "mutual": "",
+          "name": "碰撞"
+        },
+        {
+          "category": 4,
+          "entrys": "40001;40002;40003;40004;40005;40006;40007;40008;40009;40010;40011;40012;40013",
+          "icon": "",
+          "id": 200,
+          "mutual": "",
+          "name": "移动"
+        },
+        {
+          "category": 4,
+          "entrys": "30001;30002;30003;30067;30068;30069",
+          "icon": "",
+          "id": 201,
+          "mutual": "",
+          "name": "中毒"
+        },
+        {
+          "category": 4,
+          "entrys": "30004;30005;30006;30070;30071;30072",
+          "icon": "",
+          "id": 202,
+          "mutual": "",
+          "name": "感染"
+        },
+        {
+          "category": 4,
+          "entrys": "30007;30008;30009;30073;30074;30075",
+          "icon": "",
+          "id": 203,
+          "mutual": "",
+          "name": "冻伤"
+        },
+        {
+          "category": 4,
+          "entrys": "30010;30011;30012;30076;30077;30078",
+          "icon": "",
+          "id": 204,
+          "mutual": "",
+          "name": "燃烧"
+        },
+        {
+          "category": 4,
+          "entrys": "30013;30014;30015;30079;30080;30081",
+          "icon": "",
+          "id": 205,
+          "mutual": "",
+          "name": "伤口"
+        },
+        {
+          "category": 4,
+          "entrys": "30016;30017;30018;30082;30083;30084",
+          "icon": "",
+          "id": 206,
+          "mutual": "",
+          "name": "流血"
+        },
+        {
+          "category": 4,
+          "entrys": "30136;30137;30138;30139;30140;30141;30142;30143;30144;30172;30173;30174;30175;30176;30177;30037;30038;30039",
+          "icon": "",
+          "id": 207,
+          "mutual": "",
+          "name": "反制"
+        },
+        {
+          "category": 4,
+          "entrys": "30028;30029;30030",
+          "icon": "",
+          "id": 208,
+          "mutual": "",
+          "name": "寄生"
+        },
+        {
+          "category": 4,
+          "entrys": "30031;30032;30033;30052;30053;30054;30097;30098;30099;30130;30131;30132",
+          "icon": "",
+          "id": 209,
+          "mutual": "",
+          "name": "蓄力"
+        },
+        {
+          "category": 4,
+          "entrys": "30049;30050;30051;30058;30059;30060",
+          "icon": "",
+          "id": 210,
+          "mutual": "",
+          "name": "屏障"
+        },
+        {
+          "category": 4,
+          "entrys": "30055;30056;30057;30085;30086;30087;30088;30089;30090;30094;30095;30096;30127;30128;30129;30142;30143;30144;30145;30146;30147;30166;30167;30168",
+          "icon": "",
+          "id": 211,
+          "mutual": "",
+          "name": "护盾"
+        },
+        {
+          "category": 4,
+          "entrys": "30091;30092;30093;30160;30161;30162;30163;30164;30165",
+          "icon": "",
+          "id": 212,
+          "mutual": "",
+          "name": "闪避"
+        },
+        {
+          "category": 4,
+          "entrys": "30121;30122;30123",
+          "icon": "",
+          "id": 213,
+          "mutual": "",
+          "name": "反伤"
+        },
+        {
+          "category": 4,
+          "entrys": "30148;30149;30150",
+          "icon": "",
+          "id": 214,
+          "mutual": "",
+          "name": "抑制"
+        },
+        {
+          "category": 4,
+          "entrys": "30169;30170;30171;30178;30179;30180",
+          "icon": "",
+          "id": 215,
+          "mutual": "",
+          "name": "击退"
+        },
+        {
+          "category": 4,
+          "entrys": "30175;30176;30177",
+          "icon": "",
+          "id": 216,
+          "mutual": "",
+          "name": "打断"
+        },
+        {
+          "category": 4,
+          "entrys": "30019;30020;30021",
+          "icon": "",
+          "id": 217,
+          "mutual": "",
+          "name": "减防"
+        },
+        {
+          "category": 4,
+          "entrys": "30022;30023;30024",
+          "icon": "",
+          "id": 218,
+          "mutual": "",
+          "name": "减伤"
+        },
+        {
+          "category": 4,
+          "entrys": "30025;30026;30027",
+          "icon": "",
+          "id": 219,
+          "mutual": "",
+          "name": "减速"
+        },
+        {
+          "category": 4,
+          "entrys": "30028;30029;30030;30061;30062;30063;30133;30134;30135",
+          "icon": "",
+          "id": 220,
+          "mutual": "",
+          "name": "回复"
+        },
+        {
+          "category": 4,
+          "entrys": "30040;30041;30042;30043;30044;30045;30046;30047;30048",
+          "icon": "",
+          "id": 221,
+          "mutual": "",
+          "name": "增益"
+        },
+        {
+          "category": 4,
+          "entrys": "30064;30065;30066;30067;30068;30069;30070;30071;30072;30073;30074;30075;30076;30077;30078;30079;30080;30081;30082;30083;30084;30085;30086;30087;30124;30125;30126;30145;30146;30147;30151;30152;30153;30172;30173;30174;30037;30038;30039",
+          "icon": "",
+          "id": 222,
+          "mutual": "",
+          "name": "增伤"
+        },
+        {
+          "category": 4,
+          "entrys": "30094;30095;30096;30097;30098;30099;30100;30101;30102;30103;30104;30105",
+          "icon": "",
+          "id": 223,
+          "mutual": "",
+          "name": "增速"
+        },
+        {
+          "category": 4,
+          "entrys": "30106;30107;30108;30109;30110;30111;30112;30113;30114;30115;30116;30117;30154;30155;30156;30157;30158;30159",
+          "icon": "",
+          "id": 224,
+          "mutual": "",
+          "name": "增暴"
+        },
+        {
+          "category": 4,
+          "entrys": "30118;30119;30120;30034;30035;30036",
+          "icon": "",
+          "id": 225,
+          "mutual": "",
+          "name": "体型"
+        }
+      ]
+    },
     "SomuaGeneConfig": {
       "client_type": "core.config.ISomuaGeneConfigInfo",
-      "parse_method_token": "0x6018274",
-      "parse_il": "020304287c35000a286b8201060203030428aa38000a0428ab38000a2865820106020304287c35000a286d820106020304287c35000a286f820106020304287c35000a28718201060203030428aa38000a0428ab38000a28678201060203030428aa38000a0428ab38000a2869820106020304287c35000a28738201062a",
+      "parse_method_token": "0x60184e4",
+      "parse_il": "020304286b36000a28db84010602030304289639000a04289739000a28d5840106020304286b36000a28dd840106020304286b36000a28df840106020304286b36000a28e184010602030304289639000a04289739000a28d784010602030304289639000a04289739000a28d9840106020304286b36000a28e38401062a",
       "fields": [
         {
           "source": "foodid",
@@ -5933,7 +6413,12 @@
         "ReadSignedInt",
         "set_sort"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoActivityDataMgr.GetSomuaSkin",
+        "module.dangoActivity.DangoActivityDataMgr.GetSomuaShowGene",
+        "module.dangoActivity.SomuaGeneItem.ApplyGeneContent",
+        "module.dangoActivity.SomuaDetailChildPanel.InitFoodShopList"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaGeneConfig.get_fileName",
@@ -6106,8 +6591,8 @@
     },
     "SomuaHouseConfig": {
       "client_type": "core.config.ISomuaHouseConfigInfo",
-      "parse_method_token": "0x6018282",
-      "parse_il": "020304287c35000a287d820106020304287c35000a287f8201060203030428aa38000a0428ab38000a287b820106020304287c35000a28818201062a",
+      "parse_method_token": "0x60184f2",
+      "parse_il": "020304286b36000a28ed840106020304286b36000a28ef84010602030304289639000a04289739000a28eb840106020304286b36000a28f18401062a",
       "fields": [
         {
           "source": "id",
@@ -6141,7 +6626,14 @@
         "ReadSignedInt",
         "set_roomID"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoActivityDataMgr.HaveHomebaseLock",
+        "module.dangoActivity.SomuaBoxMain.getPlaceHouseName",
+        "module.dangoActivity.DangoWarehousePanel.onShow",
+        "module.dangoActivity.DangoWarehousePanel.OnItemClick",
+        "module.dangoActivity.DangoWarhouseItem.SetData",
+        "module.dangoActivity.DangoWarhouseItem.IsUnlock"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaHouseConfig.get_fileName",
@@ -6224,8 +6716,8 @@
     },
     "SomuaKeeperConfig": {
       "client_type": "core.config.ISomuaKeeperConfigInfo",
-      "parse_method_token": "0x60182aa",
-      "parse_il": "020304287c35000a2893820106020304287c35000a2895820106020304287c35000a2897820106020304287c35000a2899820106020304287c35000a289b820106020304287c35000a289d820106020304287c35000a289f820106020304287c35000a28a18201060203030428aa38000a0428ab38000a28898201060203030428aa38000a0428ab38000a288b8201060203030428aa38000a0428ab38000a288d8201060203030428aa38000a0428ab38000a288f820106020304287c35000a28a3820106020304287c35000a28a58201060203030428aa38000a0428ab38000a2891820106020304287c35000a28a7820106020304287c35000a28a98201062a",
+      "parse_method_token": "0x601851a",
+      "parse_il": "020304286b36000a2803850106020304286b36000a2805850106020304286b36000a2807850106020304286b36000a2809850106020304286b36000a280b850106020304286b36000a280d850106020304286b36000a280f850106020304286b36000a281185010602030304289639000a04289739000a28f984010602030304289639000a04289739000a28fb84010602030304289639000a04289739000a28fd84010602030304289639000a04289739000a28ff840106020304286b36000a2813850106020304286b36000a281585010602030304289639000a04289739000a2801850106020304286b36000a2817850106020304286b36000a28198501062a",
       "fields": [
         {
           "source": "benefit1",
@@ -6354,7 +6846,17 @@
         "ReadSignedInt",
         "set_taskNum"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoActivityDataMgr.GetGolddropEfficiency",
+        "module.dangoActivity.DangoActivityDataMgr.GetMaxNotAdultDangoCount",
+        "module.dangoActivity.DangoActivityDataMgr.NextUnlockPrivilegeLevel",
+        "module.dangoActivity.DangoActivityDataMgr.IsNannyLevelRewardCanGet",
+        "module.dangoActivity.DangoNannyPanel.SetNannyInfo",
+        "module.dangoActivity.DangoNannyPanel.HaveLvupTask",
+        "module.dangoActivity.DangoNannyPanel.CanLevelUp",
+        "module.dangoActivity.DangoNannyPreviewItem.SetData",
+        "module.dangoActivity.DangoNannyPreviewItem.GetSmallItemRoot"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaKeeperConfig.get_fileName",
@@ -6491,8 +6993,8 @@
     },
     "SomuaModelConfig": {
       "client_type": "core.config.ISomuaModelConfigInfo",
-      "parse_method_token": "0x60182d6",
-      "parse_il": "0203030428aa38000a0428ab38000a28b18201060203030428aa38000a0428ab38000a28b3820106020304287c35000a28bd820106020304287c35000a28bf8201060203030428aa38000a0428ab38000a28b5820106020304287c35000a28c1820106020304287c35000a28c3820106020304287c35000a28c5820106020304287c35000a28c7820106020304287c35000a28c9820106020304287c35000a28cb820106020304287c35000a28cd820106020304287c35000a28cf820106020304287c35000a28d1820106020304287c35000a28d38201060203030428aa38000a0428ab38000a28b78201060203030428aa38000a0428ab38000a28b9820106020304287c35000a28d58201060203030428aa38000a0428ab38000a28bb8201062a",
+      "parse_method_token": "0x6018548",
+      "parse_il": "02030304289639000a04289739000a282185010602030304289639000a04289739000a2823850106020304286b36000a282f850106020304286b36000a283185010602030304289639000a04289739000a2825850106020304286b36000a2833850106020304286b36000a2835850106020304286b36000a2837850106020304286b36000a2839850106020304286b36000a283b850106020304286b36000a283d850106020304286b36000a283f850106020304286b36000a2841850106020304286b36000a2843850106020304286b36000a284585010602030304289639000a04289739000a282785010602030304289639000a04289739000a282985010602030304289639000a04289739000a282b850106020304286b36000a284785010602030304289639000a04289739000a282d8501062a",
       "fields": [
         {
           "source": "addonPool",
@@ -6570,6 +7072,11 @@
           "reader": "ReadSignedInt"
         },
         {
+          "source": "mainATT",
+          "type": "string",
+          "reader": "ReadUTFByte"
+        },
+        {
           "source": "name",
           "type": "string",
           "reader": "ReadUTFByte"
@@ -6626,6 +7133,9 @@
         "set_isTopwear",
         "ReadUnsignedShort",
         "ReadUTFByte",
+        "set_mainATT",
+        "ReadUnsignedShort",
+        "ReadUTFByte",
         "set_name",
         "ReadUnsignedShort",
         "ReadUTFByte",
@@ -6636,7 +7146,13 @@
         "ReadUTFByte",
         "set_season"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoHandBookIntroducePop.RefreshEntryByTab",
+        "module.dangoActivity.DangoHandBookIntroducePop.refreshCharacter",
+        "module.dangoActivity.DangoHandBookIntroducePop.refreshAbility",
+        "module.dangoActivity.SomaAvatarSkinUtil.BuildPartsCacheKey",
+        "module.dangoActivity.SomaAvatarSkinUtil.CollectSkinNames"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaModelConfig.get_fileName",
@@ -6652,8 +7168,8 @@
       ],
       "enabled": true,
       "count": 68,
-      "byte_length": 19983,
-      "sha256": "060828a444f743005f83d6cbb23e522650295caf967c821d712672b62a940945",
+      "byte_length": 21665,
+      "sha256": "5e044890eaf2034a8f4f4de07423193eb603330b3b178b1617de3def72aae9b0",
       "rows": [
         {
           "addonPool": "30001,30002,30013,30014,30016,30017,30028,30029,30064,30065,30088,30089",
@@ -6671,6 +7187,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "布鲁",
           "naturePool": "20009,20010,20011,20012",
           "petID": 108,
@@ -6692,14 +7209,15 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "格林",
           "naturePool": "20017,20018,20019,20020",
           "petID": 62,
           "season": ""
         },
         {
-          "addonPool": "30046,30047,30094,30095,40001,40002,40004,40005,40007,40008,40010,40011",
-          "addonPoolSP": "30048,30096,40003,40006,40009,40012,40013",
+          "addonPool": "30046,30047,30094,30095,40001,40002,30157,30158,30160,30161,40010,40011",
+          "addonPoolSP": "30048,30096,40003,30159,30162,40012,40013",
           "attackMode": 10003,
           "attackModeSP": 11003,
           "describe": "随流星雨降临的神秘生物，在精心培育下拥有了赛尔精灵的特征！",
@@ -6713,6 +7231,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "皮皮",
           "naturePool": "20013,20014,20015,20016",
           "petID": 10,
@@ -6734,6 +7253,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "丽莎布布",
           "naturePool": "20017,20018,20019,20020",
           "petID": 4647,
@@ -6755,6 +7275,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "鲁斯王",
           "naturePool": "20005,20006,20007,20008",
           "petID": 4648,
@@ -6776,6 +7297,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "魔焰猩猩",
           "naturePool": "20025,20026,20027,20028",
           "petID": 4649,
@@ -6797,6 +7319,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "英卡洛斯",
           "naturePool": "20021,20022,20023,20024",
           "petID": 3577,
@@ -6818,14 +7341,15 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "萨格罗斯",
           "naturePool": "20017,20018,20019,20020",
           "petID": 3328,
           "season": ""
         },
         {
-          "addonPool": "30019,30020,30145,30146,40001,40002,40004,40005,40007,40008,40010,40011",
-          "addonPoolSP": "30021,30147,40003,40006,40009,40012,40013",
+          "addonPool": "30019,30020,30145,30146,40001,40002,30157,30158,30160,30161,40010,40011",
+          "addonPoolSP": "30021,30147,40003,30159,30162,40012,40013",
           "attackMode": 10009,
           "attackModeSP": 11009,
           "describe": "随流星雨降临的神秘生物，在精心培育下拥有了赛尔精灵的特征！",
@@ -6839,6 +7363,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "哈莫雷特",
           "naturePool": "20001,20002,20003,20004",
           "petID": 215,
@@ -6860,6 +7385,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "雷伊",
           "naturePool": "20009,20010,20011,20012",
           "petID": 70,
@@ -6881,6 +7407,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "盖亚",
           "naturePool": "20033,20034,20035,20036",
           "petID": 261,
@@ -6902,6 +7429,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "卡修斯",
           "naturePool": "20005,20006,20007,20008",
           "petID": 798,
@@ -6923,6 +7451,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "布莱克",
           "naturePool": "20001,20002,20003,20004",
           "petID": 875,
@@ -6944,6 +7473,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "缪斯",
           "naturePool": "20013,20014,20015,20016",
           "petID": 1633,
@@ -6965,6 +7495,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "阿克希亚",
           "naturePool": "20021,20022,20023,20024",
           "petID": 50,
@@ -6986,6 +7517,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "圣光灵神",
           "naturePool": "20033,20034,20035,20036",
           "petID": 3311,
@@ -7007,6 +7539,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "重生之翼",
           "naturePool": "20037,20038,20039,20040",
           "petID": 2987,
@@ -7028,6 +7561,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "瀚宇星皇",
           "naturePool": "20029,20030,20031,20032",
           "petID": 3291,
@@ -7049,6 +7583,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "天启帝君",
           "naturePool": "20005,20006,20007,20008",
           "petID": 3550,
@@ -7070,6 +7605,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "混元天尊",
           "naturePool": "20029,20030,20031,20032",
           "petID": 3788,
@@ -7091,6 +7627,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "启灵元神",
           "naturePool": "20025,20026,20027,20028",
           "petID": 3986,
@@ -7112,6 +7649,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "弑序神罗",
           "naturePool": "20029,20030,20031,20032",
           "petID": 4169,
@@ -7133,6 +7671,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "至序圣华",
           "naturePool": "20033,20034,20035,20036",
           "petID": 4321,
@@ -7154,6 +7693,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "逐界苍星",
           "naturePool": "20001,20002,20003,20004",
           "petID": 4450,
@@ -7175,6 +7715,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "奥菲利娅",
           "naturePool": "20037,20038,20039,20040",
           "petID": 4706,
@@ -7196,6 +7737,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 1,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "咤克斯",
           "naturePool": "20021,20022,20023,20024",
           "petID": 4762,
@@ -7217,6 +7759,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "艾夏拉",
           "naturePool": "20025,20026,20027,20028",
           "petID": 3673,
@@ -7238,6 +7781,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "魔灵王",
           "naturePool": "20037,20038,20039,20040",
           "petID": 3541,
@@ -7259,6 +7803,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "谱尼",
           "naturePool": "20037,20038,20039,20040",
           "petID": 5000,
@@ -7280,6 +7825,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "索伦森",
           "naturePool": "20029,20030,20031,20032",
           "petID": 3414,
@@ -7301,14 +7847,15 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "蒂朵",
           "naturePool": "20013,20014,20015,20016",
           "petID": 4377,
           "season": ""
         },
         {
-          "addonPool": "30031,30032,30043,30044,40001,40002,40004,40005,40007,40008,40010,40011",
-          "addonPoolSP": "30033,30045,40003,40006,40009,40012,40013",
+          "addonPool": "30031,30032,30043,30044,40001,40002,30160,30161,30163,30164,40010,40011",
+          "addonPoolSP": "30033,30045,40003,40006,30051,30060",
           "attackMode": 10032,
           "attackModeSP": 11032,
           "describe": "随流星雨降临的神秘生物，在精心培育下拥有了赛尔精灵的特征！",
@@ -7322,6 +7869,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "武心婵",
           "naturePool": "20009,20010,20011,20012",
           "petID": 4500,
@@ -7343,6 +7891,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "卫岳",
           "naturePool": "20033,20034,20035,20036",
           "petID": 4510,
@@ -7364,6 +7913,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "西塔伦",
           "naturePool": "20009,20010,20011,20012",
           "petID": 4636,
@@ -7385,6 +7935,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "琉梦",
           "naturePool": "20013,20014,20015,20016",
           "petID": 4761,
@@ -7406,6 +7957,7 @@
           "isSurrounding": 1,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "艾欧丽娅",
           "naturePool": "20005,20006,20007,20008",
           "petID": 3437,
@@ -7427,6 +7979,7 @@
           "isSurrounding": 1,
           "isTail": 1,
           "isTopwear": 1,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "茉蕊儿",
           "naturePool": "20009,20010,20011,20012",
           "petID": 3613,
@@ -7448,6 +8001,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "沧岚",
           "naturePool": "20005,20006,20007,20008",
           "petID": 3740,
@@ -7469,14 +8023,15 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "莫妮卡",
           "naturePool": "20017,20018,20019,20020",
           "petID": 3711,
           "season": ""
         },
         {
-          "addonPool": "30031,30032,30043,30044,40001,40002,40004,40005,40007,40008,40010,40011",
-          "addonPoolSP": "30033,30045,40003,40006,40009,40012,40013",
+          "addonPool": "30031,30032,30043,30044,40001,40002,40004,40005,30049,30050,30058,30059",
+          "addonPoolSP": "30033,30045,40003,40006,30051,30060",
           "attackMode": 10040,
           "attackModeSP": 11040,
           "describe": "随流星雨降临的神秘生物，在精心培育下拥有了赛尔精灵的特征！",
@@ -7490,6 +8045,7 @@
           "isSurrounding": 1,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "斯嘉丽",
           "naturePool": "20009,20010,20011,20012",
           "petID": 3456,
@@ -7511,6 +8067,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "海瑟薇",
           "naturePool": "20025,20026,20027,20028",
           "petID": 3529,
@@ -7532,6 +8089,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "艾恩斯",
           "naturePool": "20025,20026,20027,20028",
           "petID": 3467,
@@ -7553,6 +8111,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "柯尔德",
           "naturePool": "20001,20002,20003,20004",
           "petID": 3886,
@@ -7574,6 +8133,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "凡尔斯",
           "naturePool": "20001,20002,20003,20004",
           "petID": 3697,
@@ -7595,6 +8155,7 @@
           "isSurrounding": 1,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "米斯蒂克",
           "naturePool": "20021,20022,20023,20024",
           "petID": 4676,
@@ -7616,6 +8177,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "弗里德",
           "naturePool": "20017,20018,20019,20020",
           "petID": 3627,
@@ -7637,14 +8199,15 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "格斯塔丝",
           "naturePool": "20025,20026,20027,20028",
           "petID": 4467,
           "season": ""
         },
         {
-          "addonPool": "30049,30050,30058,30059,30154,30155,30157,30158,30160,30161,30163,30164",
-          "addonPoolSP": "30051,30060,30156,30159,30162,30165",
+          "addonPool": "30049,30050,30058,30059,30154,30155,40004,40005,40007,40008,30163,30164",
+          "addonPoolSP": "30051,30060,30156,40006,40009,30165",
           "attackMode": 10048,
           "attackModeSP": 11048,
           "describe": "随流星雨降临的神秘生物，在精心培育下拥有了赛尔精灵的特征！",
@@ -7658,6 +8221,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "莱茵哈特",
           "naturePool": "20037,20038,20039,20040",
           "petID": 3516,
@@ -7679,14 +8243,15 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "乔特鲁德",
           "naturePool": "20037,20038,20039,20040",
           "petID": 4186,
           "season": ""
         },
         {
-          "addonPool": "30046,30047,30076,30077,40001,40002,40004,40005,40007,40008,40010,40011",
-          "addonPoolSP": "30048,30078,40003,40006,40009,40012,40013",
+          "addonPool": "30046,30047,30076,30077,30058,30059,30154,30155,40007,40008,40010,40011",
+          "addonPoolSP": "30048,30078,30060,30156,40009,40012",
           "attackMode": 10050,
           "attackModeSP": 11050,
           "describe": "随流星雨降临的神秘生物，在粗心放养下终于活成了自己？",
@@ -7700,6 +8265,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "巨婴苏摩",
           "naturePool": "20013,20014,20015,20016",
           "petID": 999999,
@@ -7721,6 +8287,7 @@
           "isSurrounding": 1,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "霍德尔",
           "naturePool": "20033,20034,20035,20036",
           "petID": 3200,
@@ -7742,6 +8309,7 @@
           "isSurrounding": 1,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "天邪龙王",
           "naturePool": "20033,20034,20035,20036",
           "petID": 2652,
@@ -7763,6 +8331,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "空元行者",
           "naturePool": "20021,20022,20023,20024",
           "petID": 4586,
@@ -7784,6 +8353,7 @@
           "isSurrounding": 0,
           "isTail": 1,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "霍光",
           "naturePool": "20001,20002,20003,20004",
           "petID": 4515,
@@ -7805,6 +8375,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "天蛇太祖",
           "naturePool": "20029,20030,20031,20032",
           "petID": 3667,
@@ -7826,6 +8397,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "蓓丽安特",
           "naturePool": "20021,20022,20023,20024",
           "petID": 4643,
@@ -7847,6 +8419,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "克雷弗德",
           "naturePool": "20017,20018,20019,20020",
           "petID": 4644,
@@ -7868,6 +8441,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=HLP>生命",
           "name": "格劳瑞",
           "naturePool": "20029,20030,20031,20032",
           "petID": 4004,
@@ -7889,6 +8463,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "阿尔斯兰",
           "naturePool": "20017,20018,20019,20020",
           "petID": 4327,
@@ -7910,6 +8485,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=DEF>防御",
           "name": "欧德奈瑞",
           "naturePool": "20021,20022,20023,20024",
           "petID": 3807,
@@ -7931,6 +8507,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "马尔修斯",
           "naturePool": "20013,20014,20015,20016",
           "petID": 3393,
@@ -7952,6 +8529,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "列奥尼达",
           "naturePool": "20013,20014,20015,20016",
           "petID": 4125,
@@ -7973,6 +8551,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "尤纳斯",
           "naturePool": "20033,20034,20035,20036",
           "petID": 4717,
@@ -7994,6 +8573,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=CRT>暴击",
           "name": "梅赫维特",
           "naturePool": "20037,20038,20039,20040",
           "petID": 4853,
@@ -8015,6 +8595,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 0,
+          "mainATT": "<sprite name=SPD>速度",
           "name": "圣甲·盖亚",
           "naturePool": "20009,20010,20011,20012",
           "petID": 3056,
@@ -8036,6 +8617,7 @@
           "isSurrounding": 0,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "莫伊莱",
           "naturePool": "20005,20006,20007,20008",
           "petID": 4275,
@@ -8057,6 +8639,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "圣光灵神sp",
           "naturePool": "20001,20002,20003,20004",
           "petID": 93311,
@@ -8078,6 +8661,7 @@
           "isSurrounding": 1,
           "isTail": 0,
           "isTopwear": 1,
+          "mainATT": "<sprite name=ATK>攻击",
           "name": "圣谕邪魇",
           "naturePool": "20005,20006,20007,20008",
           "petID": 4554,
@@ -8087,8 +8671,8 @@
     },
     "SomuaRankingConfig": {
       "client_type": "core.config.ISomuaRankingConfigInfo",
-      "parse_method_token": "0x60182ea",
-      "parse_il": "020304287c35000a28e3820106020304287c35000a28e5820106020304287c35000a28e78201060203030428aa38000a0428ab38000a28dd8201060203030428aa38000a0428ab38000a28df8201060203030428aa38000a0428ab38000a28e1820106020304287c35000a28e98201062a",
+      "parse_method_token": "0x601855c",
+      "parse_il": "020304286b36000a2855850106020304286b36000a2857850106020304286b36000a285985010602030304289639000a04289739000a284f85010602030304289639000a04289739000a285185010602030304289639000a04289739000a2853850106020304286b36000a285b8501062a",
       "fields": [
         {
           "source": "icon",
@@ -8312,8 +8896,8 @@
     },
     "SomuaShopConfig": {
       "client_type": "core.config.ISomuaShopConfigInfo",
-      "parse_method_token": "0x601830c",
-      "parse_il": "020304287c35000a2801830106020304287c35000a28038301060203030428aa38000a0428ab38000a28f18201060203030428aa38000a0428ab38000a28f3820106020304287c35000a28f9820106020304287c35000a28fb820106020304287c35000a28fd820106020304287c35000a28ff820106020304287c35000a28058301060203030428aa38000a0428ab38000a28f5820106020304287c35000a28078301060203030428aa38000a0428ab38000a28f7820106020304287c35000a2809830106020304287c35000a280b8301062a",
+      "parse_method_token": "0x601857e",
+      "parse_il": "020304286b36000a2873850106020304286b36000a287585010602030304289639000a04289739000a286385010602030304289639000a04289739000a2865850106020304286b36000a286b850106020304286b36000a286d850106020304286b36000a286f850106020304286b36000a2871850106020304286b36000a287785010602030304289639000a04289739000a2867850106020304286b36000a287985010602030304289639000a04289739000a2869850106020304286b36000a287b850106020304286b36000a287d8501062a",
       "fields": [
         {
           "source": "NewMsglogId",
@@ -8420,7 +9004,12 @@
         "ReadSignedInt",
         "set_value"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.SomuaDetailChildPanel.InitFoodShopList",
+        "module.dangoActivity.SomuaDetailChildPanel.RefreshFoodInfo",
+        "module.dangoActivity.SomuaDetailChildPanel.RefreshBuyBtnState",
+        "module.dangoActivity.DangoShopItem.<Awake>b__14_1"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaShopConfig.get_fileName",
@@ -8667,11 +9256,16 @@
     },
     "SomuaStatusEffectConfig": {
       "client_type": "core.config.ISomuaStatusEffectConfigInfo",
-      "parse_method_token": "0x6018326",
-      "parse_il": "0203030428aa38000a0428ab38000a28138301060203030428aa38000a0428ab38000a2815830106020304287c35000a281f830106020304287c35000a2821830106020304287c35000a28238301060203030428aa38000a0428ab38000a28178301060203030428aa38000a0428ab38000a28198301060203030428aa38000a0428ab38000a281b830106020304287c35000a28258301060203030428aa38000a0428ab38000a281d8301062a",
+      "parse_method_token": "0x601859a",
+      "parse_il": "02030304289639000a04289739000a288585010602030304289639000a04289739000a288785010602030304289639000a04289739000a2889850106020304286b36000a2893850106020304286b36000a2895850106020304286b36000a289785010602030304289639000a04289739000a288b85010602030304289639000a04289739000a288d85010602030304289639000a04289739000a288f850106020304286b36000a289985010602030304289639000a04289739000a28918501062a",
       "fields": [
         {
           "source": "fxOnGet",
+          "type": "string",
+          "reader": "ReadUTFByte"
+        },
+        {
+          "source": "fxOnLoad",
           "type": "string",
           "reader": "ReadUTFByte"
         },
@@ -8727,6 +9321,9 @@
         "set_fxOnGet",
         "ReadUnsignedShort",
         "ReadUTFByte",
+        "set_fxOnLoad",
+        "ReadUnsignedShort",
+        "ReadUTFByte",
         "set_fxOnTrig",
         "ReadSignedInt",
         "set_icon",
@@ -8749,7 +9346,10 @@
         "ReadUTFByte",
         "set_valueRule"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.SomuaBattlePanel.ShowBuffEffects",
+        "module.dangoActivity.SomuaBattleMgr.GetReplayEffectPaths"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaStatusEffectConfig.get_fileName",
@@ -8765,11 +9365,12 @@
       ],
       "enabled": true,
       "count": 24,
-      "byte_length": 2230,
-      "sha256": "e2c9f1bd92686e1ba847883c0e9a3d55afe168bcfb77fb937e508e9a3377851e",
+      "byte_length": 2289,
+      "sha256": "20a63ac5d65ae2509d06e24549f1c9341d1f1ca917b3fda7f14ea14825ea35ee",
       "rows": [
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7001,
@@ -8782,6 +9383,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7002,
@@ -8794,6 +9396,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7003,
@@ -8806,6 +9409,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7004,
@@ -8818,6 +9422,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7005,
@@ -8830,6 +9435,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7006,
@@ -8842,6 +9448,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7007,
@@ -8854,6 +9461,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7008,
@@ -8866,6 +9474,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7009,
@@ -8878,6 +9487,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7010,
@@ -8890,6 +9500,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7011,
@@ -8902,6 +9513,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7012,
@@ -8914,6 +9526,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7013,
@@ -8926,6 +9539,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "fx_sleeping",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7014,
@@ -8938,6 +9552,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7015,
@@ -8950,6 +9565,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7016,
@@ -8962,6 +9578,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7017,
@@ -8974,6 +9591,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7018,
@@ -8986,6 +9604,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7019,
@@ -8998,6 +9617,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7020,
@@ -9010,6 +9630,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7021,
@@ -9022,6 +9643,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7022,
@@ -9034,6 +9656,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7023,
@@ -9046,6 +9669,7 @@
         },
         {
           "fxOnGet": "",
+          "fxOnLoad": "",
           "fxOnTrig": "",
           "icon": 0,
           "id": 7024,
@@ -9060,8 +9684,8 @@
     },
     "SomuaTaskConfig": {
       "client_type": "core.config.ISomuaTaskConfigInfo",
-      "parse_method_token": "0x601833c",
-      "parse_il": "0203030428aa38000a0428ab38000a282d830106020304287c35000a2831830106020304287c35000a2833830106020304287c35000a28358301060203030428aa38000a0428ab38000a282f830106020304287c35000a2837830106020304287c35000a2839830106020304287c35000a283b8301062a",
+      "parse_method_token": "0x60185b0",
+      "parse_il": "02030304289639000a04289739000a28a1850106020304286b36000a28a5850106020304286b36000a28a7850106020304286b36000a28a985010602030304289639000a04289739000a28a3850106020304286b36000a28ab850106020304286b36000a28ad850106020304286b36000a28af8501062a",
       "fields": [
         {
           "source": "describe",
@@ -9124,7 +9748,12 @@
         "ReadSignedInt",
         "set_value"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.SomuaArenaTaskPopUp.GetTaskItem",
+        "module.dangoActivity.SomuaArenaTaskPopUp.RefreshTaskInfo",
+        "module.dangoActivity.SomuaArenaTaskPopUp.<RefreshTaskList>b__11_0",
+        "module.dangoActivity.DangoNannyTaskItem.SetData"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.SomuaTaskConfig.get_fileName",
@@ -9637,8 +10266,8 @@
     },
     "SomuaToturialConfig": {
       "client_type": "core.config.ISomuaToturialConfigInfo",
-      "parse_method_token": "0x601834c",
-      "parse_il": "020304287c35000a28498301060203030428aa38000a0428ab38000a28438301060203030428aa38000a0428ab38000a2845830106020304287c35000a284b8301060203030428aa38000a0428ab38000a28478301062a",
+      "parse_method_token": "0x60185c0",
+      "parse_il": "020304286b36000a28bd85010602030304289639000a04289739000a28b785010602030304289639000a04289739000a28b9850106020304286b36000a28bf85010602030304289639000a04289739000a28bb8501062a",
       "fields": [
         {
           "source": "id",
@@ -9767,8 +10396,8 @@
     },
     "SomuaWeaponConfig": {
       "client_type": "core.config.ISomuaWeaponConfigInfo",
-      "parse_method_token": "0x601835c",
-      "parse_il": "0203030428aa38000a0428ab38000a2853830106020304287c35000a28578301060203030428aa38000a0428ab38000a2855830106020304287c35000a2859830106020304287c35000a285b8301062a",
+      "parse_method_token": "0x60185d0",
+      "parse_il": "02030304289639000a04289739000a28c7850106020304286b36000a28cb85010602030304289639000a04289739000a28c9850106020304286b36000a28cd850106020304286b36000a28cf8501062a",
       "fields": [
         {
           "source": "fxOnHit",
@@ -10344,8 +10973,8 @@
     },
     "dango": {
       "client_type": "core.config.IDangoInfo",
-      "parse_method_token": "0x6017138",
-      "parse_il": "0203030428aa38000a0428ab38000a28297101060203030428aa38000a0428ab38000a282b710106020304287c35000a2831710106020304287c35000a28337101060203030428aa38000a0428ab38000a282d710106020304287c35000a28357101060203030428aa38000a0428ab38000a282f710106020304287c35000a28377101062a",
+      "parse_method_token": "0x6017388",
+      "parse_il": "02030304289639000a04289739000a287973010602030304289639000a04289739000a287b730106020304286b36000a2881730106020304286b36000a288373010602030304289639000a04289739000a287d730106020304286b36000a288573010602030304289639000a04289739000a287f730106020304286b36000a28877301062a",
       "fields": [
         {
           "source": "describe",
@@ -11003,8 +11632,8 @@
     },
     "dangoAction": {
       "client_type": "core.config.IDangoActionInfo",
-      "parse_method_token": "0x601714e",
-      "parse_il": "0203030428aa38000a0428ab38000a283f710106020304287c35000a28457101060304287d35000a2c2f0304287c35000a0a02068df80100012843710106160b2b13022842710106070304287c35000a9e0717580b070632e90203030428aa38000a0428ab38000a2841710106020304287c35000a2847710106020304287c35000a2849710106020304287c35000a284b710106020304287c35000a284d7101062a",
+      "parse_method_token": "0x601739e",
+      "parse_il": "02030304289639000a04289739000a288f730106020304286b36000a28957301060304286c36000a2c2f0304286b36000a0a02068df90100012893730106160b2b13022892730106070304286b36000a9e0717580b070632e902030304289639000a04289739000a2891730106020304286b36000a2897730106020304286b36000a2899730106020304286b36000a289b730106020304286b36000a289d7301062a",
       "fields": [
         {
           "source": "action",
@@ -11070,7 +11699,13 @@
         "ReadSignedInt",
         "set_value"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoActivityDataMgr.GetRandomEmojiAction",
+        "module.dangoActivity.DangoActivityDataMgr.GetRandomIntervalAction",
+        "module.dangoActivity.DangoActivityDataMgr.InitMeetActionMap",
+        "module.dangoActivity.DangoActivityDataMgr.GetMeetActionByTargetId",
+        "module.dangoActivity.DangoModelUIDisplay.ExcuteAction"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.DangoAction.get_fileName",
@@ -14277,8 +14912,8 @@
     },
     "dangoGene": {
       "client_type": "core.config.IDangoGeneInfo",
-      "parse_method_token": "0x6017196",
-      "parse_il": "020304287c35000a2891710106020304287c35000a28937101060203030428aa38000a0428ab38000a288b7101060203030428aa38000a0428ab38000a288d7101060203030428aa38000a0428ab38000a288f710106020304287c35000a28957101062a",
+      "parse_method_token": "0x60173e6",
+      "parse_il": "020304286b36000a28e1730106020304286b36000a28e373010602030304289639000a04289739000a28db73010602030304289639000a04289739000a28dd73010602030304289639000a04289739000a28df730106020304286b36000a28e57301062a",
       "fields": [
         {
           "source": "geneID",
@@ -14471,8 +15106,8 @@
     },
     "dangoGold": {
       "client_type": "core.config.IDangoGoldInfo",
-      "parse_method_token": "0x60171a4",
-      "parse_il": "020304287c35000a289d710106020304287c35000a289f710106020304287c35000a28a1710106020304287c35000a28a37101062a",
+      "parse_method_token": "0x60173f4",
+      "parse_il": "020304286b36000a28ed730106020304286b36000a28ef730106020304286b36000a28f1730106020304286b36000a28f37301062a",
       "fields": [
         {
           "source": "dangoGold",
@@ -14564,8 +15199,8 @@
     },
     "dangoGuide": {
       "client_type": "core.config.IDangoGuideInfo",
-      "parse_method_token": "0x60171b6",
-      "parse_il": "0203030428aa38000a0428ab38000a28ab7101060203030428aa38000a0428ab38000a28ad710106020304287c35000a28b37101060203030428aa38000a0428ab38000a28af7101060203030428aa38000a0428ab38000a28b1710106020304287c35000a28b57101062a",
+      "parse_method_token": "0x6017406",
+      "parse_il": "02030304289639000a04289739000a28fb73010602030304289639000a04289739000a28fd730106020304286b36000a280374010602030304289639000a04289739000a28ff73010602030304289639000a04289739000a2801740106020304286b36000a28057401062a",
       "fields": [
         {
           "source": "dangoMovie",
@@ -14616,7 +15251,10 @@
         "ReadSignedInt",
         "set_type"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoActivity.DangoGuidePop.OnGetItemByIndex",
+        "module.dangoActivity.DangoGuidePop.OnClickGetReward"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.DangoGuide.get_fileName",
@@ -14751,8 +15389,8 @@
     },
     "dangoHouse": {
       "client_type": "core.config.IDangoHouseInfo",
-      "parse_method_token": "0x60171c4",
-      "parse_il": "020304287c35000a28bf710106020304287c35000a28c17101060203030428aa38000a0428ab38000a28bd710106020304287c35000a28c37101062a",
+      "parse_method_token": "0x6017414",
+      "parse_il": "020304286b36000a280f740106020304286b36000a281174010602030304289639000a04289739000a280d740106020304286b36000a28137401062a",
       "fields": [
         {
           "source": "id",
@@ -14869,8 +15507,8 @@
     },
     "dangoLv": {
       "client_type": "core.config.IDangoLvInfo",
-      "parse_method_token": "0x60171e0",
-      "parse_il": "020304287c35000a28d3710106020304287c35000a28d5710106020304287c35000a28d77101060304287d35000a2c2f0304287c35000a0a02068df801000128d1710106160b2b130228d0710106070304287c35000a9e0717580b070632e90203030428aa38000a0428ab38000a28cb7101060203030428aa38000a0428ab38000a28cd7101060203030428aa38000a0428ab38000a28cf710106020304287c35000a28d9710106020304287c35000a28db710106020304287c35000a28dd710106020304287c35000a28df7101062a",
+      "parse_method_token": "0x6017430",
+      "parse_il": "020304286b36000a2823740106020304286b36000a2825740106020304286b36000a28277401060304286c36000a2c2f0304286b36000a0a02068df90100012821740106160b2b13022820740106070304286b36000a9e0717580b070632e902030304289639000a04289739000a281b74010602030304289639000a04289739000a281d74010602030304289639000a04289739000a281f740106020304286b36000a2829740106020304286b36000a282b740106020304286b36000a282d740106020304286b36000a282f7401062a",
       "fields": [
         {
           "source": "benefit1",
@@ -15077,8 +15715,8 @@
     },
     "dangoShop": {
       "client_type": "core.config.IDangoShopInfo",
-      "parse_method_token": "0x6017202",
-      "parse_il": "020304287c35000a28f5710106020304287c35000a28f77101060203030428aa38000a0428ab38000a28e77101060203030428aa38000a0428ab38000a28e9710106020304287c35000a28ef710106020304287c35000a28f1710106020304287c35000a28f3710106020304287c35000a28f97101060203030428aa38000a0428ab38000a28eb710106020304287c35000a28fb710106020304287c35000a28fd7101060203030428aa38000a0428ab38000a28ed710106020304287c35000a28ff710106020304287c35000a28017201062a",
+      "parse_method_token": "0x6017452",
+      "parse_il": "020304286b36000a2845740106020304286b36000a284774010602030304289639000a04289739000a283774010602030304289639000a04289739000a2839740106020304286b36000a283f740106020304286b36000a2841740106020304286b36000a2843740106020304286b36000a284974010602030304289639000a04289739000a283b740106020304286b36000a284b740106020304286b36000a284d74010602030304289639000a04289739000a283d740106020304286b36000a284f740106020304286b36000a28517401062a",
       "fields": [
         {
           "source": "NewMsglogId",
@@ -15624,8 +16262,8 @@
     },
     "dangoSlot": {
       "client_type": "core.config.IDangoSlotInfo",
-      "parse_method_token": "0x6017210",
-      "parse_il": "020304287c35000a280b7201060203030428aa38000a0428ab38000a2809720106020304287c35000a280d720106020304287c35000a280f7201062a",
+      "parse_method_token": "0x6017460",
+      "parse_il": "020304286b36000a285b74010602030304289639000a04289739000a2859740106020304286b36000a285d740106020304286b36000a285f7401062a",
       "fields": [
         {
           "source": "id",
@@ -15659,7 +16297,9 @@
         "ReadSignedInt",
         "set_value"
       ],
-      "consumers": [],
+      "consumers": [
+        "module.dangoSlotMain.DangoSlotDataMgr.IsGetAllPet"
+      ],
       "loading_evidence": [
         {
           "method": "core.config.DangoSlot.get_fileName",
@@ -16042,8 +16682,8 @@
     },
     "dangoStory": {
       "client_type": "core.config.IDangoStoryInfo",
-      "parse_method_token": "0x601721e",
-      "parse_il": "020304287c35000a2819720106020304287c35000a281b7201060203030428aa38000a0428ab38000a2817720106020304287c35000a281d7201062a",
+      "parse_method_token": "0x601746e",
+      "parse_il": "020304286b36000a2869740106020304286b36000a286b74010602030304289639000a04289739000a2867740106020304286b36000a286d7401062a",
       "fields": [
         {
           "source": "dangoID",
@@ -16190,8 +16830,8 @@
     },
     "dangoTask": {
       "client_type": "core.config.IDangoTaskInfo",
-      "parse_method_token": "0x601723c",
-      "parse_il": "020304287c35000a28317201060203030428aa38000a0428ab38000a2825720106020304287c35000a282d720106020304287c35000a282f7201060203030428aa38000a0428ab38000a2827720106020304287c35000a28337201060203030428aa38000a0428ab38000a2829720106020304287c35000a2835720106020304287c35000a2837720106020304287c35000a28397201060203030428aa38000a0428ab38000a282b720106020304287c35000a283b7201062a",
+      "parse_method_token": "0x601748c",
+      "parse_il": "020304286b36000a288174010602030304289639000a04289739000a2875740106020304286b36000a287d740106020304286b36000a287f74010602030304289639000a04289739000a2877740106020304286b36000a288374010602030304289639000a04289739000a2879740106020304286b36000a2885740106020304286b36000a2887740106020304286b36000a288974010602030304289639000a04289739000a287b740106020304286b36000a288b7401062a",
       "fields": [
         {
           "source": "NewMsglogId",
@@ -16685,8 +17325,8 @@
     },
     "dangochess": {
       "client_type": "core.config.IDangochessInfo",
-      "parse_method_token": "0x6017164",
-      "parse_il": "0203030428aa38000a0428ab38000a28597101060203030428aa38000a0428ab38000a2855710106020304287c35000a285d710106020304287c35000a285f7101060203030428aa38000a0428ab38000a2857710106020304287c35000a2861710106020304287c35000a28637101060203030428aa38000a0428ab38000a285b7101062a",
+      "parse_method_token": "0x60173b4",
+      "parse_il": "02030304289639000a04289739000a28a973010602030304289639000a04289739000a28a5730106020304286b36000a28ad730106020304286b36000a28af73010602030304289639000a04289739000a28a7730106020304286b36000a28b1730106020304286b36000a28b373010602030304289639000a04289739000a28ab7301062a",
       "fields": [
         {
           "source": "GuideCard",
@@ -17094,8 +17734,8 @@
     },
     "dangochessstage": {
       "client_type": "core.config.IDangochessstageInfo",
-      "parse_method_token": "0x6017184",
-      "parse_il": "020304287c35000a286b710106020304287c35000a286d710106020304287c35000a286f710106020304287c35000a2871710106020304287c35000a2873710106020304287c35000a2875710106020304287c35000a2877710106020304287c35000a2879710106020304287c35000a287b710106020304287c35000a287d710106020304287c35000a287f710106020304287c35000a2881710106020304287c35000a28837101062a",
+      "parse_method_token": "0x60173d4",
+      "parse_il": "020304286b36000a28bb730106020304286b36000a28bd730106020304286b36000a28bf730106020304286b36000a28c1730106020304286b36000a28c3730106020304286b36000a28c5730106020304286b36000a28c7730106020304286b36000a28c9730106020304286b36000a28cb730106020304286b36000a28cd730106020304286b36000a28cf730106020304286b36000a28d1730106020304286b36000a28d37301062a",
       "fields": [
         {
           "source": "chapterid",

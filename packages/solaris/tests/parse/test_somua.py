@@ -35,6 +35,31 @@ def test_incompatible_old_layout_is_rejected(stem):
         PARSERS[stem]().parse(raw)
 
 
+@pytest.mark.parametrize('stem', ['SomuaModelConfig', 'SomuaStatusEffectConfig'])
+def test_previous_week_layout_is_rejected(stem):
+    raw = (FIXTURES / 'obsolete-20261113' / f'{stem}.bytes').read_bytes()
+    with pytest.raises((ValueError, IndexError)):
+        PARSERS[stem]().parse(raw)
+
+
+def test_november_19_fields_and_filter_remain_raw_strings():
+    model = PARSERS['SomuaModelConfig']().parse(
+        (FIXTURES / 'SomuaModelConfig.bytes').read_bytes()
+    )['data'][0]
+    status = PARSERS['SomuaStatusEffectConfig']().parse(
+        (FIXTURES / 'SomuaStatusEffectConfig.bytes').read_bytes()
+    )['data'][0]
+    filters = PARSERS['SomuaFilterConfig']().parse(
+        (FIXTURES / 'SomuaFilterConfig.bytes').read_bytes()
+    )['data']
+    assert isinstance(model['main_att'], str)
+    assert isinstance(status['fx_on_load'], str)
+    assert filters[0]['name'] == '攻击++'
+    assert filters[0]['entrys'] == '20001;20002;20003;20004;20005;20006;20007;20008'
+    assert filters[0]['icon'] == ''
+    assert filters[0]['mutual'] == '6;8;10'
+
+
 @pytest.mark.parametrize('payload', [b'\xff', b'\xff\xff\x00'])
 def test_current_model_rejects_invalid_utf8_and_string_length(payload):
     raw = b'\x01' + struct.pack('<iH', 1, len(payload)) + payload + b'\x00' * 8
@@ -125,7 +150,7 @@ def prepare_source(tmp_path):
 def test_analyze_sqlite_exact_source(tmp_path):
     analyzer = prepare_source(tmp_path)
     results = analyzer.analyze()
-    assert len(results) == 27
+    assert len(results) == len(SOMUA_RESOURCES)
     engine = create_engine(f'sqlite:///{tmp_path / "somua.sqlite"}')
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
@@ -149,7 +174,9 @@ def test_analyze_sqlite_exact_source(tmp_path):
 def test_discovery_and_separate_domains():
     discovered = set(import_parser_classes())
     assert set(PARSERS.values()) <= discovered
-    assert len({model.resource_name() for model in SOMUA_RESOURCES.values()}) == 27
+    assert len({model.resource_name() for model in SOMUA_RESOURCES.values()}) == len(
+        EVIDENCE['tables']
+    )
     assert SOMUA_RESOURCES['dango.json'] is not SOMUA_RESOURCES['SomuaModelConfig.json']
 
 

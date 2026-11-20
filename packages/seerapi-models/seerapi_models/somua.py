@@ -261,6 +261,7 @@ class BaseSomuaModel(BaseResModel):
     )
     is_tail: int = Field(description='Client SomuaModelConfig.isTail; raw int32')
     is_topwear: int = Field(description='Client SomuaModelConfig.isTopwear; raw int32')
+    main_att: str = Field(description='Client SomuaModelConfig.mainATT; raw string')
     name: str = Field(description='Client SomuaModelConfig.name; raw string')
     nature_pool: str = Field(
         description='Client SomuaModelConfig.naturePool; raw string'
@@ -355,6 +356,9 @@ class BaseSomuaStatusEffect(BaseResModel):
     __name_fields__: ClassVar[list[str]] = ['status_name']
     fx_on_get: str = Field(
         description='Client SomuaStatusEffectConfig.fxOnGet; raw string'
+    )
+    fx_on_load: str = Field(
+        description='Client SomuaStatusEffectConfig.fxOnLoad; raw string'
     )
     fx_on_trig: str = Field(
         description='Client SomuaStatusEffectConfig.fxOnTrig; raw string'
@@ -473,6 +477,32 @@ class SomuaWeaponORM(BaseSomuaWeapon, table=True):
     pass
 
 
+class BaseSomuaFilter(BaseResModel):
+    __name_fields__: ClassVar[list[str]] = ['name']
+    category: int = Field(description='Client SomuaFilterConfig.category; raw int32')
+    entrys: str = Field(description='Client SomuaFilterConfig.entrys; raw string')
+    icon: str = Field(description='Client SomuaFilterConfig.icon; raw string')
+    mutual: str = Field(description='Client SomuaFilterConfig.mutual; raw string')
+    name: str = Field(description='Client SomuaFilterConfig.name; raw string')
+
+    @classmethod
+    def resource_name(cls) -> str:
+        return 'somua_filter'
+
+
+class SomuaFilter(BaseSomuaFilter, ConvertToORM['SomuaFilterORM']):
+    @classmethod
+    def get_orm_model(cls) -> type['SomuaFilterORM']:
+        return SomuaFilterORM
+
+    def to_orm(self) -> 'SomuaFilterORM':
+        return SomuaFilterORM(**self.model_dump())
+
+
+class SomuaFilterORM(BaseSomuaFilter, table=True):
+    pass
+
+
 from .dango import (
     Dango,
     DangoAction,
@@ -494,6 +524,7 @@ SOMUA_RESOURCES = {
     'SomuaBasicAttritube.json': SomuaBasicAttribute,
     'SomuaDispatchConfig.json': SomuaDispatch,
     'SomuaEntryConfig.json': SomuaEntry,
+    'SomuaFilterConfig.json': SomuaFilter,
     'SomuaGeneConfig.json': SomuaGene,
     'SomuaHouseConfig.json': SomuaHouse,
     'SomuaKeeperConfig.json': SomuaKeeper,

@@ -7871,6 +7871,12 @@ export type SomuaBasicAttribute = HashPartial & {
      */
     attack_value: number;
     /**
+     * Body Ratio
+     *
+     * Client SomuaBasicAttritube.bodyRatio; raw int32
+     */
+    body_ratio: number;
+    /**
      * Critical Chance
      *
      * Client SomuaBasicAttritube.criticalChance; raw int32
@@ -8161,6 +8167,94 @@ export type SomuaEntryListExpanded = {
      * 资源列表
      */
     results: Array<SomuaEntry>;
+};
+
+/**
+ * somua_filter资源
+ */
+export type SomuaFilter = HashPartial & {
+    /**
+     * Id
+     *
+     * 资源ID
+     */
+    id: number;
+    /**
+     * Category
+     *
+     * Client SomuaFilterConfig.category; raw int32
+     */
+    category: number;
+    /**
+     * Entrys
+     *
+     * Client SomuaFilterConfig.entrys; raw string
+     */
+    entrys: string;
+    /**
+     * Icon
+     *
+     * Client SomuaFilterConfig.icon; raw string
+     */
+    icon: string;
+    /**
+     * Mutual
+     *
+     * Client SomuaFilterConfig.mutual; raw string
+     */
+    mutual: string;
+    /**
+     * Name
+     *
+     * Client SomuaFilterConfig.name; raw string
+     */
+    name: string;
+};
+
+/**
+ * 名称映射somua_filter资源
+ */
+export type SomuaFilterNamedData = HashPartial & {
+    data: {
+        [key: string]: SomuaFilter;
+    };
+};
+
+/**
+ * somua_filter资源列表
+ */
+export type SomuaFilterList = CommonApiResourceList;
+
+/**
+ * somua_filter资源列表（expand=true）
+ *
+ * expand=true 时返回完整资源对象列表
+ */
+export type SomuaFilterListExpanded = {
+    /**
+     * 资源数量
+     */
+    count: number;
+    /**
+     * 下一页URL
+     */
+    next?: string | null;
+    /**
+     * 上一页URL
+     */
+    previous?: string | null;
+    /**
+     * 第一页URL
+     */
+    first?: string | null;
+    /**
+     * 最后一页URL
+     */
+    last?: string | null;
+    /**
+     * 资源列表
+     */
+    results: Array<SomuaFilter>;
 };
 
 /**
@@ -8495,6 +8589,18 @@ export type SomuaModel = HashPartial & {
      */
     id: number;
     /**
+     * Addon Pool
+     *
+     * Client SomuaModelConfig.addonPool; raw string
+     */
+    addon_pool: string;
+    /**
+     * Addon Pool Sp
+     *
+     * Client SomuaModelConfig.addonPoolSP; raw string
+     */
+    addon_pool_sp: string;
+    /**
      * Attack Mode
      *
      * Client SomuaModelConfig.attackMode; raw int32
@@ -8567,11 +8673,23 @@ export type SomuaModel = HashPartial & {
      */
     is_topwear: number;
     /**
+     * Main Att
+     *
+     * Client SomuaModelConfig.mainATT; raw string
+     */
+    main_att: string;
+    /**
      * Name
      *
      * Client SomuaModelConfig.name; raw string
      */
     name: string;
+    /**
+     * Nature Pool
+     *
+     * Client SomuaModelConfig.naturePool; raw string
+     */
+    nature_pool: string;
     /**
      * Pet Id
      *
@@ -8579,23 +8697,11 @@ export type SomuaModel = HashPartial & {
      */
     pet_id: number;
     /**
-     * Prefix
-     *
-     * Client SomuaModelConfig.prefix; raw string
-     */
-    prefix: string;
-    /**
      * Season
      *
      * Client SomuaModelConfig.season; raw string
      */
     season: string;
-    /**
-     * Suffix
-     *
-     * Client SomuaModelConfig.suffix; raw string
-     */
-    suffix: string;
 };
 
 /**
@@ -8890,6 +8996,12 @@ export type SomuaStatusEffect = HashPartial & {
      * Client SomuaStatusEffectConfig.fxOnGet; raw string
      */
     fx_on_get: string;
+    /**
+     * Fx On Load
+     *
+     * Client SomuaStatusEffectConfig.fxOnLoad; raw string
+     */
+    fx_on_load: string;
     /**
      * Fx On Trig
      *
@@ -10976,6 +11088,10 @@ export type RootIndex = HashPartial & {
      * somua_entry Path
      */
     somua_entry: string;
+    /**
+     * somua_filter Path
+     */
+    somua_filter: string;
     /**
      * somua_gene Path
      */
@@ -17612,6 +17728,83 @@ export type GetSomuaEntryListResponses = {
 };
 
 export type GetSomuaEntryListResponse = GetSomuaEntryListResponses[keyof GetSomuaEntryListResponses];
+
+export type GetSomuaFilterByIdData = {
+    body?: never;
+    path: {
+        /**
+         * 资源 ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: 'v1/somua_filter/{id}';
+};
+
+export type GetSomuaFilterByIdResponses = {
+    /**
+     * OK
+     */
+    200: SomuaFilter;
+};
+
+export type GetSomuaFilterByIdResponse = GetSomuaFilterByIdResponses[keyof GetSomuaFilterByIdResponses];
+
+export type GetSomuaFilterByNameData = {
+    body?: never;
+    path: {
+        /**
+         * 资源名称
+         */
+        name: string;
+    };
+    query?: never;
+    url: 'v1/somua_filter/{name}';
+};
+
+export type GetSomuaFilterByNameResponses = {
+    /**
+     * OK
+     */
+    200: SomuaFilterNamedData;
+};
+
+export type GetSomuaFilterByNameResponse = GetSomuaFilterByNameResponses[keyof GetSomuaFilterByNameResponses];
+
+export type GetSomuaFilterListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 从哪个位置开始返回结果
+         */
+        offset?: number;
+        /**
+         * 每页返回的最大结果数
+         */
+        limit?: number;
+        /**
+         * 控制 results 的返回格式：
+         * - `false`（默认）：返回轻量引用（NamedResourceRef）
+         * - `true`：返回完整资源对象
+         */
+        expand?: boolean;
+        /**
+         * 用于筛选资源的名称
+         */
+        name_query?: string;
+    };
+    url: 'v1/somua_filter/';
+};
+
+export type GetSomuaFilterListResponses = {
+    /**
+     * 实际返回格式由 expand 查询参数决定，见 expand 参数说明。
+     */
+    200: SomuaFilterList | SomuaFilterListExpanded;
+};
+
+export type GetSomuaFilterListResponse = GetSomuaFilterListResponses[keyof GetSomuaFilterListResponses];
 
 export type GetSomuaGeneByIdData = {
     body?: never;

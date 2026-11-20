@@ -19,7 +19,7 @@ SPEC.loader.exec_module(REPLAY)
 
 def test_production_json_database_schema_and_openapi_outputs(tmp_path):
     counts = REPLAY.replay(tmp_path)
-    assert len(counts) == 27
+    assert len(counts) == len(SOMUA_RESOURCES)
     root = tmp_path / 'v1'
     oad = json.loads((root / 'openapi.json').read_text('utf-8'))
     for filename, model in SOMUA_RESOURCES.items():

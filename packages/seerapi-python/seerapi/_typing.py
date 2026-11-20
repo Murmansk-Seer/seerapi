@@ -79,6 +79,7 @@ NamedModelName: TypeAlias = Literal[
     'somua_achievement',
     'somua_dispatch',
     'somua_entry',
+    'somua_filter',
     'somua_gene',
     'somua_house',
     'somua_model',
@@ -191,6 +192,7 @@ ModelName: TypeAlias = Literal[
     'somua_basic_attribute',
     'somua_dispatch',
     'somua_entry',
+    'somua_filter',
     'somua_gene',
     'somua_house',
     'somua_keeper',
@@ -284,6 +286,7 @@ NamedModelInstance: TypeAlias = (
     | M.SomuaAchievement
     | M.SomuaDispatch
     | M.SomuaEntry
+    | M.SomuaFilter
     | M.SomuaGene
     | M.SomuaHouse
     | M.SomuaModel

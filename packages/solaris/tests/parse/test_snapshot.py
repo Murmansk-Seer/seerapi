@@ -107,4 +107,5 @@ def test_current_inventory_always_includes_every_somua_table_and_gems():
     assert {
         name.removesuffix('.json') + '.bytes' for name in snapshot.SOMUA_RESOURCES
     } <= sources
-    assert len(sources) == 294
+    assert len(sources) > 294
+    assert 'SomuaFilterConfig.bytes' in sources

@@ -403,6 +403,10 @@ class SeerAPI:
     ) -> M.SomuaEntry: ...
     @overload
     async def get(
+        self, resource_name: Literal['somua_filter'], id: int
+    ) -> M.SomuaFilter: ...
+    @overload
+    async def get(
         self, resource_name: Literal['somua_gene'], id: int
     ) -> M.SomuaGene: ...
     @overload
@@ -1259,6 +1263,14 @@ class SeerAPI:
         *,
         name: str | None = None,
     ) -> PagedResponse[M.SomuaEntry]: ...
+    @overload
+    async def paginated_list(
+        self,
+        resource_name: Literal['somua_filter'],
+        page_info: PageInfo,
+        *,
+        name: str | None = None,
+    ) -> PagedResponse[M.SomuaFilter]: ...
     @overload
     async def paginated_list(
         self,
@@ -2218,6 +2230,14 @@ class SeerAPI:
     @overload
     def list(
         self,
+        resource_name: Literal['somua_filter'],
+        *,
+        expand: bool = True,
+        name: str | None = None,
+    ) -> AsyncIterator[M.SomuaFilter]: ...
+    @overload
+    def list(
+        self,
         resource_name: Literal['somua_gene'],
         *,
         expand: bool = True,
@@ -2812,6 +2832,10 @@ class SeerAPI:
     ) -> AsyncIterator[M.SomuaEntry]: ...
     @overload
     def search_by_name(
+        self, resource_name: Literal['somua_filter'], name: str, *, expand: bool = True
+    ) -> AsyncIterator[M.SomuaFilter]: ...
+    @overload
+    def search_by_name(
         self, resource_name: Literal['somua_gene'], name: str, *, expand: bool = True
     ) -> AsyncIterator[M.SomuaGene]: ...
     @overload
@@ -3170,6 +3194,10 @@ class SeerAPI:
     async def get_by_name(
         self, resource_name: Literal['somua_entry'], name: str
     ) -> NamedData[M.SomuaEntry]: ...
+    @overload
+    async def get_by_name(
+        self, resource_name: Literal['somua_filter'], name: str
+    ) -> NamedData[M.SomuaFilter]: ...
     @overload
     async def get_by_name(
         self, resource_name: Literal['somua_gene'], name: str

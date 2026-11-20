@@ -603,6 +603,7 @@ export const somuaBasicAttribute = sqliteTable("somua_basic_attribute", {
 	id: integer().primaryKey(),
 	attackRatio: integer("attack_ratio").notNull(),
 	attackValue: integer("attack_value").notNull(),
+	bodyRatio: integer("body_ratio").notNull(),
 	criticalChance: integer("critical_chance").notNull(),
 	criticalDamageRatio: integer("critical_damage_ratio").notNull(),
 	defenseRatio: integer("defense_ratio").notNull(),
@@ -676,6 +677,8 @@ export const somuaKeeper = sqliteTable("somua_keeper", {
 
 export const somuaModel = sqliteTable("somua_model", {
 	id: integer().primaryKey(),
+	addonPool: text("addon_pool").notNull(),
+	addonPoolSp: text("addon_pool_sp").notNull(),
 	attackMode: integer("attack_mode").notNull(),
 	attackModeSp: integer("attack_mode_sp").notNull(),
 	describe: text().notNull(),
@@ -688,11 +691,11 @@ export const somuaModel = sqliteTable("somua_model", {
 	isSurrounding: integer("is_surrounding").notNull(),
 	isTail: integer("is_tail").notNull(),
 	isTopwear: integer("is_topwear").notNull(),
+	mainAtt: text("main_att").notNull(),
 	name: text().notNull(),
+	naturePool: text("nature_pool").notNull(),
 	petId: integer("pet_id").notNull(),
-	prefix: text().notNull(),
 	season: text().notNull(),
-	suffix: text().notNull(),
 });
 
 export const somuaRanking = sqliteTable("somua_ranking", {
@@ -725,6 +728,7 @@ export const somuaShop = sqliteTable("somua_shop", {
 export const somuaStatusEffect = sqliteTable("somua_status_effect", {
 	id: integer().primaryKey(),
 	fxOnGet: text("fx_on_get").notNull(),
+	fxOnLoad: text("fx_on_load").notNull(),
 	fxOnTrig: text("fx_on_trig").notNull(),
 	icon: integer().notNull(),
 	maxStack: integer("max_stack").notNull(),
@@ -760,6 +764,15 @@ export const somuaWeapon = sqliteTable("somua_weapon", {
 	prefab: text().notNull(),
 	shape: integer().notNull(),
 	type: integer().notNull(),
+});
+
+export const somuaFilter = sqliteTable("somua_filter", {
+	id: integer().primaryKey(),
+	category: integer().notNull(),
+	entrys: text().notNull(),
+	icon: text().notNull(),
+	mutual: text().notNull(),
+	name: text().notNull(),
 });
 
 export const unresolvedPetReference = sqliteTable("unresolved_pet_reference", {
