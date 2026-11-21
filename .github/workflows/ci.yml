@@ -81,6 +81,7 @@ jobs:
           tests/test_release_api_data_source.py
           tests/test_factor_merge_contract.py
           tests/test_skin_ticket_rules.py -v
+          tests/test_pet_form_sources.py
 
   generate-schema:
     name: Generate schema data

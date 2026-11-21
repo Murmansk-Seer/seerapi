@@ -43,6 +43,7 @@ if __package__:
     )
     from .json_value_helpers import item_int, item_text
     from .partner_contract_sources import PetPartnerData, parse_pet_partner_data
+    from .pet_form_sources import parse_pet_form_members, parse_pet_form_resources
     from .release_build_types import ConfigPackageData
     from .release_peak_sources import parse_official_peak
 else:
@@ -81,6 +82,7 @@ else:
         PetPartnerData,
         parse_pet_partner_data,
     )
+    from pet_form_sources import parse_pet_form_members, parse_pet_form_resources
     from release_build_types import ConfigPackageData  # type: ignore[import-not-found]
     from release_peak_sources import parse_official_peak
 
@@ -160,7 +162,8 @@ class ReleaseSourceLoader:
             self._http.download_bytes(bundle_url),
             self._config.config_text_assets
             | {'Activity_TimeUpdateConfig.bytes', 'pvpCostMode_cost.bytes'}
-            | AUTOCARD_TEXT_ASSETS,
+            | AUTOCARD_TEXT_ASSETS
+            | {'pet_skin_poly.bytes', 'petCompositio.bytes'},
         )
         self._autocard_assets = assets
         self._autocard_source = f'{bundle_url}?config_version={version}'
@@ -188,6 +191,8 @@ class ReleaseSourceLoader:
                 assets['Activity_TimeUpdateConfig.bytes'],
                 assets['pvpCostMode_cost.bytes'],
             ),
+            pet_form_resources=parse_pet_form_resources(assets['pet_skin_poly.bytes']),
+            pet_form_members=parse_pet_form_members(assets['petCompositio.bytes']),
         )
 
     def load_autocard_json(self, filename: str) -> tuple[dict[str, object], str]:

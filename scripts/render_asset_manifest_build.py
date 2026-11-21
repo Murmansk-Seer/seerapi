@@ -135,6 +135,9 @@ def collect_remote_asset_manifest(
         config=config,
     )
     supplemental_entries = (
+        *_build_pet_form_manifest(
+            conn, snapshots, release_revision=release_revision, config=config
+        ),
         *_build_battle_effect_manifest(
             conn,
             snapshots,
@@ -149,6 +152,10 @@ def collect_remote_asset_manifest(
         ),
     )
     existing = {(entry.asset_kind, entry.asset_key) for entry in pet_info_entries}
+    primary_keys = existing | {
+        (entry.asset_kind, entry.asset_key)
+        for entry in (*new_content_standard_entries, *skin_body_entries)
+    }
     return RemoteAssetManifestBuild(
         pet_info_entries=pet_info_entries,
         new_content_standard_entries=new_content_standard_entries,
@@ -160,8 +167,50 @@ def collect_remote_asset_manifest(
             if (entry.asset_kind, entry.asset_key) not in existing
         ),
         skin_body_scope_complete=skin_body_scope_complete,
-        supplemental_entries=supplemental_entries,
+        supplemental_entries=tuple(
+            entry
+            for entry in supplemental_entries
+            if (entry.asset_kind, entry.asset_key) not in primary_keys
+        ),
     )
+
+
+def _build_pet_form_manifest(
+    conn: sqlite3.Connection,
+    snapshots: Mapping[str, AssetRepositorySnapshot],
+    *,
+    release_revision: str,
+    config: RenderAssetManifestConfig,
+) -> tuple[RenderAssetManifestEntry, ...]:
+    if (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='pet_form_resource'"
+        ).fetchone()
+        is None
+    ):
+        return ()
+    resources = {
+        int(row[0])
+        for row in conn.execute(
+            'SELECT resource_id FROM pet_form_resource WHERE resource_id > 0'
+        )
+    }
+    entries, _ = _resolve_requests(
+        tuple(
+            _request(
+                kind,
+                str(resource),
+                (f'newseer/assets/art/ui/assets/pet/{folder}/{resource}.png',),
+                required=False,
+            )
+            for resource in sorted(resources)
+            for kind, folder in (('pet_head', 'head'), ('pet_body', 'body'))
+        ),
+        snapshots,
+        release_revision=release_revision,
+        config=config,
+    )
+    return entries
 
 
 def build_render_asset_manifest(
@@ -340,10 +389,7 @@ def _pet_info_requests(
             _request(
                 'sign_buff',
                 icon_key,
-                (
-                    'newseer/assets/art/ui/assets/battleeffect/signbuff/'
-                    f'{icon_key}.png',
-                ),
+                (f'newseer/assets/art/ui/assets/battleeffect/signbuff/{icon_key}.png',),
                 required=False,
             )
         )

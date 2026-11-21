@@ -118,9 +118,15 @@ class BytesReader:
     def read_text(self) -> str:
         length = self.read_u16()
         end = self._pos + length
+        if end > len(self._data):
+            raise ValueError('truncated ConfigPackage string')
         value = self._data[self._pos : end].decode("utf-8")
         self._pos = end
         return value
+
+    def require_finished(self) -> None:
+        if self._pos != len(self._data):
+            raise ValueError('unexpected trailing ConfigPackage data')
 
 
 def parse_package_manifest(data: bytes) -> PackageManifestData:

@@ -53,6 +53,8 @@ GENERATED_RELEASE_TABLES = frozenset(
         'new_content_source_snapshot',
         'peak_cost_pool',
         'pet_partner_group',
+        'pet_form_resource',
+        'pet_form_member',
         'pet_partner_member',
         'pet_partner_upgrade',
         'sign',

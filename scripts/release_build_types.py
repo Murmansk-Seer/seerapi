@@ -13,6 +13,7 @@ if __package__:
         SkinStorePrice,
         SoulmarkIcon,
     )
+    from .pet_form_sources import PetFormMember, PetFormResource
     from .release_peak_sources import OfficialPeakData
 else:
     from config_package_sources import (  # type: ignore[import-not-found]
@@ -22,6 +23,7 @@ else:
         SkinStorePrice,
         SoulmarkIcon,
     )
+    from pet_form_sources import PetFormMember, PetFormResource
     from release_peak_sources import OfficialPeakData
 
 
@@ -39,3 +41,5 @@ class ConfigPackageData:
     autocard_season_effects: list[AutocardSeasonEffect]
     autocard_chips: list[AutocardChip] = field(default_factory=list)
     peak: OfficialPeakData | None = None
+    pet_form_resources: list[PetFormResource] = field(default_factory=list)
+    pet_form_members: list[PetFormMember] = field(default_factory=list)

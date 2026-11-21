@@ -25,6 +25,7 @@ if __package__:
     from .effect_metadata_sources import EffectDescription, SpecialEffectStatus
     from .item_exchange_sources import ItemExchangePrice
     from .partner_contract_sources import PetPartnerData
+    from .pet_form_sources import replace_pet_form_tables
     from .release_autocard_tables import (
         replace_autocard_chip_table,
         replace_autocard_season_effect_table,
@@ -62,6 +63,7 @@ else:
     from partner_contract_sources import (
         PetPartnerData,  # type: ignore[import-not-found]
     )
+    from pet_form_sources import replace_pet_form_tables
     from release_autocard_tables import (  # type: ignore[import-not-found]
         replace_autocard_chip_table,
         replace_autocard_season_effect_table,
@@ -180,6 +182,11 @@ def publish_release_tables(
             effect_descriptions=release.effect_descriptions,
             special_effect_statuses=release.special_effect_statuses,
             now=now,
+        )
+        replace_pet_form_tables(
+            conn,
+            release.config_data.pet_form_resources,
+            release.config_data.pet_form_members,
         )
         remote_asset_manifest = collect_remote_asset_manifest(
             conn,
