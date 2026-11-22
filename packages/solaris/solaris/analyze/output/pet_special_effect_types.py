@@ -10,6 +10,7 @@ RULE_PRIORITY = {
     'direct_status_show_monster': 1,
     'glossary_link': 2,
     'skill_highlight_exact': 3,
+    'soulmark_highlight_exact': 4,
     'soulmark_highlight_status': 4,
     'text_exact_name': 5,
     'effect_description_skill_name': 6,

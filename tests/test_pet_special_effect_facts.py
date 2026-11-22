@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 import sqlite3
 
 import pytest
@@ -169,14 +171,14 @@ def test_duplicate_effect_names_use_direct_glossary_or_record_ambiguity(
     ).fetchall()
     assert rows == ([(224,)] if linked else [])
     issues = connection.execute(
-        "SELECT candidate_id, context FROM pet_special_effect_issue WHERE reason='ambiguous_text_effect_name' ORDER BY candidate_id"
+        "SELECT candidate_id, context FROM pet_special_effect_issue WHERE reason IN ('ambiguous_text_effect_name', 'unverified_text_ownership') ORDER BY candidate_id"
     ).fetchall()
     if linked:
         assert not issues
         sources = connection.execute(
             "SELECT source_id FROM pet_special_effect_source WHERE source_kind='soulmark' ORDER BY source_id"
         ).fetchall()
-        assert sources == [(1739,), (1939,)]
+        assert sources == []
     else:
         assert [row[0] for row in issues] == [223, 224]
         assert all(
@@ -198,9 +200,13 @@ def test_skill_reference_considers_later_duplicate_description(explicit: bool) -
     connection.execute("INSERT INTO skill VALUES (100, '吸取', '造成伤害', NULL)")
     connection.execute('INSERT INTO skillinpetorm VALUES (1, 100)')
     replace_pet_special_effect_facts(connection, now=1)
+    assert (
+        connection.execute('SELECT glossary_id FROM pet_special_effect').fetchall()
+        == []
+    )
     assert connection.execute(
-        'SELECT glossary_id FROM pet_special_effect'
-    ).fetchall() == ([(11,)] if explicit else [])
+        'SELECT COUNT(*) FROM pet_special_effect_issue'
+    ).fetchone()[0] == (2 if explicit else 0)
 
 
 @pytest.mark.parametrize(
@@ -222,7 +228,8 @@ def test_duplicate_text_candidates_require_description_evidence(
         'INSERT INTO effect_description VALUES (?, ?, ?)', candidates
     )
     connection.execute(
-        "INSERT INTO soulmark VALUES (1, ?, '', '', 0, 0, NULL)", (context,)
+        "INSERT INTO soulmark VALUES (1, ?, '', '', 0, 0, NULL)",
+        (context.replace('同名', '[color=#f35555]同名[/color]'),),
     )
     connection.execute('INSERT INTO petsoulmarklink VALUES (1, 1)')
     replace_pet_special_effect_facts(connection, now=1)
@@ -255,9 +262,10 @@ def test_skill_reference_scan_is_shared_only_within_one_build(
     monkeypatch.setattr(resolution, '_skill_description_references', scan)
     replace_pet_special_effect_facts(connection, now=1)
     assert calls == ['吸取']
+    assert connection.execute('SELECT pet_id FROM pet_special_effect').fetchall() == []
     assert connection.execute(
-        'SELECT pet_id FROM pet_special_effect ORDER BY pet_id'
-    ).fetchall() == [(1,), (2,)]
+        'SELECT COUNT(*) FROM pet_special_effect_issue'
+    ).fetchone() == (2,)
 
     connection.execute("UPDATE effect_description SET description='吸取对手300点体力'")
     replace_pet_special_effect_facts(connection, now=2)
@@ -265,6 +273,9 @@ def test_skill_reference_scan_is_shared_only_within_one_build(
     assert connection.execute('SELECT COUNT(*) FROM pet_special_effect').fetchone() == (
         0,
     )
+    assert connection.execute(
+        'SELECT COUNT(*) FROM pet_special_effect_issue'
+    ).fetchone() == (0,)
 
 
 def test_builds_linked_effect_facts_with_source_provenance() -> None:
@@ -408,7 +419,7 @@ def test_named_status_variants_attach_distinct_icons_without_new_effects() -> No
     )
     connection.execute(
         'INSERT INTO skill (id, name, info) VALUES '
-        "(29402, '黄泉妖偈', '获得冥妖之悼或幽迹之秘')"
+        "(29402, '黄泉妖偈', '获得[color=#f35555]冥妖之悼[/color]或[color=#f35555]幽迹之秘[/color]')"
     )
     connection.execute('INSERT INTO skillinpetorm VALUES (3488, 29402)')
     connection.execute(
@@ -513,3 +524,230 @@ def test_publishes_partner_upgrade_soulmark_display_kind() -> None:
     ).fetchall()
 
     assert rows == [(10, 'base'), (20, 'partner_upgrade')]
+
+
+@pytest.mark.parametrize(
+    ('name', 'text'),
+    [
+        ('幕', '集结天幕龙神之力'),
+        ('龙神之力', '集结天幕龙神之力'),
+        ('失体', '附加已损失体力值30%的百分比伤害'),
+        ('刻', '在灵魂深处刻下了印记'),
+        ('烛', '如风中残烛'),
+        ('辛', '辛克斯善于蛊惑心智'),
+        ('回能', '下回能更快的出手了'),
+        ('龙胆', '龙胆天神恢复150点体力'),
+        ('群辉加护', '自身出战时获得群辉加护'),
+        ('未来指令', '未来链接同时也视为未来奇点、未来指令参与结算'),
+    ],
+)
+@pytest.mark.parametrize('kind', ['skill', 'soulmark'])
+def test_plain_mentions_do_not_create_ownership_or_linked_children(name, text, kind):
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (1, 'test')")
+    connection.executemany(
+        'INSERT INTO glossary_entry VALUES (?, ?, ?)',
+        [(10, name, 'effect'), (11, 'Child', 'child effect')],
+    )
+    connection.execute(
+        'INSERT INTO effect_description VALUES (10, ?, ?)', (name, 'effect')
+    )
+    connection.execute('INSERT INTO glossaryentrylink VALUES (10, 11)')
+    connection.execute(
+        'INSERT INTO special_effect_status VALUES (5, ?, ?, 0)', (name, 'effect')
+    )
+    if kind == 'skill':
+        connection.execute("INSERT INTO skill VALUES (100, 'test', ?, NULL)", (text,))
+        connection.execute('INSERT INTO skillinpetorm VALUES (1, 100)')
+    else:
+        connection.execute(
+            "INSERT INTO soulmark VALUES (100, ?, '', '', 0, 0, NULL)", (text,)
+        )
+        connection.execute('INSERT INTO petsoulmarklink VALUES (1, 100)')
+    for now in (1, 2):
+        replace_pet_special_effect_facts(connection, now=now)
+        assert connection.execute(
+            'SELECT COUNT(*) FROM pet_special_effect'
+        ).fetchone() == (0,)
+        assert connection.execute(
+            'SELECT COUNT(*) FROM pet_special_effect_source'
+        ).fetchone() == (0,)
+        issue = connection.execute(
+            'SELECT reason,context FROM pet_special_effect_issue'
+        ).fetchone()
+        assert issue == ('unverified_text_ownership', text)
+
+
+@pytest.mark.parametrize(
+    ('text', 'ids'),
+    [
+        ('[color=#f35555]幕[/color]', [10, 11]),
+        ('[color=#f35555]幕(10)[/color]', [10, 11]),
+        ('[color=#f35555]幕(999)[/color]', []),
+        ('[color=#f35555]天幕[/color]', []),
+        ('[color=#f35555]幕A[/color]', []),
+        ('[color=#f35555]幕Child[/color]', []),
+        ('[color=#f35555]幕、Child[/color]', [10, 11]),
+        ('[color=#f35555]幕', []),
+        ('[color=#f35555][color=#52a5f2]幕[/color]天幕', [10, 11]),
+    ],
+)
+def test_whole_marked_names_ids_and_official_batch_color_closing(text, ids):
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (1, 'test')")
+    connection.executemany(
+        'INSERT INTO glossary_entry VALUES (?, ?, ?)',
+        [(10, '幕', 'effect'), (11, 'Child', 'child')],
+    )
+    connection.executemany(
+        'INSERT INTO effect_description VALUES (?, ?, ?)',
+        [(10, '幕', 'effect'), (11, 'Child', 'child')],
+    )
+    connection.execute('INSERT INTO glossaryentrylink VALUES (10, 11)')
+    connection.execute("INSERT INTO skill VALUES (100, 'test', ?, NULL)", (text,))
+    connection.execute('INSERT INTO skillinpetorm VALUES (1, 100)')
+    replace_pet_special_effect_facts(connection, now=1)
+    assert [
+        row[0]
+        for row in connection.execute(
+            'SELECT glossary_id FROM pet_special_effect ORDER BY glossary_id'
+        )
+    ] == ids
+    if '(999)' in text:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM pet_special_effect_issue WHERE reason='invalid_marked_effect_reference'"
+        ).fetchone() == (1,)
+
+
+def test_official_single_character_relation_survives_plain_false_positive():
+    connection = _connection()
+    connection.executemany(
+        'INSERT INTO pet VALUES (?, ?)', [(1, 'Owner'), (2, 'Other')]
+    )
+    connection.execute("INSERT INTO glossary_entry VALUES (10, '幕', 'effect')")
+    connection.execute("INSERT INTO effect_description VALUES (10, '幕', 'effect')")
+    connection.execute('INSERT INTO petglossaryentrylink VALUES (1, 10)')
+    connection.execute("INSERT INTO skill VALUES (100, 'test', '天幕', NULL)")
+    connection.executemany('INSERT INTO skillinpetorm VALUES (?, 100)', [(1,), (2,)])
+    replace_pet_special_effect_facts(connection, now=1)
+    assert connection.execute(
+        'SELECT pet_id,glossary_id FROM pet_special_effect'
+    ).fetchall() == [(1, 10)]
+    assert (
+        connection.execute(
+            "SELECT pet_id FROM pet_special_effect_source WHERE source_kind='skill'"
+        ).fetchall()
+        == []
+    )
+
+
+def test_frozen_release_ownership_and_raw_business_data_are_preserved():
+    fixture = json.loads(
+        (
+            Path(__file__).parent / 'fixtures/pet-effect-ownership-20261121.json'
+        ).read_text('utf8')
+    )
+    assert (
+        fixture['source_sha256']
+        == '78b2a2f0f5f009db74a1efffb006695dca8a3dfb6e439249c08cd11a6792c6c0'
+    )
+    connection = _connection()
+    for table, data in fixture['tables'].items():
+        columns = ','.join(f'"{name}"' for name in data['columns'])
+        placeholders = ','.join('?' for _ in data['columns'])
+        connection.executemany(
+            f'INSERT INTO "{table}" ({columns}) VALUES ({placeholders})', data['rows']
+        )
+    business = {
+        table: connection.execute(f'SELECT * FROM "{table}"').fetchall()
+        for table in fixture['tables']
+    }
+    original_direct = set(
+        connection.execute('SELECT pet_id,glossary_entry_id FROM petglossaryentrylink')
+    )
+    for now in (1, 2):
+        replace_pet_special_effect_facts(connection, now=now)
+        actual = set(
+            connection.execute('SELECT pet_id,glossary_id FROM pet_special_effect')
+        )
+        assert original_direct <= actual
+        assert {id_ for pet, id_ in actual if pet == 4012} == {51, 52, 53, 54}
+        assert (3809, 72) in actual
+        assert {(4861, id_) for id_ in range(420, 427)} <= actual
+        for pet, name in (
+            (4364, '群辉加护'),
+            (4364, '群芳加护'),
+            (4950, '星皇之赐'),
+            (4950, '星皇之佑'),
+            (4956, '谋死'),
+        ):
+            assert connection.execute(
+                'SELECT 1 FROM pet_special_effect WHERE pet_id=? AND name=?',
+                (pet, name),
+            ).fetchone()
+        for name in ('未来奇点', '未来指令'):
+            assert not connection.execute(
+                'SELECT 1 FROM pet_special_effect WHERE pet_id=4600 AND name=?', (name,)
+            ).fetchone()
+            assert connection.execute(
+                "SELECT 1 FROM pet_special_effect_issue WHERE pet_id=4600 AND effect_name=? AND reason='unverified_text_ownership'",
+                (name,),
+            ).fetchone()
+        assert not connection.execute(
+            "SELECT 1 FROM pet_special_effect_source WHERE resolution_rule IN ('text_exact_name','effect_description_skill_name')"
+        ).fetchone()
+        for table, expected in business.items():
+            assert connection.execute(f'SELECT * FROM "{table}"').fetchall() == expected
+
+
+def test_marked_id_disambiguates_identical_names_without_guessing():
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (1,'test')")
+    candidates = [(10, '同名', 'A'), (11, '同名', 'B')]
+    connection.executemany('INSERT INTO glossary_entry VALUES (?,?,?)', candidates)
+    connection.executemany('INSERT INTO effect_description VALUES (?,?,?)', candidates)
+    connection.execute(
+        "INSERT INTO skill VALUES (100,'test','[color=#f35555]同名(11)[/color]',NULL)"
+    )
+    connection.execute('INSERT INTO skillinpetorm VALUES (1,100)')
+    replace_pet_special_effect_facts(connection, now=1)
+    assert connection.execute(
+        'SELECT glossary_id FROM pet_special_effect'
+    ).fetchall() == [(11,)]
+
+
+def test_audit_uses_fresh_copy_and_keeps_source_bytes(tmp_path):
+    from hashlib import sha256
+
+    from scripts.audit_pet_special_effect_ownership import audit
+
+    connection = _connection()
+    connection.execute("INSERT INTO pet VALUES (1,'test')")
+    connection.executemany(
+        'INSERT INTO glossary_entry VALUES (?,?,?)',
+        [(10, '幕', 'A'), (11, 'Real', 'B')],
+    )
+    connection.execute('INSERT INTO petglossaryentrylink VALUES (1,11)')
+    connection.execute("INSERT INTO effect_description VALUES (10,'幕','A')")
+    connection.execute("INSERT INTO skill VALUES (100,'test','天幕',NULL)")
+    connection.execute('INSERT INTO skillinpetorm VALUES (1,100)')
+    replace_pet_special_effect_facts(connection, now=0)
+    connection.execute(
+        "INSERT INTO pet_special_effect VALUES (1,'g:10',10,NULL,NULL,'幕','A',10,'glossary','text_exact_name',0)"
+    )
+    connection.execute(
+        "INSERT INTO pet_special_effect_source VALUES (1,'g:10','skill',100,'text_exact_name','test',0)"
+    )
+    connection.commit()
+    source = tmp_path / 'source.sqlite'
+    with sqlite3.connect(source) as target:
+        connection.backup(target)
+    digest = sha256(source.read_bytes()).hexdigest()
+    report = audit(source, tmp_path / 'audit')
+    assert report['source_sha256'] == digest
+    assert report['weak_count'] == report['removed_count'] == 1
+    assert report['after_count'] == 1
+    assert sha256(source.read_bytes()).hexdigest() == digest
+    assert (tmp_path / 'audit/audit.md').is_file()
+    with pytest.raises(FileExistsError):
+        audit(source, tmp_path / 'audit')

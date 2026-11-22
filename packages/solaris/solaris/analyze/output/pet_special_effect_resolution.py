@@ -22,12 +22,12 @@ from .pet_special_effect_types import (
 HIDDEN_SKILL_ID = 19002
 RED_EFFECT_COLOR = '#f35555'
 STATUS_HIGHLIGHT_COLORS = frozenset({'#f35555', '#57c975'})
-GLOSSARY_ID_SUFFIX = re.compile(r'\(\d+\)$')
+GLOSSARY_ID_SUFFIX = re.compile(r'^(.*?)\((\d+)\)$')
 NUMBER_PATTERN = re.compile(r'\d+(?:\.\d+)?%?')
 COLOR_TOKEN = re.compile(
     r'\[color=(#[0-9a-fA-F]{6})\]|\[/color\]|\[sprite name=\w+\]|([^\[]+|\[)'
 )
-EFFECT_SEPARATORS = re.compile(r'[\s、，,；;]+')
+EFFECT_SEPARATORS = re.compile(r'[\s、，,；;/]+')
 
 
 def _description_score(candidate: str | None, context: str | None) -> float:
@@ -54,38 +54,52 @@ def _highlighted_terms(value: str | None, colors: Iterable[str]) -> list[str]:
     expected = {color.casefold() for color in colors}
     stack: list[str] = []
     terms: list[str] = []
+    pieces: list[str] = []
+    current_opens = 0
+    last_batch = 0
     for match in COLOR_TOKEN.finditer(value or ''):
         color, plain = match.group(1), match.group(2)
         if color is not None:
+            if not expected.intersection(stack) and color.casefold() in expected:
+                pieces = []
             stack.append(color.casefold())
+            current_opens += 1
         elif match.group(0) == '[/color]':
-            if stack:
+            active = bool(expected.intersection(stack))
+            # Official Analyze text closes consecutively opened colors as a batch.
+            for _ in range(min(max(1, last_batch), len(stack))):
                 stack.pop()
+            current_opens = last_batch = 0
+            if active and not expected.intersection(stack):
+                term = ''.join(pieces).strip()
+                if term and term not in terms:
+                    terms.append(term)
+                pieces = []
         elif plain is not None and expected.intersection(stack):
-            term = GLOSSARY_ID_SUFFIX.sub('', plain.strip())
-            if term and term not in terms:
-                terms.append(term)
+            pieces.append(plain)
+            last_batch, current_opens = current_opens, 0
+        elif plain is not None:
+            last_batch, current_opens = current_opens, 0
     return terms
 
 
-def _split_official_names(value: str, names: frozenset[str]) -> list[str]:
-    compact = EFFECT_SEPARATORS.sub('', value.strip())
-    if not compact:
+def _marked_references(
+    value: str, names: frozenset[str]
+) -> list[tuple[str, int | None]]:
+    """Require a whole label or an explicitly separated list, never substrings."""
+    value = value.strip()
+    if value in names:
+        return [(value, None)]
+    reference = GLOSSARY_ID_SUFFIX.fullmatch(value)
+    if reference and reference[1] in names:
+        return [(reference[1], int(reference[2]))]
+    parts = EFFECT_SEPARATORS.split(value)
+    if len(parts) < 2 or any(not part for part in parts):
         return []
-    ordered_names = tuple(
-        sorted((name for name in names if name in compact), key=len, reverse=True)
-    )
-    matches: list[list[str] | None] = [None] * (len(compact) + 1)
-    matches[0] = []
-    for start, prefix in enumerate(matches[:-1]):
-        if prefix is None:
-            continue
-        for name in ordered_names:
-            if compact.startswith(name, start):
-                end = start + len(name)
-                if matches[end] is None:
-                    matches[end] = [*prefix, name]
-    return list(dict.fromkeys(matches[-1] or []))
+    references = [_marked_references(part, names) for part in parts]
+    if any(len(items) != 1 for items in references):
+        return []
+    return list(dict.fromkeys(items[0] for items in references))
 
 
 def _load_glossaries(
@@ -354,6 +368,8 @@ def _select_text_candidates(
     candidates: list[EffectDescriptionCandidate],
     established: list[SpecialEffectFact],
     context: str,
+    *,
+    marked: bool = False,
 ) -> list[EffectDescriptionCandidate]:
     if established:
         return [
@@ -369,6 +385,8 @@ def _select_text_candidates(
                 for fact in established
             )
         ]
+    if not marked:
+        return []
     if len(candidates) == 1:
         return candidates
     normalized_context = normalize_special_effect_text(context)
@@ -428,11 +446,33 @@ def _add_text_effects(
         established[fact.pet_id, fact.name].append(fact)
 
     def candidates_for(
-        pet_id: int, name: str, context: str
+        pet_id: int,
+        name: str,
+        context: str,
+        *,
+        marked: bool = False,
+        reference_id: int | None = None,
     ) -> list[EffectDescriptionCandidate]:
         candidates = effect_descriptions[name]
+        if reference_id is not None:
+            candidates = [item for item in candidates if item.id == reference_id]
+            if not candidates:
+                _append_issue(
+                    issues,
+                    pet_id=pet_id,
+                    effect_name=name,
+                    candidate_kind='effect_description',
+                    candidates=(reference_id,),
+                    reason='invalid_marked_effect_reference',
+                    context=context,
+                )
+                return []
+        existing = established.get((pet_id, name), [])
         selected = _select_text_candidates(
-            candidates, established.get((pet_id, name), []), context
+            candidates,
+            existing,
+            context,
+            marked=marked,
         )
         if not selected:
             _append_issue(
@@ -441,10 +481,71 @@ def _add_text_effects(
                 effect_name=name,
                 candidate_kind='effect_description',
                 candidates=(candidate.id for candidate in candidates),
-                reason='ambiguous_text_effect_name',
+                reason=(
+                    'ambiguous_text_effect_name'
+                    if marked or existing
+                    else 'unverified_text_ownership'
+                ),
                 context=context,
             )
         return selected
+
+    def add_marked(pet_id: int, source: EffectSource, context: str) -> set[str]:
+        names = official_names | frozenset(statuses_by_name)
+        colors = (
+            (RED_EFFECT_COLOR,) if source.kind == 'skill' else STATUS_HIGHLIGHT_COLORS
+        )
+        matched: set[str] = set()
+        for label in _highlighted_terms(context, colors):
+            for name, reference_id in _marked_references(label, names):
+                matched.add(name)
+                if name in effect_descriptions:
+                    for candidate in candidates_for(
+                        pet_id,
+                        name,
+                        context,
+                        marked=True,
+                        reference_id=reference_id,
+                    ):
+                        facts.add(
+                            pet_id=pet_id,
+                            name=name,
+                            description=candidate.description,
+                            glossary_id=candidate.glossary_id,
+                            source=source,
+                        )
+                elif reference_id is None:
+                    candidates = statuses_by_name.get(name, [])
+                    status, _rule = _choose_status(candidates, context)
+                    if status is not None:
+                        facts.add(
+                            pet_id=pet_id,
+                            name=name,
+                            description=status.description,
+                            status_id=status.id,
+                            source=source,
+                        )
+                    else:
+                        _append_issue(
+                            issues,
+                            pet_id=pet_id,
+                            effect_name=name,
+                            candidate_kind='status',
+                            candidates=(item.id for item in candidates),
+                            reason='ambiguous_marked_status',
+                            context=context,
+                        )
+                else:
+                    _append_issue(
+                        issues,
+                        pet_id=pet_id,
+                        effect_name=name,
+                        candidate_kind='effect_description',
+                        candidates=(reference_id,),
+                        reason='invalid_marked_effect_reference',
+                        context=context,
+                    )
+        return matched
 
     name_pattern = re.compile(
         '|'.join(
@@ -452,80 +553,26 @@ def _add_text_effects(
         )
     )
     for pet_id, skill_id, skill_name, text in _skill_texts(connection):
-        matched = set(name_pattern.findall(text))
-        highlighted_names = {
-            name
-            for highlighted in _highlighted_terms(text, (RED_EFFECT_COLOR,))
-            for name in _split_official_names(highlighted, official_names)
-        }
-        matched.update(highlighted_names)
-        for name in sorted(matched):
-            for candidate in candidates_for(pet_id, name, text):
-                facts.add(
-                    pet_id=pet_id,
-                    name=name,
-                    description=candidate.description,
-                    glossary_id=candidate.glossary_id,
-                    source=EffectSource(
-                        'skill',
-                        skill_id,
-                        'skill_highlight_exact'
-                        if name in highlighted_names
-                        else 'text_exact_name',
-                        skill_name,
-                    ),
-                )
+        highlighted_names = add_marked(
+            pet_id,
+            EffectSource('skill', skill_id, 'skill_highlight_exact', skill_name),
+            text,
+        )
+        for name in sorted(set(name_pattern.findall(text)) - highlighted_names):
+            if not established.get((pet_id, name)):
+                candidates_for(pet_id, name, text)
         for name, candidate in skill_references(skill_name):
-            facts.add(
-                pet_id=pet_id,
-                name=name,
-                description=candidate.description,
-                glossary_id=candidate.glossary_id,
-                source=EffectSource(
-                    'skill',
-                    skill_id,
-                    'effect_description_skill_name',
-                    skill_name,
-                ),
-            )
+            if not established.get((pet_id, name)):
+                candidates_for(pet_id, name, candidate.description)
     for pet_id, soulmark_id, context in _soulmark_texts(connection):
-        for name in sorted(set(name_pattern.findall(context))):
-            for candidate in candidates_for(pet_id, name, context):
-                facts.add(
-                    pet_id=pet_id,
-                    name=name,
-                    description=candidate.description,
-                    glossary_id=candidate.glossary_id,
-                    source=EffectSource('soulmark', soulmark_id, 'text_exact_name'),
-                )
-        for name in _highlighted_terms(context, STATUS_HIGHLIGHT_COLORS):
-            candidates = statuses_by_name.get(name, [])
-            status, rule = (
-                _choose_status(candidates, context) if candidates else (None, None)
-            )
-            if status is None:
-                if candidates:
-                    _append_issue(
-                        issues,
-                        pet_id=pet_id,
-                        effect_name=name,
-                        candidate_kind='status',
-                        candidates=(candidate.id for candidate in candidates),
-                        reason='ambiguous_soulmark_highlight_status',
-                        context=context,
-                    )
-                continue
-            facts.add(
-                pet_id=pet_id,
-                name=status.name,
-                description=status.description,
-                status_id=status.id,
-                source=EffectSource(
-                    'soulmark',
-                    soulmark_id,
-                    rule or 'soulmark_highlight_status',
-                ),
-            )
+        marked_names = add_marked(
+            pet_id,
+            EffectSource('soulmark', soulmark_id, 'soulmark_highlight_exact'),
+            context,
+        )
+        for name in sorted(set(name_pattern.findall(context)) - marked_names):
+            if not established.get((pet_id, name)):
+                candidates_for(pet_id, name, context)
 
 
 def _attach_named_statuses(
