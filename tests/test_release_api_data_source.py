@@ -179,7 +179,7 @@ def test_three_total_failures_warn_and_raise(
     monkeypatch.setattr(source.time, 'sleep', lambda _delay: None)
     output = tmp_path / 'release.json'
 
-    with pytest.raises(RuntimeError, match='api-data source unavailable'):
+    with pytest.raises(RuntimeError, match='Source download failed'):
         source.download_with_retries(
             'https://api.github.com/example',
             output,

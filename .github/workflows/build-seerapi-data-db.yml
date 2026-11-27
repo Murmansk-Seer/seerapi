@@ -133,9 +133,6 @@ jobs:
           FULL_EFFECT_ICON_REFRESH: ${{ (github.event_name == 'schedule' && github.event.schedule == '0 18 * * 5') || (github.event_name == 'workflow_dispatch' && inputs.full_effect_icon_refresh == true) }}
           DISPATCHED_API_DATA_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha256 || '' }}
           DISPATCHED_SOURCE_COMMIT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_commit || '' }}
-          PARTNER_CONTRACTS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/partner_contracts.json
-          UNITY_ITEM_CATALOG_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/itemsOptimizeCatItems17.json
-          SPECIAL_EFFECT_STATUS_URL: https://raw.githubusercontent.com/Murmansk-Seer/config-sources/main/unity/signIconFight.json
           CONFIG_PACKAGE_BASE_URL: https://newseer.61.com/Assets/StandaloneWindows64/ConfigPackage/
           DEFAULT_PACKAGE_BASE_URL: https://newseer.61.com/Assets/StandaloneWindows64/DefaultPackage/
           FLASH_MOUNT_ASSET_BASE_URL: https://seer.61.com/resource/item/cloth/swf
@@ -163,7 +160,9 @@ jobs:
           if [ "$(cat .build-state/maintenance-published-start 2>/dev/null || true)" != "${maintenance_start}" ]; then
             FORCE=true
           fi
-          release_info="$(python scripts/release_api_data_source.py resolve --github-output "$GITHUB_OUTPUT")"
+          release_info="$(python scripts/release_api_data_source.py resolve \
+            --metadata-output .cache/official-packages/api-data-release.json \
+            --github-output "$GITHUB_OUTPUT")"
           read -r api_data_asset_id remote_sha <<< "${release_info}"
           echo "Pinned api-data Release asset ${api_data_asset_id} (${remote_sha})"
           expected_api_data_sha="${remote_sha}"
@@ -184,15 +183,6 @@ jobs:
             expected_api_data_sha="${dispatched_sha}"
             echo "Accepted api-data-published event for ${DISPATCHED_SOURCE_COMMIT} (${expected_api_data_sha})"
           fi
-          remote_partner_sha="$(
-            "${curl_retry[@]}" "${PARTNER_CONTRACTS_URL}" | sha256sum | awk '{print $1}'
-          )"
-          remote_item_catalog_sha="$(
-            "${curl_retry[@]}" "${UNITY_ITEM_CATALOG_URL}" | sha256sum | awk '{print $1}'
-          )"
-          remote_special_effect_status_sha="$(
-            "${curl_retry[@]}" "${SPECIAL_EFFECT_STATUS_URL}" | sha256sum | awk '{print $1}'
-          )"
           config_package_version="$(
             "${curl_retry[@]}" "${CONFIG_PACKAGE_BASE_URL}PackageManifest_ConfigPackage.version?t=$(date +%s)"
           )"
@@ -200,11 +190,18 @@ jobs:
             echo "Unexpected ConfigPackage version: ${config_package_version}" >&2
             exit 1
           fi
-          python scripts/check_api_data_publication.py --official-version "${config_package_version}"
+          python scripts/check_api_data_publication.py \
+            --official-version "${config_package_version}" \
+            --release-metadata .cache/official-packages/api-data-release.json \
+            --asset-id "${api_data_asset_id}" --sha256 "${remote_sha}" \
+            --config-output-dir .cache/official-packages/config-source
           if grep -q '^blocked=true$' "$GITHUB_OUTPUT"; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          remote_partner_sha="$(sha256sum .cache/official-packages/config-source/partner_contracts.json | awk '{print $1}')"
+          remote_item_catalog_sha="$(sha256sum .cache/official-packages/config-source/itemsOptimizeCatItems17.json | awk '{print $1}')"
+          remote_special_effect_status_sha="$(sha256sum .cache/official-packages/config-source/signIconFight.json | awk '{print $1}')"
           mkdir -p .cache/official-packages/ConfigPackage
           printf '%s' "${config_package_version}" > .cache/official-packages/ConfigPackage/PackageManifest_ConfigPackage.version
           "${curl_retry[@]}" \

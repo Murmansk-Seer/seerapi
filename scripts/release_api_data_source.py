@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 from typing import Any
+from urllib.parse import urlsplit
 
 RELEASE_URL = 'https://api.github.com/repos/Murmansk-Seer/api-data/releases/tags/latest'
 ASSET_URL = 'https://api.github.com/repos/Murmansk-Seer/api-data/releases/assets/'
@@ -62,8 +63,8 @@ def _sha256(path: Path) -> str:
 
 
 def _warning(message: str) -> None:
-    safe = message.replace('\n', ' ').replace('\r', ' ').replace('::', ':')[:240]
-    print(f'::warning title=api-data source retry::{safe}', file=sys.stderr, flush=True)
+    safe = message.replace('\n', ' ').replace('\r', ' ').replace('::', ':')[:1024]
+    print(f'::warning title=source download::{safe}', file=sys.stderr, flush=True)
 
 
 class DownloadNotFoundError(RuntimeError):
@@ -81,9 +82,30 @@ def download_with_retries(
     extra_headers: list[str] | None = None,
     expected_md5: str | None = None,
     max_time: int | None = None,
+    stage: str = 'resource',
 ) -> None:
     if max_time is not None and (type(max_time) is not int or not 1 <= max_time <= 180):
         raise ValueError('max_time must be between 1 and 180 seconds')
+    if not re.fullmatch(r'[a-z0-9_]+', stage):
+        raise ValueError('invalid download stage')
+    parsed_url = urlsplit(url)
+    safe_url = f'{parsed_url.scheme}://{parsed_url.hostname}{parsed_url.path}'
+    deadline = (
+        max_time
+        if max_time is not None
+        else (180 if expected_sha256 or expected_md5 or validate_sqlite else 60)
+    )
+
+    def safe_error(message: str) -> str:
+        message = message.replace(url, safe_url)
+        for secret in [
+            token,
+            *[header.partition(':')[2].strip() for header in extra_headers or []],
+        ]:
+            if secret:
+                message = message.replace(secret, '[redacted]')
+        return message.replace('\n', ' ').replace('\r', ' ').replace('::', ':')[:240]
+
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + '.part')
     headers = ['--header', f'Accept: {accept}']
@@ -99,9 +121,7 @@ def download_with_retries(
             '--connect-timeout',
             '15',
             '--max-time',
-            str(max_time)
-            if max_time is not None
-            else ('180' if expected_sha256 else '120'),
+            str(deadline),
             '--retry',
             '0',
             *headers,
@@ -111,7 +131,28 @@ def download_with_retries(
             '%{http_code}',
             url,
         ]
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        started = time.monotonic()
+        print(
+            f'source_download stage={stage} url={safe_url} attempt={attempt}/{TOTAL_ATTEMPTS} deadline={deadline}s',
+            file=sys.stderr,
+            flush=True,
+        )
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=deadline + 5,
+            )
+        except subprocess.TimeoutExpired:
+            result = subprocess.CompletedProcess(
+                command, 28, '000', 'download process exceeded its deadline'
+            )
+        except BaseException:
+            partial.unlink(missing_ok=True)
+            raise
+        elapsed = time.monotonic() - started
         try:
             status = int(result.stdout.strip())
         except ValueError:
@@ -138,6 +179,11 @@ def download_with_retries(
                         valid = False
                 if valid:
                     partial.replace(destination)
+                    print(
+                        f'source_download stage={stage} url={safe_url} attempt={attempt}/{TOTAL_ATTEMPTS} status={status} elapsed={elapsed:.3f}s verified',
+                        file=sys.stderr,
+                        flush=True,
+                    )
                     return
                 failure = 'downloaded cache failed SQLite integrity_check'
             else:
@@ -146,22 +192,25 @@ def download_with_retries(
         else:
             failure = (
                 f'HTTP {status or "unavailable"}, curl exit {result.returncode}: '
-                f'{result.stderr.strip()}'
+                f'{safe_error(result.stderr.strip())}'
             )
             retryable = (
                 result.returncode in RETRYABLE_CURL_CODES
                 or status in RETRYABLE_HTTP_CODES
             )
         partial.unlink(missing_ok=True)
-        _warning(f'attempt {attempt}/{TOTAL_ATTEMPTS} failed: {failure}')
+        context = f'stage={stage} url={safe_url} attempt {attempt}/{TOTAL_ATTEMPTS} elapsed={elapsed:.3f}s'
+        _warning(f'{context} failed: {failure}')
         if status == 404:
-            raise DownloadNotFoundError(failure)
+            raise DownloadNotFoundError(f'{context}: {failure}')
         if not retryable or attempt == TOTAL_ATTEMPTS:
-            raise RuntimeError(f'api-data source unavailable: {failure}')
+            raise RuntimeError(f'Source download failed ({context}): {failure}')
         time.sleep(2 * attempt)
 
 
-def resolve_release(*, token: str = '') -> tuple[int, str]:
+def resolve_release(
+    *, token: str = '', metadata_output: Path | None = None
+) -> tuple[int, str]:
     with tempfile.TemporaryDirectory(prefix='seerapi-api-data-release-') as directory:
         path = Path(directory) / 'release.json'
         download_with_retries(
@@ -169,14 +218,20 @@ def resolve_release(*, token: str = '') -> tuple[int, str]:
             path,
             accept='application/vnd.github+json',
             token=token,
+            stage='api_data_release',
         )
         try:
             document = json.loads(path.read_text(encoding='utf-8'))
         except json.JSONDecodeError as error:
             raise ValueError('api-data Release API returned invalid JSON') from error
+        raw = path.read_bytes()
     if not isinstance(document, dict):
         raise ValueError('api-data Release API returned invalid metadata')
-    return parse_release_asset(document)
+    result = parse_release_asset(document)
+    if metadata_output is not None:
+        metadata_output.parent.mkdir(parents=True, exist_ok=True)
+        metadata_output.write_bytes(raw)
+    return result
 
 
 def main() -> int:
@@ -184,6 +239,7 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest='command', required=True)
     resolve = subparsers.add_parser('resolve')
     resolve.add_argument('--github-output', type=Path, required=True)
+    resolve.add_argument('--metadata-output', type=Path)
     download = subparsers.add_parser('download')
     download.add_argument('--asset-id', type=int, required=True)
     download.add_argument('--sha256', required=True)
@@ -191,7 +247,14 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == 'resolve':
-            asset_id, sha256 = resolve_release(token=os.environ.get('GH_TOKEN', ''))
+            options = (
+                {'metadata_output': args.metadata_output}
+                if args.metadata_output
+                else {}
+            )
+            asset_id, sha256 = resolve_release(
+                token=os.environ.get('GH_TOKEN', ''), **options
+            )
             with args.github_output.open('a', encoding='utf-8') as output:
                 output.write(f'api_data_asset_id={asset_id}\nremote_sha={sha256}\n')
             print(f'{asset_id} {sha256}')
@@ -204,6 +267,7 @@ def main() -> int:
                 accept='application/octet-stream',
                 expected_sha256=args.sha256,
                 token=os.environ.get('GH_TOKEN', ''),
+                stage='api_data_database',
             )
             print(f'Verified api-data Release asset {args.asset_id} ({args.sha256})')
     except (OSError, RuntimeError, ValueError) as error:

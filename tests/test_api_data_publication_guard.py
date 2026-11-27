@@ -1,5 +1,5 @@
 import base64
-import io
+import hashlib
 import json
 import sys
 from unittest.mock import patch
@@ -38,9 +38,20 @@ def test_live_official_version_must_match_published_source(
         'api-data/releases/tags/latest': {
             'assets': [
                 {
+                    'name': 'seerapi-data.sqlite',
+                    'id': 42,
+                    'state': 'uploaded',
+                    'digest': 'sha256:' + checksum,
+                },
+                {
                     'name': 'seerapi-data.sqlite.sha256',
-                    'browser_download_url': 'https://test.invalid',
-                }
+                    'id': 43,
+                    'state': 'uploaded',
+                    'digest': 'sha256:'
+                    + hashlib.sha256(
+                        (checksum + '  seerapi-data.sqlite\n').encode()
+                    ).hexdigest(),
+                },
             ]
         },
         'config-sources/contents/unity/.version?ref=source': {
@@ -49,7 +60,11 @@ def test_live_official_version_must_match_published_source(
     }
     monkeypatch.setattr(guard, 'get_json', documents.__getitem__)
     monkeypatch.setattr(
-        guard, 'urlopen', lambda *args, **kwargs: io.BytesIO(checksum.encode())
+        guard,
+        'download_with_retries',
+        lambda _url, target, **_kwargs: target.write_text(
+            checksum + '  seerapi-data.sqlite\n'
+        ),
     )
     output = tmp_path / 'output'
     monkeypatch.setenv('GITHUB_OUTPUT', str(output))
