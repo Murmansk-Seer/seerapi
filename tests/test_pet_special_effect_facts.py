@@ -212,12 +212,12 @@ def test_skill_reference_considers_later_duplicate_description(explicit: bool) -
 @pytest.mark.parametrize(
     ('descriptions', 'context', 'expected'),
     [
-        (('必定致命一击', '吸取300点体力'), '同名：吸取300点体力', [11]),
-        (('相同描述', '相同描述'), '触发同名', [10]),
+        (('必定致命一击', '吸取300点体力'), '同名：吸取300点体力', []),
+        (('相同描述', '相同描述'), '触发同名', []),
         (('...', '吸取300点体力'), '触发同名', []),
     ],
 )
-def test_duplicate_text_candidates_require_description_evidence(
+def test_duplicate_text_candidates_do_not_use_description_evidence(
     descriptions: tuple[str, str], context: str, expected: list[int]
 ) -> None:
     connection = _connection()
@@ -369,12 +369,12 @@ def test_builds_linked_effect_facts_with_source_provenance() -> None:
     assert summary.soulmark_display_rows == 2
     assert summary.soulmark_display_addition_rows == 1
     assert salmon_effects == [
-        (533, '四象门', 188),
+        (533, '四象门', None),
         (534, '六芒阵', None),
         (535, '八方圻', None),
     ]
     assert ('skill', 100, 'skill_highlight_exact') in salmon_sources
-    assert knight == (600, 183)
+    assert knight == (600, None)
     assert soulmark_order == [(1, 1, 0, 'base'), (2, 1, 1, 'intensified')]
 
 
@@ -406,7 +406,7 @@ def test_publishes_declared_soulmark_display_additions() -> None:
     ]
 
 
-def test_named_status_variants_attach_distinct_icons_without_new_effects() -> None:
+def test_named_status_variants_do_not_bridge_unrelated_glossary_ids() -> None:
     connection = _connection()
     connection.execute("INSERT INTO pet VALUES (3488, '阴灵魂姬')")
     connection.executemany(
@@ -438,7 +438,7 @@ def test_named_status_variants_attach_distinct_icons_without_new_effects() -> No
     assert connection.execute(
         'SELECT name, icon_key FROM pet_special_effect '
         'WHERE pet_id=3488 ORDER BY glossary_id'
-    ).fetchall() == [('冥妖之悼', '191_1'), ('幽迹之秘', '191_2')]
+    ).fetchall() == [('冥妖之悼', None), ('幽迹之秘', None)]
 
     replace_pet_special_effect_facts(
         connection, now=2.0, available_icon_keys=frozenset({'191_1'})
@@ -446,14 +446,14 @@ def test_named_status_variants_attach_distinct_icons_without_new_effects() -> No
     assert connection.execute(
         'SELECT name, icon_key FROM pet_special_effect '
         'WHERE pet_id=3488 ORDER BY glossary_id'
-    ).fetchall() == [('冥妖之悼', '191_1'), ('幽迹之秘', None)]
+    ).fetchall() == [('冥妖之悼', None), ('幽迹之秘', None)]
 
 
 @pytest.mark.parametrize(
     ('description', 'expected_icon'),
-    [('对应说明', '10_1'), ('不相同的说明', None)],
+    [('对应说明', None), ('不相同的说明', None)],
 )
-def test_ambiguous_variant_name_needs_matching_description(
+def test_ambiguous_variant_name_is_not_resolved_by_description(
     description: str,
     expected_icon: str | None,
 ) -> None:
@@ -483,7 +483,7 @@ def test_ambiguous_variant_name_needs_matching_description(
     assert connection.execute(
         'SELECT COUNT(*) FROM pet_special_effect_issue '
         "WHERE reason='ambiguous_variant_icon'"
-    ).fetchone() == (0 if expected_icon else 2,)
+    ).fetchone() == (0,)
 
 
 def test_publishes_partner_upgrade_soulmark_display_kind() -> None:
@@ -733,7 +733,7 @@ def test_audit_uses_fresh_copy_and_keeps_source_bytes(tmp_path):
     connection.execute('INSERT INTO skillinpetorm VALUES (1,100)')
     replace_pet_special_effect_facts(connection, now=0)
     connection.execute(
-        "INSERT INTO pet_special_effect VALUES (1,'g:10',10,NULL,NULL,'幕','A',10,'glossary','text_exact_name',0)"
+        "INSERT INTO pet_special_effect (pet_id,effect_key,glossary_id,status_id,icon_key,name,description,sort_id,sort_kind,primary_rule,updated_at) VALUES (1,'g:10',10,NULL,NULL,'幕','A',10,'glossary','text_exact_name',0)"
     )
     connection.execute(
         "INSERT INTO pet_special_effect_source VALUES (1,'g:10','skill',100,'text_exact_name','test',0)"

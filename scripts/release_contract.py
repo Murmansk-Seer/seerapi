@@ -68,6 +68,10 @@ GENERATED_RELEASE_TABLES = frozenset(
         'soulmark_icon_render_issue',
         'special_effect_status',
         'special_effect_status_variant',
+        'pet_effect_panel',
+        'special_effect_glossary_icon',
+        'special_effect_status_display_rule',
+        'special_effect_status_config',
     }
 )
 

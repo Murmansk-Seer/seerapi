@@ -18,6 +18,9 @@ RULE_PRIORITY = {
     'exact_status_description': 8,
     'status_description_similarity': 9,
     'same_description_lowest_status_id': 10,
+    'panel_heading_unique_status': 5,
+    'client_conditional_display': 5,
+    'client_variant_display_reference': 5,
 }
 
 
@@ -78,6 +81,7 @@ class SpecialEffectFact:
     primary_rule: str
     discovery_index: int
     icon_key: str | None = None
+    icon_kind: str | None = None
     sources: set[EffectSource] = field(default_factory=set)
 
     @property
@@ -127,7 +131,9 @@ class SpecialEffectFactAccumulator:
         candidates = [
             self._by_glossary.get((pet_id, glossary_id)) if glossary_id else None,
             self._by_status.get((pet_id, status_id)) if status_id else None,
-            self._by_text.get(text_key),
+            self._by_text.get(text_key)
+            if glossary_id is None and status_id is None
+            else None,
         ]
         fact = next((candidate for candidate in candidates if candidate), None)
         if fact is None:
@@ -178,6 +184,10 @@ class SpecialEffectFactAccumulator:
         glossary_id: int | None,
         status_id: int | None,
     ) -> SpecialEffectFact:
+        if glossary_id is not None and fact.glossary_id not in (None, glossary_id):
+            raise ValueError('Conflicting explicit glossary identities')
+        if status_id is not None and fact.status_id not in (None, status_id):
+            raise ValueError('Conflicting explicit status identities')
         if glossary_id is not None:
             other = self._by_glossary.get((fact.pet_id, glossary_id))
             if other is not None and other is not fact:
@@ -203,6 +213,16 @@ class SpecialEffectFactAccumulator:
     ) -> None:
         if target is duplicate:
             return
+        if target.glossary_id is not None and duplicate.glossary_id not in (
+            None,
+            target.glossary_id,
+        ):
+            raise ValueError('Conflicting explicit glossary identities')
+        if target.status_id is not None and duplicate.status_id not in (
+            None,
+            target.status_id,
+        ):
+            raise ValueError('Conflicting explicit status identities')
         if target.description is None:
             target.description = duplicate.description
         if duplicate.glossary_id is not None:

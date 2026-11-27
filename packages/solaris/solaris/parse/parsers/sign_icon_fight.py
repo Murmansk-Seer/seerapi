@@ -139,4 +139,6 @@ class SignIconFightParser(BaseParser[_SignIconFightConfig]):
                 }
                 result['config']['item'].append(item)
 
+        if not reader.eof():
+            raise ValueError('Unconsumed signIcon_fight bytes')
         return result

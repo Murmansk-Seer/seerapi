@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from functools import partial
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -20,6 +21,11 @@ if __package__:
         parse_autocard_json,
     )
     from .build_http import BuildHttpClient, extract_text_assets
+    from .client_effect_sources import (
+        CLIENT_EFFECT_ASSETS,
+        ClientEffectData,
+        parse_client_effect_data,
+    )
     from .config_package_sources import (
         parse_autocard_chips,
         parse_autocard_season_effects,
@@ -55,6 +61,11 @@ else:
     from build_http import (  # type: ignore[import-not-found]
         BuildHttpClient,
         extract_text_assets,
+    )
+    from client_effect_sources import (
+        CLIENT_EFFECT_ASSETS,
+        ClientEffectData,
+        parse_client_effect_data,
     )
     from config_package_sources import (  # type: ignore[import-not-found]
         parse_autocard_chips,
@@ -137,6 +148,7 @@ class ReleaseSourceLoader:
         self._logger = logger
         self._autocard_assets: dict[str, bytes] | None = None
         self._autocard_source = ''
+        self._client_effect_data: ClientEffectData | None = None
 
     def fetch_config_package_data(self) -> ConfigPackageData:
         base_url = self._config.config_package_base_url.rstrip('/') + '/'
@@ -158,16 +170,25 @@ class ReleaseSourceLoader:
                 raise ValueError('ConfigPackage bundle not found')
             bundle = manifest.bundles[0]
         bundle_url = urljoin(base_url, bundle.file_hash)
+        bundle_data = self._http.download_bytes(bundle_url)
+        if (
+            len(bundle_data) != bundle.file_size
+            or hashlib.md5(bundle_data).hexdigest() != bundle.file_hash
+        ):
+            raise ValueError('Official ConfigPackage bundle digest/size mismatch')
         assets = extract_text_assets(
-            self._http.download_bytes(bundle_url),
+            bundle_data,
             self._config.config_text_assets
             | {'Activity_TimeUpdateConfig.bytes', 'pvpCostMode_cost.bytes'}
             | AUTOCARD_TEXT_ASSETS
-            | {'pet_skin_poly.bytes', 'petCompositio.bytes'},
+            | {'pet_skin_poly.bytes', 'petCompositio.bytes'}
+            | CLIENT_EFFECT_ASSETS,
         )
         self._autocard_assets = assets
+        self._client_effect_data = parse_client_effect_data(assets, version)
         self._autocard_source = f'{bundle_url}?config_version={version}'
         return ConfigPackageData(
+            client_effect_data=self._client_effect_data,
             version=version,
             bundle_url=bundle_url,
             mintmark_quality=parse_mintmark_quality(
@@ -240,6 +261,8 @@ class ReleaseSourceLoader:
         return prices
 
     def load_effect_descriptions(self) -> list[EffectDescription]:
+        if self._client_effect_data is not None:
+            return self._client_effect_data.descriptions
         return self._load_optional(
             'Effect description source',
             self._config.effect_description_url,
@@ -247,6 +270,8 @@ class ReleaseSourceLoader:
         )
 
     def load_special_effect_statuses(self) -> list[SpecialEffectStatus]:
+        if self._client_effect_data is not None:
+            return self._client_effect_data.statuses
         return self._load_optional(
             'Special effect status source',
             self._config.special_effect_status_url,

@@ -16,6 +16,7 @@ import logging
 import sqlite3
 
 if __package__:
+    from .client_effect_asset_requests import effect_icon_requests
     from .autocard_asset_manifest import collect_autocard_asset_requests
     from .render_asset_manifest_types import (
         RemoteAssetManifestBuild,
@@ -26,6 +27,7 @@ if __package__:
         RenderAssetManifestEntry,
     )
 else:
+    from client_effect_asset_requests import effect_icon_requests
     from autocard_asset_manifest import (  # type: ignore[import-not-found]
         collect_autocard_asset_requests,
     )
@@ -257,7 +259,6 @@ def _pet_info_requests(
     if any(values is None for values in domains):
         return None
     pet_resource_ids, type_ids, mintmark_ids, item_ids, status_ids = domains
-    variant_icon_keys = _select_variant_icon_keys(conn)
     assert pet_resource_ids is not None
     assert type_ids is not None
     assert mintmark_ids is not None
@@ -317,43 +318,8 @@ def _pet_info_requests(
                 required=False,
             )
         )
-    for status_id in status_ids:
-        requests.append(
-            _request(
-                'sign_buff',
-                str(status_id),
-                (
-                    'newseer/assets/art/ui/assets/battleeffect/signbuff/'
-                    f'{status_id}.png',
-                ),
-                required=False,
-            )
-        )
-    for icon_key in variant_icon_keys:
-        requests.append(
-            _request(
-                'sign_buff',
-                icon_key,
-                (f'newseer/assets/art/ui/assets/battleeffect/signbuff/{icon_key}.png',),
-                required=False,
-            )
-        )
+    requests.extend(effect_icon_requests(conn, status_ids))
     return tuple(sorted(requests, key=lambda item: (item.asset_kind, item.asset_key)))
-
-
-def _select_variant_icon_keys(conn: sqlite3.Connection) -> tuple[str, ...]:
-    try:
-        rows = conn.execute(
-            """
-            SELECT DISTINCT variant.icon_key
-            FROM special_effect_status_variant AS variant
-            JOIN effect_description AS effect ON effect.name = variant.name
-            ORDER BY variant.icon_key
-            """
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return ()
-    return tuple(str(row[0]) for row in rows)
 
 
 def _new_content_standard_requests(

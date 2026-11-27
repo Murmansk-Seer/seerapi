@@ -6,6 +6,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 if __package__:
+    from .client_effect_sources import ClientEffectData
+else:
+    from client_effect_sources import ClientEffectData
+
+if __package__:
     from .config_package_sources import (
         AutocardChip,
         AutocardSeasonEffect,
@@ -43,3 +48,4 @@ class ConfigPackageData:
     peak: OfficialPeakData | None = None
     pet_form_resources: list[PetFormResource] = field(default_factory=list)
     pet_form_members: list[PetFormMember] = field(default_factory=list)
+    client_effect_data: ClientEffectData | None = None

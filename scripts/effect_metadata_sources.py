@@ -26,6 +26,8 @@ class SpecialEffectStatus:
     description: str
     show_monster_id: int
     variants: tuple[SpecialEffectStatusVariant, ...] = ()
+    display_rules: tuple[str, ...] = ()
+    class_name: str = ''
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,8 +94,15 @@ def parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
                 if name
             )
         )
-        description = _item_text(row, 'des').strip()
-        show_monster_id = _item_int(row, 'show_monster')
+        description = _item_text(row, 'des').replace('\\n', '\n').strip()
+        # Modern clients store conditional display rows, not an ownership ID.
+        raw_rules = row.get('show_monster', [])
+        show_monster_id = raw_rules if type(raw_rules) is int else 0
+        display_rules = (
+            tuple(str(value) for value in raw_rules)
+            if isinstance(raw_rules, list)
+            else ()
+        )
         indexed_descriptions = _indexed_values(row.get('sp_des'))
         indexed_icons = _indexed_values(row.get('sp_icon'))
         variants = tuple(
@@ -102,7 +111,7 @@ def parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
                 value=value,
                 name=name,
                 description=indexed_descriptions.get(value, ''),
-                icon_key=f'{status_id}_{_icon_suffix(indexed_icons.get(value), value)}',
+                icon_key=_icon_key(status_id, indexed_icons.get(value)),
             )
             for value, name in sorted(_indexed_values(row.get('sp_tips')).items())
         )
@@ -118,6 +127,8 @@ def parse_special_effect_statuses(data: bytes) -> list[SpecialEffectStatus]:
                     description,
                     show_monster_id,
                     variants,
+                    display_rules,
+                    _item_text(row, 'class_name'),
                 )
             )
     return sorted(result, key=lambda item: (item.status_id, item.name))
@@ -136,8 +147,11 @@ def _indexed_values(value: object) -> dict[int, str]:
     return result
 
 
-def _icon_suffix(explicit: str | None, value: int) -> str:
-    return explicit if explicit is not None and explicit.isdecimal() else str(value)
+def _icon_key(status_id: int, explicit: str | None) -> str:
+    if explicit is None:
+        return str(status_id)
+    suffix = int(explicit)
+    return f'{status_id}_{suffix}' if suffix > 0 else str(status_id)
 
 
 def _item_int(item: dict[object, object], *names: str) -> int:

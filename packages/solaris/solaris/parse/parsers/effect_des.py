@@ -73,4 +73,6 @@ class EffectDesParser(BaseParser[EffectDesConfig]):
             }
             result['root']['item'].append(item)
 
+        if not reader.eof():
+            raise ValueError('Unconsumed effectDes bytes')
         return result

@@ -133,6 +133,7 @@ def build_release_metadata(
         ),
         'effect_icon_png_render_issue_row_count': str(effect_icon_render_issue_count),
         **render_manifest_metadata,
+        'pet_effect_association_contract': '2',
         'mintmark_quality_count': str(len(config_data.mintmark_quality)),
         'skin_store_price_count': str(len(config_data.skin_store_prices)),
         'skin_shop_price_count': str(len(config_data.skin_shop_prices)),

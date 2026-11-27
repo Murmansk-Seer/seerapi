@@ -17,6 +17,7 @@ from solaris.analyze.output.pet_special_effect_facts import (
 
 if __package__:
     from .autocard_sources import AutocardData
+    from .client_effect_sources import replace_client_effect_tables
     from .effect_icon_build_types import (
         EffectIconAssetCheck,
         EffectIconPngRender,
@@ -48,6 +49,7 @@ if __package__:
     from .skin_image_resolution import SkinImageResolution
 else:
     from autocard_sources import AutocardData  # type: ignore[import-not-found]
+    from client_effect_sources import replace_client_effect_tables
     from effect_icon_build_types import (  # type: ignore[import-not-found]
         EffectIconAssetCheck,
         EffectIconPngRender,
@@ -188,6 +190,9 @@ def publish_release_tables(
             release.config_data.pet_form_resources,
             release.config_data.pet_form_members,
         )
+        # Client references must precede asset inventory and effect facts.
+        if release.config_data.client_effect_data is not None:
+            replace_client_effect_tables(conn, release.config_data.client_effect_data)
         remote_asset_manifest = collect_remote_asset_manifest(
             conn,
             asset_repository_snapshots,

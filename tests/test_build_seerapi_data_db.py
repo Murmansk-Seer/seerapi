@@ -1034,7 +1034,7 @@ def test_parse_named_status_variants_uses_explicit_icon_mapping() -> None:
                     'id': 133,
                     'dec': '坏图标映射',
                     'sp_tips': ['3_守护'],
-                    'sp_icon': ['3_../../unexpected'],
+                    'sp_icon': ['3_0'],
                 },
             ]
         }
@@ -1048,14 +1048,14 @@ def test_parse_named_status_variants_uses_explicit_icon_mapping() -> None:
         effect_metadata_sources.SpecialEffectStatusVariant(132, 7, '开启', '', '132_2'),
     )
     assert rows[1].variants == (
-        effect_metadata_sources.SpecialEffectStatusVariant(133, 3, '守护', '', '133_3'),
+        effect_metadata_sources.SpecialEffectStatusVariant(133, 3, '守护', '', '133'),
     )
     assert rows[2].variants == (
         effect_metadata_sources.SpecialEffectStatusVariant(
-            191, 1, '冥妖之悼', '第一条说明', '191_1'
+            191, 1, '冥妖之悼', '第一条说明', '191'
         ),
         effect_metadata_sources.SpecialEffectStatusVariant(
-            191, 2, '幽迹之秘', '第二条说明', '191_2'
+            191, 2, '幽迹之秘', '第二条说明', '191'
         ),
     )
 

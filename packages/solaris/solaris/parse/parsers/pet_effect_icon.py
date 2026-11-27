@@ -66,4 +66,6 @@ class PetEffectIconParser(BaseParser[PetEffectIconConfig]):
                 )
             )
 
+        if not reader.eof():
+            raise ValueError('Unconsumed petEffectIcon bytes')
         return result

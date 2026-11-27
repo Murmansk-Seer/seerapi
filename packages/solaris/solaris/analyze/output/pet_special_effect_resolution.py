@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable
-from difflib import SequenceMatcher
 from functools import cache
 import re
 import sqlite3
 
+from .pet_effect_display_references import add_display_references
+from .pet_effect_icon_identity import assign_icon_identities
+from .pet_effect_panels import add_panel_references
 from .pet_special_effect_types import (
     EffectDescriptionCandidate,
     EffectResolutionIssue,
@@ -16,38 +18,16 @@ from .pet_special_effect_types import (
     SpecialEffectFact,
     SpecialEffectFactAccumulator,
     StatusCandidate,
-    normalize_special_effect_text,
 )
 
 HIDDEN_SKILL_ID = 19002
 RED_EFFECT_COLOR = '#f35555'
 STATUS_HIGHLIGHT_COLORS = frozenset({'#f35555', '#57c975'})
 GLOSSARY_ID_SUFFIX = re.compile(r'^(.*?)\((\d+)\)$')
-NUMBER_PATTERN = re.compile(r'\d+(?:\.\d+)?%?')
 COLOR_TOKEN = re.compile(
     r'\[color=(#[0-9a-fA-F]{6})\]|\[/color\]|\[sprite name=\w+\]|([^\[]+|\[)'
 )
 EFFECT_SEPARATORS = re.compile(r'[\s、，,；;/]+')
-
-
-def _description_score(candidate: str | None, context: str | None) -> float:
-    normalized_candidate = normalize_special_effect_text(candidate)
-    normalized_context = normalize_special_effect_text(context)
-    if not normalized_candidate or not normalized_context:
-        return 0.0
-    if normalized_candidate in normalized_context:
-        return 2.0
-    candidate_numbers = set(NUMBER_PATTERN.findall(candidate or ''))
-    context_numbers = set(NUMBER_PATTERN.findall(context or ''))
-    numeric_score = (
-        len(candidate_numbers & context_numbers) / len(candidate_numbers)
-        if candidate_numbers
-        else 0.0
-    )
-    return (
-        SequenceMatcher(None, normalized_candidate, normalized_context).ratio()
-        + numeric_score * 0.5
-    )
 
 
 def _highlighted_terms(value: str | None, colors: Iterable[str]) -> list[str]:
@@ -190,73 +170,13 @@ def _append_issue(
     )
 
 
-def _resolve_glossary_candidates(
-    facts: SpecialEffectFactAccumulator,
-    by_name: dict[str, list[tuple[int, str]]],
-    issues: list[EffectResolutionIssue],
-) -> None:
-    for fact in tuple(facts.facts):
-        if fact.glossary_id is not None:
-            continue
-        candidates = by_name.get(fact.name, [])
-        if len(candidates) == 1:
-            facts.resolve_glossary(
-                fact,
-                candidates[0][0],
-                EffectSource(
-                    'glossary',
-                    candidates[0][0],
-                    'exact_status_description',
-                ),
-            )
-            continue
-        exact = [
-            glossary_id
-            for glossary_id, description in candidates
-            if normalize_special_effect_text(description)
-            and normalize_special_effect_text(description)
-            == normalize_special_effect_text(fact.description)
-        ]
-        if len(exact) == 1:
-            facts.resolve_glossary(
-                fact,
-                exact[0],
-                EffectSource('glossary', exact[0], 'exact_status_description'),
-            )
-        elif candidates:
-            _append_issue(
-                issues,
-                pet_id=fact.pet_id,
-                effect_name=fact.name,
-                candidate_kind='glossary',
-                candidates=(candidate[0] for candidate in candidates),
-                reason='ambiguous_glossary_name',
-                context=fact.description,
-            )
-
-
 def _choose_status(
     candidates: list[StatusCandidate],
     context: str,
 ) -> tuple[StatusCandidate | None, str | None]:
-    if len(candidates) == 1:
-        return candidates[0], 'unique_status_name'
-    normalized = {
-        normalize_special_effect_text(candidate.description) for candidate in candidates
-    }
-    if len(normalized) == 1 and '' not in normalized:
-        return min(candidates, key=lambda candidate: candidate.id), (
-            'same_description_lowest_status_id'
-        )
-    ranked = sorted(
-        ((_description_score(item.description, context), item) for item in candidates),
-        key=lambda row: (row[0], -row[1].id),
-        reverse=True,
-    )
-    best_score, best = ranked[0]
-    next_score = ranked[1][0] if len(ranked) > 1 else 0.0
-    if best_score >= 0.25 and best_score > next_score + 0.03:
-        return best, 'status_description_similarity'
+    unique = {candidate.id: candidate for candidate in candidates}
+    if len(unique) == 1:
+        return next(iter(unique.values())), 'unique_status_name'
     return None, None
 
 
@@ -380,8 +300,6 @@ def _select_text_candidates(
                     candidate.glossary_id is not None
                     and candidate.glossary_id == fact.glossary_id
                 )
-                or normalize_special_effect_text(candidate.description)
-                == normalize_special_effect_text(fact.description)
                 for fact in established
             )
         ]
@@ -389,20 +307,6 @@ def _select_text_candidates(
         return []
     if len(candidates) == 1:
         return candidates
-    normalized_context = normalize_special_effect_text(context)
-    exact = [
-        candidate
-        for candidate in candidates
-        if normalize_special_effect_text(candidate.description)
-        and normalize_special_effect_text(candidate.description) in normalized_context
-    ]
-    if len(exact) == 1:
-        return exact
-    descriptions = {
-        normalize_special_effect_text(candidate.description) for candidate in candidates
-    }
-    if len(descriptions) == 1 and '' not in descriptions:
-        return [min(candidates, key=lambda candidate: candidate.id)]
     return []
 
 
@@ -467,6 +371,7 @@ def _add_text_effects(
                     context=context,
                 )
                 return []
+            return candidates
         existing = established.get((pet_id, name), [])
         selected = _select_text_candidates(
             candidates,
@@ -575,43 +480,6 @@ def _add_text_effects(
                 candidates_for(pet_id, name, context)
 
 
-def _attach_named_statuses(
-    facts: SpecialEffectFactAccumulator,
-    statuses_by_name: dict[str, list[StatusCandidate]],
-    issues: list[EffectResolutionIssue],
-) -> None:
-    for fact in tuple(facts.facts):
-        if fact.status_id is not None:
-            continue
-        candidates = statuses_by_name.get(fact.name, [])
-        if not candidates:
-            continue
-        status, rule = _choose_status(candidates, fact.description or '')
-        if status is None:
-            _append_issue(
-                issues,
-                pet_id=fact.pet_id,
-                effect_name=fact.name,
-                candidate_kind='status',
-                candidates=(candidate.id for candidate in candidates),
-                reason='ambiguous_named_status',
-                context=fact.description,
-            )
-            continue
-        facts.add(
-            pet_id=fact.pet_id,
-            name=fact.name,
-            description=fact.description or status.description,
-            glossary_id=fact.glossary_id,
-            status_id=status.id,
-            source=EffectSource(
-                'status',
-                status.id,
-                rule or 'unique_status_name',
-            ),
-        )
-
-
 def _add_linked_glossaries(
     connection: sqlite3.Connection,
     facts: SpecialEffectFactAccumulator,
@@ -656,70 +524,13 @@ def _add_linked_glossaries(
             )
 
 
-def _attach_variant_icons(
-    connection: sqlite3.Connection,
-    facts: SpecialEffectFactAccumulator,
-    issues: list[EffectResolutionIssue],
-    available_icon_keys: frozenset[str] | None,
-) -> None:
-    if not connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' "
-        "AND name='special_effect_status_variant'"
-    ).fetchone():
-        return
-    variants: dict[int, list[tuple[int, str, str, str]]] = defaultdict(list)
-    for effect_id, name, status_id, description, icon_key in connection.execute(
-        """
-        SELECT effect.effect_id, variant.name, variant.status_id,
-               variant.description, variant.icon_key
-        FROM special_effect_status_variant AS variant
-        JOIN effect_description AS effect ON effect.name = variant.name
-        ORDER BY effect.effect_id, variant.status_id, variant.variant_value
-        """
-    ):
-        variants[int(effect_id)].append(
-            (int(status_id), str(name), str(description), str(icon_key))
-        )
-    for fact in facts.facts:
-        if fact.glossary_id is None:
-            continue
-        candidates = [
-            variant
-            for variant in variants.get(fact.glossary_id, [])
-            if variant[1] == fact.name
-        ]
-        ambiguous_candidates = candidates
-        if len(candidates) > 1:
-            exact_description = normalize_special_effect_text(fact.description)
-            candidates = [
-                candidate
-                for candidate in candidates
-                if exact_description
-                and normalize_special_effect_text(candidate[2]) == exact_description
-            ]
-        if len(candidates) == 1:
-            icon_key = candidates[0][3]
-            if available_icon_keys is None or icon_key in available_icon_keys:
-                fact.icon_key = icon_key
-        elif ambiguous_candidates:
-            _append_issue(
-                issues,
-                pet_id=fact.pet_id,
-                effect_name=fact.name,
-                candidate_kind='status_variant',
-                candidates=(candidate[0] for candidate in ambiguous_candidates),
-                reason='ambiguous_variant_icon',
-                context=fact.description,
-            )
-
-
 def collect_pet_special_effect_facts(
     connection: sqlite3.Connection,
     *,
     available_icon_keys: frozenset[str] | None = None,
 ) -> tuple[SpecialEffectFactAccumulator, list[EffectResolutionIssue]]:
     """Collect all official effect relations before publishing fact tables."""
-    glossaries, glossary_by_name = _load_glossaries(connection)
+    glossaries, _glossary_by_name = _load_glossaries(connection)
     statuses_by_name = _load_statuses(connection)
     descriptions = _effect_descriptions(connection, glossaries)
     facts = SpecialEffectFactAccumulator()
@@ -727,13 +538,10 @@ def collect_pet_special_effect_facts(
 
     _add_direct_sources(connection, facts, statuses_by_name)
     _add_text_effects(connection, facts, statuses_by_name, descriptions, issues)
-    _resolve_glossary_candidates(facts, glossary_by_name, issues)
-    _attach_named_statuses(facts, statuses_by_name, issues)
-    _resolve_glossary_candidates(facts, glossary_by_name, issues)
     _add_linked_glossaries(connection, facts, glossaries)
-    _attach_named_statuses(facts, statuses_by_name, issues)
-    _resolve_glossary_candidates(facts, glossary_by_name, issues)
-    _attach_variant_icons(connection, facts, issues, available_icon_keys)
+    add_display_references(connection, facts, issues)
+    add_panel_references(connection, facts, statuses_by_name, issues)
+    assign_icon_identities(connection, facts, issues)
     return facts, issues
 
 

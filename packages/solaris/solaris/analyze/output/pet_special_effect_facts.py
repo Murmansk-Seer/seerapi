@@ -42,6 +42,8 @@ def _replace_special_effect_tables(
             glossary_id INTEGER,
             status_id INTEGER,
             icon_key TEXT,
+            icon_asset_key TEXT,
+            icon_kind TEXT,
             name TEXT NOT NULL,
             description TEXT,
             sort_id INTEGER,
@@ -93,10 +95,10 @@ def _replace_special_effect_tables(
         """
         INSERT INTO pet_special_effect
             (
-                pet_id, effect_key, glossary_id, status_id, icon_key, name, description,
+                pet_id, effect_key, glossary_id, status_id, icon_key, icon_asset_key, icon_kind, name, description,
                 sort_id, sort_kind, primary_rule, updated_at
             )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             (
@@ -104,7 +106,9 @@ def _replace_special_effect_tables(
                 fact.effect_key,
                 fact.glossary_id,
                 fact.status_id,
+                fact.icon_key if fact.icon_kind == 'sign_buff' else None,
                 fact.icon_key,
+                fact.icon_kind,
                 fact.name,
                 fact.description,
                 fact.sort_id,

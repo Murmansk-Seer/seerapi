@@ -17,6 +17,9 @@ class PetSpecialEffectORM(SQLModel, table=True):
     effect_key: str = Field(primary_key=True)
     glossary_id: int | None = Field(default=None, foreign_key='glossary_entry.id')
     status_id: int | None = Field(default=None)
+    icon_key: str | None = Field(default=None)
+    icon_asset_key: str | None = Field(default=None)
+    icon_kind: str | None = Field(default=None)
     name: str
     description: str | None = Field(default=None)
     sort_id: int | None = Field(default=None)
