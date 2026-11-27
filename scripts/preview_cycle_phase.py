@@ -20,13 +20,29 @@ def preview_cycle_phase(start: str, end: str, now: datetime) -> str:
     return 'active'
 
 
+def checkpoint_preview_cycle_phase(start: str, end: str, now: datetime) -> str:
+    """A pair of empty checkpoint values records an unavailable preview, not a date."""
+    start, end = start.strip(), end.strip()
+    if not start and not end:
+        return 'unavailable'
+    if not start or not end:
+        raise ValueError(
+            'preview checkpoint must contain both start and end or neither'
+        )
+    return preview_cycle_phase(start, end, now)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('start')
     parser.add_argument('end')
+    parser.add_argument('--checkpoint', action='store_true')
     args = parser.parse_args()
+    classify = (
+        checkpoint_preview_cycle_phase if args.checkpoint else preview_cycle_phase
+    )
     print(  # noqa: T201 - consumed by the release workflow.
-        preview_cycle_phase(args.start, args.end, datetime.now(timezone.utc))
+        classify(args.start, args.end, datetime.now(timezone.utc))
     )
 
 

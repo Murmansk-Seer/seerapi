@@ -246,10 +246,18 @@ jobs:
           if [ -f .build-state/preview-cycle-phase ]; then
             previous_preview_cycle_phase="$(cat .build-state/preview-cycle-phase)"
           fi
-          if [ -s .build-state/preview-cycle-start ] && [ -s .build-state/preview-cycle-end ]; then
-            current_preview_cycle_phase="$(python scripts/preview_cycle_phase.py \
-              "$(cat .build-state/preview-cycle-start)" \
-              "$(cat .build-state/preview-cycle-end)")"
+          previous_preview_start=""
+          previous_preview_end=""
+          if [ -e .build-state/preview-cycle-start ]; then
+            previous_preview_start="$(cat .build-state/preview-cycle-start)"
+          fi
+          if [ -e .build-state/preview-cycle-end ]; then
+            previous_preview_end="$(cat .build-state/preview-cycle-end)"
+          fi
+          current_preview_cycle_phase="$(python scripts/preview_cycle_phase.py --checkpoint \
+            "${previous_preview_start}" "${previous_preview_end}")"
+          if [ "${current_preview_cycle_phase}" = unavailable ]; then
+            echo "Previous publication has no preview window; checkpoint phase=unavailable (no dates inferred)."
           fi
 
           flash_mount_retry=false
@@ -985,13 +993,9 @@ jobs:
           printf '%s\n' "${{ needs.plan.outputs.remote_default_package_version }}" > .build-state/default-package-version
           printf '%s\n' "${{ needs.plan.outputs.preview_cycle_start }}" > .build-state/preview-cycle-start
           printf '%s\n' "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-end
-          if [ -n "${{ needs.plan.outputs.preview_cycle_start }}" ]; then
-            python scripts/preview_cycle_phase.py \
-              "${{ needs.plan.outputs.preview_cycle_start }}" \
-              "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-phase
-          else
-            printf 'unavailable\n' > .build-state/preview-cycle-phase
-          fi
+          python scripts/preview_cycle_phase.py --checkpoint \
+            "${{ needs.plan.outputs.preview_cycle_start }}" \
+            "${{ needs.plan.outputs.preview_cycle_end }}" > .build-state/preview-cycle-phase
           cp "${FLASH_MOUNT_PENDING_FILE}" .build-state/flash-mount-image-pending-ids
 
       - name: Persist verified publication checkpoint

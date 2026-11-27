@@ -80,6 +80,7 @@ jobs:
           tests/test_network_read_retry.py
           tests/test_release_api_data_source.py
           tests/test_source_download_recovery.py
+          tests/test_preview_cycle_phase.py
           tests/test_factor_merge_contract.py
           tests/test_pet_special_effect_facts.py
           tests/test_skin_ticket_rules.py -v
