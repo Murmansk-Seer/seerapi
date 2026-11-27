@@ -20,6 +20,7 @@ class PetSpecialEffectORM(SQLModel, table=True):
     icon_key: str | None = Field(default=None)
     icon_asset_key: str | None = Field(default=None)
     icon_kind: str | None = Field(default=None)
+    display_in_pet_info: bool = Field(default=True)
     name: str
     description: str | None = Field(default=None)
     sort_id: int | None = Field(default=None)

@@ -82,6 +82,7 @@ class SpecialEffectFact:
     discovery_index: int
     icon_key: str | None = None
     icon_kind: str | None = None
+    display_in_pet_info: bool = True
     sources: set[EffectSource] = field(default_factory=set)
 
     @property

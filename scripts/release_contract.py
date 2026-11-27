@@ -131,6 +131,17 @@ def finalize_release_contract(database: Path) -> tuple[str, ...]:
             raise ValueError(
                 f'release is missing required tables: {", ".join(missing)}'
             )
+        effect_columns = {
+            r[1] for r in connection.execute('PRAGMA table_info(pet_special_effect)')
+        }
+        if 'display_in_pet_info' not in effect_columns:
+            raise ValueError(
+                'release is missing pet_special_effect.display_in_pet_info'
+            )
+        if connection.execute(
+            'SELECT 1 FROM pet_special_effect WHERE display_in_pet_info IS NULL OR display_in_pet_info NOT IN (0,1) LIMIT 1'
+        ).fetchone():
+            raise ValueError('invalid pet_special_effect.display_in_pet_info flag')
         version = connection.execute(
             'SELECT value FROM seerapi_metadata WHERE key = ?',
             (SCHEMA_CONTRACT_VERSION_KEY,),

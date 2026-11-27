@@ -11,6 +11,7 @@ import sqlite3
 from .pet_effect_display_references import add_display_references
 from .pet_effect_icon_identity import assign_icon_identities
 from .pet_effect_panels import add_panel_references
+from .pet_effect_visibility import assign_pet_info_visibility
 from .pet_special_effect_types import (
     EffectDescriptionCandidate,
     EffectResolutionIssue,
@@ -542,6 +543,7 @@ def collect_pet_special_effect_facts(
     add_display_references(connection, facts, issues)
     add_panel_references(connection, facts, statuses_by_name, issues)
     assign_icon_identities(connection, facts, issues)
+    assign_pet_info_visibility(connection, facts, issues)
     return facts, issues
 
 

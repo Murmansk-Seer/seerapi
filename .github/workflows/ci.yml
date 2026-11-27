@@ -84,6 +84,7 @@ jobs:
           tests/test_factor_merge_contract.py
           tests/test_pet_special_effect_facts.py
           tests/test_client_effect_associations.py
+          tests/test_pet_effect_visibility.py
           tests/test_skin_ticket_rules.py -v
           tests/test_pet_form_sources.py
 

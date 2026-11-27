@@ -44,6 +44,7 @@ def _replace_special_effect_tables(
             icon_key TEXT,
             icon_asset_key TEXT,
             icon_kind TEXT,
+            display_in_pet_info INTEGER NOT NULL DEFAULT 1 CHECK (display_in_pet_info IN (0,1)),
             name TEXT NOT NULL,
             description TEXT,
             sort_id INTEGER,
@@ -96,9 +97,9 @@ def _replace_special_effect_tables(
         INSERT INTO pet_special_effect
             (
                 pet_id, effect_key, glossary_id, status_id, icon_key, icon_asset_key, icon_kind, name, description,
-                sort_id, sort_kind, primary_rule, updated_at
+                sort_id, sort_kind, primary_rule, updated_at, display_in_pet_info
             )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             (
@@ -115,6 +116,7 @@ def _replace_special_effect_tables(
                 fact.sort_kind,
                 fact.primary_rule,
                 now,
+                int(fact.display_in_pet_info),
             )
             for fact in ordered_facts
         ],

@@ -53,6 +53,28 @@ be silently merged or duplicated.
 
 ## Acceptance and delivery
 
+### State-container presentation
+
+Keep all state facts and evidence, but publish `display_in_pet_info` (default true)
+for consumer presentation. A descriptionless state supported only by conditional
+display rules can be hidden only when every applicable named branch is already a
+separate, unambiguous fact with an explicit client_status_variant reference to
+that state and value. Glossary identities, independent panel/skill/soulmark
+evidence and nonempty descriptions always preserve the parent. Missing or
+ambiguous branches preserve it and produce a diagnostic. Neither pet IDs, short
+names nor equal image bytes determine visibility. Old consumers may ignore this
+additive field; updated consumers default missing columns to visible. Replay
+audits must include retained and hidden decisions, and rendering must verify
+both real forms without the redundant container.
+
+The 2026-11-28 container replay retains all 723 facts, 1446 sources and 404
+diagnostics with every preexisting field unchanged. It hides one container;
+the three other published states with named variants retain independent
+descriptions. Candidate SHA256:
+`06b046a21fd7a73925225877e582e78a7a098dc5f9c4e7edda4de4ace8681991`.
+794 tests, Ruff lint/format, basedpyright and diff checks passed. The real
+consumer requests only 151_2/151_3 for the two forms, not the base 151 icon.
+
 Freeze a real release and official sources, replay deterministically, and classify
 new panel references, removed guesses, retained evidence and unresolved issues.
 Cover duplicate names/descriptions, explicit references, nested text, headings,

@@ -9,8 +9,12 @@ import json
 from pathlib import Path
 import sqlite3
 
+from solaris.analyze.output.pet_effect_visibility import status_container_decisions
 from solaris.analyze.output.pet_special_effect_facts import (
     replace_pet_special_effect_facts,
+)
+from solaris.analyze.output.pet_special_effect_resolution import (
+    collect_pet_special_effect_facts,
 )
 
 if __package__:
@@ -164,6 +168,10 @@ def audit(source: Path, bundle: Path, provenance: Path, output: Path) -> dict:
             )
             summary = replace_pet_special_effect_facts(c, now=0)
             after = facts(c)
+            collected, _ = collect_pet_special_effect_facts(c)
+            display_decisions = [
+                asdict(d) for d in status_container_decisions(c, collected)
+            ]
             observed = business_snapshot(c)
             assert all(
                 observed[table] == digest for table, digest in business.items()
@@ -237,6 +245,7 @@ def audit(source: Path, bundle: Path, provenance: Path, output: Path) -> dict:
         'summary': asdict(summary),
         'before': before,
         'after': after,
+        'state_container_display': display_decisions,
         'new_facts': [
             r for r in after if (r['pet_id'], r['effect_key']) not in before_keys
         ],
@@ -263,6 +272,7 @@ def audit(source: Path, bundle: Path, provenance: Path, output: Path) -> dict:
         f'- New fact identities: {len(report["new_facts"])}',
         f'- Removed fact identities: {len(report["removed_facts"])}',
         f'- Panel evidence rows: {len(panel_sources)}',
+        f'- Hidden state containers: {sum(not d["display_in_pet_info"] for d in display_decisions)}',
         '- Unrelated business tables unchanged; deterministic replay passed.',
         '- This candidate is local only, not a production release.',
         '',

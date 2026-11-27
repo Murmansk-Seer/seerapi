@@ -179,3 +179,23 @@ def test_final_release_contract_rejects_wrong_schema_version(tmp_path: Path) -> 
 
     with pytest.raises(ValueError, match='version mismatch'):
         finalize_release_contract(database)
+
+
+@pytest.mark.parametrize('missing_column', [False, True])
+def test_final_release_rejects_invalid_effect_visibility(
+    tmp_path: Path, missing_column: bool
+) -> None:
+    database = tmp_path / 'release.sqlite'
+    _create_release(database)
+    with sqlite3.connect(database) as connection:
+        if missing_column:
+            connection.execute(
+                'ALTER TABLE pet_special_effect DROP COLUMN display_in_pet_info'
+            )
+        else:
+            connection.execute(
+                "INSERT INTO pet_special_effect (pet_id,effect_key,name,sort_kind,primary_rule,updated_at,display_in_pet_info) VALUES (1,'s:1','test','status','test',0,2)"
+            )
+        connection.commit()
+    with pytest.raises(ValueError, match='display_in_pet_info'):
+        finalize_release_contract(database)
