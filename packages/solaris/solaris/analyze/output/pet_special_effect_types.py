@@ -68,6 +68,14 @@ class EffectResolutionIssue:
     context: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class EffectIcon:
+    kind: str
+    key: str
+    status_id: int | None = None
+    variant_value: int | None = None
+
+
 @dataclass(slots=True)
 class SpecialEffectFact:
     """One deduplicated special-effect fact before it is written to SQLite."""
@@ -80,8 +88,7 @@ class SpecialEffectFact:
     status_id: int | None
     primary_rule: str
     discovery_index: int
-    icon_key: str | None = None
-    icon_kind: str | None = None
+    icons: list[EffectIcon] = field(default_factory=list)
     display_in_pet_info: bool = True
     sources: set[EffectSource] = field(default_factory=set)
 

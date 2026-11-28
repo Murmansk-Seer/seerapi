@@ -25,7 +25,11 @@ if __package__:
         replace_client_effect_tables,
     )
     from .item_exchange_sources import ItemExchangePrice
-    from .release_contract import finalize_release_contract
+    from .release_contract import (
+        SCHEMA_CONTRACT_VERSION,
+        SCHEMA_CONTRACT_VERSION_KEY,
+        finalize_release_contract,
+    )
     from .release_reference_tables import replace_reference_tables
     from .render_asset_manifest_build import render_asset_manifest_revision
     from .render_asset_manifest_types import RenderAssetManifestEntry
@@ -37,13 +41,18 @@ else:
         replace_client_effect_tables,
     )
     from item_exchange_sources import ItemExchangePrice
-    from release_contract import finalize_release_contract
+    from release_contract import (
+        SCHEMA_CONTRACT_VERSION,
+        SCHEMA_CONTRACT_VERSION_KEY,
+        finalize_release_contract,
+    )
     from release_reference_tables import replace_reference_tables
     from render_asset_manifest_build import render_asset_manifest_revision
     from render_asset_manifest_types import RenderAssetManifestEntry
 
 DERIVED = {
     'pet_special_effect',
+    'pet_special_effect_icon',
     'pet_special_effect_source',
     'pet_special_effect_issue',
     'pet_soulmark_display',
@@ -85,6 +94,19 @@ def facts(c: sqlite3.Connection) -> list[dict]:
         )
     ]
     c.row_factory = None
+    if c.execute(
+        "SELECT 1 FROM sqlite_master WHERE name='pet_special_effect_icon'"
+    ).fetchone():
+        icons: dict[tuple[int, str], list[tuple[str, str, int | None, int | None]]] = {}
+        for pet_id, key, *icon in c.execute(
+            'SELECT pet_id,effect_key,icon_kind,icon_asset_key,status_id,variant_value '
+            'FROM pet_special_effect_icon ORDER BY pet_id,effect_key,icon_kind,icon_asset_key'
+        ):
+            icons.setdefault((pet_id, key), []).append(
+                (icon[0], icon[1], icon[2], icon[3])
+            )
+        for row in rows:
+            row['icons'] = icons.get((row['pet_id'], row['effect_key']), [])
     return rows
 
 
@@ -163,7 +185,8 @@ def audit(source: Path, bundle: Path, provenance: Path, output: Path) -> dict:
                         'render_asset_manifest_available_count',
                         str(sum(e.available for e in entries)),
                     ),
-                    ('pet_effect_association_contract', '2'),
+                    ('pet_effect_association_contract', '3'),
+                    (SCHEMA_CONTRACT_VERSION_KEY, SCHEMA_CONTRACT_VERSION),
                 ],
             )
             summary = replace_pet_special_effect_facts(c, now=0)
@@ -220,10 +243,9 @@ def audit(source: Path, bundle: Path, provenance: Path, output: Path) -> dict:
     retired_icons = []
     for old in before:
         new = after_by_key.get((old['pet_id'], old['effect_key']))
-        if (old['status_id'] is not None or old.get('icon_key')) and (
-            new is None
-            or (new.get('icon_kind') is None and new.get('icon_key') is None)
-        ):
+        if (
+            old['status_id'] is not None or old.get('icon_key') or old.get('icons')
+        ) and (new is None or not new['icons']):
             retired_icons.append(
                 {
                     'pet_id': old['pet_id'],
@@ -290,7 +312,7 @@ def main() -> None:
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     report = audit(args.source, args.bundle, args.provenance, args.output)
-    print(
+    print(  # noqa: T201 - CLI output
         json.dumps(
             {
                 k: report[k]

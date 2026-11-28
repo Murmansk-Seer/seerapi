@@ -85,7 +85,7 @@ def _capture_exported_icon_ids(
 
 
 def test_published_schema_contract_metadata_is_explicit() -> None:
-    assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION == '2'
+    assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION == '3'
     assert builder.SEERAPI_SCHEMA_CONTRACT_VERSION_KEY == (
         'seerapi_schema_contract_version'
     )

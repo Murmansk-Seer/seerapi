@@ -33,6 +33,7 @@ def _replace_special_effect_tables(
 ) -> tuple[int, int, int]:
     connection.executescript(
         """
+        DROP TABLE IF EXISTS pet_special_effect_icon;
         DROP TABLE IF EXISTS pet_special_effect_source;
         DROP TABLE IF EXISTS pet_special_effect_issue;
         DROP TABLE IF EXISTS pet_special_effect;
@@ -41,9 +42,6 @@ def _replace_special_effect_tables(
             effect_key TEXT NOT NULL,
             glossary_id INTEGER,
             status_id INTEGER,
-            icon_key TEXT,
-            icon_asset_key TEXT,
-            icon_kind TEXT,
             display_in_pet_info INTEGER NOT NULL DEFAULT 1 CHECK (display_in_pet_info IN (0,1)),
             name TEXT NOT NULL,
             description TEXT,
@@ -59,6 +57,16 @@ def _replace_special_effect_tables(
         CREATE UNIQUE INDEX idx_pet_special_effect_status
         ON pet_special_effect (pet_id, status_id)
         WHERE status_id IS NOT NULL;
+        CREATE TABLE pet_special_effect_icon (
+            pet_id INTEGER NOT NULL,
+            effect_key TEXT NOT NULL,
+            icon_kind TEXT NOT NULL CHECK (icon_kind IN ('abnormal','sign_buff')),
+            icon_asset_key TEXT NOT NULL,
+            status_id INTEGER,
+            variant_value INTEGER,
+            PRIMARY KEY (pet_id, effect_key, icon_kind, icon_asset_key),
+            FOREIGN KEY (pet_id, effect_key) REFERENCES pet_special_effect(pet_id, effect_key)
+        );
         CREATE TABLE pet_special_effect_source (
             pet_id INTEGER NOT NULL,
             effect_key TEXT NOT NULL,
@@ -96,10 +104,10 @@ def _replace_special_effect_tables(
         """
         INSERT INTO pet_special_effect
             (
-                pet_id, effect_key, glossary_id, status_id, icon_key, icon_asset_key, icon_kind, name, description,
+                pet_id, effect_key, glossary_id, status_id, name, description,
                 sort_id, sort_kind, primary_rule, updated_at, display_in_pet_info
             )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             (
@@ -107,9 +115,6 @@ def _replace_special_effect_tables(
                 fact.effect_key,
                 fact.glossary_id,
                 fact.status_id,
-                fact.icon_key if fact.icon_kind == 'sign_buff' else None,
-                fact.icon_key,
-                fact.icon_kind,
                 fact.name,
                 fact.description,
                 fact.sort_id,
@@ -119,6 +124,25 @@ def _replace_special_effect_tables(
                 int(fact.display_in_pet_info),
             )
             for fact in ordered_facts
+        ],
+    )
+    connection.executemany(
+        """
+        INSERT INTO pet_special_effect_icon
+            (pet_id, effect_key, icon_kind, icon_asset_key, status_id, variant_value)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                fact.pet_id,
+                fact.effect_key,
+                icon.kind,
+                icon.key,
+                icon.status_id,
+                icon.variant_value,
+            )
+            for fact in ordered_facts
+            for icon in fact.icons
         ],
     )
     source_rows = [

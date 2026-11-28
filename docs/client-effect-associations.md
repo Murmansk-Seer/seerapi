@@ -17,12 +17,13 @@ be silently merged or duplicated.
 
 ## Producer and consumer contract
 
-- Keep API v1, physical contract 2 and weekly semantic schema unchanged.
-- `pet_special_effect.icon_kind` is nullable `abnormal` or `sign_buff`;
-  `icon_asset_key` is the exact published asset key. Legacy `icon_key` remains
-  sign_buff-only and is null for abnormal icons, protecting older consumers
-  from cross-namespace misrendering. A present column with null values
-  means no confirmed icon, not permission for a runtime name lookup.
+- Physical schema contract 3 enforces a paired publisher and consumer.
+  API v1 and the weekly semantic schema stay unchanged.
+- Effect association contract 3 publishes all verified icon references in
+  `pet_special_effect_icon`, keyed by pet, effect, kind and exact asset key.
+  Each reference may carry a numeric status ID and variant value. No row means
+  no confirmed icon. This replaces the old single-icon columns, so the
+  publisher and the IronsBot consumer must move to contract 3 together.
 - `pet_effect_panel` retains official panel ID, pet ID, soulmark reference,
   original text, advance flag and frozen configuration version.
 - `pet_special_effect_source.source_kind=pet_effect_panel` uses panel ID and
@@ -62,8 +63,8 @@ separate, unambiguous fact with an explicit client_status_variant reference to
 that state and value. Glossary identities, independent panel/skill/soulmark
 evidence and nonempty descriptions always preserve the parent. Missing or
 ambiguous branches preserve it and produce a diagnostic. Neither pet IDs, short
-names nor equal image bytes determine visibility. Old consumers may ignore this
-additive field; updated consumers default missing columns to visible. Replay
+names nor equal image bytes determine visibility. Contract 3 requires the
+visibility flag. Replay
 audits must include retained and hidden decisions, and rendering must verify
 both real forms without the redundant container.
 

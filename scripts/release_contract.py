@@ -22,7 +22,7 @@ from seerapi_models.somua_source import validate_somua_source
 from seerapi_models.source_reference import validate_unresolved_pet_references
 from solaris.utils import parse_unity_datetime
 
-SCHEMA_CONTRACT_VERSION = '2'
+SCHEMA_CONTRACT_VERSION = '3'
 SCHEMA_CONTRACT_VERSION_KEY = 'seerapi_schema_contract_version'
 SCHEMA_TABLES_KEY = 'seerapi_schema_tables'
 SCHEMA_FINGERPRINT_KEY = 'seerapi_schema_fingerprint'
@@ -77,7 +77,7 @@ GENERATED_RELEASE_TABLES = frozenset(
 
 
 def required_release_tables() -> frozenset[str]:
-    """Return the complete producer-owned schema required by contract v2."""
+    """Return the complete producer-owned schema required by contract v3."""
 
     return frozenset(SQLModel.metadata.tables) | GENERATED_RELEASE_TABLES
 
@@ -291,7 +291,7 @@ def main() -> None:
         validate_regression_source(session, args.official_source_dir)
     with sqlite3.connect(args.database) as connection:
         release_summary(connection, summary=args.summary, output=args.github_output)
-    print(
+    print(  # noqa: T201 - CLI output
         f'Final release contract validated: {len(tables)} tables, {fingerprint=}, {preserved=}'
     )
 

@@ -7,8 +7,14 @@ import sqlite3
 import pytest
 
 from solaris.analyze.output import pet_special_effect_resolution as resolution
+from solaris.analyze.output.pet_effect_icon_identity import assign_icon_identities
 from solaris.analyze.output.pet_special_effect_facts import (
+    _replace_special_effect_tables,
     replace_pet_special_effect_facts,
+)
+from solaris.analyze.output.pet_special_effect_types import (
+    EffectSource,
+    SpecialEffectFactAccumulator,
 )
 
 
@@ -96,6 +102,46 @@ def _connection() -> sqlite3.Connection:
         """
     )
     return connection
+
+
+def test_publishes_all_verified_icons_only_in_the_icon_table() -> None:
+    connection = _connection()
+    connection.executescript(
+        """
+        CREATE TABLE special_effect_glossary_icon (glossary_id INTEGER, icon_id INTEGER);
+        INSERT INTO special_effect_glossary_icon VALUES (3, 12);
+        """
+    )
+    facts = SpecialEffectFactAccumulator()
+    facts.add(
+        pet_id=1,
+        name='Verified',
+        description=None,
+        glossary_id=3,
+        status_id=37,
+        source=EffectSource('pet_effect_panel', 5, 'panel_heading_unique_status'),
+    )
+    facts.add(
+        pet_id=1,
+        name='Unresolved',
+        description=None,
+        glossary_id=4,
+        source=EffectSource('pet_glossary', 4, 'direct_pet_glossary'),
+    )
+    issues = []
+    assign_icon_identities(connection, facts, issues)
+    _replace_special_effect_tables(connection, facts, issues, now=1.0)
+    assert connection.execute(
+        'SELECT effect_key,icon_kind,icon_asset_key,status_id,variant_value '
+        'FROM pet_special_effect_icon ORDER BY icon_kind'
+    ).fetchall() == [
+        ('g:3', 'abnormal', '12', None, None),
+        ('g:3', 'sign_buff', '37', 37, None),
+    ]
+    columns = {
+        r[1] for r in connection.execute('PRAGMA table_info(pet_special_effect)')
+    }
+    assert not {'icon_kind', 'icon_asset_key', 'icon_key'} & columns
 
 
 def test_link_sources_preserve_shared_child_and_direct_evidence() -> None:
@@ -436,7 +482,8 @@ def test_named_status_variants_do_not_bridge_unrelated_glossary_ids() -> None:
     replace_pet_special_effect_facts(connection, now=1.0)
 
     assert connection.execute(
-        'SELECT name, icon_key FROM pet_special_effect '
+        'SELECT name, icon_asset_key FROM pet_special_effect '
+        'LEFT JOIN pet_special_effect_icon USING(pet_id, effect_key) '
         'WHERE pet_id=3488 ORDER BY glossary_id'
     ).fetchall() == [('冥妖之悼', None), ('幽迹之秘', None)]
 
@@ -444,7 +491,8 @@ def test_named_status_variants_do_not_bridge_unrelated_glossary_ids() -> None:
         connection, now=2.0, available_icon_keys=frozenset({'191_1'})
     )
     assert connection.execute(
-        'SELECT name, icon_key FROM pet_special_effect '
+        'SELECT name, icon_asset_key FROM pet_special_effect '
+        'LEFT JOIN pet_special_effect_icon USING(pet_id, effect_key) '
         'WHERE pet_id=3488 ORDER BY glossary_id'
     ).fetchall() == [('冥妖之悼', None), ('幽迹之秘', None)]
 
@@ -478,8 +526,8 @@ def test_ambiguous_variant_name_is_not_resolved_by_description(
     replace_pet_special_effect_facts(connection, now=1.0)
 
     assert connection.execute(
-        'SELECT icon_key FROM pet_special_effect WHERE pet_id=9000'
-    ).fetchone() == (expected_icon,)
+        'SELECT icon_asset_key FROM pet_special_effect_icon WHERE pet_id=9000'
+    ).fetchone() == ((expected_icon,) if expected_icon else None)
     assert connection.execute(
         'SELECT COUNT(*) FROM pet_special_effect_issue '
         "WHERE reason='ambiguous_variant_icon'"
@@ -733,7 +781,7 @@ def test_audit_uses_fresh_copy_and_keeps_source_bytes(tmp_path):
     connection.execute('INSERT INTO skillinpetorm VALUES (1,100)')
     replace_pet_special_effect_facts(connection, now=0)
     connection.execute(
-        "INSERT INTO pet_special_effect (pet_id,effect_key,glossary_id,status_id,icon_key,name,description,sort_id,sort_kind,primary_rule,updated_at) VALUES (1,'g:10',10,NULL,NULL,'幕','A',10,'glossary','text_exact_name',0)"
+        "INSERT INTO pet_special_effect (pet_id,effect_key,glossary_id,status_id,name,description,sort_id,sort_kind,primary_rule,updated_at) VALUES (1,'g:10',10,NULL,'幕','A',10,'glossary','text_exact_name',0)"
     )
     connection.execute(
         "INSERT INTO pet_special_effect_source VALUES (1,'g:10','skill',100,'text_exact_name','test',0)"

@@ -65,7 +65,7 @@ def test_panel_reference_is_unique_and_deterministic(ambiguous):
     for now in (1, 2):
         replace_pet_special_effect_facts(c, now=now)
         assert c.execute(
-            'SELECT status_id,icon_kind,icon_key FROM pet_special_effect'
+            'SELECT status_id,icon_kind,icon_asset_key FROM pet_special_effect_icon'
         ).fetchall() == ([] if ambiguous else [(10, 'sign_buff', '10')])
         if not ambiguous:
             source = c.execute(
@@ -189,9 +189,8 @@ def test_glossary_icon_does_not_use_status_namespace():
     )
     replace_pet_special_effect_facts(c, now=1)
     assert c.execute(
-        'SELECT icon_kind,icon_asset_key,status_id FROM pet_special_effect'
+        'SELECT icon_kind,icon_asset_key,status_id FROM pet_special_effect_icon'
     ).fetchone() == ('abnormal', '3', None)
-    assert c.execute('SELECT icon_key FROM pet_special_effect').fetchone() == (None,)
 
 
 def test_real_client_panel_and_conditional_display_references():
@@ -245,7 +244,7 @@ def test_real_client_panel_and_conditional_display_references():
         (4765, 118),
     ):
         assert c.execute(
-            'SELECT icon_kind,icon_key FROM pet_special_effect WHERE pet_id=? AND status_id=?',
+            'SELECT icon_kind,icon_asset_key FROM pet_special_effect_icon WHERE pet_id=? AND status_id=?',
             (pet_id, status_id),
         ).fetchone() == ('sign_buff', str(status_id))
     assert c.execute(
@@ -337,8 +336,8 @@ def test_variant_name_is_scoped_to_verified_state_id_for_same_pet(confirmed):
         )
     replace_pet_special_effect_facts(c, now=1)
     assert c.execute(
-        'SELECT icon_kind,icon_asset_key FROM pet_special_effect WHERE glossary_id=10'
-    ).fetchone() == (('sign_buff', '151_2') if confirmed else (None, None))
+        "SELECT icon_kind,icon_asset_key FROM pet_special_effect_icon WHERE effect_key='g:10'"
+    ).fetchone() == (('sign_buff', '151_2') if confirmed else None)
 
 
 def test_variant_does_not_ignore_a_different_pet_at_its_display_threshold():
@@ -354,6 +353,9 @@ def test_variant_does_not_ignore_a_different_pet_at_its_display_threshold():
         c, ClientEffectData((), (), [], [], '20261127104733', ((151, json.dumps(raw)),))
     )
     replace_pet_special_effect_facts(c, now=1)
-    assert c.execute(
-        'SELECT icon_asset_key FROM pet_special_effect WHERE glossary_id=10'
-    ).fetchone() == (None,)
+    assert (
+        c.execute(
+            "SELECT icon_asset_key FROM pet_special_effect_icon WHERE effect_key='g:10'"
+        ).fetchone()
+        is None
+    )

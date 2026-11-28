@@ -6,6 +6,7 @@ import json
 import sqlite3
 
 from .pet_special_effect_types import (
+    EffectIcon,
     EffectResolutionIssue,
     EffectSource,
     SpecialEffectFact,
@@ -59,16 +60,18 @@ def assign_icon_identities(
     for fact in facts.facts:
         icon = icons.get(fact.glossary_id, 0)
         if icon > 0:
-            fact.icon_kind, fact.icon_key = 'abnormal', str(icon)
-        elif fact.status_id is not None:
-            fact.icon_kind, fact.icon_key = 'sign_buff', str(fact.status_id)
+            fact.icons.append(EffectIcon('abnormal', str(icon)))
+        if fact.status_id is not None:
+            fact.icons.append(
+                EffectIcon('sign_buff', str(fact.status_id), fact.status_id)
+            )
     has_variants = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE name='special_effect_status_variant'"
     ).fetchone()
     if not has_variants:
         return
     for fact in facts.facts:
-        if fact.icon_kind is not None:
+        if fact.status_id is not None:
             continue
         same_name = [
             f for f in facts.facts if f.pet_id == fact.pet_id and f.name == fact.name
@@ -93,7 +96,7 @@ def assign_icon_identities(
         ]
         if len(candidates) == 1:
             status_id, value, key = candidates[0]
-            fact.icon_kind, fact.icon_key = 'sign_buff', key
+            fact.icons.append(EffectIcon('sign_buff', key, status_id, value))
             fact.sources.add(
                 EffectSource(
                     'client_status_variant',

@@ -5,6 +5,7 @@ consumers read the resulting facts and provenance instead of re-running text
 matching against raw skill, soulmark, glossary, and status tables.
 """
 
+from sqlalchemy import ForeignKeyConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -17,9 +18,6 @@ class PetSpecialEffectORM(SQLModel, table=True):
     effect_key: str = Field(primary_key=True)
     glossary_id: int | None = Field(default=None, foreign_key='glossary_entry.id')
     status_id: int | None = Field(default=None)
-    icon_key: str | None = Field(default=None)
-    icon_asset_key: str | None = Field(default=None)
-    icon_kind: str | None = Field(default=None)
     display_in_pet_info: bool = Field(default=True)
     name: str
     description: str | None = Field(default=None)
@@ -27,6 +25,25 @@ class PetSpecialEffectORM(SQLModel, table=True):
     sort_kind: str
     primary_rule: str
     updated_at: float
+
+
+class PetSpecialEffectIconORM(SQLModel, table=True):
+    """An independently verified image reference for an effect fact."""
+
+    __tablename__ = 'pet_special_effect_icon'  # type: ignore[reportAssignmentType]
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['pet_id', 'effect_key'],
+            ['pet_special_effect.pet_id', 'pet_special_effect.effect_key'],
+        ),
+    )
+
+    pet_id: int = Field(primary_key=True)
+    effect_key: str = Field(primary_key=True)
+    icon_kind: str = Field(primary_key=True)
+    icon_asset_key: str = Field(primary_key=True)
+    status_id: int | None = Field(default=None)
+    variant_value: int | None = Field(default=None)
 
 
 class PetSpecialEffectSourceORM(SQLModel, table=True):
@@ -99,6 +116,7 @@ class PetSoulmarkDisplayAdditionORM(SQLModel, table=True):
 __all__ = [
     'PetSoulmarkDisplayAdditionORM',
     'PetSoulmarkDisplayORM',
+    'PetSpecialEffectIconORM',
     'PetSpecialEffectIssueORM',
     'PetSpecialEffectORM',
     'PetSpecialEffectSourceORM',
