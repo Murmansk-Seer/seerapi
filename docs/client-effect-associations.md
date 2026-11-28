@@ -41,6 +41,11 @@ be silently merged or duplicated.
 - Explicit glossary icon IDs use abnormal assets. Confirmed status IDs use
   sign_buff assets. Only explicit positive sp_icon values form a suffix; missing
   mappings and zero suffixes use the base status icon.
+- `pet_special_effect_icon_candidate` publishes display-only references for
+  unbound effects with direct pet glossary and exact skill or soulmark evidence.
+  A candidate must share the full name and description and have no client
+  display condition or variant selectors. This never assigns a battle status
+  ID to the effect. A missing manifest asset leaves the candidate without art.
 - A branch name can select a variant only inside a state ID independently
   confirmed for that same pet. Distinct candidate states remain ambiguous;
   global name/description joins never establish this context. Record the state

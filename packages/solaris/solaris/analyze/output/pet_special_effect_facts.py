@@ -6,6 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 import sqlite3
 
+from .pet_effect_icon_candidates import candidate_icon_rows
 from .pet_soulmark_display_facts import replace_pet_soulmark_display_facts
 from .pet_special_effect_resolution import collect_pet_special_effect_facts
 from .pet_special_effect_types import (
@@ -33,6 +34,7 @@ def _replace_special_effect_tables(
 ) -> tuple[int, int, int]:
     connection.executescript(
         """
+        DROP TABLE IF EXISTS pet_special_effect_icon_candidate;
         DROP TABLE IF EXISTS pet_special_effect_icon;
         DROP TABLE IF EXISTS pet_special_effect_source;
         DROP TABLE IF EXISTS pet_special_effect_issue;
@@ -78,6 +80,14 @@ def _replace_special_effect_tables(
             PRIMARY KEY (
                 pet_id, effect_key, source_kind, source_id, resolution_rule
             )
+        );
+        CREATE TABLE pet_special_effect_icon_candidate (
+            pet_id INTEGER NOT NULL,
+            effect_key TEXT NOT NULL,
+            status_id INTEGER NOT NULL,
+            icon_asset_key TEXT,
+            PRIMARY KEY (pet_id, effect_key, status_id),
+            FOREIGN KEY (pet_id, effect_key) REFERENCES pet_special_effect(pet_id, effect_key)
         );
         CREATE TABLE pet_special_effect_issue (
             pet_id INTEGER NOT NULL,
@@ -144,6 +154,14 @@ def _replace_special_effect_tables(
             for fact in ordered_facts
             for icon in fact.icons
         ],
+    )
+    connection.executemany(
+        """
+        INSERT INTO pet_special_effect_icon_candidate
+            (pet_id, effect_key, status_id, icon_asset_key)
+        VALUES (?, ?, ?, ?)
+        """,
+        candidate_icon_rows(connection, ordered_facts),
     )
     source_rows = [
         (

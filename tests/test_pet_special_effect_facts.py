@@ -144,6 +144,55 @@ def test_publishes_all_verified_icons_only_in_the_icon_table() -> None:
     assert not {'icon_kind', 'icon_asset_key', 'icon_key'} & columns
 
 
+def test_publishes_candidates_without_making_a_status_binding() -> None:
+    connection = _connection()
+    connection.executescript("""
+        CREATE TABLE special_effect_status_config (status_id INTEGER, config_json TEXT);
+        CREATE TABLE render_asset_manifest (asset_kind TEXT, asset_key TEXT, available INTEGER);
+        INSERT INTO render_asset_manifest VALUES
+          ('sign_buff','13',1), ('sign_buff','21',1), ('sign_buff','35',1);
+    """)
+    configs = (
+        (21, {}),
+        (13, {}),
+        (30, {}),
+        (35, {'show_monster': ['0_999_0_1']}),
+        (36, {'des': 'different description'}),
+        (37, {'sp_icon': ['1_1']}),
+        (38, {'dec': 'almost same effect'}),
+    )
+    connection.executemany(
+        'INSERT INTO special_effect_status_config VALUES (?,?)',
+        [
+            (status, json.dumps({'dec': 'Example', 'des': 'Exact text', **fields}))
+            for status, fields in configs
+        ],
+    )
+    direct = EffectSource('pet_glossary', 4, 'direct_pet_glossary')
+    soulmark = EffectSource('soulmark', 19, 'soulmark_highlight_exact')
+    facts = SpecialEffectFactAccumulator()
+    for pet_id in (1, 2, 3):
+        fact = facts.add(
+            pet_id=pet_id,
+            name='Example',
+            description='Exact text',
+            glossary_id=4,
+            status_id=21 if pet_id == 3 else None,
+            source=direct,
+        )
+        if pet_id != 2:
+            fact.sources.add(soulmark)
+    _replace_special_effect_tables(connection, facts, [], now=1.0)
+    assert connection.execute(
+        'SELECT pet_id, status_id, icon_asset_key FROM pet_special_effect_icon_candidate '
+        'ORDER BY pet_id,status_id'
+    ).fetchall() == [(1, 13, '13'), (1, 21, '21'), (1, 30, None)]
+    assert connection.execute(
+        'SELECT status_id FROM pet_special_effect WHERE pet_id=1'
+    ).fetchone() == (None,)
+    assert connection.execute('SELECT * FROM pet_special_effect_icon').fetchall() == []
+
+
 def test_link_sources_preserve_shared_child_and_direct_evidence() -> None:
     connection = _connection()
     connection.execute("INSERT INTO pet VALUES (9000, 'Test pet')")

@@ -69,6 +69,7 @@ GENERATED_RELEASE_TABLES = frozenset(
         'special_effect_status',
         'special_effect_status_variant',
         'pet_effect_panel',
+        'pet_special_effect_icon_candidate',
         'special_effect_glossary_icon',
         'special_effect_status_display_rule',
         'special_effect_status_config',

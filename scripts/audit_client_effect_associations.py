@@ -53,6 +53,7 @@ else:
 DERIVED = {
     'pet_special_effect',
     'pet_special_effect_icon',
+    'pet_special_effect_icon_candidate',
     'pet_special_effect_source',
     'pet_special_effect_issue',
     'pet_soulmark_display',
@@ -107,6 +108,19 @@ def facts(c: sqlite3.Connection) -> list[dict]:
             )
         for row in rows:
             row['icons'] = icons.get((row['pet_id'], row['effect_key']), [])
+    if c.execute(
+        "SELECT 1 FROM sqlite_master WHERE name='pet_special_effect_icon_candidate'"
+    ).fetchone():
+        candidates: dict[tuple[int, str], list[tuple[int, str | None]]] = {}
+        for pet_id, key, status_id, asset_key in c.execute(
+            'SELECT pet_id,effect_key,status_id,icon_asset_key '
+            'FROM pet_special_effect_icon_candidate ORDER BY pet_id,effect_key,status_id'
+        ):
+            candidates.setdefault((pet_id, key), []).append((status_id, asset_key))
+        for row in rows:
+            row['icon_candidates'] = candidates.get(
+                (row['pet_id'], row['effect_key']), []
+            )
     return rows
 
 
