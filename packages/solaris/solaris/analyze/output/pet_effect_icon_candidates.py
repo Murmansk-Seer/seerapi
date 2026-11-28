@@ -23,6 +23,7 @@ def candidate_icon_rows(
     ).fetchone():
         return []
     by_name: dict[str, list[tuple[int, dict]]] = defaultdict(list)
+    by_id: dict[int, dict] = {}
     for status_id, raw in connection.execute(
         'SELECT status_id,config_json FROM special_effect_status_config ORDER BY status_id'
     ):
@@ -30,6 +31,7 @@ def candidate_icon_rows(
         name = config.get('dec')
         if isinstance(name, str):
             by_name[name.strip()].append((status_id, config))
+            by_id[status_id] = config
     available = (
         {
             str(key)
@@ -42,29 +44,46 @@ def candidate_icon_rows(
         ).fetchone()
         else set()
     )
+    bound = {
+        (fact.pet_id, fact.status_id) for fact in facts if fact.status_id is not None
+    }
     rows = []
     for fact in facts:
-        if (
-            fact.status_id is not None
-            or fact.icons
-            or not fact.display_in_pet_info
-            or not fact.description
-            or not _has_local_evidence(fact)
-        ):
+        if not fact.display_in_pet_info:
             continue
-        description = _exact_text(fact.description)
-        for status_id, config in by_name.get(fact.name, ()):
-            text = config.get('des')
+        if fact.status_id is None:
+            if fact.icons or not _has_local_evidence(fact):
+                continue
+            name, text = fact.name, fact.description
+        else:
+            reference = by_id.get(fact.status_id, {})
+            name, text = reference.get('dec'), reference.get('des')
+        if not isinstance(name, str) or not isinstance(text, str):
+            continue
+        description = _exact_text(text)
+        if not description:
+            continue
+        for status_id, config in by_name.get(name.strip(), ()):
+            candidate_text = config.get('des')
             if (
-                not isinstance(text, str)
-                or _exact_text(text) != description
+                not isinstance(candidate_text, str)
+                or _exact_text(candidate_text) != description
                 or any(
-                    config.get(key)
-                    for key in ('show_monster', 'frame', 'sp_icon', 'sp_tips', 'sp_des')
+                    config.get(key) for key in ('frame', 'sp_icon', 'sp_tips', 'sp_des')
                 )
             ):
                 continue
             key = str(status_id)
+            restrictions = config.get('show_monster', [])
+            if fact.status_id is not None:
+                if (
+                    (fact.pet_id, status_id) in bound
+                    or key not in available
+                    or not _display_rules_allow_pet(restrictions, fact.pet_id)
+                ):
+                    continue
+            elif restrictions:
+                continue
             rows.append(
                 (
                     fact.pet_id,
@@ -74,6 +93,19 @@ def candidate_icon_rows(
                 )
             )
     return rows
+
+
+def _display_rules_allow_pet(rules: object, pet_id: int) -> bool:
+    if not isinstance(rules, list):
+        return False
+    for raw in rules:
+        parts = raw.split('_') if isinstance(raw, str) else ()
+        if len(parts) != 4 or any(not part.isdecimal() for part in parts):
+            return False
+        _, target, icon, frame = map(int, parts)
+        if target != pet_id or not (icon or frame):
+            return False
+    return True
 
 
 def _has_local_evidence(fact: SpecialEffectFact) -> bool:

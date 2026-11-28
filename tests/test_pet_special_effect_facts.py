@@ -177,7 +177,7 @@ def test_publishes_candidates_without_making_a_status_binding() -> None:
             name='Example',
             description='Exact text',
             glossary_id=4,
-            status_id=21 if pet_id == 3 else None,
+            status_id=99 if pet_id == 3 else None,
             source=direct,
         )
         if pet_id != 2:
@@ -191,6 +191,69 @@ def test_publishes_candidates_without_making_a_status_binding() -> None:
         'SELECT status_id FROM pet_special_effect WHERE pet_id=1'
     ).fetchone() == (None,)
     assert connection.execute('SELECT * FROM pet_special_effect_icon').fetchall() == []
+
+
+def test_confirmed_status_adds_only_applicable_sibling_art() -> None:
+    connection = _connection()
+    connection.executescript("""
+        CREATE TABLE special_effect_status_config (status_id INTEGER, config_json TEXT);
+        CREATE TABLE render_asset_manifest (
+            asset_kind TEXT, asset_key TEXT, available INTEGER
+        );
+    """)
+    configs = {
+        20: {'frame': ['0_0'], 'show_monster': ['0_42_0_1']},
+        21: {},
+        22: {'show_monster': ['0_43_0_1']},
+        23: {'sp_icon': ['1_1']},
+        24: {'des': 'Not the same'},
+        25: {},
+        26: {'show_monster': ['0_42_0_1']},
+        27: {'show_monster': ['0_42_0_1', '1_43_0_1']},
+        28: {},
+        29: {'dec': 'Unrelated name'},
+    }
+    connection.executemany(
+        'INSERT INTO special_effect_status_config VALUES (?,?)',
+        [
+            (sid, json.dumps({'dec': 'Test status', 'des': 'Client wording', **fields}))
+            for sid, fields in configs.items()
+        ],
+    )
+    connection.executemany(
+        "INSERT INTO render_asset_manifest VALUES ('sign_buff', ?, 1)",
+        [(str(sid),) for sid in configs if sid != 25],
+    )
+    facts = SpecialEffectFactAccumulator()
+    reference = EffectSource('client_status_display', 20, 'client_conditional_display')
+    facts.add(
+        pet_id=42,
+        name='Displayed effect',
+        description='Client wording plus a limit',
+        glossary_id=7,
+        status_id=20,
+        source=reference,
+    )
+    other = facts.add(
+        pet_id=42,
+        name='Other bound effect',
+        description=None,
+        status_id=28,
+        source=EffectSource('pet_effect_panel', 99, 'panel_heading_unique_status'),
+    )
+    other.display_in_pet_info = False
+    assign_icon_identities(connection, facts, [])
+    _replace_special_effect_tables(connection, facts, [], now=1.0)
+    assert connection.execute(
+        'SELECT effect_key,status_id,icon_asset_key FROM pet_special_effect_icon_candidate '
+        'ORDER BY status_id'
+    ).fetchall() == [('g:7', 21, '21'), ('g:7', 26, '26')]
+    assert connection.execute(
+        "SELECT status_id,description FROM pet_special_effect WHERE effect_key='g:7'"
+    ).fetchone() == (20, 'Client wording plus a limit')
+    assert connection.execute(
+        "SELECT status_id,icon_asset_key FROM pet_special_effect_icon WHERE effect_key='g:7'"
+    ).fetchall() == [(20, '20')]
 
 
 def test_link_sources_preserve_shared_child_and_direct_evidence() -> None:
